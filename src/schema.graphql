@@ -1,0 +1,30 @@
+# ------------------------------------------------------
+# THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
+# ------------------------------------------------------
+
+type Cat {
+  """Example field (placeholder)"""
+  exampleField: Int!
+}
+
+input CreateCatInput {
+  """Example field (placeholder)"""
+  exampleField: Int!
+}
+
+type Mutation {
+  createCat(createCatInput: CreateCatInput!): Cat!
+  removeCat(id: Int!): Cat!
+  updateCat(updateCatInput: UpdateCatInput!): Cat!
+}
+
+type Query {
+  cat(id: Int!): Cat!
+  cats: [Cat!]!
+}
+
+input UpdateCatInput {
+  """Example field (placeholder)"""
+  exampleField: Int
+  id: Int!
+}
