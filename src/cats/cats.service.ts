@@ -1,22 +1,23 @@
 import { Injectable } from '@nestjs/common';
 import { CreateCatInput } from './dto/create-cat.input';
 import { UpdateCatInput } from './dto/update-cat.input';
+import { Cat } from './entities/cat.entity';
 
 @Injectable()
 export class CatsService {
-  create(createCatInput: CreateCatInput) {
+  create(_createCatInput: CreateCatInput) {
     return 'This action adds a new cat';
   }
 
-  findAll() {
-    return `This action returns all cats`;
+  findAll(): Cat[] {
+    return [{ exampleField: 1 }, { exampleField: 2 }];
   }
 
-  findOne(id: number) {
-    return `This action returns a #${id} cat`;
+  findOne(id: number): Cat {
+    return { exampleField: id };
   }
 
-  update(id: number, updateCatInput: UpdateCatInput) {
+  update(id: number, _updateCatInput: UpdateCatInput) {
     return `This action updates a #${id} cat`;
   }
 
