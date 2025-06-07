@@ -65,6 +65,11 @@ export default tseslint.config(
         {
           selector: 'property',
           format: ['camelCase', 'snake_case', 'UPPER_CASE']
+        },
+        {
+          selector: 'parameter',
+          format: ['camelCase', 'UPPER_CASE'],
+          leadingUnderscore: 'allow'
         }
       ]
     },
