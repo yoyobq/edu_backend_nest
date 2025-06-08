@@ -35,7 +35,8 @@ import { LoggerModule as PinoLoggerModule } from 'nestjs-pino';
             // }),
 
             // 自定义请求日志输出内容
-            customLogLevel: (_req, res, err) => {
+            customLogLevel: (req, res, err) => {
+              if (req.url === '/favicon.ico') return 'silent';
               if (res.statusCode >= 500 || err) return 'error';
               if (res.statusCode >= 400) return 'warn';
               return 'silent';
