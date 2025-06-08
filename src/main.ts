@@ -18,7 +18,9 @@ async function bootstrap() {
 
   // 作为服务器启动时的提醒，此处暴露 console.log 是合理的
   // eslint-disable-next-line no-console
-  console.log(`🚀 Application is running on http://${host}:${port}`);
+  console.log(
+    `🚀 NestJS 服务在 http://${host}:${port} 上以 ${process.env.NODE_ENV || 'development'} 模式启动成功`,
+  );
 }
 
 void bootstrap();
