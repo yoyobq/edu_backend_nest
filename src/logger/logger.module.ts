@@ -22,7 +22,8 @@ import { LoggerModule as PinoLoggerModule } from 'nestjs-pino';
                   options: {
                     colorize: true,
                     translateTime: 'dd HH:MM:ss',
-                    singleLine: true,
+                    // singleLine: true,
+                    messageFormat: 'id={req.id} {req.url} {res.statusCode} - {responseTime}ms',
                   },
                 },
 
