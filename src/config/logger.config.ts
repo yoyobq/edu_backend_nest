@@ -1,5 +1,6 @@
 // src/config/logger.config.ts
 import { ConfigFactory } from '@nestjs/config';
+import { Request, Response } from 'express';
 
 const loggerConfig: ConfigFactory = () => {
   const isDev = process.env.NODE_ENV !== 'production';
@@ -14,6 +15,14 @@ const loggerConfig: ConfigFactory = () => {
         enabled: !isDev,
         path: logPath,
       },
+      // 不自动展开 req/res，但允许你手动 logger.debug({ req, res }, ...)
+      customProps: (req: Request, res: Response) => ({
+        method: req.method,
+        url: req.url,
+        // userAgent: req.headers['user-agent'],
+        // response: res,
+        statusCode: res.statusCode,
+      }),
       // 动态生成 transport 配置
       transport: isDev
         ? {
@@ -22,7 +31,9 @@ const loggerConfig: ConfigFactory = () => {
               colorize: true,
               translateTime: 'dd HH:MM:ss',
               messageFormat: '{time} - [{context}] {msg}',
-              ignore: 'pid,hostname',
+              ignore: 'pid,req',
+              // 简洁输出, 完全屏蔽上下文的输出
+              hideObject: false,
             },
           }
         : {

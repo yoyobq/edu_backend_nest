@@ -15,6 +15,8 @@ import { LoggerModule as PinoLoggerModule } from 'nestjs-pino';
             level: configService.get<string>('logger.level', 'info'),
             transport: configService.get('logger.transport'),
             redact: configService.get<string[]>('logger.redactFields', []),
+            // 修正类型定义：customProps 是一个函数，不是字符串数组
+            customProps: configService.get('logger.customProps'),
             customLogLevel: (req: IncomingMessage, res: ServerResponse, err?: Error) => {
               // 忽略 favicon 请求
               if (req.url === '/favicon.ico') return 'silent';

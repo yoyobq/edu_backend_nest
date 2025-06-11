@@ -10,7 +10,12 @@ describe('CatsResolver', () => {
 
   beforeEach(async () => {
     module = await Test.createTestingModule({
-      providers: [CatsResolver, CatsService, createLoggerMock('CatsService')],
+      providers: [
+        CatsResolver,
+        CatsService,
+        createLoggerMock('CatsResolver'), // 为 CatsResolver 添加 logger mock
+        createLoggerMock('CatsService'), // 为 CatsService 添加 logger mock
+      ],
     }).compile();
 
     resolver = module.get<CatsResolver>(CatsResolver);
