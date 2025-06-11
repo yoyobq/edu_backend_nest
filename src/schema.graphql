@@ -3,14 +3,31 @@
 # ------------------------------------------------------
 
 type Cat {
+  """创建时间"""
+  createdAt: DateTime
+
   """Example field (placeholder)"""
   exampleField: Int!
+
+  """Cat 的唯一标识符"""
+  id: Int!
+
+  """Cat 的名称"""
+  name: String
+
+  """更新时间"""
+  updatedAt: DateTime
 }
 
 input CreateCatInput {
   """Example field (placeholder)"""
   exampleField: Int!
 }
+
+"""
+A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format.
+"""
+scalar DateTime
 
 type Mutation {
   createCat(createCatInput: CreateCatInput!): Cat!
