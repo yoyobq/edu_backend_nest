@@ -3,12 +3,48 @@ import { ConfigFactory } from '@nestjs/config';
 
 const loggerConfig: ConfigFactory = () => {
   const isDev = process.env.NODE_ENV !== 'production';
+  // 实际上 ./logs 并不会被用到，因为 dev 环境不要求输出 log，但保留配置待用
+  const logPath = isDev ? './logs' : '/var/log/backend';
 
   return {
     logger: {
-      level: isDev ? 'debug' : 'warn',
-      // 在日志输出中自动屏蔽掉 req.headers.authorization 字段的值，防止泄露敏感信息
+      level: isDev ? 'debug' : 'info',
       redactFields: ['req.headers.authorization'],
+      file: {
+        enabled: !isDev,
+        path: logPath,
+      },
+      // 动态生成 transport 配置
+      transport: isDev
+        ? {
+            target: 'pino-pretty',
+            options: {
+              colorize: true,
+              translateTime: 'yyyy-mm-dd HH:MM:ss',
+              messageFormat: '{levelLabel} - {pid} - {time} - [{context}] {msg}',
+              ignore: 'pid,hostname',
+            },
+          }
+        : {
+            targets: [
+              {
+                target: 'pino/file',
+                options: {
+                  destination: `${logPath}/app.log`,
+                  mkdir: true,
+                },
+                level: 'info',
+              },
+              {
+                target: 'pino/file',
+                options: {
+                  destination: `${logPath}/error.log`,
+                  mkdir: true,
+                },
+                level: 'error',
+              },
+            ],
+          },
     },
   };
 };

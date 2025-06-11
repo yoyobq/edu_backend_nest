@@ -10,49 +10,11 @@ import { LoggerModule as PinoLoggerModule } from 'nestjs-pino';
     PinoLoggerModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => {
-        const isProd = process.env.NODE_ENV === 'production';
-        const logLevel = configService.get<string>('logger.level', 'info');
-
         return {
           pinoHttp: {
-            // 设置日志级别
-            level: logLevel,
-            // 开发环境使用 pretty 格式，生产环境使用 JSON 格式
-            transport: isProd
-              ? {
-                  targets: [
-                    {
-                      target: 'pino/file',
-                      options: {
-                        destination: './logs/app.log',
-                        mkdir: true,
-                      },
-                      level: 'info',
-                    },
-                    {
-                      target: 'pino/file',
-                      options: {
-                        destination: './logs/error.log',
-                        mkdir: true,
-                      },
-                      level: 'error',
-                    },
-                  ],
-                }
-              : {
-                  target: 'pino-pretty',
-                  options: {
-                    colorize: true,
-                    translateTime: 'yyyy-mm-dd HH:MM:ss',
-                    messageFormat: '{levelLabel} - {pid} - {time} - [{context}] {msg}',
-                    ignore: 'pid,hostname',
-                  },
-                },
-
-            // 自动屏蔽敏感字段
+            level: configService.get<string>('logger.level', 'info'),
+            transport: configService.get('logger.transport'),
             redact: configService.get<string[]>('logger.redactFields', []),
-
-            // 自定义请求日志输出内容
             customLogLevel: (req: IncomingMessage, res: ServerResponse, err?: Error) => {
               // 忽略 favicon 请求
               if (req.url === '/favicon.ico') return 'silent';
