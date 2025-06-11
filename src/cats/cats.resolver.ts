@@ -32,16 +32,16 @@ export class CatsResolver {
 
   @Query(() => Cat, { name: 'cat' })
   findOne(@Args('id', { type: () => Int }) id: number, @Context() context: GraphQLContext) {
-    // 现在可以安全地访问 req 和 res，并且有完整的类型支持
     const { req } = context;
+    const body: unknown = 'body' in req && req.body ? req.body : undefined;
     this.logger.debug(
       {
-        headers: req.headers,
-        body: ('body' in req ? req.body : undefined) as unknown, // 明确的类型断言
+        // headers: req.headers,
+        body: body,
         url: req.url,
-        method: req.method,
+        // method: req.method,
       },
-      'full',
+      'debug 详细信息演示',
     );
     return this.catsService.findOne(id);
   }
