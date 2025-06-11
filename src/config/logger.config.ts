@@ -20,8 +20,8 @@ const loggerConfig: ConfigFactory = () => {
             target: 'pino-pretty',
             options: {
               colorize: true,
-              translateTime: 'yyyy-mm-dd HH:MM:ss',
-              messageFormat: '{levelLabel} - {pid} - {time} - [{context}] {msg}',
+              translateTime: 'dd HH:MM:ss',
+              messageFormat: '{time} - [{context}] {msg}',
               ignore: 'pid,hostname',
             },
           }
