@@ -14,20 +14,21 @@ import { LoggerModule } from './logger/logger.module';
   imports: [
     AppConfigModule,
     LoggerModule,
-    // TypeORM MariaDB 配置
+    // TypeORM MySQL 8.0 配置
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
-        type: config.get<'mariadb'>('mariadb.type'),
-        host: config.get<string>('mariadb.host'),
-        port: config.get<number>('mariadb.port'),
-        username: config.get<string>('mariadb.username'),
-        password: config.get<string>('mariadb.password'),
-        database: config.get<string>('mariadb.database'),
-        timezone: config.get<string>('mariadb.timezone'),
-        synchronize: config.get<boolean>('mariadb.synchronize'),
-        logging: config.get<boolean>('mariadb.logging'),
-        extra: config.get('mariadb.extra'),
+        type: config.get<'mysql'>('mysql.type'),
+        host: config.get<string>('mysql.host'),
+        port: config.get<number>('mysql.port'),
+        username: config.get<string>('mysql.username'),
+        password: config.get<string>('mysql.password'),
+        database: config.get<string>('mysql.database'),
+        timezone: config.get<string>('mysql.timezone'),
+        synchronize: config.get<boolean>('mysql.synchronize'),
+        logging: config.get<boolean>('mysql.logging'),
+        charset: config.get<string>('mysql.charset'),
+        extra: config.get('mysql.extra'),
         // 自动加载 entities
         autoLoadEntities: true,
         // 实体文件路径
