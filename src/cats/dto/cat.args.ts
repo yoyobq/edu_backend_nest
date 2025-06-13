@@ -6,7 +6,7 @@ import { IsInt, IsPositive } from 'class-validator';
  * 专门用于 findOne 查询，保持职责单一
  */
 @ArgsType()
-export class GetCatArgs {
+export class CatArgs {
   @Field(() => Int, {
     description: 'Cat 的唯一标识符',
   })

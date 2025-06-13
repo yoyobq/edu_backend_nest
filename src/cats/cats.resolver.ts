@@ -1,6 +1,9 @@
+// src/cats/cats.resolver.ts
 import { Args, Query, Resolver } from '@nestjs/graphql';
 import { CatsService } from './cats.service';
-import { GetCatArgs } from './dto/cat.args';
+import { CatArgs } from './dto/cat.args';
+import { CatsArgs } from './dto/cats.args';
+import { CatsListResponse } from './dto/cats.list';
 import { Cat } from './entities/cat.entity';
 
 @Resolver(() => Cat)
@@ -8,29 +11,38 @@ export class CatsResolver {
   constructor(private readonly catsService: CatsService) {}
 
   /**
-   * 根据 ID 查询单个 Cat
-   * 使用专门的 GetCatArgs DTO 进行参数验证和类型定义
-   *
-   * @param getCatArgs - 包含 Cat ID 的参数对象
-   * @returns Promise<Cat> - 返回找到的 Cat 实体
-   * @throws NotFoundException - 当指定 ID 的 Cat 不存在时抛出
-   *
-   * GraphQL 查询示例：
-   * ```graphql
-   * query {
-   *   cat(id: 1) {
-   *     id
-   *     name
-   *     status
-   *     createdAt
-   *     updatedAt
-   *   }
-   * }
-   * ```
+   * 获取所有 Cat（简单查询）
    */
-  @Query(() => Cat, { name: 'cat' })
-  async findOne(@Args() getCatArgs: GetCatArgs): Promise<Cat> {
-    // 使用 DTO 中验证过的 ID 参数
-    return this.catsService.findOne(getCatArgs.id);
+  @Query(() => [Cat], { name: 'cats', description: '获取所有 Cat' })
+  async findAll(): Promise<Cat[]> {
+    return this.catsService.findAll();
+  }
+
+  /**
+   * 分页查询 Cat（复杂查询）
+   */
+  @Query(() => CatsListResponse, { name: 'searchCats', description: '分页查询 Cat' })
+  async searchCats(@Args() args: CatsArgs): Promise<CatsListResponse> {
+    // 并行查询数据和总数
+    const [cats, total] = await Promise.all([
+      this.catsService.findMany(args),
+      this.catsService.countMany(args),
+    ]);
+
+    const response = new CatsListResponse();
+    response.cats = cats;
+    response.total = total;
+    response.page = args.page;
+    response.limit = args.limit;
+
+    return response;
+  }
+
+  /**
+   * 根据 ID 查询单个 Cat
+   */
+  @Query(() => Cat, { name: 'cat', description: '根据 ID 查询 Cat' })
+  async findOne(@Args() args: CatArgs): Promise<Cat> {
+    return this.catsService.findOne(args.id);
   }
 }
