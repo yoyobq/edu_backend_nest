@@ -1,10 +1,10 @@
-// src/cats/cats.resolver.ts
 import { Args, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { CatsService } from './cats.service';
 import { CatArgs } from './dto/cat.args';
 import { CatsArgs } from './dto/cats.args';
-import { CreateCatInput } from './dto/create-cat.input'; // 添加导入
 import { CatsListResponse } from './dto/cats.list';
+import { CreateCatInput } from './dto/create-cat.input';
+import { UpdateCatInput } from './dto/update-cat.input';
 import { Cat } from './entities/cat.entity';
 
 @Resolver(() => Cat)
@@ -17,6 +17,19 @@ export class CatsResolver {
   @Mutation(() => Cat, { name: 'createCat', description: '创建新的 Cat' })
   async createCat(@Args('createCatInput') createCatInput: CreateCatInput): Promise<Cat> {
     return this.catsService.create(createCatInput);
+  }
+
+  /**
+   * 更新 Cat
+   * 前端传入单参数 UpdateCatInput，内部拆分为 id 和 data
+   */
+  @Mutation(() => Cat, { name: 'updateCat', description: '更新指定 ID 的 Cat' })
+  async updateCat(@Args('updateCatInput') updateCatInput: UpdateCatInput): Promise<Cat> {
+    // 拆分参数：提取 id 和其余更新数据
+    const { id, ...updateData } = updateCatInput;
+
+    // 调用 service 的多参数方法
+    return this.catsService.update(id, updateData);
   }
 
   /**

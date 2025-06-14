@@ -6,7 +6,7 @@ import { Repository, SelectQueryBuilder } from 'typeorm';
 import { errorLog } from '../utils/logger/templates'; // 导入错误日志模板函数
 import { CatsArgs } from './dto/cats.args';
 import { CreateCatInput } from './dto/create-cat.input';
-import { UpdateCatInput } from './dto/update-cat.input';
+import { UpdateCatDataInput } from './dto/update-cat.input';
 import { Cat } from './entities/cat.entity';
 
 @Injectable()
@@ -73,9 +73,6 @@ export class CatsService {
   /**
    * 根据条件查询 Cat 列表（分页）
    */
-  /**
-   * 查询多个 Cat（分页）
-   */
   async findMany(args: CatsArgs): Promise<Cat[]> {
     const queryBuilder = this.buildQueryBuilder(args);
 
@@ -138,20 +135,25 @@ export class CatsService {
   /**
    * 更新 Cat 数据
    */
-  async update(id: number, updateCatInput: UpdateCatInput): Promise<Cat> {
-    this.logger.info(`开始更新 Cat，ID: ${id}`, { updateData: updateCatInput });
+  /**
+   * 更新 Cat（多参数风格）
+   * @param id Cat 的 ID
+   * @param updateData 要更新的数据（不包含 ID）
+   */
+  async update(id: number, updateData: UpdateCatDataInput): Promise<Cat> {
+    this.logger.info(`开始更新 Cat，ID: ${id}`, { updateData });
 
     const existingCat = await this.catRepository.findOne({ where: { id } });
 
     if (!existingCat) {
       this.logger.error(`Cat 不存在，无法更新`, {
         catId: id,
-        requestedUpdate: updateCatInput,
+        requestedUpdate: updateData,
       });
       throw new NotFoundException(`ID 为 ${id} 的 Cat 不存在，无法进行更新操作`);
     }
 
-    Object.assign(existingCat, updateCatInput);
+    Object.assign(existingCat, updateData);
     const updatedCat = await this.catRepository.save(existingCat);
 
     this.logger.info(`Cat 更新成功`, {
