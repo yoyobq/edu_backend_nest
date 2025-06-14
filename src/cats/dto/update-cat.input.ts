@@ -8,6 +8,10 @@ import { CreateCatInput } from './create-cat.input';
  * 适用于单参数风格的 GraphQL Mutation
  * 当前用于对外接口，统一 createCat 和 updateCat 接口风格
  *
+ * 1. 前端调用：updateCat(input: UpdateCatInput)
+ * 2. Resolver 解构：{ id, ...data } = input
+ * 3. Service 调用：update(id, data as UpdateCatDataInput)
+ *
  * 使用示例：
  * mutation {
  *   updateCat(input: { id: 1, name: "新名字", status: ACTIVE }) {

@@ -19,8 +19,22 @@ export class CatsService {
   ) {}
 
   /**
-   * 创建新的 Cat
+   * 检查 Cat 是否存在，不存在则抛出异常
+   * @param id Cat 的 ID
+   * @param operation 操作类型（用于错误消息）
+   * @returns 存在的 Cat 实体
    */
+  private async findCatOrThrow(id: number, operation: string): Promise<Cat> {
+    const cat = await this.catRepository.findOne({ where: { id } });
+
+    if (!cat) {
+      this.logger.error(`Cat 不存在，无法${operation}`, { catId: id });
+      throw new NotFoundException(`ID 为 ${id} 的 Cat 不存在，无法进行${operation}操作`);
+    }
+
+    return cat;
+  }
+
   /**
    * 创建新的 Cat
    */
@@ -84,6 +98,103 @@ export class CatsService {
   }
 
   /**
+   * 根据条件统计 Cat 总数
+   */
+  async countMany(args: CatsArgs): Promise<number> {
+    // 使用专门的计数查询构建器，不包含分页参数
+    const queryBuilder = this.buildCountQueryBuilder(args);
+    const total = await queryBuilder.getCount();
+
+    this.logger.info(`统计结果：${total} 条`);
+    return total;
+  }
+
+  /**
+   * 根据 ID 查询单个 Cat
+   */
+  async findOne(id: number): Promise<Cat> {
+    this.logger.info(`查询 Cat，ID: ${id}`);
+    return this.findCatOrThrow(id, '查询');
+  }
+
+  /**
+   * 更新 Cat（多参数风格）
+   * @param id Cat 的 ID
+   * @param updateData 要更新的数据（不包含 ID）
+   */
+  async update(id: number, updateData: UpdateCatDataInput): Promise<Cat> {
+    this.logger.info(`开始更新 Cat，ID: ${id}`, { updateData });
+
+    try {
+      const existingCat = await this.findCatOrThrow(id, '更新');
+
+      Object.assign(existingCat, updateData);
+      const updatedCat = await this.catRepository.save(existingCat);
+
+      this.logger.info(`Cat 更新成功`, { catId: id, updatedCat });
+      return updatedCat;
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+
+      errorLog(this.logger, '更新 Cat 失败', {
+        error: errorMessage,
+        catId: id,
+        updateData,
+      });
+
+      throw error;
+    }
+  }
+
+  /**
+   * 删除 Cat
+   * @param id Cat 的 ID
+   * @returns 删除操作的结果
+   */
+  async remove(id: number): Promise<{ success: boolean; message: string; deletedId?: number }> {
+    this.logger.info(`开始删除 Cat，ID: ${id}`);
+
+    try {
+      // 先检查 Cat 是否存在
+      const existingCat = await this.findCatOrThrow(id, '删除');
+
+      // 执行删除操作
+      const deleteResult = await this.catRepository.delete(id);
+
+      if (deleteResult.affected === 0) {
+        this.logger.error(`删除操作失败，没有记录被删除`, { catId: id });
+        return {
+          success: false,
+          message: `删除 Cat ID: ${id} 失败，没有记录被删除`,
+        };
+      }
+
+      this.logger.info(`Cat 删除成功`, {
+        catId: id,
+        catName: existingCat.name,
+        affectedRows: deleteResult.affected,
+      });
+
+      return {
+        success: true,
+        message: `成功删除 Cat "${existingCat.name}" (ID: ${id})`,
+        deletedId: id,
+      };
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+
+      // 使用模板体系记录错误日志
+      errorLog(this.logger, '删除 Cat 失败', {
+        error: errorMessage,
+        catId: id,
+      });
+
+      // 重新抛出原始错误
+      throw error;
+    }
+  }
+
+  /**
    * 获取有效的排序字段
    */
   private getValidSortBy(sortBy: string): string {
@@ -102,66 +213,6 @@ export class CatsService {
     queryBuilder.orderBy(`cat.${validSortBy}`, args.sortOrder);
 
     return queryBuilder;
-  }
-
-  /**
-   * 根据条件统计 Cat 总数
-   */
-  async countMany(args: CatsArgs): Promise<number> {
-    // 使用专门的计数查询构建器，不包含分页参数
-    const queryBuilder = this.buildCountQueryBuilder(args);
-    const total = await queryBuilder.getCount();
-
-    this.logger.info(`统计结果：${total} 条`);
-    return total;
-  }
-
-  /**
-   * 根据 ID 查询单个 Cat
-   */
-  async findOne(id: number): Promise<Cat> {
-    this.logger.info(`查询 Cat，ID: ${id}`);
-
-    const cat = await this.catRepository.findOne({ where: { id } });
-
-    if (!cat) {
-      this.logger.error(`Cat ID: ${id} 不存在`, { catId: id });
-      throw new NotFoundException(`ID 为 ${id} 的 Cat 不存在`);
-    }
-
-    return cat;
-  }
-
-  /**
-   * 更新 Cat 数据
-   */
-  /**
-   * 更新 Cat（多参数风格）
-   * @param id Cat 的 ID
-   * @param updateData 要更新的数据（不包含 ID）
-   */
-  async update(id: number, updateData: UpdateCatDataInput): Promise<Cat> {
-    this.logger.info(`开始更新 Cat，ID: ${id}`, { updateData });
-
-    const existingCat = await this.catRepository.findOne({ where: { id } });
-
-    if (!existingCat) {
-      this.logger.error(`Cat 不存在，无法更新`, {
-        catId: id,
-        requestedUpdate: updateData,
-      });
-      throw new NotFoundException(`ID 为 ${id} 的 Cat 不存在，无法进行更新操作`);
-    }
-
-    Object.assign(existingCat, updateData);
-    const updatedCat = await this.catRepository.save(existingCat);
-
-    this.logger.info(`Cat 更新成功`, {
-      catId: id,
-      updatedCat,
-    });
-
-    return updatedCat;
   }
 
   /**

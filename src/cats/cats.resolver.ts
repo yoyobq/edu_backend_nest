@@ -4,6 +4,7 @@ import { CatArgs } from './dto/cat.args';
 import { CatsArgs } from './dto/cats.args';
 import { CatsListResponse } from './dto/cats.list';
 import { CreateCatInput } from './dto/create-cat.input';
+import { DeleteCatInput, DeleteCatResponse } from './dto/delete-cat.input';
 import { UpdateCatInput } from './dto/update-cat.input';
 import { Cat } from './entities/cat.entity';
 
@@ -66,5 +67,21 @@ export class CatsResolver {
   @Query(() => Cat, { name: 'cat', description: '根据 ID 查询 Cat' })
   async findOne(@Args() args: CatArgs): Promise<Cat> {
     return this.catsService.findOne(args.id);
+  }
+
+  /**
+   * 删除 Cat
+   */
+  @Mutation(() => DeleteCatResponse, { name: 'deleteCat', description: '删除指定 ID 的 Cat' })
+  async deleteCat(
+    @Args('deleteCatInput') deleteCatInput: DeleteCatInput,
+  ): Promise<DeleteCatResponse> {
+    const result = await this.catsService.remove(deleteCatInput.id);
+
+    return {
+      success: result.success,
+      message: result.message,
+      deletedId: result.deletedId,
+    };
   }
 }
