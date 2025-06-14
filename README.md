@@ -2,97 +2,213 @@
   <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
 </p>
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
-
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
+<p align="center">基于 <a href="http://nestjs.com/" target="_blank">NestJS</a> 框架构建的现代化后端 API 服务</p>
+<p align="center">
+  <a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
+  <a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
 </p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
 
-## Description
+## 项目简介
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+这是一个基于 [NestJS](https://github.com/nestjs/nest) 框架的 TypeScript 后端项目，集成了 GraphQL API、MySQL 数据库和现代化的日志系统。
 
-## Project setup
+## 技术栈
 
-```bash
-$ yarn install
+- **框架**: NestJS (Node.js)
+- **语言**: TypeScript
+- **数据库**: MySQL 8.0
+- **ORM**: TypeORM
+- **API**: GraphQL (Apollo Server)
+- **日志**: Pino Logger
+- **配置管理**: @nestjs/config
+- **数据验证**: class-validator + class-transformer
+
+## 项目结构
+
+```
+src/
+├── app.module.ts          # 应用主模块
+├── main.ts                # 应用入口文件
+├── cats/                  # Cats 示例模块
+│   ├── cats.module.ts     # Cats 模块定义
+│   ├── cats.resolver.ts   # GraphQL 解析器
+│   ├── cats.service.ts    # 业务逻辑服务
+│   ├── dto/               # 数据传输对象
+│   └── entities/          # 数据库实体
+├── config/                # 配置模块
+│   ├── config.module.ts   # 配置模块定义
+│   ├── database.config.ts # 数据库配置
+│   ├── graphql.config.ts  # GraphQL 配置
+│   ├── logger.config.ts   # 日志配置
+│   └── server.config.ts   # 服务器配置
+├── logger/                # 日志模块
+└── utils/                 # 工具函数
 ```
 
-## Compile and run the project
+## 环境配置
+
+1. 复制环境变量配置文件：
 
 ```bash
-# development
-$ yarn run start
-
-# watch mode
-$ yarn run start:dev
-
-# production mode
-$ yarn run start:prod
+cp env/.env.example env/.env.development
 ```
 
-## Run tests
+2. 配置数据库连接信息：
 
 ```bash
-# unit tests
-$ yarn run test
+# 数据库配置
+DB_HOST=localhost
+DB_PORT=3306
+DB_USER=your_username
+DB_PASS=your_password
+DB_NAME=your_database
+DB_TIMEZONE=+08:00
+DB_SYNCHRONIZE=false
+DB_LOGGING=true
+DB_POOL_SIZE=10
 
-# e2e tests
-$ yarn run test:e2e
+# 服务器配置
+SERVER_HOST=127.0.0.1
+SERVER_PORT=3000
 
-# test coverage
-$ yarn run test:cov
+# 环境变量
+NODE_ENV=development
 ```
 
-## Deployment
-
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+## 项目安装
 
 ```bash
-$ yarn install -g @nestjs/mau
-$ mau deploy
+# 安装依赖
+$ npm install
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+## 运行项目
 
-## Resources
+```bash
+# 开发模式
+$ npm run dev
+# 或
+$ npm run start:dev
 
-Check out a few resources that may come in handy when working with NestJS:
+# 生产模式
+$ npm run start:prod
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+# 调试模式
+$ npm run start:debug
+```
 
-## Support
+## 测试
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+```bash
+# 单元测试
+$ npm run test
 
-## Stay in touch
+# 端到端测试
+$ npm run test:e2e
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+# 测试覆盖率
+$ npm run test:cov
 
-## License
+# 监听模式测试
+$ npm run test:watch
+```
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+## 代码质量
+
+```bash
+# 代码格式化
+$ npm run format
+
+# 代码检查和修复
+$ npm run lint
+```
+
+## API 文档
+
+项目启动后，可以通过以下地址访问：
+
+- **GraphQL Playground**: `http://localhost:3000/graphql` (开发环境)
+- **GraphQL Schema**: 自动生成在 `src/schema.graphql`
+
+## 已实现功能
+
+### 核心模块
+- ✅ **配置管理**: 多环境配置支持，类型安全的配置服务
+- ✅ **日志系统**: 基于 Pino 的高性能日志记录
+- ✅ **数据库集成**: TypeORM + MySQL 8.0，支持连接池和事务
+- ✅ **GraphQL API**: Apollo Server 集成，支持订阅和内省
+
+### 示例模块 (Cats)
+- ✅ **CRUD 操作**: 完整的增删改查功能
+- ✅ **GraphQL 解析器**: 类型安全的 GraphQL API
+- ✅ **数据验证**: 输入数据验证和转换
+- ✅ **分页查询**: 支持分页和排序
+- ✅ **错误处理**: 统一的错误处理机制
+
+## 开发指南
+
+### 添加新模块
+
+1. 使用 NestJS CLI 生成模块：
+
+```bash
+nest generate module your-module
+nest generate service your-module
+nest generate resolver your-module
+```
+
+2. 创建实体和 DTO：
+
+```bash
+# 在模块目录下创建
+mkdir src/your-module/entities
+mkdir src/your-module/dto
+```
+
+3. 在 `app.module.ts` 中注册新模块
+
+### 数据库迁移
+
+```bash
+# 生成迁移文件
+npm run typeorm:migration:generate -- -n MigrationName
+
+# 运行迁移
+npm run typeorm:migration:run
+
+# 回滚迁移
+npm run typeorm:migration:revert
+```
+
+## 部署
+
+### 构建项目
+
+```bash
+$ npm run build
+```
+
+### 生产环境运行
+
+```bash
+$ npm run start:prod
+```
+
+## 相关资源
+
+- [NestJS 官方文档](https://docs.nestjs.com)
+- [TypeORM 文档](https://typeorm.io)
+- [GraphQL 文档](https://graphql.org/learn/)
+- [Apollo Server 文档](https://www.apollographql.com/docs/apollo-server/)
+
+## 支持
+
+如果您在使用过程中遇到问题，请：
+
+1. 查看 [NestJS 官方文档](https://docs.nestjs.com)
+2. 访问 [NestJS Discord 社区](https://discord.gg/G7Qnnhy)
+3. 提交 Issue 到项目仓库
+
+## 许可证
+
+本项目采用 MIT 许可证。
