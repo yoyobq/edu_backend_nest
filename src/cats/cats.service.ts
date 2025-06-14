@@ -3,6 +3,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import { Repository, SelectQueryBuilder } from 'typeorm';
+import { errorLog } from '../utils/logger/templates'; // 导入错误日志模板函数
 import { CatsArgs } from './dto/cats.args';
 import { CreateCatInput } from './dto/create-cat.input';
 import { UpdateCatInput } from './dto/update-cat.input';
@@ -20,8 +21,41 @@ export class CatsService {
   /**
    * 创建新的 Cat
    */
-  create(_createCatInput: CreateCatInput) {
-    return 'This action adds a new cat';
+  /**
+   * 创建新的 Cat
+   */
+  async create(createCatInput: CreateCatInput): Promise<Cat> {
+    this.logger.info('正在创建新的 Cat', { createCatInput });
+
+    try {
+      // 创建 Cat 实体
+      const cat = this.catRepository.create({
+        name: createCatInput.name,
+        status: createCatInput.status,
+      });
+
+      // 保存到数据库
+      const savedCat = await this.catRepository.save(cat);
+
+      this.logger.info('成功创建 Cat', { id: savedCat.id, name: savedCat.name });
+      return savedCat;
+    } catch (error: unknown) {
+      // 安全地获取错误信息，避免 TypeScript 类型错误
+      const errorMessage =
+        error instanceof Error
+          ? error.message // 如果是 Error 实例，安全地访问 message 属性
+          : String(error); // 如果不是，将其转换为字符串
+
+      // 使用模板体系记录错误日志，传入 logger 实例
+      errorLog(this.logger, '创建 Cat 失败', {
+        error: errorMessage, // 使用处理后的错误信息
+        createCatInput,
+      });
+
+      // 重新抛出原始错误，保持错误传播链
+      // 这样上层调用者可以继续处理这个错误
+      throw error;
+    }
   }
 
   /**
@@ -77,8 +111,6 @@ export class CatsService {
    * 根据条件统计 Cat 总数
    */
   async countMany(args: CatsArgs): Promise<number> {
-    this.logger.info('统计 Cat 总数', { args });
-
     // 使用专门的计数查询构建器，不包含分页参数
     const queryBuilder = this.buildCountQueryBuilder(args);
     const total = await queryBuilder.getCount();
@@ -96,7 +128,7 @@ export class CatsService {
     const cat = await this.catRepository.findOne({ where: { id } });
 
     if (!cat) {
-      this.logger.error(`Cat 不存在`, { catId: id });
+      this.logger.error(`Cat ID: ${id} 不存在`, { catId: id });
       throw new NotFoundException(`ID 为 ${id} 的 Cat 不存在`);
     }
 

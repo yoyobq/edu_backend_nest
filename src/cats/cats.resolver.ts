@@ -1,14 +1,23 @@
 // src/cats/cats.resolver.ts
-import { Args, Query, Resolver } from '@nestjs/graphql';
+import { Args, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { CatsService } from './cats.service';
 import { CatArgs } from './dto/cat.args';
 import { CatsArgs } from './dto/cats.args';
+import { CreateCatInput } from './dto/create-cat.input'; // 添加导入
 import { CatsListResponse } from './dto/cats.list';
 import { Cat } from './entities/cat.entity';
 
 @Resolver(() => Cat)
 export class CatsResolver {
   constructor(private readonly catsService: CatsService) {}
+
+  /**
+   * 创建新的 Cat
+   */
+  @Mutation(() => Cat, { name: 'createCat', description: '创建新的 Cat' })
+  async createCat(@Args('createCatInput') createCatInput: CreateCatInput): Promise<Cat> {
+    return this.catsService.create(createCatInput);
+  }
 
   /**
    * 获取所有 Cat（简单查询）
