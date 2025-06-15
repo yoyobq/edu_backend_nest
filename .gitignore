@@ -54,3 +54,4 @@ report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 
 # GraphQL generated schema
 src/schema.graphql
+.trae/rules/project_rules.md
