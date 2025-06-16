@@ -2,7 +2,7 @@
 
 import { ApolloServerPluginLandingPageLocalDefault } from '@apollo/server/plugin/landingPage/default';
 import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo';
-import { Module } from '@nestjs/common';
+import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { GraphQLModule } from '@nestjs/graphql';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -12,7 +12,7 @@ import { AppService } from './app.service';
 import { CatsModule } from './cats/cats.module';
 import { AppConfigModule } from './config/config.module';
 import { LoggerModule } from './logger/logger.module';
-import { FormatResponsePlugin } from './plugins/format-response.plugin';
+import { FormatResponseMiddleware } from './middleware/format-response.middleware';
 
 @Module({
   imports: [
@@ -21,6 +21,7 @@ import { FormatResponsePlugin } from './plugins/format-response.plugin';
     // TypeORM MySQL 8.0 配置
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],
+
       useFactory: (config: ConfigService) => ({
         type: config.get<'mysql'>('mysql.type'),
         host: config.get<string>('mysql.host'),
@@ -43,17 +44,14 @@ import { FormatResponsePlugin } from './plugins/format-response.plugin';
     GraphQLModule.forRootAsync<ApolloDriverConfig>({
       driver: ApolloDriver,
       inject: [ConfigService, PinoLogger],
-      useFactory: (config: ConfigService, pinoLogger: PinoLogger) =>
+      useFactory: (config: ConfigService) =>
         ({
           autoSchemaFile: config.get<string>('graphql.schemaDestination'),
           introspection: config.get<boolean>('graphql.introspection'),
           playground: config.get<boolean>('graphql.playground'),
           sortSchema: config.get<boolean>('graphql.sortSchema'),
           subscriptions: config.get('graphql.subscriptions'),
-          plugins: [
-            ApolloServerPluginLandingPageLocalDefault(),
-            new FormatResponsePlugin(pinoLogger),
-          ],
+          plugins: [ApolloServerPluginLandingPageLocalDefault()],
         }) satisfies ApolloDriverConfig,
     }),
     CatsModule,
@@ -61,4 +59,10 @@ import { FormatResponsePlugin } from './plugins/format-response.plugin';
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer
+      .apply(FormatResponseMiddleware) // ✅ 不再用 new，不再用函数包裹
+      .forRoutes('*');
+  }
+}

@@ -69,14 +69,3 @@ export interface PaginationResponse<T = any> {
  * }
  */
 export type PaginatedApiResponse<T = any> = ApiResponse<PaginationResponse<T>>;
-
-// ==== 工程实践建议 ====
-
-// 用法一：成功
-// const res: ApiResponse<User> = { success: true, data: userObj, traceId: "..." };
-
-// 用法二：失败
-// const res: ApiResponse = { success: false, data: null, errorCode: "NO_AUTH", errorMessage: "未登录", showType: ShowType.REDIRECT, traceId: "..." };
-
-// 用法三：分页
-// const res: PaginatedApiResponse<User> = { success: true, data: { list: users, current: 1, pageSize: 10, total: 100 }, traceId: "..." };
