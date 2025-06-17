@@ -3,6 +3,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import databaseConfig from './database.config'; // 添加数据库配置导入
 import graphqlConfig from './graphql.config';
+import jwtConfig from './jwt.config';
 import loggerConfig from './logger.config';
 import serverConfig from './server.config';
 
@@ -14,7 +15,7 @@ import serverConfig from './server.config';
         `env/.env.${process.env.NODE_ENV || 'development'}`,
         'env/.env.development', // 备用文件
       ],
-      load: [graphqlConfig, serverConfig, loggerConfig, databaseConfig],
+      load: [graphqlConfig, serverConfig, loggerConfig, databaseConfig, jwtConfig],
     }),
   ],
 })
