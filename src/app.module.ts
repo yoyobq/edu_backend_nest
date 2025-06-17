@@ -2,7 +2,7 @@
 
 import { ApolloServerPluginLandingPageLocalDefault } from '@apollo/server/plugin/landingPage/default';
 import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo';
-import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { GraphQLModule } from '@nestjs/graphql';
 import { JwtModule } from '@nestjs/jwt';
@@ -14,12 +14,14 @@ import { AppService } from './app.service';
 import { CatsModule } from './cats/cats.module';
 import { AppConfigModule } from './config/config.module';
 import { LoggerModule } from './logger/logger.module';
-import { FormatResponseMiddleware } from './middleware/format-response.middleware';
+import { MiddlewareModule } from './middleware/middleware.module';
+// 移除这行：import { FormatResponseMiddleware } from './middleware/format-response.middleware';
 
 @Module({
   imports: [
     AppConfigModule,
     LoggerModule,
+    MiddlewareModule, // 添加中间件模块
     // JWT 配置
     JwtModule.registerAsync({
       inject: [ConfigService],
@@ -75,8 +77,4 @@ import { FormatResponseMiddleware } from './middleware/format-response.middlewar
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule implements NestModule {
-  configure(consumer: MiddlewareConsumer) {
-    consumer.apply(FormatResponseMiddleware).forRoutes('*');
-  }
-}
+export class AppModule {}
