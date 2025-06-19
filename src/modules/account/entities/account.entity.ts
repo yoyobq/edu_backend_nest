@@ -5,7 +5,11 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
-import { AccountStatus, LoginHistoryItem } from '../../../types/models/account.types';
+import {
+  AccountStatus,
+  IdentityTypeEnum,
+  LoginHistoryItem,
+} from '../../../types/models/account.types';
 
 @Entity('base_user_accounts')
 export class AccountEntity {
@@ -28,15 +32,6 @@ export class AccountEntity {
   @Column({ name: 'login_password', type: 'varchar', length: 255, comment: '密码' })
   loginPassword!: string;
 
-  @Column({ name: 'recent_login_history', type: 'json', nullable: true, comment: '最近5次登录IP' })
-  recentLoginHistory!: LoginHistoryItem[] | null;
-
-  @CreateDateColumn({ name: 'created_at', type: 'datetime', comment: 'created time' })
-  createdAt!: Date;
-
-  @UpdateDateColumn({ name: 'updated_at', type: 'datetime', comment: 'updated time' })
-  updatedAt!: Date;
-
   @Column({
     type: 'enum',
     enum: AccountStatus,
@@ -44,4 +39,21 @@ export class AccountEntity {
     comment: '"ACTIVE=1"、"BANNED=2"、"DELETED=3"、"PENDING=4"、"SUSPENDED=5"、"INACTIVE=6"',
   })
   status!: AccountStatus;
+
+  @Column({ name: 'recent_login_history', type: 'json', nullable: true, comment: '最近5次登录IP' })
+  recentLoginHistory!: LoginHistoryItem[] | null;
+
+  @Column({
+    name: 'identity_hint',
+    type: 'json',
+    nullable: true,
+    comment: '身份提示字段，用于加速判断',
+  })
+  identityHint!: IdentityTypeEnum[] | null;
+
+  @CreateDateColumn({ name: 'created_at', type: 'datetime', comment: 'created time' })
+  createdAt!: Date;
+
+  @UpdateDateColumn({ name: 'updated_at', type: 'datetime', comment: 'updated time' })
+  updatedAt!: Date;
 }

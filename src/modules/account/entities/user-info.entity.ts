@@ -31,6 +31,14 @@ export class UserInfoEntity {
   @Column({ type: 'varchar', length: 50, comment: '昵称' })
   nickname!: string;
 
+  @Column({
+    type: 'enum',
+    enum: Gender,
+    default: Gender.SECRET,
+    comment: '性别',
+  })
+  gender!: Gender;
+
   @Column({ name: 'birth_date', type: 'date', nullable: true, comment: '出生日期，仅保留年月日' })
   birthDate!: string | null;
 
@@ -65,18 +73,14 @@ export class UserInfoEntity {
   unreadCount!: number;
 
   @Column({
-    type: 'enum',
-    enum: Gender,
-    default: Gender.SECRET,
-    comment: '性别',
+    name: 'internal_audit_code',
+    type: 'char',
+    length: 64,
+    nullable: false,
+    default: '',
+    comment: '内审安全码',
   })
-  gender!: Gender;
-
-  @CreateDateColumn({ name: 'created_at', type: 'timestamp', comment: '创建时间' })
-  createdAt!: Date;
-
-  @UpdateDateColumn({ name: 'updated_at', type: 'timestamp', comment: '更新时间' })
-  updatedAt!: Date;
+  internalAuditCode!: string;
 
   @Column({
     name: 'user_state',
@@ -87,4 +91,10 @@ export class UserInfoEntity {
       '账户统一状态：ACTIVE=在读/在职，INACTIVE=离校/离职，SUSPENDED=暂离（休学/病休），PENDING=待完善',
   })
   userState!: UserState;
+
+  @CreateDateColumn({ name: 'created_at', type: 'timestamp', comment: '创建时间' })
+  createdAt!: Date;
+
+  @UpdateDateColumn({ name: 'updated_at', type: 'timestamp', comment: '更新时间' })
+  updatedAt!: Date;
 }
