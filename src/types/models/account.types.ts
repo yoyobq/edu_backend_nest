@@ -23,3 +23,9 @@ export enum IdentityTypeEnum {
   CUSTOMER = 'customer',
   LEARNER = 'learner',
 }
+
+export enum LoginTypeEnum {
+  PASSWORD = 'PASSWORD',
+  SMS = 'SMS',
+  WECHAT = 'WECHAT',
+}

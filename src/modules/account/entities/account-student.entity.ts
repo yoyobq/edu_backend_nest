@@ -1,3 +1,4 @@
+import { StudentStatus } from 'src/types/models/student.types';
 import {
   Column,
   CreateDateColumn,
@@ -7,7 +8,6 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
-import { StudentStatus } from '../../../types/models/student.types';
 import { AccountEntity } from './account.entity';
 
 @Entity('member_students')
