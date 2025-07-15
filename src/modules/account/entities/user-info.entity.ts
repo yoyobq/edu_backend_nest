@@ -66,21 +66,20 @@ export class UserInfoEntity {
   @Column({ type: 'json', nullable: true, comment: '地理位置' })
   geographic!: GeographicInfo | null;
 
+  @Column({
+    name: 'meta_digest',
+    type: 'varchar',
+    length: 255,
+    nullable: true,
+    comment: '私有数据加密字段',
+  })
+  metaDigest!: string | null;
+
   @Column({ name: 'notify_count', type: 'int', default: 0, comment: '通知数' })
   notifyCount!: number;
 
   @Column({ name: 'unread_count', type: 'int', default: 0, comment: '未读通知数' })
   unreadCount!: number;
-
-  @Column({
-    name: 'internal_audit_code',
-    type: 'char',
-    length: 64,
-    nullable: false,
-    default: '',
-    comment: '内审安全码',
-  })
-  internalAuditCode!: string;
 
   @Column({
     name: 'user_state',
