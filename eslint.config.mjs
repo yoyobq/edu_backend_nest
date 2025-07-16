@@ -17,7 +17,7 @@ export default tseslint.config(
         ...globals.node,
         ...globals.jest,
       },
-      sourceType: 'commonjs',
+      sourceType: 'module',
       parserOptions: {
         projectService: true,
         tsconfigRootDir: import.meta.dirname,
@@ -27,17 +27,24 @@ export default tseslint.config(
   {
     rules: {
       // TypeScript 相关
-      '@typescript-eslint/no-explicit-any': 'off',
-      '@typescript-eslint/no-floating-promises': 'warn',
-      '@typescript-eslint/no-unsafe-argument': 'warn',
-      '@typescript-eslint/no-unused-vars': ['error', { 
-        argsIgnorePattern: '^_',
-        varsIgnorePattern: '^_' 
-      }],
+      '@typescript-eslint/no-explicit-any': 'error', // 符合 strict 模式
+      '@typescript-eslint/no-floating-promises': 'error',
+      '@typescript-eslint/no-unsafe-argument': 'error',
+      '@typescript-eslint/no-unsafe-assignment': 'error',
+      '@typescript-eslint/no-unsafe-call': 'error',
+      '@typescript-eslint/no-unsafe-member-access': 'error',
+      '@typescript-eslint/no-unsafe-return': 'error',
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        {
+          argsIgnorePattern: '^_',
+          varsIgnorePattern: '^_',
+        },
+      ],
       '@typescript-eslint/no-var-requires': 'error',
       '@typescript-eslint/explicit-function-return-type': 'off',
       '@typescript-eslint/explicit-module-boundary-types': 'off',
-      
+
       // 代码质量
       'no-console': 'warn',
       'no-debugger': 'error',
@@ -45,33 +52,33 @@ export default tseslint.config(
       'no-unused-expressions': 'error',
       'prefer-const': 'error',
       'no-var': 'error',
-      
+
       // 代码复杂度
-      'complexity': ['warn', 15],
+      complexity: ['warn', 15],
       'max-depth': ['warn', 4],
       'max-lines-per-function': ['warn', 100],
-      
+
       // 命名规范
       '@typescript-eslint/naming-convention': [
         'error',
         {
           selector: 'variableLike',
-          format: ['camelCase', 'UPPER_CASE']
+          format: ['camelCase', 'UPPER_CASE'],
         },
         {
           selector: 'typeLike',
-          format: ['PascalCase']
+          format: ['PascalCase'],
         },
         {
           selector: 'property',
-          format: ['camelCase', 'snake_case', 'UPPER_CASE']
+          format: ['camelCase', 'snake_case', 'UPPER_CASE'],
         },
         {
           selector: 'parameter',
           format: ['camelCase', 'UPPER_CASE'],
-          leadingUnderscore: 'allow'
-        }
-      ]
+          leadingUnderscore: 'allow',
+        },
+      ],
     },
   },
 );
