@@ -13,7 +13,7 @@ export enum UserState {
 
 export interface AccessGroupItem {
   name: string;
-  [key: string]: any;
+  [key: string]: string;
 }
 
 export interface GeographicInfo {

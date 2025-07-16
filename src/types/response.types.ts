@@ -21,7 +21,7 @@ export enum ShowType {
  * - 成功时：success: true, data 有值，其他错误相关字段 absent/undefined
  * - 失败时：success: false, data=null，errorCode/errorMessage/showType 必有值
  */
-export interface ApiResponse<T = any> {
+export interface ApiResponse<T = unknown> {
   /** 是否成功 */
   success: boolean;
   /** 响应数据（成功时有值，失败为 null） */
@@ -41,7 +41,7 @@ export interface ApiResponse<T = any> {
 /**
  * 专门描述分页内容的数据结构
  */
-export interface PaginationResponse<T = any> {
+export interface PaginationResponse<T = unknown> {
   /** 数据列表 */
   list: T[];
   /** 当前页码 */
@@ -68,4 +68,4 @@ export interface PaginationResponse<T = any> {
  *   host: "..."
  * }
  */
-export type PaginatedApiResponse<T = any> = ApiResponse<PaginationResponse<T>>;
+export type PaginatedApiResponse<T = unknown> = ApiResponse<PaginationResponse<T>>;
