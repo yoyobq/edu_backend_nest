@@ -15,7 +15,9 @@ import { CatsModule } from './cats/cats.module';
 import { AppConfigModule } from './config/config.module';
 import { LoggerModule } from './logger/logger.module';
 import { MiddlewareModule } from './middleware/middleware.module';
-// 移除这行：import { FormatResponseMiddleware } from './middleware/format-response.middleware';
+import { AccountModule } from './modules/account/account.module';
+// import { AuthModule } from './modules/auth/auth.module';
+// import { FormatResponseMiddleware } from './middleware/format-response.middleware';
 
 @Module({
   imports: [
@@ -73,6 +75,8 @@ import { MiddlewareModule } from './middleware/middleware.module';
         }) satisfies ApolloDriverConfig,
     }),
     CatsModule,
+    AccountModule,
+    // AuthModule,
   ],
   controllers: [AppController],
   providers: [AppService],
