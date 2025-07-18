@@ -19,7 +19,7 @@
     "titleBar.inactiveForeground": "#e7e7e799"
   },
   "peacock.remoteColor": "rgb(241, 69, 95)",
-  // ✅ 新增编辑器配置
+  // 新增编辑器配置
   "editor.formatOnSave": true,
   "editor.defaultFormatter": "esbenp.prettier-vscode",
   "editor.codeActionsOnSave": {
@@ -32,5 +32,11 @@
   },
   "[json]": {
     "editor.defaultFormatter": "esbenp.prettier-vscode"
-  }
+  },
+  // Jest 插件配置
+  "jest.jestCommandLine": "node_modules/.bin/jest",
+  "jest.runMode": "watch",
+  "jest.rootPath": ".",
+  "jest.disabledWorkspaceFolders": [],
+  "jest.enable": true
 }

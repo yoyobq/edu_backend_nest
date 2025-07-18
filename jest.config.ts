@@ -3,7 +3,7 @@
 import type { Config } from 'jest';
 
 /**
- * Jest 配置文件
+ * Jest 配置文件 - 单元测试专用
  * 基于并替换 nest 默认在 package.json 中的配置，适用于 NestJS TypeScript 项目
  */
 const config: Config = {
@@ -22,13 +22,23 @@ const config: Config = {
     '^src/(.*)$': '<rootDir>/src/$1',
   },
 
-  // 测试文件匹配规则
-  testRegex: '.*\\.spec\\.ts$',
+  // 修改：只匹配单元测试文件，排除 E2E 测试
+  testRegex: '.*.spec.ts$',
+  testPathIgnorePatterns: [
+    '/node_modules/',
+    '/dist/',
+    '/test/', // 排除 test 目录下的 E2E 测试
+  ],
 
   // TypeScript 转换
   transform: {
     // eslint-disable-next-line @typescript-eslint/naming-convention
-    '^.+\\.(t|j)s$': 'ts-jest',
+    '^.+\\.(t|j)s$': [
+      'ts-jest',
+      {
+        tsconfig: 'tsconfig.json',
+      },
+    ],
   },
 
   // 覆盖率收集
@@ -39,6 +49,7 @@ const config: Config = {
     '!**/*.e2e-spec.ts',
     '!**/node_modules/**',
     '!**/dist/**',
+    '!**/test/**', // 排除 test 目录
     '!**/*.interface.ts',
     '!**/*.dto.ts',
     '!**/*.entity.ts',
@@ -48,7 +59,7 @@ const config: Config = {
   ],
 
   // 覆盖率输出目录
-  coverageDirectory: '../coverage',
+  coverageDirectory: '<rootDir>/coverage',
 
   // 覆盖率报告格式
   coverageReporters: ['text', 'lcov', 'html', 'json'],
@@ -93,19 +104,15 @@ const config: Config = {
   // 预设配置
   preset: 'ts-jest',
 
-  // 新增：TypeScript 配置
-  globals: {
-    // eslint-disable-next-line @typescript-eslint/naming-convention
-    'ts-jest': {
-      tsconfig: 'tsconfig.json',
-    },
-  },
-
-  // 忽略路径模式
-  testPathIgnorePatterns: ['/node_modules/', '/dist/'],
+  // 删除已弃用的 globals 配置
+  // globals: {
+  //   'ts-jest': {
+  //     tsconfig: 'tsconfig.json',
+  //   },
+  // },
 
   // 监听忽略模式
-  watchPathIgnorePatterns: ['/node_modules/', '/dist/', '/coverage/'],
+  watchPathIgnorePatterns: ['/node_modules/', '/dist/', '/coverage/', '/test/'],
 };
 
 export default config;
