@@ -75,7 +75,7 @@ const config: Config = {
   // },
 
   // 测试设置文件
-  setupFilesAfterEnv: ['<rootDir>/test/setup.ts'],
+  setupFilesAfterEnv: ['<rootDir>/test/setup-unit.ts'],
 
   // 清除模拟调用和实例
   clearMocks: true,

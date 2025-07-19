@@ -1,7 +1,7 @@
-// test/setup.ts
+// test/setup-unit.ts
 
 /**
- * Jest 全局测试设置文件
+ * Jest 单元测试的全局测试设置文件
  * 用于配置测试环境和全局模拟
  */
 
