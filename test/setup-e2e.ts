@@ -5,16 +5,15 @@
  * 用于配置测试环境和数据库连接
  */
 
-import { DataSource } from 'typeorm';
-
-// 设置测试环境变量
-process.env.NODE_ENV = 'test';
-process.env.DB_HOST = 'localhost';
-process.env.DB_PORT = '3306';
-process.env.DB_USERNAME = 'test_user';
-process.env.DB_PASSWORD = 'test_password';
-process.env.DB_DATABASE = 'nest_test_e2e';
-process.env.JWT_SECRET = 'test-jwt-secret-e2e';
+// import * as dotenv from 'dotenv';
+import databaseConfig from 'src/config/database.config';
+import { DataSource, DataSourceOptions } from 'typeorm';
+import { Cat } from '../src/cats/entities/cat.entity';
+import { StaffEntity } from '../src/modules/account/entities/account-staff.entity';
+import { StudentEntity } from '../src/modules/account/entities/account-student.entity';
+import { AccountEntity } from '../src/modules/account/entities/account.entity';
+import { UserInfoEntity } from '../src/modules/account/entities/user-info.entity';
+// dotenv.config({ path: 'env/.env.e2e' });
 
 // 全局测试数据源
 let testDataSource: DataSource | undefined;
@@ -34,8 +33,29 @@ export const setTestDataSource = (dataSource: DataSource): void => {
 /**
  * 初始化测试数据库
  */
-beforeAll(() => {
-  // 这里可以添加测试数据库的初始化逻辑
+beforeAll(async () => {
+  // 使用类型断言解决类型问题
+  const dbConfig = databaseConfig() as { mysql: DataSourceOptions };
+  const config: DataSourceOptions = {
+    ...dbConfig.mysql,
+    // 添加所有实体
+    entities: [AccountEntity, StaffEntity, StudentEntity, UserInfoEntity, Cat],
+    logging: ['query', 'error'],
+  };
+
+  const ds = new DataSource(config);
+
+  await ds.initialize();
+  setTestDataSource(ds); // 注入全局变量
+
+  // 检查连接是否正常
+  await ds.query('SELECT 1');
+
+  // 检查关键表是否存在或有数据
+  const accountCount = await ds.getRepository(AccountEntity).count();
+  if (accountCount === 0) {
+    throw new Error('❌ 测试数据库中不存在任何账号数据，请检查初始化状态');
+  }
   // eslint-disable-next-line no-console
   console.log('🚀 E2E 测试环境初始化完成');
 }, 60000);
@@ -43,9 +63,9 @@ beforeAll(() => {
 /**
  * 清理测试数据库
  */
-afterAll(() => {
-  if (testDataSource && testDataSource.isInitialized) {
-    void testDataSource.destroy();
+afterAll(async () => {
+  if (testDataSource) {
+    await testDataSource.destroy();
   }
   // eslint-disable-next-line no-console
   console.log('🧹 E2E 测试环境清理完成');
