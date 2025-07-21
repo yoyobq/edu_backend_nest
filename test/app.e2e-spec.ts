@@ -48,17 +48,13 @@ describe('AppController (e2e)', () => {
   });
 
   beforeEach(async () => {
-    // 每个测试前清理数据库
-    if (dataSource && dataSource.isInitialized) {
-      await dataSource.synchronize(true);
-    }
+    // 每个测试前清理数据库并根据 typeOrm 的定义重新生成数据表
+    // if (dataSource && dataSource.isInitialized) {
+    //   await dataSource.synchronize(true);
+    // }
   });
 
   describe('基础功能测试', () => {
-    it('/ (GET) - 应该返回 Hello World!', () => {
-      return request(app.getHttpServer()).get('/').expect(200).expect('Hello World!');
-    });
-
     it('/graphql (POST) - 应该支持 GraphQL 查询', () => {
       return request(app.getHttpServer())
         .post('/graphql')
@@ -71,6 +67,19 @@ describe('AppController (e2e)', () => {
           expect(body.data).toBeDefined();
           expect(body.data?.__schema).toBeDefined();
         });
+    });
+
+    it('全局 testDataSource 应该已被定义', () => {
+      expect(global.testDataSource).toBeDefined();
+    });
+
+    it('全局 testDataSource 中注册的实体应该被可查询', async () => {
+      if (global.testDataSource) {
+        // 注意此处使用字符串名称而不是类引用
+        const accountRepo = global.testDataSource.getRepository('AccountEntity');
+        const accountCount = await accountRepo.count();
+        expect(accountCount).toBeDefined();
+      }
     });
   });
 

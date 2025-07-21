@@ -1,15 +1,17 @@
 {
   "moduleFileExtensions": ["js", "json", "ts"],
   "rootDir": ".",
+  "globalSetup": "<rootDir>/global-setup-e2e.ts",
+
   "testEnvironment": "node",
-  "testRegex": ".e2e-spec.ts$",
+  "testMatch": ["**/?(*.)e2e-spec.ts"],
+  "testPathIgnorePatterns": ["/node_modules/", "\\.skip\\.ts$", "/__.*\\.skip__/", "/.*\\.skip/"],
   "transform": {
     "^.+\\.(t|j)s$": "ts-jest"
   },
   "moduleNameMapper": {
     "^src/(.*)$": "<rootDir>/../src/$1"
   },
-  "setupFilesAfterEnv": ["<rootDir>/setup-e2e.ts"],
   "testTimeout": 30000,
   "maxWorkers": 1,
   "forceExit": true,
