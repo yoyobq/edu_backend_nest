@@ -1,4 +1,3 @@
-import { EmploymentStatus } from 'src/types/models/staff.types';
 import {
   Column,
   CreateDateColumn,
@@ -8,6 +7,7 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
+import { EmploymentStatus } from '../../../types/models/staff.types';
 import { AccountEntity } from './account.entity';
 
 @Entity('member_staff')

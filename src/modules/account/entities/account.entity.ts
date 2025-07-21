@@ -1,4 +1,3 @@
-import { AccountStatus, IdentityTypeEnum, LoginHistoryItem } from 'src/types/models/account.types';
 import {
   Column,
   CreateDateColumn,
@@ -6,6 +5,11 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
+import {
+  AccountStatus,
+  IdentityTypeEnum,
+  LoginHistoryItem,
+} from '../../../types/models/account.types';
 
 @Entity('base_user_accounts')
 export class AccountEntity {

@@ -1,11 +1,4 @@
 import {
-  AccessGroupItem,
-  Gender,
-  GeographicInfo,
-  TagItem,
-  UserState,
-} from 'src/types/models/user-info.types';
-import {
   Column,
   CreateDateColumn,
   Entity,
@@ -14,6 +7,13 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
+import {
+  AccessGroupItem,
+  Gender,
+  GeographicInfo,
+  TagItem,
+  UserState,
+} from '../../../types/models/user-info.types';
 import { AccountEntity } from './account.entity';
 
 @Entity('base_user_info')
