@@ -54,10 +54,8 @@ export default async (): Promise<void> => {
     // 将数据源保存到全局变量（类型安全）
     global.testDataSource = ds;
 
-    // eslint-disable-next-line no-console
     console.log('🚀 E2E 测试环境初始化完成');
   } catch (error) {
-    // eslint-disable-next-line no-console
     console.error('❌ E2E 测试环境初始化失败:', error);
     throw error;
   }
