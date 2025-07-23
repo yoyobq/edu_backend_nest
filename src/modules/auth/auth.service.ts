@@ -38,17 +38,15 @@ export class AuthService {
       };
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
     const loginName = loginArgs.loginName;
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
     const loginPassword = loginArgs.loginPassword;
 
     // 根据登录名或邮箱查找账户
     const account = await this.accountRepository
       .createQueryBuilder('account')
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+
       .where('account.loginName = :loginName', { loginName })
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+
       .orWhere('account.loginEmail = :loginEmail', { loginEmail: loginName })
       .getOne();
 

@@ -16,7 +16,7 @@ import { AppConfigModule } from './config/config.module';
 import { LoggerModule } from './logger/logger.module';
 import { MiddlewareModule } from './middleware/middleware.module';
 import { AccountModule } from './modules/account/account.module';
-// import { AuthModule } from './modules/auth/auth.module';
+import { AuthModule } from './modules/auth/auth.module';
 // import { FormatResponseMiddleware } from './middleware/format-response.middleware';
 
 @Module({
@@ -76,7 +76,7 @@ import { AccountModule } from './modules/account/account.module';
     }),
     CatsModule,
     AccountModule,
-    // AuthModule,
+    AuthModule,
   ],
   controllers: [AppController],
   providers: [AppService],

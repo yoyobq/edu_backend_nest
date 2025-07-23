@@ -11,17 +11,7 @@ export enum UserState {
   PENDING = 'PENDING',
 }
 
-export interface AccessGroupItem {
-  name: string;
-  [key: string]: string;
-}
-
 export interface GeographicInfo {
   province?: string;
   city?: string;
-}
-
-export interface TagItem {
-  key: string;
-  label: string;
 }
