@@ -23,4 +23,14 @@ export class AuthLoginArgs {
   @IsOptional()
   @IsEnum(LoginTypeEnum, { message: '登录类型无效' })
   type?: LoginTypeEnum;
+
+  @Field(() => String, { description: '客户端 IP 地址', nullable: true })
+  @IsOptional()
+  @IsString({ message: 'IP 地址必须是字符串' })
+  ip?: string;
+
+  @Field(() => String, { description: '客户端类型', nullable: true })
+  @IsOptional()
+  @IsString({ message: '客户端类型是字符串' })
+  audience?: string;
 }
