@@ -1,4 +1,4 @@
-import { Field, ID, ObjectType } from '@nestjs/graphql';
+import { Field, ID, Int, ObjectType } from '@nestjs/graphql';
 import {
   Column,
   CreateDateColumn,
@@ -9,6 +9,8 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 import { Gender, GeographicInfo, UserState } from '../../../types/models/user-info.types';
+import '../graphql/enums/gender.enum';
+import '../graphql/enums/user-state.enum';
 import { AccountEntity } from './account.entity';
 
 @ObjectType()
@@ -18,7 +20,7 @@ export class UserInfoEntity {
   @PrimaryGeneratedColumn()
   id!: number;
 
-  @Field({ description: '关联账号 ID' })
+  @Field(() => Int, { description: '关联账号 ID' })
   @Column({ name: 'account_id' })
   accountId!: number;
 
@@ -27,7 +29,7 @@ export class UserInfoEntity {
   @JoinColumn({ name: 'account_id' })
   account!: AccountEntity;
 
-  @Field({ description: '用户昵称' })
+  @Field(() => String, { description: '用户昵称' })
   @Column({ type: 'varchar', length: 50, comment: '昵称' })
   nickname!: string;
 
@@ -40,19 +42,19 @@ export class UserInfoEntity {
   })
   gender!: Gender;
 
-  @Field({ nullable: true, description: '出生日期' })
+  @Field(() => String, { nullable: true, description: '出生日期' })
   @Column({ name: 'birth_date', type: 'date', nullable: true, comment: '出生日期，仅保留年月日' })
   birthDate!: string | null;
 
-  @Field({ nullable: true, description: '头像 URL' })
+  @Field(() => String, { nullable: true, description: '头像 URL' })
   @Column({ type: 'varchar', length: 255, nullable: true, comment: '头像' })
   avatar!: string | null;
 
-  @Field({ description: '邮箱地址' })
+  @Field(() => String, { description: '邮箱地址' })
   @Column({ type: 'varchar', length: 50, comment: '邮箱' })
   email!: string;
 
-  @Field({ nullable: true, description: '个性签名' })
+  @Field(() => String, { nullable: true, description: '个性签名' })
   @Column({ type: 'varchar', length: 100, nullable: true, comment: '个性签名' })
   signature!: string | null;
 
@@ -60,11 +62,11 @@ export class UserInfoEntity {
   @Column({ name: 'access_group', type: 'json', comment: '用户分组 ["guest"]' })
   accessGroup!: string[];
 
-  @Field({ nullable: true, description: '联系地址' })
+  @Field(() => String, { nullable: true, description: '联系地址' })
   @Column({ type: 'varchar', length: 255, nullable: true, comment: '地址' })
   address!: string | null;
 
-  @Field({ nullable: true, description: '联系电话' })
+  @Field(() => String, { nullable: true, description: '联系电话' })
   @Column({ type: 'varchar', length: 20, nullable: true, comment: '电话' })
   phone!: string | null;
 
@@ -86,11 +88,11 @@ export class UserInfoEntity {
   })
   metaDigest!: string | null;
 
-  @Field({ description: '通知总数' })
+  @Field(() => Int, { description: '通知总数' })
   @Column({ name: 'notify_count', type: 'int', default: 0, comment: '通知数' })
   notifyCount!: number;
 
-  @Field({ description: '未读通知数' })
+  @Field(() => Int, { description: '未读通知数' })
   @Column({ name: 'unread_count', type: 'int', default: 0, comment: '未读通知数' })
   unreadCount!: number;
 
