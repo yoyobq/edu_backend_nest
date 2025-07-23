@@ -30,6 +30,11 @@ export default async (): Promise<void> => {
     } else {
       console.log('未发现活跃的测试数据源，跳过清理');
     }
+
+    // 如果仍有进程挂起，强制清理可能的挂起句柄
+    process.nextTick(() => {
+      process.exit(0);
+    });
   } catch (error) {
     console.error('❌ E2E 测试环境清理失败:', error);
     // 即使清理失败也不抛出错误，避免影响测试结果
