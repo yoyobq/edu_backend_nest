@@ -1,6 +1,6 @@
 // src/cats/dto/cats.list.ts
 import { Field, Int, ObjectType } from '@nestjs/graphql';
-import { CatDto } from './cat.dto';
+import { CatObject } from './cat.object';
 
 /**
  * Cat 列表查询响应
@@ -8,8 +8,8 @@ import { CatDto } from './cat.dto';
  */
 @ObjectType()
 export class CatsListResponse {
-  @Field(() => [CatDto], { description: 'Cat 列表' })
-  cats!: CatDto[];
+  @Field(() => [CatObject], { description: 'Cat 列表' })
+  cats!: CatObject[];
 
   @Field(() => Int, { description: '总数' })
   total!: number;

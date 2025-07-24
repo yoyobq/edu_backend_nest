@@ -1,7 +1,7 @@
 import { Args, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { CatsService } from './cats.service';
 import { CatArgs } from './dto/cat.args';
-import { CatDto } from './dto/cat.dto';
+import { CatObject } from './dto/cat.object';
 import { CatsArgs } from './dto/cats.args';
 import { CatsListResponse } from './dto/cats.list';
 import { CreateCatInput } from './dto/create-cat.input';
@@ -27,8 +27,8 @@ export class CatsResolver {
    * 更新 Cat
    * 前端传入单参数 UpdateCatInput，内部拆分为 id 和 data
    */
-  @Mutation(() => CatDto, { name: 'updateCat', description: '更新指定 ID 的 Cat' })
-  async updateCat(@Args('updateCatInput') updateCatInput: UpdateCatInput): Promise<CatDto> {
+  @Mutation(() => CatObject, { name: 'updateCat', description: '更新指定 ID 的 Cat' })
+  async updateCat(@Args('updateCatInput') updateCatInput: UpdateCatInput): Promise<CatObject> {
     // 拆分参数：提取 id 和其余更新数据
     const { id, ...updateData } = updateCatInput;
 
@@ -39,8 +39,8 @@ export class CatsResolver {
   /**
    * 获取所有 Cat（简单查询）
    */
-  @Query(() => [CatDto], { name: 'cats', description: '获取所有 Cat' })
-  async findAll(): Promise<CatDto[]> {
+  @Query(() => [CatObject], { name: 'cats', description: '获取所有 Cat' })
+  async findAll(): Promise<CatObject[]> {
     return this.catsService.findAll();
   }
 
@@ -67,8 +67,8 @@ export class CatsResolver {
   /**
    * 根据 ID 查询单个 Cat
    */
-  @Query(() => CatDto, { name: 'cat', description: '根据 ID 查询 Cat' })
-  async findOne(@Args() args: CatArgs): Promise<CatDto> {
+  @Query(() => CatObject, { name: 'cat', description: '根据 ID 查询 Cat' })
+  async findOne(@Args() args: CatArgs): Promise<CatObject> {
     return this.catsService.findOne(args.id);
   }
 

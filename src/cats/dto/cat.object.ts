@@ -7,7 +7,7 @@ import { CatStatus } from '../entities/cat.entity';
  * 用于 GraphQL 查询和变更操作的返回结果
  */
 @ObjectType()
-export class CatDto {
+export class CatObject {
   @Field(() => ID, { description: 'Cat 的唯一标识符' })
   id!: number;
 
