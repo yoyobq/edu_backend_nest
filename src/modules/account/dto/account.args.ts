@@ -2,7 +2,7 @@
 
 // 负责单个账户的 input 和 output 设定
 // 由于是聚合根，所以不只是对应 account entities
-import { ArgsType, Field } from '@nestjs/graphql';
+import { ArgsType, Field, ID } from '@nestjs/graphql';
 import { IsEnum, IsNotEmpty, IsOptional, IsString } from 'class-validator';
 import { LoginTypeEnum } from 'src/types/models/account.types';
 
@@ -32,7 +32,7 @@ export class AccountLoginArgs {
  */
 @ArgsType()
 export class AccountArgs {
-  @Field(() => Number, { description: '账户 ID' })
+  @Field(() => ID, { description: '账户 ID' })
   @IsNotEmpty({ message: '账户 ID 不能为空' })
   id!: number;
 }

@@ -60,6 +60,6 @@ export class AccountsArgs {
 
   @Field(() => String, { description: '排序方向', defaultValue: 'DESC' })
   @IsOptional()
-  @IsEnum(['ASC', 'DESC'])
+  // @IsEnum(['ASC', 'DESC'])
   sortOrder: 'ASC' | 'DESC' = 'DESC';
 }

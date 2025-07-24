@@ -1,14 +1,14 @@
 // src/modules/account/dto/update-account.input.ts
-import { Field, InputType, Int } from '@nestjs/graphql';
+import { Field, ID, InputType } from '@nestjs/graphql';
 import { IsEmail, IsEnum, IsInt, IsOptional, IsString, MinLength } from 'class-validator';
-import { AccountStatus, IdentityTypeEnum } from 'src/types/models/account.types';
+import { AccountStatus } from 'src/types/models/account.types';
 
 /**
  * 更新账户输入参数
  */
 @InputType()
 export class UpdateAccountInput {
-  @Field(() => Int, { description: '账户 ID' })
+  @Field(() => ID, { description: '账户 ID' })
   @IsInt({ message: 'ID 必须是整数' })
   id!: number;
 
@@ -34,8 +34,7 @@ export class UpdateAccountInput {
   @IsEnum(AccountStatus, { message: '账户状态无效' })
   status?: AccountStatus;
 
-  @Field(() => [IdentityTypeEnum], { description: '身份类型提示', nullable: true })
+  @Field(() => String, { description: '身份类型提示', nullable: true })
   @IsOptional()
-  @IsEnum(IdentityTypeEnum, { each: true, message: '身份类型无效' })
-  identityHint?: IdentityTypeEnum[];
+  identityHint?: string;
 }

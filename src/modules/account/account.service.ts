@@ -2,20 +2,18 @@
 
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
 import { AccountStatus } from 'src/types/models/account.types';
-import { AccountEntity } from './entities/account.entity';
+import { Repository } from 'typeorm';
 import { AuthLoginArgs } from '../auth/dto/auth.args';
+import { AccountEntity } from './entities/account.entity';
 import { LoginHistoryItem } from './graphql/types';
 
-/**
- * 登录历史记录接口
- */
-export interface LoginHistoryRecord {
-  ip?: string;
-  timestamp: string;
-  audience?: string;
-}
+// 删除这个重复的接口定义
+// export interface LoginHistoryRecord {
+//   ip?: string;
+//   timestamp: string;
+//   audience?: string;
+// }
 
 /**
  * 账户服务
@@ -63,9 +61,16 @@ export class AccountService {
   /**
    * 记录用户登录历史
    * @param accountId 账户 ID
-   * @param loginRecord 登录记录信息
+   * @param timestamp 登录时间戳
+   * @param ip 登录 IP
+   * @param audience 客户端类型
    */
-  async recordLoginHistory(accountId: number, loginRecord: LoginHistoryRecord): Promise<void> {
+  async recordLoginHistory(
+    accountId: number,
+    timestamp: string,
+    ip?: string,
+    audience?: string,
+  ): Promise<void> {
     // 获取当前账户的登录历史
     const account = await this.accountRepository.findOne({
       where: { id: accountId },
@@ -74,9 +79,9 @@ export class AccountService {
 
     // 构建新的登录历史项
     const newHistoryItem: LoginHistoryItem = {
-      ip: loginRecord.ip || '',
-      timestamp: loginRecord.timestamp,
-      audience: loginRecord.audience,
+      ip: ip || '',
+      timestamp,
+      audience,
     };
 
     // 获取现有历史记录，保留最近 4 条，加上新的一条总共 5 条
@@ -88,5 +93,22 @@ export class AccountService {
       recentLoginHistory: updatedHistory,
       updatedAt: new Date(),
     });
+  }
+
+  /**
+   * 根据 ID 查询账户详细信息
+   * @param id 账户 ID
+   * @returns 账户详细信息
+   */
+  async findOneById(id: number): Promise<AccountEntity> {
+    const account = await this.accountRepository.findOne({
+      where: { id },
+    });
+
+    if (!account) {
+      throw new Error('账户不存在');
+    }
+
+    return account;
   }
 }

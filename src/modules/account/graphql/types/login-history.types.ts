@@ -4,7 +4,7 @@ import { Field, ObjectType } from '@nestjs/graphql';
 /**
  * 登录历史记录项 GraphQL 类型
  */
-@ObjectType()
+@ObjectType({ isAbstract: true })
 export class LoginHistoryItem {
   @Field(() => String, { description: '登录 IP 地址' })
   ip!: string;

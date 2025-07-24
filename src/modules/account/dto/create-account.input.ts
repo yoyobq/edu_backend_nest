@@ -1,7 +1,7 @@
 // src/modules/account/dto/create-account.input.ts
 import { Field, InputType } from '@nestjs/graphql';
 import { IsEmail, IsEnum, IsNotEmpty, IsOptional, IsString, MinLength } from 'class-validator';
-import { AccountStatus, IdentityTypeEnum } from 'src/types/models/account.types';
+import { AccountStatus } from 'src/types/models/account.types';
 
 /**
  * 创建账户输入参数
@@ -30,8 +30,8 @@ export class CreateAccountInput {
   @IsEnum(AccountStatus, { message: '账户状态无效' })
   status?: AccountStatus = AccountStatus.PENDING;
 
-  @Field(() => [IdentityTypeEnum], { description: '身份类型提示', nullable: true })
+  @Field(() => String, { description: '身份类型提示', nullable: true })
   @IsOptional()
-  @IsEnum(IdentityTypeEnum, { each: true, message: '身份类型无效' })
-  identityHint?: IdentityTypeEnum[];
+  @IsString({ message: '身份类型提示必须是字符串' })
+  identityHint?: string;
 }

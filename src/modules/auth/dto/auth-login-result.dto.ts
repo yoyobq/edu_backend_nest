@@ -1,6 +1,6 @@
 // src/modules/auth/dto/auth-login-result.dto.ts
 
-import { Field, Int, ObjectType } from '@nestjs/graphql';
+import { Field, ID, ObjectType } from '@nestjs/graphql';
 
 /**
  * 用户登录结果
@@ -16,6 +16,6 @@ export class AuthLoginResult {
   @Field(() => String, { nullable: true, description: '登录成功时返回的 JWT token' })
   token?: string;
 
-  @Field(() => Int, { nullable: true, description: '用户 ID，登录成功时返回' })
+  @Field(() => ID, { nullable: true, description: '用户 ID，登录成功时返回' })
   userId?: number;
 }

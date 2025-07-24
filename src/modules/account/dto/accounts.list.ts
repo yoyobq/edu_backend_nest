@@ -1,13 +1,13 @@
 // src/modules/account/dto/accounts.list.ts
-import { Field, ObjectType } from '@nestjs/graphql';
-import { AccountStatus, IdentityTypeEnum } from 'src/types/models/account.types';
+import { Field, ID, Int, ObjectType } from '@nestjs/graphql';
+import { AccountStatus } from 'src/types/models/account.types';
 
 /**
  * 账户信息响应对象
  */
 @ObjectType()
 export class AccountResponse {
-  @Field(() => Number, { description: '账户 ID' })
+  @Field(() => ID, { description: '账户 ID' })
   id!: number;
 
   @Field(() => String, { description: '登录名', nullable: true })
@@ -19,8 +19,8 @@ export class AccountResponse {
   @Field(() => AccountStatus, { description: '账户状态' })
   status!: AccountStatus;
 
-  @Field(() => [IdentityTypeEnum], { description: '身份类型提示', nullable: true })
-  identityHint!: IdentityTypeEnum[] | null;
+  @Field(() => String, { description: '身份类型提示', nullable: true })
+  identityHint!: string | null;
 
   @Field(() => Date, { description: '创建时间' })
   createdAt!: Date;
@@ -39,12 +39,12 @@ export class AccountsListResponse {
   @Field(() => [AccountResponse], { description: '账户列表' })
   list!: AccountResponse[];
 
-  @Field(() => Number, { description: '当前页码' })
+  @Field(() => Int, { description: '当前页码' })
   current!: number;
 
-  @Field(() => Number, { description: '每页数量' })
+  @Field(() => Int, { description: '每页数量' })
   pageSize!: number;
 
-  @Field(() => Number, { description: '总数量' })
+  @Field(() => Int, { description: '总数量' })
   total!: number;
 }

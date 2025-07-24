@@ -27,11 +27,9 @@ export class AuthService {
       const account = await this.accountService.validateLogin(args);
 
       // 记录登录历史
-      await this.accountService.recordLoginHistory(account.id, {
-        ip: args.ip,
-        timestamp: new Date().toISOString(),
-        audience: args.audience,
-      });
+      // 在 login 方法中，修改 recordLoginHistory 的调用
+      const timestamp = new Date().toISOString();
+      await this.accountService.recordLoginHistory(account.id, timestamp, args.ip, args.audience);
 
       // 生成 JWT token
       const token = this.jwtService.sign({ sub: account.id });

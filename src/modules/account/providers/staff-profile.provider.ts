@@ -1,5 +1,5 @@
 // src/modules/account/providers/staff-profile.provider.ts
-import { Injectable } from '@nestjs/common';
+// import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { SUPPORTED_IDENTITIES } from '../constants/provider-tokens';
@@ -10,7 +10,7 @@ import { AccountProfileProvider } from '../interfaces';
  * 教职工 Profile Provider
  * 负责获取教职工相关的 profile 信息
  */
-@Injectable()
+// @Injectable()
 export class StaffProfileProvider implements AccountProfileProvider<StaffEntity> {
   readonly identity = SUPPORTED_IDENTITIES.STAFF;
 
