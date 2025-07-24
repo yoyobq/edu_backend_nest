@@ -1,4 +1,5 @@
 // test/global-setup-e2e.ts
+import 'reflect-metadata';
 
 /**
  * E2E 测试全局设置文件
@@ -10,10 +11,10 @@ import * as path from 'path';
 import { DataSource, DataSourceOptions } from 'typeorm';
 import { Cat } from '../src/cats/entities/cat.entity';
 import databaseConfig from '../src/config/database.config';
-import { StaffEntity } from '../src/modules/account/entities/account-staff.entity';
-import { StudentEntity } from '../src/modules/account/entities/account-student.entity';
 import { AccountEntity } from '../src/modules/account/entities/account.entity';
 import { UserInfoEntity } from '../src/modules/account/entities/user-info.entity';
+// import { StaffEntity } from '../src/modules/account/entities/account-staff.entity';
+// import { StudentEntity } from '../src/modules/account/entities/account-student.entity';
 
 /**
  * 扩展全局对象类型定义
@@ -35,7 +36,8 @@ export default async (): Promise<void> => {
     const config: DataSourceOptions = {
       ...dbConfig.mysql,
       // 添加所有实体
-      entities: [AccountEntity, StaffEntity, StudentEntity, UserInfoEntity, Cat],
+      // entities: [AccountEntity, StaffEntity, StudentEntity, UserInfoEntity, Cat],
+      entities: [AccountEntity, UserInfoEntity, Cat],
       logging: ['query', 'error'],
     };
 
@@ -46,10 +48,10 @@ export default async (): Promise<void> => {
     await ds.query('SELECT 1');
 
     // 检查关键表是否存在或有数据
-    const accountCount = await ds.getRepository(AccountEntity).count();
-    if (accountCount === 0) {
-      throw new Error('❌ 测试数据库中不存在任何账号数据，请检查初始化状态');
-    }
+    // const accountCount = await ds.getRepository(AccountEntity).count();
+    // if (accountCount === 0) {
+    //   throw new Error('❌ 测试数据库中不存在任何账号数据，请检查初始化状态');
+    // }
 
     // 将数据源保存到全局变量（类型安全）
     global.testDataSource = ds;

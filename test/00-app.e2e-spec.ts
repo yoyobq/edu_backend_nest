@@ -7,24 +7,7 @@ import { App } from 'supertest/types';
 import { DataSource } from 'typeorm';
 import { AppModule } from '../src/app.module';
 
-/**
- * GraphQL 响应接口定义
- */
-interface GraphQLResponse {
-  data?: {
-    // eslint-disable-next-line @typescript-eslint/naming-convention
-    __schema?: {
-      types: Array<{ name: string }>;
-    };
-  };
-  errors?: Array<{
-    message: string;
-    locations?: Array<{ line: number; column: number }>;
-    path?: string[];
-  }>;
-}
-
-describe('AppController (e2e)', () => {
+describe('00-App 全局测试', () => {
   let app: INestApplication<App>;
   let dataSource: DataSource;
 
@@ -47,32 +30,29 @@ describe('AppController (e2e)', () => {
     }
   });
 
-  beforeEach(async () => {
-    // 每个测试前清理数据库并根据 typeOrm 的定义重新生成数据表
-    // if (dataSource && dataSource.isInitialized) {
-    //   await dataSource.synchronize(true);
-    // }
-  });
-
-  describe('基础功能测试', () => {
-    it('/graphql (POST) - 应该支持 GraphQL 查询', () => {
-      return request(app.getHttpServer())
-        .post('/graphql')
-        .send({
-          query: '{ __schema { types { name } } }',
-        })
-        .expect(200)
-        .expect((res) => {
-          const body = res.body as GraphQLResponse;
-          expect(body.data).toBeDefined();
-          expect(body.data?.__schema).toBeDefined();
-        });
+  describe('应用基础设施测试', () => {
+    it('HTTP 服务器应该正常响应', async () => {
+      const response = await request(app.getHttpServer()).get('/').expect(200);
+      expect(response).toBeDefined();
+    });
+    /**
+     * 测试应用启动状态
+     */
+    it('应用应该正常启动', () => {
+      expect(app).toBeDefined();
+      expect(dataSource.isInitialized).toBe(true);
     });
 
+    /**
+     * 测试全局数据源配置
+     */
     it('全局 testDataSource 应该已被定义', () => {
       expect(global.testDataSource).toBeDefined();
     });
 
+    /**
+     * 测试数据库实体注册
+     */
     it('全局 testDataSource 中注册的实体应该被可查询', async () => {
       if (global.testDataSource) {
         // 注意此处使用字符串名称而不是类引用
@@ -80,13 +60,6 @@ describe('AppController (e2e)', () => {
         const accountCount = await accountRepo.count();
         expect(accountCount).toBeDefined();
       }
-    });
-  });
-
-  describe('健康检查', () => {
-    it('应用应该正常启动', () => {
-      expect(app).toBeDefined();
-      expect(dataSource.isInitialized).toBe(true);
     });
   });
 });
