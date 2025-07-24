@@ -1,4 +1,4 @@
-import { Field, InputType, ObjectType, Int } from '@nestjs/graphql';
+import { Field, ID, InputType, ObjectType } from '@nestjs/graphql';
 import { IsInt, IsPositive } from 'class-validator';
 
 /**
@@ -16,7 +16,7 @@ import { IsInt, IsPositive } from 'class-validator';
  */
 @InputType()
 export class DeleteCatInput {
-  @Field(() => Int, { description: 'Cat 的唯一标识符' })
+  @Field(() => ID, { description: 'Cat 的唯一标识符' })
   @IsInt({ message: 'ID 必须是整数' })
   @IsPositive({ message: 'ID 必须是正整数' })
   id!: number;
@@ -34,7 +34,4 @@ export class DeleteCatResponse {
 
   @Field(() => String, { description: '操作结果消息' })
   message!: string;
-
-  @Field(() => Int, { description: '被删除的 Cat ID', nullable: true })
-  deletedId?: number;
 }

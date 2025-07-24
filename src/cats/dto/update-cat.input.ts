@@ -1,4 +1,4 @@
-import { Field, InputType, Int, PartialType } from '@nestjs/graphql';
+import { Field, ID, InputType, PartialType } from '@nestjs/graphql';
 import { IsInt, IsPositive } from 'class-validator';
 import { CreateCatInput } from './create-cat.input';
 
@@ -23,7 +23,7 @@ import { CreateCatInput } from './create-cat.input';
  */
 @InputType()
 export class UpdateCatInput extends PartialType(CreateCatInput) {
-  @Field(() => Int, { description: 'Cat 的唯一标识符' })
+  @Field(() => ID, { description: 'Cat 的唯一标识符' })
   @IsInt({ message: 'ID 必须是整数' })
   @IsPositive({ message: 'ID 必须是正整数' })
   id!: number;

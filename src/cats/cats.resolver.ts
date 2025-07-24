@@ -1,22 +1,25 @@
 import { Args, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { CatsService } from './cats.service';
 import { CatArgs } from './dto/cat.args';
+import { CatDto } from './dto/cat.dto';
 import { CatsArgs } from './dto/cats.args';
 import { CatsListResponse } from './dto/cats.list';
 import { CreateCatInput } from './dto/create-cat.input';
-import { DeleteCatInput, DeleteCatResponse } from './dto/delete-cat.input';
+import { CreateCatOutput } from './dto/create-cat.output';
+import { DeleteCatInput, DeleteCatResponse } from './dto/delete-cat';
 import { UpdateCatInput } from './dto/update-cat.input';
-import { Cat } from './entities/cat.entity';
 
-@Resolver(() => Cat)
+@Resolver()
 export class CatsResolver {
   constructor(private readonly catsService: CatsService) {}
 
   /**
    * 创建新的 Cat
    */
-  @Mutation(() => Cat, { name: 'createCat', description: '创建新的 Cat' })
-  async createCat(@Args('createCatInput') createCatInput: CreateCatInput): Promise<Cat> {
+  @Mutation(() => CreateCatOutput, { name: 'createCat', description: '创建新的 Cat' })
+  async createCat(
+    @Args('createCatInput') createCatInput: CreateCatInput,
+  ): Promise<CreateCatOutput> {
     return this.catsService.create(createCatInput);
   }
 
@@ -24,8 +27,8 @@ export class CatsResolver {
    * 更新 Cat
    * 前端传入单参数 UpdateCatInput，内部拆分为 id 和 data
    */
-  @Mutation(() => Cat, { name: 'updateCat', description: '更新指定 ID 的 Cat' })
-  async updateCat(@Args('updateCatInput') updateCatInput: UpdateCatInput): Promise<Cat> {
+  @Mutation(() => CatDto, { name: 'updateCat', description: '更新指定 ID 的 Cat' })
+  async updateCat(@Args('updateCatInput') updateCatInput: UpdateCatInput): Promise<CatDto> {
     // 拆分参数：提取 id 和其余更新数据
     const { id, ...updateData } = updateCatInput;
 
@@ -36,8 +39,8 @@ export class CatsResolver {
   /**
    * 获取所有 Cat（简单查询）
    */
-  @Query(() => [Cat], { name: 'cats', description: '获取所有 Cat' })
-  async findAll(): Promise<Cat[]> {
+  @Query(() => [CatDto], { name: 'cats', description: '获取所有 Cat' })
+  async findAll(): Promise<CatDto[]> {
     return this.catsService.findAll();
   }
 
@@ -64,8 +67,8 @@ export class CatsResolver {
   /**
    * 根据 ID 查询单个 Cat
    */
-  @Query(() => Cat, { name: 'cat', description: '根据 ID 查询 Cat' })
-  async findOne(@Args() args: CatArgs): Promise<Cat> {
+  @Query(() => CatDto, { name: 'cat', description: '根据 ID 查询 Cat' })
+  async findOne(@Args() args: CatArgs): Promise<CatDto> {
     return this.catsService.findOne(args.id);
   }
 
@@ -81,7 +84,6 @@ export class CatsResolver {
     return {
       success: result.success,
       message: result.message,
-      deletedId: result.deletedId,
     };
   }
 }

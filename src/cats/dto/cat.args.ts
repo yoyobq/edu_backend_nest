@@ -1,4 +1,4 @@
-import { ArgsType, Field, Int } from '@nestjs/graphql';
+import { ArgsType, Field, ID } from '@nestjs/graphql';
 import { IsInt, IsPositive } from 'class-validator';
 
 /**
@@ -7,7 +7,7 @@ import { IsInt, IsPositive } from 'class-validator';
  */
 @ArgsType()
 export class CatArgs {
-  @Field(() => Int, {
+  @Field(() => ID, {
     description: 'Cat 的唯一标识符',
   })
   @IsInt({ message: 'ID 必须是整数' })
