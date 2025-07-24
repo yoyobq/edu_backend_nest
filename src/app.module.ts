@@ -18,12 +18,6 @@ import { MiddlewareModule } from './middleware/middleware.module';
 import { AccountModule } from './modules/account/account.module';
 import { AuthModule } from './modules/auth/auth.module';
 // import { FormatResponseMiddleware } from './middleware/format-response.middleware';
-// 强制加载所有 GraphQL 类型和枚举定义，避免 tree-shaking 导致 schema 构建失败
-import './modules/account/graphql/enums/account-status.enum';
-import './modules/account/graphql/enums/gender.enum';
-import './modules/account/graphql/enums/identity-type.enum';
-import './modules/account/graphql/enums/user-state.enum';
-import './modules/account/graphql/types/login-history.types'; // LoginHistoryItem
 
 @Module({
   imports: [
