@@ -22,10 +22,10 @@ registerEnumType(CatStatus, {
 
 @Entity('z_test_cats')
 export class Cat {
-  @PrimaryGeneratedColumn()
+  @PrimaryGeneratedColumn({ type: 'int' })
   id!: number;
 
-  @Column({ length: 100, nullable: true })
+  @Column({ type: 'varchar', length: 100, nullable: true })
   name?: string;
 
   @Column({ type: 'enum', enum: CatStatus, default: CatStatus.ACTIVE })
@@ -33,9 +33,9 @@ export class Cat {
   // 时间久了很容易忘记为什么两边对数据的要求不一致，所以建议在 create 或者 update status 传值时，强制服务端传给定值
   status!: CatStatus;
 
-  @CreateDateColumn({ name: 'createdAt' })
+  @CreateDateColumn({ type: 'datetime', name: 'createdAt' })
   createdAt!: Date;
 
-  @UpdateDateColumn({ name: 'updatedAt' })
+  @UpdateDateColumn({ type: 'datetime', name: 'updatedAt' })
   updatedAt!: Date;
 }

@@ -13,7 +13,7 @@ import { AccountEntity } from './account.entity';
 
 @Entity('member_students')
 export class StudentEntity {
-  @PrimaryGeneratedColumn()
+  @PrimaryGeneratedColumn({ type: 'int' })
   id!: number;
 
   @Column({ name: 'account_id', type: 'int', unique: true })

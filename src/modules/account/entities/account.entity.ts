@@ -14,7 +14,7 @@ import { UserInfoEntity } from './user-info.entity';
 
 @Entity('base_user_accounts')
 export class AccountEntity {
-  @PrimaryGeneratedColumn({ comment: 'primary key' })
+  @PrimaryGeneratedColumn({ type: 'int', comment: 'primary key' })
   id!: number;
 
   // 此处的 ! 并非非空断言，而是代表此属性交给 TypeORM 来填值，它的值可能是 string 或 null，但它一定会被初始化
