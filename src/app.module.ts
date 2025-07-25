@@ -57,7 +57,7 @@ import { AuthModule } from './modules/auth/auth.module';
         // 自动加载 entities
         autoLoadEntities: true,
         // 实体文件路径
-        entities: [__dirname + '/**/*.entity{.ts,.js}'],
+        // entities: [__dirname + '/**/*.entity{.ts,.js}'],
       }),
     }),
     // GraphQL 配置
