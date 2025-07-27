@@ -29,3 +29,14 @@ export enum LoginTypeEnum {
   SMS = 'SMS',
   WECHAT = 'WECHAT',
 }
+
+/**
+ * 第三方登录提供商枚举
+ */
+export enum ThirdPartyProviderEnum {
+  WECHAT = 'WECHAT',
+  QQ = 'QQ',
+  GOOGLE = 'GOOGLE',
+  GITHUB = 'GITHUB',
+  APPLE = 'APPLE',
+}

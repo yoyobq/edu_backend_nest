@@ -2,6 +2,7 @@ import {
   Column,
   CreateDateColumn,
   Entity,
+  OneToMany,
   OneToOne,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
@@ -10,6 +11,7 @@ import { AccountStatus } from '../../../types/models/account.types';
 import '../graphql/enums/account-status.enum';
 import '../graphql/enums/identity-type.enum';
 import { LoginHistoryItem } from '../graphql/types/login-history.types';
+import { ThirdPartyAuthEntity } from './third-party-auth.entity';
 import { UserInfoEntity } from './user-info.entity';
 
 @Entity('base_user_accounts')
@@ -59,6 +61,15 @@ export class AccountEntity {
    */
   @OneToOne(() => UserInfoEntity, (userInfo) => userInfo.account)
   userInfo?: UserInfoEntity;
+
+  /**
+   * 第三方登录绑定关联
+   * 一对多关系
+   */
+  @OneToMany(() => ThirdPartyAuthEntity, (thirdPartyAuth) => thirdPartyAuth.account, {
+    eager: false,
+  })
+  thirdPartyAuths?: ThirdPartyAuthEntity[];
 
   @CreateDateColumn({ name: 'created_at', type: 'datetime', comment: 'created time' })
   createdAt!: Date;
