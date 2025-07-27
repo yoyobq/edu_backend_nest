@@ -5,9 +5,9 @@ import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
 import { PinoLogger } from 'nestjs-pino';
 import { ExtractJwt, JwtFromRequestFunction, Strategy } from 'passport-jwt';
+import { TokenHelper } from '../../../core/common/token/token.helper';
 import { JwtPayload } from '../../../types/jwt.types';
 import { AccountService } from '../../account/account.service';
-import { TokenHelper } from '../../common/token/token.helper';
 
 /**
  * JWT 认证策略

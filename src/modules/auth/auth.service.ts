@@ -2,8 +2,8 @@
 
 import { Injectable } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
+import { TokenHelper } from '../../core/common/token/token.helper';
 import { AccountService } from '../account/account.service';
-import { TokenHelper } from '../common/token/token.helper';
 import { AuthLoginResult } from './dto/auth-login-result.dto';
 import { AuthLoginArgs } from './dto/auth.args';
 
