@@ -17,6 +17,7 @@ import { LoggerModule } from './logger/logger.module';
 import { MiddlewareModule } from './middleware/middleware.module';
 import { AccountModule } from './modules/account/account.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { EncryptionModule } from './modules/common/encryption/encryption.module';
 // import { FormatResponseMiddleware } from './middleware/format-response.middleware';
 
 @Module({
@@ -74,6 +75,7 @@ import { AuthModule } from './modules/auth/auth.module';
           plugins: [ApolloServerPluginLandingPageLocalDefault()],
         }) satisfies ApolloDriverConfig,
     }),
+    EncryptionModule,
     CatsModule,
     AccountModule,
     AuthModule,
