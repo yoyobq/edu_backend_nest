@@ -3,7 +3,7 @@
 import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { LoggerModule } from 'nestjs-pino';
-import { TokenHelper } from './token.helper';
+import { TokenHelper } from './token/token.helper';
 
 @Module({
   imports: [

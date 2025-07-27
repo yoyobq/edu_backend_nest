@@ -1,4 +1,4 @@
-// src/modules/common/token.helper.ts
+// src/modules/common/token/token.helper.ts
 
 import { Injectable } from '@nestjs/common';
 import { JsonWebTokenError, JwtService, NotBeforeError, TokenExpiredError } from '@nestjs/jwt';
@@ -7,7 +7,7 @@ import {
   GenerateAccessTokenParams,
   GenerateRefreshTokenParams,
   JwtPayload,
-} from '../../types/jwt.types';
+} from '../../../types/jwt.types';
 
 /**
  * Token 助手类
@@ -179,20 +179,30 @@ export class TokenHelper {
 
   /**
    * 从用户信息生成标准的 JWT Payload
-   * @param user 用户信息
+   * @param params 对象参数
+   * @param params.id 用户 ID
+   * @param params.loginName 登录名
+   * @param params.loginEmail 登录邮箱
+   * @param params.accessGroup 访问组
+   * @param params.type Token 类型
    * @returns JWT Payload
    */
-  createPayloadFromUser(user: {
+  createPayloadFromUser({
+    id,
+    loginName,
+    loginEmail,
+    accessGroup,
+  }: {
     id: number;
     loginName: string;
     loginEmail: string;
     accessGroup: string[];
   }): Pick<JwtPayload, 'sub' | 'username' | 'email' | 'accessGroup'> {
     const payload: Pick<JwtPayload, 'sub' | 'username' | 'email' | 'accessGroup'> = {
-      sub: user.id,
-      username: user.loginName,
-      email: user.loginEmail,
-      accessGroup: user.accessGroup,
+      sub: id,
+      username: loginName,
+      email: loginEmail,
+      accessGroup: accessGroup,
     };
     return payload;
   }

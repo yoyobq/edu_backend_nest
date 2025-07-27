@@ -11,7 +11,7 @@ import {
   GenerateAccessTokenParams,
   GenerateRefreshTokenParams,
   JwtPayload,
-} from '../../types/jwt.types';
+} from '../../../types/jwt.types';
 import { TokenHelper } from './token.helper';
 
 describe('TokenHelper', () => {
