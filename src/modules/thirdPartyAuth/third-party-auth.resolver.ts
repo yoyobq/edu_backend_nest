@@ -7,10 +7,10 @@ import { AuthLoginResult } from '../auth/dto/auth-login-result.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { currentUser } from '../common/decorators/current-user.decorator';
 import { BindThirdPartyInput } from './dto/bind-third-party.input';
+import { ThirdPartyAuthOutput } from './dto/third-party-auth.dto';
 import { ThirdPartyLoginInput } from './dto/third-party-login.input';
 import { UnbindThirdPartyInput } from './dto/unbind-third-party.input';
 import { ThirdPartyAuthService } from './third-party-auth.service';
-import { ThirdPartyAuthOutput } from './dto/third-party-auth.dto';
 
 /**
  * 第三方登录 GraphQL Resolver
@@ -62,7 +62,7 @@ export class ThirdPartyAuthResolver {
    * @param user 当前用户信息
    * @returns 绑定结果
    */
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+
   @UseGuards(JwtAuthGuard)
   @Mutation(() => ThirdPartyAuthOutput, { description: '绑定第三方账户' })
   async bindThirdParty(
@@ -78,7 +78,7 @@ export class ThirdPartyAuthResolver {
    * @param user 当前用户信息
    * @returns 解绑结果
    */
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+
   @UseGuards(JwtAuthGuard)
   @Mutation(() => Boolean, { description: '解绑第三方账户' })
   async unbindThirdParty(
@@ -93,7 +93,7 @@ export class ThirdPartyAuthResolver {
    * @param user 当前用户信息
    * @returns 第三方绑定列表
    */
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+
   @UseGuards(JwtAuthGuard)
   @Query(() => [ThirdPartyAuthOutput], { description: '获取我的第三方绑定列表' })
   async myThirdPartyAuths(@currentUser() user: JwtPayload): Promise<ThirdPartyAuthOutput[]> {

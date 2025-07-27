@@ -12,13 +12,13 @@ import { PinoLogger } from 'nestjs-pino';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { CatsModule } from './cats/cats.module';
-import { AppConfigModule } from './config/config.module';
-import { LoggerModule } from './logger/logger.module';
-import { MiddlewareModule } from './middleware/middleware.module';
+import { AppConfigModule } from './core/config/config.module';
+import { LoggerModule } from './core/logger/logger.module';
+import { MiddlewareModule } from './core/middleware/middleware.module';
 import { AccountModule } from './modules/account/account.module';
 import { AuthModule } from './modules/auth/auth.module';
-import { ThirdPartyAuthModule } from './modules/thirdPartyAuth/third-party-auth.module';
 import { EncryptionModule } from './modules/common/encryption/encryption.module';
+import { ThirdPartyAuthModule } from './modules/thirdPartyAuth/third-party-auth.module';
 // import { FormatResponseMiddleware } from './middleware/format-response.middleware';
 
 @Module({

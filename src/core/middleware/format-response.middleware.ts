@@ -4,7 +4,7 @@
 import { Injectable, NestMiddleware } from '@nestjs/common';
 import { NextFunction, Request, Response } from 'express';
 import { GraphQLError } from 'graphql';
-import { ApiResponse, ShowType } from '../types/response.types';
+import { ApiResponse, ShowType } from '../../types/response.types';
 
 /**
  * HTTP 响应格式化中间件
