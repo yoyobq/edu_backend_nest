@@ -2,7 +2,6 @@
 import { UseGuards } from '@nestjs/common';
 import { Args, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { JwtPayload } from '../../types/jwt.types';
-import { ThirdPartyAuthEntity } from '../account/entities/third-party-auth.entity';
 import { AuthService } from '../auth/auth.service';
 import { AuthLoginResult } from '../auth/dto/auth-login-result.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -11,6 +10,7 @@ import { BindThirdPartyInput } from './dto/bind-third-party.input';
 import { ThirdPartyLoginInput } from './dto/third-party-login.input';
 import { UnbindThirdPartyInput } from './dto/unbind-third-party.input';
 import { ThirdPartyAuthService } from './third-party-auth.service';
+import { ThirdPartyAuthOutput } from './dto/third-party-auth.dto';
 
 /**
  * 第三方登录 GraphQL Resolver
@@ -64,11 +64,11 @@ export class ThirdPartyAuthResolver {
    */
   // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
   @UseGuards(JwtAuthGuard)
-  @Mutation(() => ThirdPartyAuthEntity, { description: '绑定第三方账户' })
+  @Mutation(() => ThirdPartyAuthOutput, { description: '绑定第三方账户' })
   async bindThirdParty(
     @Args('input') input: BindThirdPartyInput,
     @currentUser() user: JwtPayload,
-  ): Promise<ThirdPartyAuthEntity> {
+  ): Promise<ThirdPartyAuthOutput> {
     return await this.thirdPartyAuthService.bindThirdParty(user.sub, input);
   }
 
@@ -95,8 +95,8 @@ export class ThirdPartyAuthResolver {
    */
   // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
   @UseGuards(JwtAuthGuard)
-  @Query(() => [ThirdPartyAuthEntity], { description: '获取我的第三方绑定列表' })
-  async myThirdPartyAuths(@currentUser() user: JwtPayload): Promise<ThirdPartyAuthEntity[]> {
+  @Query(() => [ThirdPartyAuthOutput], { description: '获取我的第三方绑定列表' })
+  async myThirdPartyAuths(@currentUser() user: JwtPayload): Promise<ThirdPartyAuthOutput[]> {
     return await this.thirdPartyAuthService.getThirdPartyAuths(user.sub);
   }
 }

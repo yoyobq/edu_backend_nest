@@ -17,6 +17,7 @@ import { LoggerModule } from './logger/logger.module';
 import { MiddlewareModule } from './middleware/middleware.module';
 import { AccountModule } from './modules/account/account.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { ThirdPartyAuthModule } from './modules/thirdPartyAuth/third-party-auth.module';
 import { EncryptionModule } from './modules/common/encryption/encryption.module';
 // import { FormatResponseMiddleware } from './middleware/format-response.middleware';
 
@@ -79,6 +80,7 @@ import { EncryptionModule } from './modules/common/encryption/encryption.module'
     CatsModule,
     AccountModule,
     AuthModule,
+    ThirdPartyAuthModule,
   ],
   controllers: [AppController],
   providers: [AppService],
