@@ -13,8 +13,11 @@ export class AuthLoginResult {
   @Field(() => String, { nullable: true, description: '错误信息，登录失败时返回' })
   errorMessage?: string;
 
-  @Field(() => String, { nullable: true, description: '登录成功时返回的 JWT token' })
-  token?: string;
+  @Field(() => String, { nullable: true, description: '登录成功时返回的 access token' })
+  accessToken?: string;
+
+  @Field(() => String, { nullable: true, description: '登录成功时返回的 refresh token' })
+  refreshToken?: string;
 
   @Field(() => ID, { nullable: true, description: '用户 ID，登录成功时返回' })
   userId?: number;

@@ -25,7 +25,7 @@ export type JwtPayload = {
   username: string; // 用户名
   email: string; // 邮箱
   accessGroup: string[]; // 角色或分组
-  type: 'access' | 'refresh';
+  type?: 'access' | 'refresh';
   tokenVersion?: number; // Refresh 控制用
   // 自动管理字段
   iat?: number; // 签发时间

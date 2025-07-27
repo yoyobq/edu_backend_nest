@@ -40,3 +40,13 @@ export enum ThirdPartyProviderEnum {
   GITHUB = 'GITHUB',
   APPLE = 'APPLE',
 }
+
+/**
+ * 包含访问组的账户信息
+ */
+export type AccountWithAccessGroup = {
+  id: number;
+  loginName: string;
+  loginEmail: string;
+  accessGroup: string[];
+};
