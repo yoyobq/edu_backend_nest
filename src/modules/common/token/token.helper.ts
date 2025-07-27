@@ -124,7 +124,7 @@ export class TokenHelper {
             tokenPrefix: token.substring(0, 20) + '...', // 只记录 token 前缀，避免泄露完整 token
             timestamp: new Date().toISOString(),
           },
-          'JWT Token 验证失败 - 关注潜在的安全问题',
+          'JWT Token 手动验证失败 - 关注潜在的安全问题',
         );
       }
 

@@ -264,7 +264,7 @@ describe('TokenHelper', () => {
           tokenPrefix: mockToken.substring(0, 20) + '...',
           timestamp: expect.any(String),
         },
-        'JWT Token 验证失败 - 关注潜在的安全问题',
+        'JWT Token 手动验证失败 - 关注潜在的安全问题',
       );
     });
 
@@ -285,7 +285,7 @@ describe('TokenHelper', () => {
           tokenPrefix: mockToken.substring(0, 20) + '...',
           timestamp: expect.any(String),
         },
-        'JWT Token 验证失败 - 关注潜在的安全问题',
+        'JWT Token 手动验证失败 - 关注潜在的安全问题',
       );
     });
 
