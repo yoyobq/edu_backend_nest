@@ -1,19 +1,14 @@
 // src/modules/account/account.service.ts
 
-import { Injectable } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { AccountStatus } from 'src/types/models/account.types';
 import { Repository } from 'typeorm';
+import { AccountWithAccessGroup } from '../../types/models/account.types';
 import { AuthLoginArgs } from '../auth/dto/auth.args';
 import { AccountEntity } from './entities/account.entity';
+import { UserInfoEntity } from './entities/user-info.entity';
 import { LoginHistoryItem } from './graphql/types';
-
-// 删除这个重复的接口定义
-// export interface LoginHistoryRecord {
-//   ip?: string;
-//   timestamp: string;
-//   audience?: string;
-// }
 
 /**
  * 账户服务
@@ -23,6 +18,8 @@ export class AccountService {
   constructor(
     @InjectRepository(AccountEntity)
     private readonly accountRepository: Repository<AccountEntity>,
+    @InjectRepository(UserInfoEntity)
+    private readonly userInfoRepository: Repository<UserInfoEntity>,
   ) {}
 
   /**
@@ -31,9 +28,7 @@ export class AccountService {
    * @returns 验证通过的账户信息
    * @throws 验证失败时抛出错误
    */
-  async validateLogin(args: AuthLoginArgs): Promise<AccountEntity> {
-    const { loginName, loginPassword } = args;
-
+  async validateLogin({ loginName, loginPassword }: AuthLoginArgs): Promise<AccountEntity> {
     // 根据登录名或邮箱查找账户
     const account = await this.accountRepository
       .createQueryBuilder('account')
@@ -56,6 +51,41 @@ export class AccountService {
     }
 
     return account;
+  }
+
+  /**
+   * 获取用户完整信息（包括 accessGroup）
+   * @param accountId 账户 ID
+   * @returns 包含用户详细信息的账户数据
+   * @throws 用户不存在时抛出错误
+   */
+  async getUserWithAccessGroup({
+    accountId,
+  }: {
+    accountId: number;
+  }): Promise<AccountWithAccessGroup> {
+    // 查询账户基本信息
+    const account = await this.accountRepository.findOne({
+      where: { id: accountId },
+      select: ['id', 'loginName', 'loginEmail'],
+    });
+
+    if (!account) {
+      throw new UnauthorizedException('账户不存在');
+    }
+
+    // 查询用户详细信息获取 accessGroup
+    const userInfo = await this.userInfoRepository.findOne({
+      where: { accountId },
+      select: ['accessGroup'],
+    });
+
+    return {
+      id: account.id,
+      loginName: account.loginName || '',
+      loginEmail: account.loginEmail || '',
+      accessGroup: userInfo?.accessGroup || ['guest'],
+    };
   }
 
   /**

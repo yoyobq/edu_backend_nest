@@ -2,7 +2,7 @@
 
 import { ArgsType, Field } from '@nestjs/graphql';
 import { IsEnum, IsNotEmpty, IsOptional, IsString } from 'class-validator';
-import { LoginTypeEnum } from 'src/types/models/account.types';
+import { LoginTypeEnum } from '../../../types/models/account.types';
 
 /**
  * 用户登录参数

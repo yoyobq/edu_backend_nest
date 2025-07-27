@@ -1,8 +1,9 @@
 // src/modules/auth/auth.service.ts
 
 import { Injectable } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
+import { PinoLogger } from 'nestjs-pino';
 import { AccountService } from '../account/account.service';
+import { TokenHelper } from '../common/token/token.helper';
 import { AuthLoginResult } from './dto/auth-login-result.dto';
 import { AuthLoginArgs } from './dto/auth.args';
 
@@ -13,36 +14,141 @@ import { AuthLoginArgs } from './dto/auth.args';
 export class AuthService {
   constructor(
     private readonly accountService: AccountService,
-    private readonly jwtService: JwtService,
-  ) {}
+    private readonly tokenHelper: TokenHelper,
+    private readonly logger: PinoLogger,
+  ) {
+    this.logger.setContext(AuthService.name);
+  }
 
   /**
    * 用户登录认证
    * @param args 登录参数
    * @returns 登录结果
    */
-  async login(args: AuthLoginArgs): Promise<AuthLoginResult> {
+  async login({ loginName, loginPassword, ip, audience }: AuthLoginArgs): Promise<AuthLoginResult> {
     try {
       // 验证登录信息
-      const account = await this.accountService.validateLogin(args);
+      const account = await this.accountService.validateLogin({ loginName, loginPassword });
+
+      // 获取用户完整信息（包括 accessGroup）
+      const userWithAccessGroup = await this.accountService.getUserWithAccessGroup({
+        accountId: account.id,
+      });
 
       // 记录登录历史
-      // 在 login 方法中，修改 recordLoginHistory 的调用
       const timestamp = new Date().toISOString();
-      await this.accountService.recordLoginHistory(account.id, timestamp, args.ip, args.audience);
+      await this.accountService.recordLoginHistory(account.id, timestamp, ip, audience);
 
-      // 生成 JWT token
-      const token = this.jwtService.sign({ sub: account.id });
+      // 创建 JWT payload
+      const payload = this.tokenHelper.createPayloadFromUser({ ...userWithAccessGroup });
+
+      // 生成 access token
+      const accessToken = this.tokenHelper.generateAccessToken({ payload });
+
+      // 生成 refresh token
+      const refreshToken = this.tokenHelper.generateRefreshToken({ payload });
+
+      this.logger.info(
+        {
+          userId: account.id,
+          loginName: userWithAccessGroup.loginName,
+          accessGroup: userWithAccessGroup.accessGroup,
+          ip,
+          audience,
+        },
+        '用户登录成功',
+      );
 
       return {
         success: true,
-        token,
+        accessToken,
+        refreshToken,
         userId: account.id,
       };
     } catch (error) {
+      this.logger.error(
+        {
+          loginName,
+          ip,
+          audience,
+          error: error instanceof Error ? error.message : '未知错误',
+        },
+        '用户登录失败',
+      );
+
       return {
         success: false,
         errorMessage: error instanceof Error ? error.message : '登录失败',
+      };
+    }
+  }
+
+  /**
+   * 通过账户 ID 进行登录（用于第三方登录）
+   * @param accountId 账户 ID
+   * @param ip 登录 IP
+   * @param audience 客户端类型
+   * @returns 登录结果
+   */
+  async loginByAccountId({
+    accountId,
+    ip,
+    audience,
+  }: {
+    accountId: number;
+    ip?: string;
+    audience?: string;
+  }): Promise<AuthLoginResult> {
+    try {
+      // 获取用户完整信息（包括 accessGroup）
+      const userWithAccessGroup = await this.accountService.getUserWithAccessGroup({
+        accountId,
+      });
+
+      // 记录登录历史
+      const timestamp = new Date().toISOString();
+      await this.accountService.recordLoginHistory(accountId, timestamp, ip, audience);
+
+      // 创建 JWT payload
+      const payload = this.tokenHelper.createPayloadFromUser({ ...userWithAccessGroup });
+
+      // 生成 access token
+      const accessToken = this.tokenHelper.generateAccessToken({ payload });
+
+      // 生成 refresh token
+      const refreshToken = this.tokenHelper.generateRefreshToken({ payload });
+
+      this.logger.info(
+        {
+          userId: accountId,
+          loginName: userWithAccessGroup.loginName,
+          accessGroup: userWithAccessGroup.accessGroup,
+          ip,
+          audience,
+        },
+        '第三方登录成功',
+      );
+
+      return {
+        success: true,
+        accessToken,
+        refreshToken,
+        userId: accountId,
+      };
+    } catch (error) {
+      this.logger.error(
+        {
+          accountId,
+          ip,
+          audience,
+          error: error instanceof Error ? error.message : '未知错误',
+        },
+        '第三方登录失败',
+      );
+
+      return {
+        success: false,
+        errorMessage: error instanceof Error ? error.message : '第三方登录失败',
       };
     }
   }
