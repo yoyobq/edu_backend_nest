@@ -7,18 +7,12 @@ import { Field, ID, ObjectType } from '@nestjs/graphql';
  */
 @ObjectType({ description: '用户登录结果' })
 export class AuthLoginResult {
-  @Field(() => Boolean, { description: '是否登录成功' })
-  success!: boolean;
+  @Field(() => String, { description: '登录成功时返回的 access token' })
+  accessToken!: string;
 
-  @Field(() => String, { nullable: true, description: '错误信息，登录失败时返回' })
-  errorMessage?: string;
+  @Field(() => String, { description: '登录成功时返回的 refresh token' })
+  refreshToken!: string;
 
-  @Field(() => String, { nullable: true, description: '登录成功时返回的 access token' })
-  accessToken?: string;
-
-  @Field(() => String, { nullable: true, description: '登录成功时返回的 refresh token' })
-  refreshToken?: string;
-
-  @Field(() => ID, { nullable: true, description: '用户 ID，登录成功时返回' })
-  userId?: number;
+  @Field(() => ID, { description: '用户 ID' })
+  userId!: number;
 }

@@ -1,6 +1,6 @@
 // src/modules/auth/auth.service.ts
 
-import { Injectable } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { TokenHelper } from '../../core/common/token/token.helper';
 import { AccountService } from '../account/account.service';
@@ -24,6 +24,7 @@ export class AuthService {
    * 用户登录认证
    * @param args 登录参数
    * @returns 登录结果
+   * @throws UnauthorizedException 登录失败时抛出异常
    */
   async login({ loginName, loginPassword, ip, audience }: AuthLoginArgs): Promise<AuthLoginResult> {
     try {
@@ -60,7 +61,6 @@ export class AuthService {
       );
 
       return {
-        success: true,
         accessToken,
         refreshToken,
         userId: account.id,
@@ -76,10 +76,7 @@ export class AuthService {
         '用户登录失败',
       );
 
-      return {
-        success: false,
-        errorMessage: error instanceof Error ? error.message : '登录失败',
-      };
+      throw new UnauthorizedException(error instanceof Error ? error.message : '登录失败');
     }
   }
 
@@ -89,6 +86,7 @@ export class AuthService {
    * @param ip 登录 IP
    * @param audience 客户端类型
    * @returns 登录结果
+   * @throws UnauthorizedException 登录失败时抛出异常
    */
   async loginByAccountId({
     accountId,
@@ -130,7 +128,6 @@ export class AuthService {
       );
 
       return {
-        success: true,
         accessToken,
         refreshToken,
         userId: accountId,
@@ -146,10 +143,7 @@ export class AuthService {
         '第三方登录失败',
       );
 
-      return {
-        success: false,
-        errorMessage: error instanceof Error ? error.message : '第三方登录失败',
-      };
+      throw new UnauthorizedException(error instanceof Error ? error.message : '第三方登录失败');
     }
   }
 }
