@@ -1,4 +1,4 @@
-// test/auth/auth.e2e-spec.ts
+// test/01-auth/auth.e2e-spec.ts
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
@@ -6,7 +6,11 @@ import { App } from 'supertest/types';
 import { DataSource, In } from 'typeorm';
 import { AppModule } from '../../src/app.module';
 import { AccountEntity } from '../../src/modules/account/entities/account.entity';
-import { AccountStatus, LoginTypeEnum } from '../../src/types/models/account.types';
+import {
+  AccountStatus,
+  AudienceTypeEnum,
+  LoginTypeEnum,
+} from '../../src/types/models/account.types';
 
 /**
  * Auth 模块 E2E 测试
@@ -45,7 +49,7 @@ describe('Auth (e2e)', () => {
     if (!global.testDataSource.isInitialized) {
       throw new Error('全局测试数据源未初始化完成。请检查 global-setup-e2e.ts 中的初始化逻辑。');
     }
-
+    console.log('💡测试账号存在？', testAccounts !== null);
     // 直接使用全局数据源
     dataSource = global.testDataSource;
 
@@ -132,30 +136,36 @@ describe('Auth (e2e)', () => {
     loginName: string,
     loginPassword: string,
     type = LoginTypeEnum.PASSWORD,
+    audience = AudienceTypeEnum.DESKTOP, // 添加默认的 audience 参数
+    ip?: string,
   ) => {
-    console.log('🚀 登录请求参数:', { loginName, loginPassword, type });
+    console.log('🚀 登录请求参数:', { loginName, loginPassword, type, audience, ip });
 
     const response = await request(app.getHttpServer())
       .post('/graphql')
       .send({
         query: `
-          mutation Login($loginName: String!, $loginPassword: String!, $type: String) {
-            login(loginName: $loginName, loginPassword: $loginPassword, type: $type) {
-              success
-              errorMessage
-              token
+          mutation Login($input: AuthLoginInput!) {
+            login(input: $input) {
+              accessToken
+              refreshToken
               userId
             }
           }
         `,
         variables: {
-          loginName,
-          loginPassword,
-          type,
+          input: {
+            loginName,
+            loginPassword,
+            type,
+            audience,
+            ip,
+          },
         },
       })
       .expect(200);
 
+    console.dir(response.body, { depth: null });
     console.log('📥 登录响应:', JSON.stringify(response.body, null, 2));
     return response;
   };
@@ -171,10 +181,11 @@ describe('Auth (e2e)', () => {
       );
 
       const { data } = response.body;
-      expect(data?.login.success).toBe(true);
       expect(data?.login.userId).toBeDefined();
-      expect(data?.login.token).toBeDefined();
-      expect(data?.login.errorMessage).toBeUndefined();
+      expect(data?.login.accessToken).toBeDefined();
+      expect(data?.login.refreshToken).toBeDefined();
+      expect(typeof data?.login.accessToken).toBe('string');
+      expect(typeof data?.login.refreshToken).toBe('string');
     });
 
     /**
@@ -187,10 +198,11 @@ describe('Auth (e2e)', () => {
       );
 
       const { data } = response.body;
-      expect(data?.login.success).toBe(true);
       expect(data?.login.userId).toBeDefined();
-      expect(data?.login.token).toBeDefined();
-      expect(data?.login.errorMessage).toBeUndefined();
+      expect(data?.login.accessToken).toBeDefined();
+      expect(data?.login.refreshToken).toBeDefined();
+      expect(typeof data?.login.accessToken).toBe('string');
+      expect(typeof data?.login.refreshToken).toBe('string');
     });
   });
 
@@ -201,9 +213,9 @@ describe('Auth (e2e)', () => {
     it('应该正确处理账户不存在的情况', async () => {
       const response = await performLogin('nonexistent', 'password123');
 
-      const { data } = response.body;
-      expect(data?.login.success).toBe(false);
-      expect(data?.login.errorMessage).toBe('账户不存在');
+      const { errors } = response.body;
+      expect(errors).toBeDefined();
+      expect(errors?.[0]?.message).toContain('账户不存在');
     });
 
     /**
@@ -215,9 +227,9 @@ describe('Auth (e2e)', () => {
         testAccounts.bannedUser.loginPassword,
       );
 
-      const { data } = response.body;
-      expect(data?.login.success).toBe(false);
-      expect(data?.login.errorMessage).toBe('账户已被禁用');
+      const { errors } = response.body;
+      expect(errors).toBeDefined();
+      expect(errors?.[0]?.message).toContain('账户已被禁用');
     });
 
     /**
@@ -229,9 +241,9 @@ describe('Auth (e2e)', () => {
         testAccounts.pendingUser.loginPassword,
       );
 
-      const { data } = response.body;
-      expect(data?.login.success).toBe(false);
-      expect(data?.login.errorMessage).toBe('账户已被禁用');
+      const { errors } = response.body;
+      expect(errors).toBeDefined();
+      expect(errors?.[0]?.message).toContain('账户已被禁用');
     });
   });
 
@@ -242,9 +254,9 @@ describe('Auth (e2e)', () => {
     it('应该正确处理密码错误的情况', async () => {
       const response = await performLogin(testAccounts.activeUser.loginName, 'wrongpassword');
 
-      const { data } = response.body;
-      expect(data?.login.success).toBe(false);
-      expect(data?.login.errorMessage).toBe('密码错误');
+      const { errors } = response.body;
+      expect(errors).toBeDefined();
+      expect(errors?.[0]?.message).toContain('密码错误');
     });
 
     /**
@@ -253,9 +265,9 @@ describe('Auth (e2e)', () => {
     it('应该正确处理空密码的情况', async () => {
       const response = await performLogin(testAccounts.activeUser.loginName, '');
 
-      const { data } = response.body;
-      expect(data?.login.success).toBe(false);
-      expect(data?.login.errorMessage).toBe('密码错误');
+      const { errors } = response.body;
+      expect(errors).toBeDefined();
+      expect(errors?.[0]?.message).toContain('密码错误');
     });
   });
 
@@ -266,9 +278,9 @@ describe('Auth (e2e)', () => {
     it('应该正确处理空用户名的情况', async () => {
       const response = await performLogin('', 'password123');
 
-      const { data } = response.body;
-      expect(data?.login.success).toBe(false);
-      expect(data?.login.errorMessage).toBe('账户不存在');
+      const { errors } = response.body;
+      expect(errors).toBeDefined();
+      expect(errors?.[0]?.message).toContain('账户不存在');
     });
 
     /**
@@ -281,8 +293,9 @@ describe('Auth (e2e)', () => {
           query: `
             mutation Login {
               login {
-                success
-                errorMessage
+                accessToken
+                refreshToken
+                userId
               }
             }
           `,
@@ -291,7 +304,7 @@ describe('Auth (e2e)', () => {
 
       const { errors } = response.body;
       expect(errors).toBeDefined();
-      expect(errors?.[0]?.message).toContain('loginName');
+      expect(errors?.[0]?.message).toContain('input');
     });
   });
 
@@ -311,7 +324,7 @@ describe('Auth (e2e)', () => {
       );
 
       const { data } = response.body;
-      expect(data?.login.userId).toBe(account?.id);
+      expect(data?.login.userId).toBe(account?.id.toString());
     });
 
     /**
@@ -324,12 +337,16 @@ describe('Auth (e2e)', () => {
       );
 
       const { data } = response.body;
-      const token = data?.login.token;
+      const accessToken = data?.login.accessToken;
+      const refreshToken = data?.login.refreshToken;
 
-      expect(token).toBeDefined();
-      expect(typeof token).toBe('string');
+      expect(accessToken).toBeDefined();
+      expect(refreshToken).toBeDefined();
+      expect(typeof accessToken).toBe('string');
+      expect(typeof refreshToken).toBe('string');
       // 简单验证 JWT 格式（三个部分用 . 分隔）
-      expect(token.split('.')).toHaveLength(3);
+      expect(accessToken.split('.')).toHaveLength(3);
+      expect(refreshToken.split('.')).toHaveLength(3);
     });
   });
 });
