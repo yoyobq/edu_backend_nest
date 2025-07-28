@@ -5,9 +5,7 @@ import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo';
 import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { GraphQLModule } from '@nestjs/graphql';
-import { JwtModule } from '@nestjs/jwt';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { Algorithm } from 'jsonwebtoken';
 import { PinoLogger } from 'nestjs-pino';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -26,20 +24,6 @@ import { ThirdPartyAuthModule } from './modules/thirdPartyAuth/third-party-auth.
     AppConfigModule,
     LoggerModule,
     MiddlewareModule, // 添加中间件模块
-    // JWT 配置
-    JwtModule.registerAsync({
-      inject: [ConfigService],
-      useFactory: (config: ConfigService) => ({
-        secret: config.get<string>('jwt.secret'),
-        signOptions: {
-          expiresIn: config.get<string>('jwt.expiresIn'),
-          algorithm: config.get<string>('jwt.algorithm') as Algorithm,
-          issuer: config.get<string>('jwt.issuer'),
-          audience: config.get<string>('jwt.audience'),
-        },
-      }),
-    }),
-
     // TypeORM MySQL 8.0 配置
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],
