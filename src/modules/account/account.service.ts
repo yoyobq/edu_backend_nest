@@ -5,7 +5,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { AccountStatus } from 'src/types/models/account.types';
 import { Repository } from 'typeorm';
 import { AccountWithAccessGroup } from '../../types/models/account.types';
-import { AuthLoginArgs } from '../auth/dto/auth.args';
+import { AuthLoginInput } from '../auth/dto/auth-login.input';
 import { AccountEntity } from './entities/account.entity';
 import { UserInfoEntity } from './entities/user-info.entity';
 import { LoginHistoryItem } from './graphql/types';
@@ -28,7 +28,10 @@ export class AccountService {
    * @returns 验证通过的账户信息
    * @throws 验证失败时抛出错误
    */
-  async validateLogin({ loginName, loginPassword }: AuthLoginArgs): Promise<AccountEntity> {
+  async validateLogin({
+    loginName,
+    loginPassword,
+  }: Pick<AuthLoginInput, 'loginName' | 'loginPassword'>): Promise<AccountEntity> {
     // 根据登录名或邮箱查找账户
     const account = await this.accountRepository
       .createQueryBuilder('account')

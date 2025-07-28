@@ -5,7 +5,7 @@ import { PinoLogger } from 'nestjs-pino';
 import { TokenHelper } from '../../core/common/token/token.helper';
 import { AccountService } from '../account/account.service';
 import { AuthLoginResult } from './dto/auth-login-result.dto';
-import { AuthLoginArgs } from './dto/auth.args';
+import { AuthLoginInput } from './dto/auth-login.input';
 
 /**
  * 认证服务
@@ -22,11 +22,16 @@ export class AuthService {
 
   /**
    * 用户登录认证
-   * @param args 登录参数
+   * @param input 登录参数
    * @returns 登录结果
    * @throws UnauthorizedException 登录失败时抛出异常
    */
-  async login({ loginName, loginPassword, ip, audience }: AuthLoginArgs): Promise<AuthLoginResult> {
+  async login({
+    loginName,
+    loginPassword,
+    ip,
+    audience,
+  }: AuthLoginInput): Promise<AuthLoginResult> {
     try {
       // 验证登录信息
       const account = await this.accountService.validateLogin({ loginName, loginPassword });

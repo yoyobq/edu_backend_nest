@@ -8,6 +8,8 @@ import { AccountModule } from '../account/account.module';
 import '../account/graphql/types/login-history.types';
 import { AuthResolver } from './auth.resolver';
 import { AuthService } from './auth.service';
+import './graphql/enums/login-type.enum';
+import './graphql/enums/audience-type.enum';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { JwtStrategy } from './strategies/jwt.strategy';
 

@@ -50,3 +50,10 @@ export type AccountWithAccessGroup = {
   loginEmail: string;
   accessGroup: string[];
 };
+
+export enum AudienceTypeEnum {
+  WECHAT = 'WECHAT',
+  MOBILE = 'MOBILE',
+  DESKTOP = 'DESKTOP',
+  API = 'API',
+}

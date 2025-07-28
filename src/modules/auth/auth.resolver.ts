@@ -3,7 +3,7 @@
 import { Args, Mutation, Resolver } from '@nestjs/graphql';
 import { AuthService } from './auth.service';
 import { AuthLoginResult } from './dto/auth-login-result.dto';
-import { AuthLoginArgs } from './dto/auth.args';
+import { AuthLoginInput } from './dto/auth-login.input';
 
 /**
  * 认证 GraphQL 解析器
@@ -14,11 +14,11 @@ export class AuthResolver {
 
   /**
    * 用户登录
-   * @param loginArgs 登录参数
+   * @param input 登录参数
    * @returns 登录结果
    */
   @Mutation(() => AuthLoginResult, { description: '用户登录' })
-  async login(@Args() loginArgs: AuthLoginArgs): Promise<AuthLoginResult> {
-    return await this.authService.login(loginArgs);
+  async login(@Args('input') input: AuthLoginInput): Promise<AuthLoginResult> {
+    return await this.authService.login(input);
   }
 }

@@ -1,14 +1,16 @@
-// src/modules/auth/dto/auth.args.ts
+// src/modules/auth/dto/auth-login.input.ts
 
-import { ArgsType, Field } from '@nestjs/graphql';
+import { Field, InputType } from '@nestjs/graphql';
 import { IsEnum, IsNotEmpty, IsOptional, IsString } from 'class-validator';
-import { LoginTypeEnum } from '../../../types/models/account.types';
+import { AudienceTypeEnum, LoginTypeEnum } from '../../../types/models/account.types';
+import '../graphql/enums/audience-type.enum';
+import '../graphql/enums/login-type.enum';
 
 /**
- * 用户登录参数
+ * 用户登录输入参数
  */
-@ArgsType()
-export class AuthLoginArgs {
+@InputType()
+export class AuthLoginInput {
   @Field(() => String, { description: '登录名或邮箱' })
   @IsString({ message: '登录名必须是字符串' })
   @IsNotEmpty({ message: '登录名不能为空' })
@@ -19,18 +21,16 @@ export class AuthLoginArgs {
   @IsNotEmpty({ message: '密码不能为空' })
   loginPassword!: string;
 
-  @Field(() => String, { description: '登录类型', nullable: true })
-  @IsOptional()
+  @Field(() => LoginTypeEnum, { description: '登录类型' })
   @IsEnum(LoginTypeEnum, { message: '登录类型无效' })
-  type?: LoginTypeEnum;
+  type!: LoginTypeEnum;
 
   @Field(() => String, { description: '客户端 IP 地址', nullable: true })
   @IsOptional()
   @IsString({ message: 'IP 地址必须是字符串' })
   ip?: string;
 
-  @Field(() => String, { description: '客户端类型', nullable: true })
-  @IsOptional()
-  @IsString({ message: '客户端类型是字符串' })
-  audience?: string;
+  @Field(() => AudienceTypeEnum, { description: '客户端类型' })
+  @IsEnum(AudienceTypeEnum, { message: '客户端类型无效' })
+  audience!: AudienceTypeEnum;
 }
