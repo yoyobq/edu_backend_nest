@@ -1,8 +1,8 @@
 // src/modules/thirdPartyAuth/dto/third-party-login.input.ts
 import { Field, InputType } from '@nestjs/graphql';
 import { IsEnum, IsNotEmpty, IsOptional, IsString } from 'class-validator';
-import { ThirdPartyProviderEnum } from '../../../types/models/account.types';
-import '../../account/graphql/enums/third-party-provider.enum';
+import { AudienceTypeEnum, ThirdPartyProviderEnum } from '../../../types/models/account.types';
+import '../graphql/enums/third-party-provider.enum';
 
 /**
  * 第三方登录输入参数
@@ -23,8 +23,7 @@ export class ThirdPartyLoginInput {
   @IsString()
   ip?: string;
 
-  @Field({ nullable: true, description: '客户端类型' })
-  @IsOptional()
-  @IsString()
-  audience?: string;
+  @Field(() => AudienceTypeEnum, { description: '客户端类型' })
+  @IsEnum(AudienceTypeEnum, { message: '客户端类型无效' })
+  audience!: AudienceTypeEnum;
 }

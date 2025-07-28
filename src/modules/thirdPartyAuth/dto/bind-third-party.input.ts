@@ -2,7 +2,7 @@
 import { Field, InputType } from '@nestjs/graphql';
 import { IsEnum, IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator';
 import { ThirdPartyProviderEnum } from '../../../types/models/account.types';
-import '../../account/graphql/enums/third-party-provider.enum';
+import '../graphql/enums/third-party-provider.enum';
 
 /**
  * 绑定第三方登录输入类型

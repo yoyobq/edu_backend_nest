@@ -1,7 +1,7 @@
 // src/modules/thirdPartyAuth/dto/third-party-auth.dto.ts
 import { Field, ID, ObjectType } from '@nestjs/graphql';
 import { ThirdPartyProviderEnum } from '../../../types/models/account.types';
-import '../../account/graphql/enums/third-party-provider.enum';
+import '../graphql/enums/third-party-provider.enum';
 
 /**
  * 第三方登录绑定信息输出类型
