@@ -4,6 +4,7 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { AccountStatus } from 'src/types/models/account.types';
 import { Repository } from 'typeorm';
+import { PasswordPbkdf2Helper } from '../../core/common/password/password.pbkdf2.helper';
 import { AccountWithAccessGroup } from '../../types/models/account.types';
 import { AuthLoginInput } from '../auth/dto/auth-login.input';
 import { AccountEntity } from './entities/account.entity';
@@ -32,7 +33,7 @@ export class AccountService {
     loginName,
     loginPassword,
   }: Pick<AuthLoginInput, 'loginName' | 'loginPassword'>): Promise<AccountEntity> {
-    // 根据登录名或邮箱查找账户
+    // 根据登录名或邮箱查找账户，需要包含 createdAt 字段用于生成 salt
     const account = await this.accountRepository
       .createQueryBuilder('account')
       .where('account.loginName = :loginName', { loginName })
@@ -48,8 +49,12 @@ export class AccountService {
       throw new Error('账户已被禁用');
     }
 
-    // 验证密码（生产环境应该使用哈希对比）
-    if (account.loginPassword !== loginPassword) {
+    // 使用 createdAt 作为 salt 进行密码验证
+    const salt = account.createdAt.toString();
+    const hashedInputPassword = PasswordPbkdf2Helper.hashPasswordWithCrypto(loginPassword, salt);
+
+    // 验证密码哈希是否匹配
+    if (account.loginPassword !== hashedInputPassword) {
       throw new Error('密码错误');
     }
 

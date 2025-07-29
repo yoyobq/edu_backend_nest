@@ -5,6 +5,7 @@ import request from 'supertest';
 import { App } from 'supertest/types';
 import { DataSource, In } from 'typeorm';
 import { AppModule } from '../../src/app.module';
+import { PasswordPbkdf2Helper } from '../../src/core/common/password/password.pbkdf2.helper';
 import { AccountEntity } from '../../src/modules/account/entities/account.entity';
 import {
   AccountStatus,
@@ -19,8 +20,8 @@ describe('Auth (e2e)', () => {
   let app: INestApplication<App>;
   let dataSource: DataSource;
 
-  // 测试账户数据
-  const testAccounts = {
+  // 测试账户数据（明文密码，用于登录测试）
+  const testAccountsPlaintext = {
     activeUser: {
       loginName: 'testuser',
       loginEmail: 'test@example.com',
@@ -42,16 +43,16 @@ describe('Auth (e2e)', () => {
   };
 
   beforeAll(async () => {
-    if (!global.testDataSource) {
-      throw new Error('全局测试数据源未初始化。请检查 global-setup-e2e.ts 是否正确配置。');
-    }
+    // if (!global.testDataSource) {
+    //   throw new Error('全局测试数据源未初始化。请检查 global-setup-e2e.ts 是否正确配置。');
+    // }
 
-    if (!global.testDataSource.isInitialized) {
-      throw new Error('全局测试数据源未初始化完成。请检查 global-setup-e2e.ts 中的初始化逻辑。');
-    }
-    console.log('💡测试账号存在？', testAccounts !== null);
+    // if (!global.testDataSource.isInitialized) {
+    //   throw new Error('全局测试数据源未初始化完成。请检查 global-setup-e2e.ts 中的初始化逻辑。');
+    // }
+    // console.log('💡测试账号存在？', testAccounts !== null);
     // 直接使用全局数据源
-    dataSource = global.testDataSource;
+    // dataSource = global.testDataSource;
 
     // 创建一个不包含 TypeORM 配置的测试模块，避免创建新的 DataSource
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -82,7 +83,7 @@ describe('Auth (e2e)', () => {
   const cleanupTestData = async (): Promise<void> => {
     try {
       const accountRepository = dataSource.getRepository(AccountEntity);
-      const loginNames = Object.values(testAccounts).map((account) => account.loginName);
+      const loginNames = Object.values(testAccountsPlaintext).map((account) => account.loginName);
 
       if (loginNames.length > 0) {
         await accountRepository.delete({
@@ -101,28 +102,45 @@ describe('Auth (e2e)', () => {
     try {
       const repository = dataSource.getRepository(AccountEntity);
 
-      // 批量创建测试账户
-      const accounts = Object.values(testAccounts).map((account) => ({
-        ...account,
-        recentLoginHistory: null,
-        identityHint: null,
-      }));
+      // 创建账户时需要对密码进行哈希处理
+      await Promise.all(
+        Object.values(testAccountsPlaintext).map(async (account) => {
+          // 先保存账户以获取 createdAt，然后更新密码
+          const savedAccount = await repository.save({
+            ...account,
+            loginPassword: 'temp', // 临时密码
+            recentLoginHistory: null,
+            identityHint: null,
+          });
 
-      // 只在首次创建时输出日志，或者完全移除
-      // console.log('🔍 准备创建的测试账户:', accounts);
-      // const savedAccounts =
-      await repository.save(accounts);
-      // console.log('✅ 成功创建的测试账户:', savedAccounts);
+          // 使用 createdAt 作为 salt 对密码进行哈希
+          const salt = savedAccount.createdAt.toString();
+          const hashedPassword = PasswordPbkdf2Helper.hashPasswordWithCrypto(
+            account.loginPassword,
+            salt,
+          );
 
-      // 简化验证逻辑，只检查是否创建成功，不输出详细信息
-      const verifyAccount = await repository.findOne({
-        where: { loginName: testAccounts.activeUser.loginName },
+          // 更新为哈希后的密码
+          await repository.update(savedAccount.id, {
+            loginPassword: hashedPassword,
+          });
+
+          return savedAccount;
+        }),
+      );
+
+      // 验证所有测试账户是否创建成功
+      const createdAccounts = await repository.find({
+        where: {
+          loginName: In(Object.values(testAccountsPlaintext).map((acc) => acc.loginName)),
+        },
       });
 
-      if (!verifyAccount) {
-        throw new Error('测试账户创建失败');
+      if (createdAccounts.length !== Object.keys(testAccountsPlaintext).length) {
+        throw new Error(
+          `测试账户创建不完整，期望 ${Object.keys(testAccountsPlaintext).length} 个，实际创建 ${createdAccounts.length} 个`,
+        );
       }
-      // console.log('🔍 验证保存的账户数据:', verifyAccount);
     } catch (error) {
       console.error('❌ 创建测试账户失败:', error);
       throw error;
@@ -136,7 +154,7 @@ describe('Auth (e2e)', () => {
     loginName: string,
     loginPassword: string,
     type = LoginTypeEnum.PASSWORD,
-    audience = AudienceTypeEnum.DESKTOP, // 添加默认的 audience 参数
+    audience = AudienceTypeEnum.DESKTOP,
     ip?: string,
   ) => {
     console.log('🚀 登录请求参数:', { loginName, loginPassword, type, audience, ip });
@@ -176,8 +194,8 @@ describe('Auth (e2e)', () => {
      */
     it('应该支持用户名登录成功', async () => {
       const response = await performLogin(
-        testAccounts.activeUser.loginName,
-        testAccounts.activeUser.loginPassword,
+        testAccountsPlaintext.activeUser.loginName,
+        testAccountsPlaintext.activeUser.loginPassword,
       );
 
       const { data } = response.body;
@@ -193,8 +211,8 @@ describe('Auth (e2e)', () => {
      */
     it('应该支持邮箱登录成功', async () => {
       const response = await performLogin(
-        testAccounts.activeUser.loginEmail,
-        testAccounts.activeUser.loginPassword,
+        testAccountsPlaintext.activeUser.loginEmail,
+        testAccountsPlaintext.activeUser.loginPassword,
       );
 
       const { data } = response.body;
@@ -223,8 +241,8 @@ describe('Auth (e2e)', () => {
      */
     it('应该正确处理账户被禁用的情况', async () => {
       const response = await performLogin(
-        testAccounts.bannedUser.loginName,
-        testAccounts.bannedUser.loginPassword,
+        testAccountsPlaintext.bannedUser.loginName,
+        testAccountsPlaintext.bannedUser.loginPassword,
       );
 
       const { errors } = response.body;
@@ -237,8 +255,8 @@ describe('Auth (e2e)', () => {
      */
     it('应该正确处理待激活账户的情况', async () => {
       const response = await performLogin(
-        testAccounts.pendingUser.loginName,
-        testAccounts.pendingUser.loginPassword,
+        testAccountsPlaintext.pendingUser.loginName,
+        testAccountsPlaintext.pendingUser.loginPassword,
       );
 
       const { errors } = response.body;
@@ -252,7 +270,10 @@ describe('Auth (e2e)', () => {
      * 测试密码错误
      */
     it('应该正确处理密码错误的情况', async () => {
-      const response = await performLogin(testAccounts.activeUser.loginName, 'wrongpassword');
+      const response = await performLogin(
+        testAccountsPlaintext.activeUser.loginName,
+        'wrongpassword',
+      );
 
       const { errors } = response.body;
       expect(errors).toBeDefined();
@@ -263,7 +284,7 @@ describe('Auth (e2e)', () => {
      * 测试空密码
      */
     it('应该正确处理空密码的情况', async () => {
-      const response = await performLogin(testAccounts.activeUser.loginName, '');
+      const response = await performLogin(testAccountsPlaintext.activeUser.loginName, '');
 
       const { errors } = response.body;
       expect(errors).toBeDefined();
@@ -315,12 +336,12 @@ describe('Auth (e2e)', () => {
     it('登录成功后应该返回正确的用户 ID', async () => {
       const accountRepository = dataSource.getRepository(AccountEntity);
       const account = await accountRepository.findOne({
-        where: { loginName: testAccounts.activeUser.loginName },
+        where: { loginName: testAccountsPlaintext.activeUser.loginName },
       });
 
       const response = await performLogin(
-        testAccounts.activeUser.loginName,
-        testAccounts.activeUser.loginPassword,
+        testAccountsPlaintext.activeUser.loginName,
+        testAccountsPlaintext.activeUser.loginPassword,
       );
 
       const { data } = response.body;
@@ -332,8 +353,8 @@ describe('Auth (e2e)', () => {
      */
     it('登录成功后应该返回有效的 JWT Token', async () => {
       const response = await performLogin(
-        testAccounts.activeUser.loginName,
-        testAccounts.activeUser.loginPassword,
+        testAccountsPlaintext.activeUser.loginName,
+        testAccountsPlaintext.activeUser.loginPassword,
       );
 
       const { data } = response.body;
