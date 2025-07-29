@@ -1,6 +1,7 @@
 // src/modules/auth/auth.service.ts
 
 import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { PinoLogger } from 'nestjs-pino';
 import { TokenHelper } from '../../core/common/token/token.helper';
 import { AccountService } from '../account/account.service';
@@ -15,6 +16,7 @@ export class AuthService {
   constructor(
     private readonly accountService: AccountService,
     private readonly tokenHelper: TokenHelper,
+    private readonly configService: ConfigService,
     private readonly logger: PinoLogger,
   ) {
     this.logger.setContext(AuthService.name);
@@ -33,6 +35,14 @@ export class AuthService {
     audience,
   }: AuthLoginInput): Promise<AuthLoginResult> {
     try {
+      // 验证 audience 是否有效
+      if (audience) {
+        const configAudience = this.configService.get<string>('jwt.audience');
+        if (!this.tokenHelper.validateAudience(audience, configAudience!)) {
+          throw new UnauthorizedException(`无效的客户端类型: ${audience}`);
+        }
+      }
+
       // 验证登录信息
       const account = await this.accountService.validateLogin({ loginName, loginPassword });
 
@@ -103,6 +113,14 @@ export class AuthService {
     audience?: string;
   }): Promise<AuthLoginResult> {
     try {
+      // 验证 audience 是否有效
+      if (audience) {
+        const configAudience = this.configService.get<string>('jwt.audience');
+        if (!this.tokenHelper.validateAudience(audience, configAudience!)) {
+          throw new UnauthorizedException(`无效的客户端类型: ${audience}`);
+        }
+      }
+
       // 获取用户完整信息（包括 accessGroup）
       const userWithAccessGroup = await this.accountService.getUserWithAccessGroup({
         accountId,

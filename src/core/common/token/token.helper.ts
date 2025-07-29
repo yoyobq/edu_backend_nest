@@ -27,6 +27,7 @@ export class TokenHelper {
    * 生成访问令牌
    * @param params 对象参数
    * @param params.payload JWT 载荷数据
+   * @param params.audience 可选，用于覆盖默认 audience
    * @param params.expiresIn 可选，用于覆盖默认 JWT 签名时间
    * @returns 生成的 JWT Access Token 字符串
    */
@@ -95,6 +96,21 @@ export class TokenHelper {
         `refresh token 生成失败: ${error instanceof Error ? error.message : '未知错误'}`,
       );
     }
+  }
+
+  /**
+   * 验证 audience 是否有效
+   * @param audience 前端传入的 audience
+   * @param configAudience 后端配置的 audience 字符串
+   * @returns 是否有效
+   */
+  validateAudience(audience: string, configAudience: string): boolean {
+    if (!audience || !configAudience) {
+      return false;
+    }
+
+    const allowedAudiences = configAudience.split(',').map((aud) => aud.trim());
+    return allowedAudiences.includes(audience);
   }
 
   /**

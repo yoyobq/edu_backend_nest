@@ -437,4 +437,120 @@ describe('TokenHelper', () => {
       expect(result.accessGroup).toEqual([]);
     });
   });
+
+  describe('validateAudience', () => {
+    it('应该验证有效的 audience', () => {
+      // Arrange
+      const validAudience = 'ssts-test';
+      const configAudience = 'ssts-test,sj-test';
+
+      // Act
+      const result = tokenHelper.validateAudience(validAudience, configAudience);
+
+      // Assert
+      expect(result).toBe(true);
+    });
+
+    it('应该验证另一个有效的 audience', () => {
+      // Arrange
+      const validAudience = 'sj-test';
+      const configAudience = 'ssts-test,sj-test';
+
+      // Act
+      const result = tokenHelper.validateAudience(validAudience, configAudience);
+
+      // Assert
+      expect(result).toBe(true);
+    });
+
+    it('应该拒绝无效的 audience', () => {
+      // Arrange
+      const invalidAudience = 'invalid-client';
+      const configAudience = 'ssts-test,sj-test';
+
+      // Act
+      const result = tokenHelper.validateAudience(invalidAudience, configAudience);
+
+      // Assert
+      expect(result).toBe(false);
+    });
+
+    it('应该处理带空格的配置字符串', () => {
+      // Arrange
+      const validAudience = 'ssts-test';
+      const configAudience = ' ssts-test , sj-test ';
+
+      // Act
+      const result = tokenHelper.validateAudience(validAudience, configAudience);
+
+      // Assert
+      expect(result).toBe(true);
+    });
+
+    it('应该在 audience 为空时返回 false', () => {
+      // Arrange
+      const emptyAudience = '';
+      const configAudience = 'ssts-test,sj-test';
+
+      // Act
+      const result = tokenHelper.validateAudience(emptyAudience, configAudience);
+
+      // Assert
+      expect(result).toBe(false);
+    });
+
+    it('应该在 configAudience 为空时返回 false', () => {
+      // Arrange
+      const validAudience = 'ssts-test';
+      const emptyConfig = '';
+
+      // Act
+      const result = tokenHelper.validateAudience(validAudience, emptyConfig);
+
+      // Assert
+      expect(result).toBe(false);
+    });
+
+    it('应该在 audience 为 null 或 undefined 时返回 false', () => {
+      // Arrange
+      const configAudience = 'ssts-test,sj-test';
+
+      // Act & Assert
+      expect(tokenHelper.validateAudience(null as never, configAudience)).toBe(false);
+      expect(tokenHelper.validateAudience(undefined as never, configAudience)).toBe(false);
+    });
+
+    it('应该在 configAudience 为 null 或 undefined 时返回 false', () => {
+      // Arrange
+      const validAudience = 'ssts-test';
+
+      // Act & Assert
+      expect(tokenHelper.validateAudience(validAudience, null as never)).toBe(false);
+      expect(tokenHelper.validateAudience(validAudience, undefined as never)).toBe(false);
+    });
+
+    it('应该处理单个 audience 配置', () => {
+      // Arrange
+      const validAudience = 'ssts-test';
+      const singleConfig = 'ssts-test';
+
+      // Act
+      const result = tokenHelper.validateAudience(validAudience, singleConfig);
+
+      // Assert
+      expect(result).toBe(true);
+    });
+
+    it('应该区分大小写', () => {
+      // Arrange
+      const audienceWithDifferentCase = 'SSTS-TEST';
+      const configAudience = 'ssts-test,sj-test';
+
+      // Act
+      const result = tokenHelper.validateAudience(audienceWithDifferentCase, configAudience);
+
+      // Assert
+      expect(result).toBe(false);
+    });
+  });
 });

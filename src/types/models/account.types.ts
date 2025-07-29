@@ -52,8 +52,10 @@ export type AccountWithAccessGroup = {
 };
 
 export enum AudienceTypeEnum {
-  WECHAT = 'WECHAT',
-  MOBILE = 'MOBILE',
   DESKTOP = 'DESKTOP',
-  API = 'API',
+  SSTSTEST = 'SSTSTEST',
+  SSTSWEB = 'SSTSWEB',
+  SSTSWEAPP = 'SSTSWEAPP',
+  SJWEB = 'SJWEB',
+  SJWEAPP = 'SJWEAPP',
 }

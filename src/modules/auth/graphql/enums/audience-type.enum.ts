@@ -10,17 +10,23 @@ registerEnumType(AudienceTypeEnum, {
   name: 'AudienceTypeEnum',
   description: '客户端类型枚举',
   valuesMap: {
-    WECHAT: {
-      description: '微信客户端',
-    },
-    MOBILE: {
-      description: '移动端应用',
-    },
     DESKTOP: {
       description: '桌面应用',
     },
-    API: {
-      description: 'API 客户端',
+    SSTSTEST: {
+      description: '测试环境客户端',
+    },
+    SSTSWEB: {
+      description: 'SSTS 网页端客户端',
+    },
+    SSTSWEAPP: {
+      description: 'SSTS 微信小程序',
+    },
+    SJWEB: {
+      description: 'SJTY 网页端客户端',
+    },
+    SJWEAPP: {
+      description: 'SJTY 微信小程序',
     },
   },
 });

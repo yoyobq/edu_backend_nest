@@ -154,7 +154,7 @@ describe('Auth (e2e)', () => {
     loginName: string,
     loginPassword: string,
     type = LoginTypeEnum.PASSWORD,
-    audience = AudienceTypeEnum.DESKTOP,
+    audience: keyof typeof AudienceTypeEnum = 'DESKTOP', // 改为接受枚举键名
     ip?: string,
   ) => {
     console.log('🚀 登录请求参数:', { loginName, loginPassword, type, audience, ip });
@@ -176,7 +176,7 @@ describe('Auth (e2e)', () => {
             loginName,
             loginPassword,
             type,
-            audience,
+            audience, // 直接传入枚举键名
             ip,
           },
         },
@@ -221,6 +221,44 @@ describe('Auth (e2e)', () => {
       expect(data?.login.refreshToken).toBeDefined();
       expect(typeof data?.login.accessToken).toBe('string');
       expect(typeof data?.login.refreshToken).toBe('string');
+    });
+
+    /**
+     * 测试有效的 audience
+     */
+    it('应该支持有效的 audience 登录成功', async () => {
+      const response = await performLogin(
+        testAccountsPlaintext.activeUser.loginName,
+        testAccountsPlaintext.activeUser.loginPassword,
+        LoginTypeEnum.PASSWORD,
+        'SSTSTEST', // 使用测试环境配置中的有效 audience
+      );
+
+      const { data } = response.body;
+      console.log(data);
+      expect(data?.login.userId).toBeDefined();
+      expect(data?.login.accessToken).toBeDefined();
+      expect(data?.login.refreshToken).toBeDefined();
+      expect(typeof data?.login.accessToken).toBe('string');
+      expect(typeof data?.login.refreshToken).toBe('string');
+    });
+
+    /**
+     * 测试无效的 audience
+     */
+    it('应该拒绝无效的 audience', async () => {
+      const response = await performLogin(
+        testAccountsPlaintext.activeUser.loginName,
+        testAccountsPlaintext.activeUser.loginPassword,
+        LoginTypeEnum.PASSWORD,
+        'invalid-audience' as never, // 使用无效的 audience
+      );
+
+      const { errors } = response.body;
+      expect(errors).toBeDefined();
+      expect(errors?.[0]?.message).toContain(
+        'Value "invalid-audience" does not exist in "AudienceTypeEnum" enum.',
+      );
     });
   });
 
