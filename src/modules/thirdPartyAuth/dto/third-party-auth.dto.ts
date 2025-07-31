@@ -4,10 +4,10 @@ import { ThirdPartyProviderEnum } from '../../../types/models/account.types';
 import '../graphql/enums/third-party-provider.enum';
 
 /**
- * 第三方登录绑定信息输出类型
+ * third_party_auth 表数据传输对象
  */
-@ObjectType()
-export class ThirdPartyAuthOutput {
+@ObjectType({ description: '第三方登录绑定信息输出类型' })
+export class ThirdPartyAuthDTO {
   @Field(() => ID, { description: '主键' })
   id!: number;
 

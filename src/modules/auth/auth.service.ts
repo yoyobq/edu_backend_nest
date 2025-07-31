@@ -5,7 +5,7 @@ import { ConfigService } from '@nestjs/config';
 import { PinoLogger } from 'nestjs-pino';
 import { TokenHelper } from '../../core/common/token/token.helper';
 import { AccountService } from '../account/account.service';
-import { AuthLoginResult } from './dto/auth-login-result.dto';
+import { AuthLoginResult } from './dto/auth-login-result';
 import { AuthLoginInput } from './dto/auth-login.input';
 
 /**

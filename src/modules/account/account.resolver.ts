@@ -1,9 +1,8 @@
 // src/modules/account/account.resolver.ts
 import { Args, Query, Resolver } from '@nestjs/graphql';
 import { AccountService } from './account.service';
-import { AccountDetailResponse } from './dto/account-detail.dto';
 import { AccountArgs } from './dto/account.args';
-// import { AccountEntity } from './entities/account.entity';
+import { UserAccountDTO } from './dto/user-account.dto';
 
 /**
  * 账户 GraphQL 解析器
@@ -17,8 +16,8 @@ export class AccountResolver {
    * @param args 查询参数
    * @returns 账户详细信息
    */
-  @Query(() => AccountDetailResponse, { description: '根据 ID 查询账户详细信息' })
-  async account(@Args() args: AccountArgs): Promise<AccountDetailResponse> {
+  @Query(() => UserAccountDTO, { description: '根据 ID 查询账户详细信息' })
+  async account(@Args() args: AccountArgs): Promise<UserAccountDTO> {
     return await this.accountService.findOneById(args.id);
   }
 }

@@ -29,12 +29,9 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       throw new Error('JWT secret 配置缺失');
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
     const jwtExtractor: JwtFromRequestFunction = ExtractJwt.fromAuthHeaderAsBearerToken();
 
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
     super({
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       jwtFromRequest: jwtExtractor,
       ignoreExpiration: false,
       secretOrKey: secret,

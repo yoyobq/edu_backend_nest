@@ -4,10 +4,10 @@ import { AccountStatus } from '../../../types/models/account.types';
 import { LoginHistoryItem } from '../graphql/types/login-history.types';
 
 /**
- * 账户详细信息响应对象（包含登录历史）
+ * user_account 表数据传输对象
  */
-@ObjectType()
-export class AccountDetailResponse {
+@ObjectType({ description: '用户账户表数据传输对象' })
+export class UserAccountDTO {
   @Field(() => ID, { description: '账户 ID' })
   id!: number;
 
