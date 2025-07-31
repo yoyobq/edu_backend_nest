@@ -14,15 +14,28 @@ import { UnbindThirdPartyInput } from './dto/unbind-third-party.input';
 /**
  * 微信 access_token 响应接口
  */
-interface WechatTokenResponse {
-  access_token: string;
-  expires_in: number;
-  refresh_token: string;
+// interface WechatTokenResponse {
+//   access_token: string;
+//   expires_in: number;
+//   refresh_token: string;
+//   openid: string;
+//   scope: string;
+//   unionid?: string;
+//   errcode?: number;
+//   errmsg?: string;
+// }
+
+/**
+ * 微信小程序登录返回结果接口
+ */
+interface WeAppLoginResult {
+  /** 会话密钥 */
+  session_key: string;
+  /** 用户唯一标识 */
   openid: string;
-  scope: string;
   unionid?: string;
-  errcode?: number;
   errmsg?: string;
+  errcode?: number;
 }
 
 /**
@@ -62,12 +75,13 @@ export class ThirdPartyAuthService {
    */
   async thirdPartyLogin(input: ThirdPartyLoginInput) {
     switch (input.provider) {
+      case ThirdPartyProviderEnum.SJWEAPP:
+      case ThirdPartyProviderEnum.SSTSWEAPP:
+        return await this.weAppLogin(input);
       case ThirdPartyProviderEnum.WECHAT:
-        return await this.wechatLogin(input);
       case ThirdPartyProviderEnum.QQ:
       case ThirdPartyProviderEnum.GOOGLE:
       case ThirdPartyProviderEnum.GITHUB:
-      case ThirdPartyProviderEnum.APPLE:
         throw new HttpException(`${input.provider} 登录暂未实现`, HttpStatus.NOT_IMPLEMENTED);
       default:
         throw new HttpException('不支持的第三方登录平台', HttpStatus.BAD_REQUEST);
@@ -168,16 +182,16 @@ export class ThirdPartyAuthService {
   }
 
   /**
-   * 微信登录处理
+   * 微信小程序登录处理
    * @param input 登录参数
    * @returns 微信用户信息和账户绑定状态
    */
-  private async wechatLogin(input: ThirdPartyLoginInput) {
-    // 1. 通过授权码获取 access_token
-    const tokenData = await this.getWechatAccessToken(input.authCredential);
+  private async weAppLogin(input: ThirdPartyLoginInput) {
+    // 1. 通过授权码获取 openId
+    const tokenData = await this.getWechatOpenId(input.authCredential);
 
     // 2. 通过 access_token 获取用户信息
-    const userInfo = await this.getWechatUserInfo(tokenData.access_token, tokenData.openid);
+    const userInfo = await this.getWechatUserInfo(tokenData.openid, tokenData.session_key);
 
     // 3. 查找是否已有绑定的账户
     const existingAuth = await this.findAccountByThirdParty(
@@ -198,16 +212,16 @@ export class ThirdPartyAuthService {
         country: userInfo.country,
       },
       existingAccount: existingAuth?.account || null,
-      accessToken: tokenData.access_token,
+      // accessToken: tokenData.access_token,
     };
   }
 
   /**
-   * 通过微信授权码获取 access_token
+   * 通过微信授权码获取 openId
    * @param code 微信授权码
-   * @returns access_token 信息
+   * @returns 包含了 session_key 与 openid 的对象
    */
-  private async getWechatAccessToken(code: string): Promise<WechatTokenResponse> {
+  private async getWechatOpenId(code: string): Promise<WeAppLoginResult> {
     const appId = this.configService.get<string>('WECHAT_APP_ID');
     const appSecret = this.configService.get<string>('WECHAT_APP_SECRET');
 
@@ -215,22 +229,22 @@ export class ThirdPartyAuthService {
       throw new HttpException('微信应用配置缺失', HttpStatus.INTERNAL_SERVER_ERROR);
     }
 
-    const url = 'https://api.weixin.qq.com/sns/oauth2/access_token';
+    const url = 'https://api.weixin.qq.com/sns/jscode2session';
     const params = {
       appid: appId,
       secret: appSecret,
-      code,
+      js_code: code,
       grant_type: 'authorization_code',
     };
 
     try {
-      const response = await this.httpService.axiosRef.get<WechatTokenResponse>(url, {
+      const response = await this.httpService.axiosRef.get<WeAppLoginResult>(url, {
         params,
         timeout: 10000,
       });
 
       const data = response.data;
-
+      console.log(data);
       if (data.errcode) {
         throw new HttpException(`微信授权失败: ${data.errmsg}`, HttpStatus.BAD_REQUEST);
       }

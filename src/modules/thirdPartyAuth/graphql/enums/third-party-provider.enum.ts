@@ -9,20 +9,20 @@ registerEnumType(ThirdPartyProviderEnum, {
   name: 'ThirdPartyProviderEnum',
   description: '第三方登录提供商枚举',
   valuesMap: {
+    SJWEAPP: {
+      description: 'SJTY 微信小程序登录',
+    },
+    SSTSWEAPP: {
+      description: 'SSTS 微信小程序登录',
+    },
     WECHAT: {
       description: '微信登录',
     },
     QQ: {
       description: 'QQ 登录',
     },
-    GOOGLE: {
-      description: 'Google 登录',
-    },
     GITHUB: {
       description: 'GitHub 登录',
-    },
-    APPLE: {
-      description: 'Apple 登录',
     },
   },
 });

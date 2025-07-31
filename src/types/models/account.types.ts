@@ -38,7 +38,8 @@ export enum ThirdPartyProviderEnum {
   QQ = 'QQ',
   GOOGLE = 'GOOGLE',
   GITHUB = 'GITHUB',
-  APPLE = 'APPLE',
+  SJWEAPP = 'SJWEAPP',
+  SSTSWEAPP = 'SSTSWEAPP',
 }
 
 /**
