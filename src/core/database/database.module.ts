@@ -3,6 +3,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { TypeOrmModule, TypeOrmModuleOptions } from '@nestjs/typeorm';
+import { EncryptionHelper } from '../../modules/common/encryption/encryption.helper';
 
 /**
  * 数据库配置工厂函数
@@ -23,6 +24,7 @@ const createDatabaseConfig = (config: ConfigService): TypeOrmModuleOptions => ({
   extra: config.get('mysql.extra'),
   // 自动加载 entities
   autoLoadEntities: true,
+  subscribers: [EncryptionHelper],
   // 实体文件路径
   // entities: [__dirname + '/**/*.entity{.ts,.js}'],
 });

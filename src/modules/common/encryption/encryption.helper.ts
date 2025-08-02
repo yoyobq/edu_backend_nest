@@ -1,7 +1,6 @@
 // modules/common/encryption/encryption.helper.ts
 import { Injectable } from '@nestjs/common';
 import * as CryptoJS from 'crypto-js';
-import { PinoLogger } from 'nestjs-pino';
 import 'reflect-metadata';
 import { EntitySubscriberInterface, EventSubscriber, InsertEvent, UpdateEvent } from 'typeorm';
 import {
@@ -23,10 +22,6 @@ const IV = CryptoJS.lib.WordArray.create(
 @Injectable()
 @EventSubscriber()
 export class EncryptionHelper implements EntitySubscriberInterface<unknown> {
-  constructor(private readonly logger: PinoLogger) {
-    this.logger.setContext(EncryptionHelper.name);
-  }
-
   /** 加密字符串 */
   encrypt(plain: string): string {
     return CryptoJS.AES.encrypt(plain, KEY, {
@@ -106,12 +101,9 @@ export class EncryptionHelper implements EntitySubscriberInterface<unknown> {
       if (typeof val === 'string' && val) {
         try {
           (entity as Record<string | symbol, unknown>)[field] = this.decrypt(val);
-        } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : String(error);
-          this.logger.warn(`字段 ${String(field)} 解密失败，值: "${val}"，错误: ${errorMessage}`);
-          // TODO: 系统稳定后抛错
-          // throw new Error(`解密失败: 字段 ${String(field)}`);
-          // 解密失败保留原始值
+        } catch {
+          // 解密失败时保留原始值，避免数据丢失
+          // 如果需要记录错误，可以在调用方处理
         }
       }
     }

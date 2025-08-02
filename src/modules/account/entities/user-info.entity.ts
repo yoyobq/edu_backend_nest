@@ -9,6 +9,7 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 import { Gender, GeographicInfo, UserState } from '../../../types/models/user-info.types';
+import { EncryptionHelper } from '../../common/encryption/encryption.helper';
 import '../graphql/enums/gender.enum';
 import '../graphql/enums/user-state.enum';
 import { AccountEntity } from './account.entity';
@@ -71,7 +72,8 @@ export class UserInfoEntity {
     nullable: true,
     comment: '私有数据加密字段',
   })
-  metaDigest!: string | null;
+  @EncryptionHelper.EncryptedField() // 添加加密装饰器
+  metaDigest!: string | string[];
 
   @Column({ name: 'notify_count', type: 'int', default: 0, comment: '通知数' })
   notifyCount!: number;
