@@ -149,4 +149,83 @@ export class AccountService {
 
     return account;
   }
+
+  /**
+   * 检查账户是否已存在（根据登录名或邮箱）
+   * @param loginName 登录名
+   * @param loginEmail 登录邮箱
+   * @returns 如果账户存在返回 true，否则返回 false
+   */
+  async checkAccountExists(loginName?: string, loginEmail?: string): Promise<boolean> {
+    if (!loginName && !loginEmail) {
+      return false;
+    }
+
+    const queryBuilder = this.accountRepository.createQueryBuilder('account');
+
+    if (loginName && loginEmail) {
+      queryBuilder.where('account.loginName = :loginName OR account.loginEmail = :loginEmail', {
+        loginName,
+        loginEmail,
+      });
+    } else if (loginName) {
+      queryBuilder.where('account.loginName = :loginName', { loginName });
+    } else if (loginEmail) {
+      queryBuilder.where('account.loginEmail = :loginEmail', { loginEmail });
+    }
+
+    const existingAccount = await queryBuilder.getOne();
+    return !!existingAccount;
+  }
+
+  /**
+   * 检查昵称是否已存在
+   * @param nickname 昵称
+   * @returns 是否存在
+   */
+  async checkNicknameExists(nickname: string): Promise<boolean> {
+    const existingUserInfo = await this.userInfoRepository.findOne({
+      where: { nickname },
+    });
+    return !!existingUserInfo;
+  }
+
+  /**
+   * 创建新账户（包含账户和用户信息）
+   * @param accountData 账户基本信息
+   * @param userInfoData 用户详细信息
+   * @returns 创建的账户实体
+   */
+  async createAccount(
+    accountData: Partial<AccountEntity>,
+    userInfoData: Partial<UserInfoEntity>,
+  ): Promise<AccountEntity> {
+    // 使用事务确保数据一致性
+    return await this.accountRepository.manager.transaction(async (manager) => {
+      // 先创建账户但不保存密码
+      const { loginPassword, ...accountDataWithoutPassword } = accountData;
+      const account = manager.create(AccountEntity, accountDataWithoutPassword);
+      const savedAccount = await manager.save(account);
+
+      // 使用 created_at 作为盐值加密密码
+      const salt = savedAccount.createdAt.toString();
+      const hashedPassword = PasswordPbkdf2Helper.hashPasswordWithCrypto(
+        loginPassword as string,
+        salt,
+      );
+
+      // 更新账户密码
+      savedAccount.loginPassword = hashedPassword;
+      await manager.save(savedAccount);
+
+      // 创建用户信息
+      const userInfo = manager.create(UserInfoEntity, {
+        ...userInfoData,
+        accountId: savedAccount.id,
+      });
+      await manager.save(userInfo);
+
+      return savedAccount;
+    });
+  }
 }
