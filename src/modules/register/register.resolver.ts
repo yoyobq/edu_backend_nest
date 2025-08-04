@@ -1,12 +1,14 @@
 // src/modules/register/register.resolver.ts
 
-import { Args, Mutation, Resolver } from '@nestjs/graphql';
+import { Args, Context, Mutation, Resolver } from '@nestjs/graphql';
+import { Request } from 'express';
+import { ValidateInput } from '../../core/common/errors/validate-input.decorator';
 import { RegisterResult } from './dto/register-result.dto';
 import { RegisterInput } from './dto/register.input';
 import { RegisterService } from './register.service';
 
 /**
- * 注册 GraphQL 解析器
+ * 注册解析器
  */
 @Resolver()
 export class RegisterResolver {
@@ -15,10 +17,15 @@ export class RegisterResolver {
   /**
    * 用户注册
    * @param input 注册参数
+   * @param context GraphQL 上下文，包含 request 对象
    * @returns 注册结果
    */
   @Mutation(() => RegisterResult, { description: '用户注册' })
-  async register(@Args('input') input: RegisterInput): Promise<RegisterResult> {
-    return await this.registerService.register(input);
+  @ValidateInput()
+  async register(
+    @Args('input') input: RegisterInput,
+    @Context() context: { req: Request },
+  ): Promise<RegisterResult> {
+    return await this.registerService.register(input, context.req);
   }
 }

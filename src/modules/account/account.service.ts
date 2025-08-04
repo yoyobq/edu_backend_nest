@@ -156,21 +156,21 @@ export class AccountService {
    * @param loginEmail 登录邮箱
    * @returns 如果账户存在返回 true，否则返回 false
    */
-  async checkAccountExists(loginName?: string, loginEmail?: string): Promise<boolean> {
-    if (!loginName && !loginEmail) {
-      return false;
-    }
-
+  async checkAccountExists({
+    loginName = null,
+    loginEmail, // 移除默认值，因为现在总是提供
+  }: {
+    loginName?: string | null;
+    loginEmail: string; // 改为必需
+  }): Promise<boolean> {
     const queryBuilder = this.accountRepository.createQueryBuilder('account');
 
-    if (loginName && loginEmail) {
+    if (loginName) {
       queryBuilder.where('account.loginName = :loginName OR account.loginEmail = :loginEmail', {
         loginName,
         loginEmail,
       });
-    } else if (loginName) {
-      queryBuilder.where('account.loginName = :loginName', { loginName });
-    } else if (loginEmail) {
+    } else {
       queryBuilder.where('account.loginEmail = :loginEmail', { loginEmail });
     }
 
@@ -202,20 +202,23 @@ export class AccountService {
   ): Promise<AccountEntity> {
     // 使用事务确保数据一致性
     return await this.accountRepository.manager.transaction(async (manager) => {
-      // 先创建账户但不保存密码
-      const { loginPassword, ...accountDataWithoutPassword } = accountData;
-      const account = manager.create(AccountEntity, accountDataWithoutPassword);
+      // 先创建账户，给密码一个临时值
+      const account = manager.create(AccountEntity, {
+        ...accountData,
+        loginPassword: 'TEMP_PASSWORD', // 临时密码值
+      });
       const savedAccount = await manager.save(account);
 
       // 使用 created_at 作为盐值加密密码
       const salt = savedAccount.createdAt.toString();
       const hashedPassword = PasswordPbkdf2Helper.hashPasswordWithCrypto(
-        loginPassword as string,
+        accountData.loginPassword as string,
         salt,
       );
 
       // 更新账户密码
       savedAccount.loginPassword = hashedPassword;
+      savedAccount.status = AccountStatus.ACTIVE;
       await manager.save(savedAccount);
 
       // 创建用户信息

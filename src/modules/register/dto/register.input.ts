@@ -25,12 +25,12 @@ export class RegisterInput {
   @Matches(/^[a-zA-Z0-9_-]+$/, {
     message: '登录名只能包含英文字母、数字、下划线和短横线',
   })
-  loginName?: string;
+  loginName?: string | null;
 
-  @Field(() => String, { description: '登录邮箱', nullable: true })
-  @IsOptional()
+  @Field(() => String, { description: '登录邮箱' })
+  @IsNotEmpty({ message: '邮箱不能为空' })
   @IsEmail({}, { message: '邮箱格式不正确' })
-  loginEmail?: string;
+  loginEmail!: string;
 
   @Field(() => String, { description: '登录密码' })
   @IsString({ message: '密码必须是字符串' })
@@ -40,11 +40,6 @@ export class RegisterInput {
     message: '密码必须包含字母、数字和符号三种字符类型',
   })
   loginPassword!: string;
-
-  @Field(() => String, { description: '确认密码' })
-  @IsString({ message: '确认密码必须是字符串' })
-  @IsNotEmpty({ message: '确认密码不能为空' })
-  confirmPassword!: string;
 
   @Field(() => String, { description: '昵称', nullable: true })
   @IsOptional()

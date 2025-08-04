@@ -12,6 +12,7 @@ import { MiddlewareModule } from './core/middleware/middleware.module';
 import { AccountModule } from './modules/account/account.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { EncryptionModule } from './modules/common/encryption/encryption.module';
+import { RegisterModule } from './modules/register/register.module';
 import { ThirdPartyAuthModule } from './modules/thirdPartyAuth/third-party-auth.module';
 
 @Module({
@@ -25,6 +26,7 @@ import { ThirdPartyAuthModule } from './modules/thirdPartyAuth/third-party-auth.
     CatsModule,
     AccountModule,
     AuthModule,
+    RegisterModule, // 添加 RegisterModule
     ThirdPartyAuthModule,
   ],
   controllers: [AppController],

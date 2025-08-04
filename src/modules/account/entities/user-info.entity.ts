@@ -23,7 +23,7 @@ export class UserInfoEntity {
   @Column({ name: 'account_id', type: 'int' })
   accountId!: number;
 
-  @OneToOne(() => AccountEntity)
+  @OneToOne(() => AccountEntity, { createForeignKeyConstraints: false })
   @JoinColumn({ name: 'account_id' })
   account!: AccountEntity;
 

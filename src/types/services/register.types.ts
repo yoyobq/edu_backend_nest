@@ -31,16 +31,14 @@ export enum RegisterTypeEnum {
 export type PreparedRegisterData = Omit<RegisterInput, 'confirmPassword' | 'type'> & {
   /** 账户状态 */
   status: AccountStatus;
-
   /** 用户昵称 */
   nickname: string;
-
   /** 邮箱地址 */
-  email?: string;
-
+  email: string;
   /** 访问权限组 */
   accessGroup: string[];
-
   /** 身份提示 */
-  hint: string;
+  identityHint: string;
+  /** 私有字段 */
+  metaDigest: string | string[];
 };

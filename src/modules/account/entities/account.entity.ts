@@ -19,8 +19,14 @@ export class AccountEntity {
   @PrimaryGeneratedColumn({ type: 'int', comment: 'primary key' })
   id!: number;
 
-  // 此处的 ! 并非非空断言，而是代表此属性交给 TypeORM 来填值，它的值可能是 string 或 null，但它一定会被初始化
-  @Column({ name: 'login_name', type: 'varchar', length: 30, nullable: true, comment: '账号名' })
+  // 修改 loginName 字段，添加 nullable: true
+  @Column({
+    name: 'login_name',
+    type: 'varchar',
+    length: 30,
+    nullable: true,
+    comment: '账号名',
+  })
   loginName!: string | null;
 
   @Column({
@@ -30,7 +36,7 @@ export class AccountEntity {
     nullable: true,
     comment: '账号email',
   })
-  loginEmail!: string | null;
+  loginEmail!: string;
 
   @Column({ name: 'login_password', type: 'varchar', length: 255, comment: '密码' })
   loginPassword!: string;
