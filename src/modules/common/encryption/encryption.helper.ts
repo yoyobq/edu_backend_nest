@@ -84,6 +84,10 @@ export class EncryptionHelper implements EntitySubscriberInterface<unknown> {
       const val = (entity as Record<string | symbol, unknown>)[field];
       if (typeof val === 'string' && val) {
         (entity as Record<string | symbol, unknown>)[field] = this.encrypt(val);
+      } else if (Array.isArray(val) || (typeof val === 'object' && val !== null)) {
+        // 处理数组或对象类型，先序列化为 JSON 字符串再加密
+        const jsonString = JSON.stringify(val);
+        (entity as Record<string | symbol, unknown>)[field] = this.encrypt(jsonString);
       }
     }
   }
@@ -100,7 +104,13 @@ export class EncryptionHelper implements EntitySubscriberInterface<unknown> {
       const val = (entity as Record<string | symbol, unknown>)[field];
       if (typeof val === 'string' && val) {
         try {
-          (entity as Record<string | symbol, unknown>)[field] = this.decrypt(val);
+          const decryptedString = this.decrypt(val);
+          // 尝试解析为 JSON，如果失败则保持字符串
+          try {
+            (entity as Record<string | symbol, unknown>)[field] = JSON.parse(decryptedString);
+          } catch {
+            (entity as Record<string | symbol, unknown>)[field] = decryptedString;
+          }
         } catch {
           // 解密失败时保留原始值，避免数据丢失
           // 如果需要记录错误，可以在调用方处理
