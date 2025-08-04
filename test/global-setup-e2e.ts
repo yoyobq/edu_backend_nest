@@ -38,7 +38,7 @@ export default async (): Promise<void> => {
       ...dbConfig.mysql,
       // 使用 TypeORM 原生的 entities 配置，而不是 NestJS 的 autoLoadEntities
       entities: ['src/**/*.entity{.ts,.js}'],
-      logging: ['query', 'error'],
+      // logging: ['query', 'error'],
     };
 
     console.log('📊 数据库配置:', config);
