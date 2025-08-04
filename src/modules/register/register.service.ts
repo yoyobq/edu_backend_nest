@@ -70,7 +70,9 @@ export class RegisterService {
         account = await this.createAccount(preparedData);
       }
 
-      this.logger.info(`用户注册成功: ${account.id}，注册时 IP 为：${clientIp}`);
+      this.logger.info(
+        `用户注册成功: ${account.id}，注册时 IP 为：${clientIp.replace(/^::ffff:/, '').trim()}`,
+      );
 
       return {
         success: true,
