@@ -75,8 +75,7 @@ export class ThirdPartyAuthService {
    */
   async thirdPartyLogin(input: ThirdPartyLoginInput) {
     switch (input.provider) {
-      case ThirdPartyProviderEnum.SJWEAPP:
-      case ThirdPartyProviderEnum.SSTSWEAPP:
+      case ThirdPartyProviderEnum.WEAPP:
         return await this.weAppLogin(input);
       case ThirdPartyProviderEnum.WECHAT:
       case ThirdPartyProviderEnum.QQ:
@@ -188,32 +187,61 @@ export class ThirdPartyAuthService {
    */
   private async weAppLogin(input: ThirdPartyLoginInput) {
     // 1. 通过授权码获取 openId
-    const tokenData = await this.getWechatOpenId(input.authCredential);
+    const wechatSession = await this.getWechatOpenId(input.authCredential);
 
-    // 2. 通过 access_token 获取用户信息
-    const userInfo = await this.getWechatUserInfo(tokenData.openid, tokenData.session_key);
+    // 2. 通过 openId 去 third-party 实体中获取用户 accountId，如果有，拉取相关信息完成登录
+    // 如果没有进入第三方注册流程
 
-    // 3. 查找是否已有绑定的账户
+    // 2.1 通过 openId 查找是否已有绑定的第三方认证记录
     const existingAuth = await this.findAccountByThirdParty(
       ThirdPartyProviderEnum.WECHAT,
-      userInfo.openid,
+      wechatSession.openid,
     );
 
-    return {
-      provider: ThirdPartyProviderEnum.WECHAT,
-      providerUserId: userInfo.openid,
-      unionId: userInfo.unionid,
-      userInfo: {
-        nickname: userInfo.nickname,
-        avatar: userInfo.headimgurl,
-        sex: userInfo.sex,
-        province: userInfo.province,
-        city: userInfo.city,
-        country: userInfo.country,
-      },
-      existingAccount: existingAuth?.account || null,
-      // accessToken: tokenData.access_token,
-    };
+    // 2.2 如果找到了绑定记录，说明用户已注册，执行登录流程
+    if (existingAuth && existingAuth.account) {
+      // 2.2.1 获取完整的账户信息
+      const accountWithAccessGroup = await this.accountService.getUserWithAccessGroup({
+        accountId: existingAuth.accountId,
+      });
+
+      // 2.2.2 记录登录历史
+      await this.accountService.recordLoginHistory(
+        existingAuth.accountId,
+        new Date().toISOString(),
+        // input.clientIp || '', // 如果有客户端 IP
+        'wechat_miniprogram',
+      );
+
+      // 2.2.3 返回登录成功的结果
+      return {
+        success: true,
+        isNewUser: false,
+        provider: ThirdPartyProviderEnum.WECHAT,
+        providerUserId: wechatSession.openid,
+        unionId: wechatSession.unionid,
+        account: {
+          id: accountWithAccessGroup.id,
+          loginName: accountWithAccessGroup.loginName,
+          loginEmail: accountWithAccessGroup.loginEmail,
+          accessGroup: accountWithAccessGroup.accessGroup,
+        },
+        sessionKey: wechatSession.session_key,
+      };
+    }
+
+    // 2.3 如果没有找到绑定记录，进入第三方注册流程
+    else {
+      // 调用第三方注册准备函数
+      return this.prepareThirdPartyRegistration({
+        provider: ThirdPartyProviderEnum.WECHAT,
+        providerUserId: wechatSession.openid,
+        unionId: wechatSession.unionid || null, // 处理可能为空的情况
+        sessionKey: wechatSession.session_key,
+        // 可以在这里获取微信用户信息用于预填充
+        // userInfo: await this.getWechatUserInfo(wechatSession.access_token, wechatSession.openid)
+      });
+    }
   }
 
   /**
@@ -291,5 +319,38 @@ export class ThirdPartyAuthService {
       }
       throw new HttpException('获取微信用户信息失败', HttpStatus.INTERNAL_SERVER_ERROR);
     }
+  }
+
+  /**
+   * 准备第三方注册数据
+   * @param input 第三方用户数据
+   * @returns 标准化的注册准备结果
+   */
+  private prepareThirdPartyRegistration(input: {
+    provider: ThirdPartyProviderEnum;
+    providerUserId: string;
+    unionId?: string | null;
+    sessionKey?: string;
+    userInfo?: WechatUserInfo;
+  }) {
+    return {
+      success: true,
+      isNewUser: true,
+      provider: input.provider,
+      providerUserId: input.providerUserId,
+      // 只在确实存在时才包含 unionId
+      ...(input.unionId && { unionId: input.unionId }),
+      // 只在微信小程序登录时才包含 sessionKey
+      ...(input.sessionKey && { sessionKey: input.sessionKey }),
+      nextStep: 'REGISTRATION_REQUIRED' as const,
+      message: '检测到新用户，请完善注册信息',
+      // 可选：预填充的用户信息
+      ...(input.userInfo && {
+        suggestedUserInfo: {
+          nickname: input.userInfo.nickname,
+          avatar: input.userInfo.headimgurl,
+        },
+      }),
+    };
   }
 }

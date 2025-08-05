@@ -34,12 +34,11 @@ export enum LoginTypeEnum {
  * 第三方登录提供商枚举
  */
 export enum ThirdPartyProviderEnum {
+  WEAPP = 'WEAPP',
   WECHAT = 'WECHAT',
   QQ = 'QQ',
   GOOGLE = 'GOOGLE',
   GITHUB = 'GITHUB',
-  SJWEAPP = 'SJWEAPP',
-  SSTSWEAPP = 'SSTSWEAPP',
 }
 
 /**
