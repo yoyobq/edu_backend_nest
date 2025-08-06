@@ -10,8 +10,13 @@ export const PROFILE_PROVIDER_MAP_TOKEN = 'PROFILE_PROVIDER_MAP';
  * 支持的身份类型常量
  */
 export const SUPPORTED_IDENTITIES = {
-  STUDENT: 'student',
-  STAFF: 'staff',
+  STUDENT: 'STUDENT',
+  STAFF: 'STAFF',
+  MANAGER: 'MANAGER',
+  COACH: 'COACH',
+  CUSTOMER: 'CUSTOMER',
+  LEARNER: 'LEARNER',
+  REGISTRANT: 'REGISTRANT',
 } as const;
 
 export type SupportedIdentity = (typeof SUPPORTED_IDENTITIES)[keyof typeof SUPPORTED_IDENTITIES];

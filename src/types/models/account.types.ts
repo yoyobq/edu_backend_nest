@@ -18,10 +18,13 @@ export enum AccountStatus {
 // 这里提供了更多的枚举项，如 customer 和 learner 是为了展示设计，
 // 比如说一个培训机构除了 staff 还可以增加 customer 和 learner 表用于记录信息
 export enum IdentityTypeEnum {
-  STAFF = 'staff',
-  STUDENT = 'student',
-  CUSTOMER = 'customer',
-  LEARNER = 'learner',
+  STAFF = 'STAFF',
+  STUDENT = 'STUDENT',
+  MANAGER = 'MANAGER',
+  COACH = 'COACH',
+  CUSTOMER = 'CUSTOMER',
+  LEARNER = 'LEARNER',
+  REGISTRANT = 'REGISTRANT',
 }
 
 export enum LoginTypeEnum {
@@ -58,4 +61,14 @@ export enum AudienceTypeEnum {
   SSTSWEAPP = 'SSTSWEAPP',
   SJWEB = 'SJWEB',
   SJWEAPP = 'SJWEAPP',
+}
+
+/**
+ * 就业状态枚举
+ * 适用于所有员工类型（教职工、教练、经理等）
+ */
+export enum EmploymentStatus {
+  ACTIVE = 'ACTIVE',
+  SUSPENDED = 'SUSPENDED',
+  LEFT = 'LEFT',
 }

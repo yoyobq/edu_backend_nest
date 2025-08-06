@@ -13,11 +13,20 @@ registerEnumType(IdentityTypeEnum, {
     STUDENT: {
       description: '学生',
     },
+    MANAGER: {
+      description: '经理',
+    },
+    COACH: {
+      description: '教练',
+    },
     CUSTOMER: {
       description: '客户',
     },
     LEARNER: {
       description: '学员',
+    },
+    REGISTRANT: {
+      description: '注册用户',
     },
   },
 });
