@@ -1,6 +1,7 @@
 // src/app.module.ts
 
 import { Module } from '@nestjs/common';
+import { APP_FILTER } from '@nestjs/core';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { CatsModule } from './cats/cats.module';
@@ -14,6 +15,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { EncryptionModule } from './modules/common/encryption/encryption.module';
 import { RegisterModule } from './modules/register/register.module';
 import { ThirdPartyAuthModule } from './modules/thirdPartyAuth/third-party-auth.module';
+import { GqlAllExceptionsFilter } from './core/common/filters/graphql-exception.filter';
 
 @Module({
   imports: [
@@ -30,6 +32,12 @@ import { ThirdPartyAuthModule } from './modules/thirdPartyAuth/third-party-auth.
     ThirdPartyAuthModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    {
+      provide: APP_FILTER,
+      useClass: GqlAllExceptionsFilter,
+    },
+  ],
 })
 export class AppModule {}
