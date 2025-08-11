@@ -1,6 +1,6 @@
 // src/modules/account/graphql/enums/identity-type.enum.ts
 import { registerEnumType } from '@nestjs/graphql';
-import { IdentityTypeEnum } from '../../../../types/models/account.types';
+import { EmploymentStatus, IdentityTypeEnum } from '../../../../types/models/account.types';
 
 // 注册 IdentityTypeEnum 枚举类型到 GraphQL Schema
 registerEnumType(IdentityTypeEnum, {
@@ -27,6 +27,23 @@ registerEnumType(IdentityTypeEnum, {
     },
     REGISTRANT: {
       description: '注册用户',
+    },
+  },
+});
+
+// 注册 EmploymentStatus 枚举类型到 GraphQL Schema
+registerEnumType(EmploymentStatus, {
+  name: 'EmploymentStatus',
+  description: '就业状态',
+  valuesMap: {
+    ACTIVE: {
+      description: '在职',
+    },
+    SUSPENDED: {
+      description: '停职',
+    },
+    LEFT: {
+      description: '离职',
     },
   },
 });

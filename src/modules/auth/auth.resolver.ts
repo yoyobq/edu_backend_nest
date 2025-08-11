@@ -2,7 +2,7 @@
 
 import { Args, Mutation, Resolver } from '@nestjs/graphql';
 import { AuthService } from './auth.service';
-import { AuthLoginResult } from './dto/auth-login-result';
+import { LoginResult } from '../account/dto/login-result.dto';
 import { AuthLoginInput } from './dto/auth-login.input';
 
 /**
@@ -17,8 +17,8 @@ export class AuthResolver {
    * @param input 登录参数
    * @returns 登录结果
    */
-  @Mutation(() => AuthLoginResult, { description: '用户登录' })
-  async login(@Args('input') input: AuthLoginInput): Promise<AuthLoginResult> {
+  @Mutation(() => LoginResult, { description: '用户登录' })
+  async login(@Args('input') input: AuthLoginInput): Promise<LoginResult> {
     return await this.authService.login(input);
   }
 }

@@ -61,7 +61,7 @@ export class ThirdPartyAuthEntity {
   /**
    * 关联的账号实体
    */
-  @ManyToOne(() => AccountEntity)
+  @ManyToOne(() => AccountEntity, { createForeignKeyConstraints: false })
   @JoinColumn({ name: 'account_id' })
   account!: AccountEntity;
 

@@ -1,9 +1,9 @@
 // src/modules/thirdPartyAuth/third-party-auth.resolver.ts
-import { UnauthorizedException, UseGuards } from '@nestjs/common';
+
+import { UseGuards } from '@nestjs/common';
 import { Args, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { JwtPayload } from '../../types/jwt.types';
-import { AuthService } from '../auth/auth.service';
-import { AuthLoginResult } from '../auth/dto/auth-login-result';
+import { LoginResult } from '../account/dto/login-result.dto'; // 更改导入
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { currentUser } from '../common/decorators/current-user.decorator';
 import { BindThirdPartyInput } from './dto/bind-third-party.input';
@@ -17,10 +17,7 @@ import { ThirdPartyAuthService } from './third-party-auth.service';
  */
 @Resolver()
 export class ThirdPartyAuthResolver {
-  constructor(
-    private readonly thirdPartyAuthService: ThirdPartyAuthService,
-    private readonly authService: AuthService,
-  ) {}
+  constructor(private readonly thirdPartyAuthService: ThirdPartyAuthService) {}
 
   /**
    * 第三方登录
@@ -28,23 +25,10 @@ export class ThirdPartyAuthResolver {
    * @returns 登录结果
    * @throws UnauthorizedException 登录失败时抛出异常
    */
-  @Mutation(() => AuthLoginResult, { description: '第三方登录' })
-  async thirdPartyLogin(@Args('input') input: ThirdPartyLoginInput): Promise<AuthLoginResult> {
-    // 1. 获取第三方用户信息
-    const thirdPartyResult = await this.thirdPartyAuthService.thirdPartyLogin(input);
-
-    // 2. 如果已有绑定账户，直接登录
-    if (thirdPartyResult.existingAccount) {
-      // 使用 AuthService 的统一登录逻辑
-      return await this.authService.loginByAccountId({
-        accountId: thirdPartyResult.existingAccount.id,
-        ip: input.ip,
-        audience: input.audience,
-      });
-    }
-
-    // 3. 如果没有绑定账户，抛出异常
-    throw new UnauthorizedException('该第三方账户未绑定，请先绑定账户或注册新账户');
+  @Mutation(() => LoginResult, { description: '第三方登录' }) // 更改返回类型
+  async thirdPartyLogin(@Args('input') input: ThirdPartyLoginInput): Promise<LoginResult> {
+    // 直接调用 service 的完整登录方法，所有业务逻辑都在 service 层处理
+    return await this.thirdPartyAuthService.thirdPartyLogin(input);
   }
 
   /**
