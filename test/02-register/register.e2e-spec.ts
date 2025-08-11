@@ -338,7 +338,7 @@ describe('Register (e2e)', () => {
 
       const { errors } = response.body;
       expect(errors).toBeDefined();
-      expect(errors?.[0]?.message).toContain('昵称只能包含中文、英文、数字、下划线和短横线');
+      expect(errors?.[0]?.message).toContain('昵称长度限制：中文最多 7 个汉字');
     });
 
     /**
