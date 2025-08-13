@@ -19,15 +19,18 @@ export class BindThirdPartyInput {
   @MaxLength(128)
   providerUserId!: string;
 
-  @Field({ nullable: true, description: '联合 ID，如微信的 unionid' })
+  @Field(() => String, {
+    nullable: true,
+    description: '联合 ID，如微信的 unionid (仅特定平台提供)',
+  })
   @IsOptional()
   @IsString()
   @MaxLength(128)
-  unionId?: string;
+  unionId?: string | null;
 
-  @Field({ nullable: true, description: '访问令牌（仅调试用途）' })
+  @Field(() => String, { nullable: true, description: '访问令牌（仅调试用途）' })
   @IsOptional()
   @IsString()
   @MaxLength(255)
-  accessToken?: string;
+  accessToken?: string | null;
 }

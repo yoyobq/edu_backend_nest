@@ -7,9 +7,9 @@
 export type ThirdPartySession = {
   /** 第三方平台用户唯一标识 (如微信 openid、OAuth sub、用户 id) */
   providerUserId: string;
-  /** 联合 ID，用于跨应用识别同一用户 (可选) */
+  /** 联合 ID，用于跨应用识别同一用户 (仅特定平台返回，如微信 unionid) */
   unionId?: string | null;
-  /** 用户基本信息 (可选) */
+  /** 用户基本信息 (仅特定平台返回，如 OAuth 用户信息接口) */
   profile?: {
     /** 用户昵称 */
     nickname?: string | null;
@@ -18,9 +18,9 @@ export type ThirdPartySession = {
     /** 用户头像 URL */
     avatarUrl?: string | null;
   };
-  /** 微信小程序会话密钥原始值 (仅 WeApp 使用，上层仅存摘要) */
+  /** 微信小程序会话密钥原始值 (仅 WeApp 平台返回，上层仅存摘要) */
   sessionKeyRaw?: string;
-  /** OIDC ID Token 的 header.payload 部分 (可选，用于审计) */
+  /** OIDC ID Token 的 header.payload 部分 (仅 OIDC 平台返回，用于审计) */
   idTokenHeaderPayload?: string;
 };
 
