@@ -4,30 +4,10 @@ import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { AudienceTypeEnum, ThirdPartyProviderEnum } from '../../../types/models/account.types';
 import {
-  ThirdPartyProvider,
   ThirdPartySession,
-} from '../interfaces/third-party-provider.interface';
-
-/** 微信小程序 code2session 接口成功响应 */
-interface WeAppCode2SessionSuccess {
-  /** 用户唯一标识 */
-  openid: string;
-  /** 会话密钥 */
-  session_key: string;
-  /** 用户在微信开放平台的唯一标识 (可选) */
-  unionid?: string;
-}
-
-/** 微信小程序 code2session 接口错误响应 */
-interface WeAppCode2SessionError {
-  /** 错误码 */
-  errcode: number;
-  /** 错误信息 */
-  errmsg: string;
-}
-
-/** 微信小程序 code2session 接口响应联合类型 */
-type WeAppCode2SessionResponse = WeAppCode2SessionSuccess | WeAppCode2SessionError;
+  WeAppCode2SessionResponse,
+} from '../../../types/models/third-party-auth.types';
+import { ThirdPartyProvider } from '../interfaces/third-party-provider.interface';
 
 /**
  * 微信小程序认证提供者

@@ -10,13 +10,14 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { AudienceTypeEnum, ThirdPartyProviderEnum } from '../../types/models/account.types';
+import { ThirdPartySession } from '../../types/models/third-party-auth.types';
 import { LoginResult } from '../account/dto/login-result.dto';
 import { ThirdPartyAuthEntity } from '../account/entities/third-party-auth.entity';
 import { AuthService } from '../auth/auth.service';
 import { BindThirdPartyInput } from './dto/bind-third-party.input';
 import { ThirdPartyLoginInput } from './dto/third-party-login.input';
 import { UnbindThirdPartyInput } from './dto/unbind-third-party.input';
-import { ThirdPartyProvider, ThirdPartySession } from './interfaces/third-party-provider.interface';
+import { ThirdPartyProvider } from './interfaces/third-party-provider.interface';
 
 /** 第三方认证提供者映射的依赖注入标识 */
 export const PROVIDER_MAP = Symbol('THIRD_PARTY_PROVIDER_MAP');

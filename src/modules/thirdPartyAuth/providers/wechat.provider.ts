@@ -1,10 +1,8 @@
 // src/modules/thirdPartyAuth/providers/wechat.provider.ts
 import { Injectable } from '@nestjs/common';
 import { AudienceTypeEnum, ThirdPartyProviderEnum } from '../../../types/models/account.types';
-import {
-  ThirdPartyProvider,
-  ThirdPartySession,
-} from '../interfaces/third-party-provider.interface';
+import { ThirdPartySession } from '../../../types/models/third-party-auth.types';
+import { ThirdPartyProvider } from '../interfaces/third-party-provider.interface';
 
 /**
  * 微信网页/公众号认证提供者
