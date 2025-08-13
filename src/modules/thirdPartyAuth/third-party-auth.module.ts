@@ -1,6 +1,6 @@
 // src/modules/thirdPartyAuth/third-party-auth.module.ts
 import { HttpModule } from '@nestjs/axios';
-import { Module, forwardRef } from '@nestjs/common';
+import { Module, Provider, forwardRef } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
@@ -8,22 +8,49 @@ import { AccountModule } from '../account/account.module';
 import { ThirdPartyAuthEntity } from '../account/entities/third-party-auth.entity';
 import { AuthModule } from '../auth/auth.module';
 
+import { ThirdPartyProviderEnum } from '../../types/models/account.types';
+import { ThirdPartyProvider } from './interfaces/third-party-provider.interface';
 import { WeAppProvider } from './providers/weapp.provider';
+import { WechatProvider } from './providers/wechat.provider';
 import { ThirdPartyAuthResolver } from './third-party-auth.resolver';
-import { ThirdPartyAuthService } from './third-party-auth.service';
+import { PROVIDER_MAP, ThirdPartyAuthService } from './third-party-auth.service';
 
+/**
+ * 第三方认证提供者映射工厂
+ * 创建平台类型到具体提供者实现的映射关系
+ */
+const providerMapFactory: Provider = {
+  provide: PROVIDER_MAP,
+  useFactory: (weapp: WeAppProvider, wechat: WechatProvider) => {
+    // 构建第三方平台类型到提供者实现的映射
+    const map = new Map<ThirdPartyProviderEnum, ThirdPartyProvider>([
+      [weapp.provider, weapp],
+      [wechat.provider, wechat],
+      // TODO: 添加更多第三方平台支持 (GitHub、Google、QQ 等)
+    ]);
+    return map;
+  },
+  inject: [WeAppProvider, WechatProvider],
+};
+
+/**
+ * 第三方认证模块
+ * 提供统一的第三方平台认证、绑定、解绑等功能
+ */
 @Module({
   imports: [
     TypeOrmModule.forFeature([ThirdPartyAuthEntity]),
     HttpModule,
     ConfigModule,
-    forwardRef(() => AccountModule), // 若存在循环依赖更安全；无循环也可保留
+    forwardRef(() => AccountModule),
     forwardRef(() => AuthModule),
   ],
   providers: [
+    WeAppProvider,
+    WechatProvider,
+    providerMapFactory,
     ThirdPartyAuthService,
     ThirdPartyAuthResolver,
-    WeAppProvider, // ⬅️ 注册 WeAppProvider
   ],
   exports: [ThirdPartyAuthService],
 })
