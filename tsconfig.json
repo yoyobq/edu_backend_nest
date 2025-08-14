@@ -14,7 +14,14 @@
     "skipLibCheck": true,
     "strict": true,
     "forceConsistentCasingInFileNames": true,
-    "resolveJsonModule": true
+    "resolveJsonModule": true,
+    "paths": {
+      "@core/*": ["src/core/*"],
+      "@shared/*": ["src/shared/*"],
+      "@modules/*": ["src/modules/*"],
+      "@interfaces/*": ["src/interfaces/*"],
+      "@usecases/*": ["src/usecases/*"]
+    }
   },
   "include": ["src/**/*", "test/**/*", "jest.config.ts"],
   "exclude": ["node_modules", "dist"]
