@@ -44,8 +44,8 @@ export class UserInfoEntity {
   @Column({ type: 'varchar', length: 255, nullable: true, comment: '头像' })
   avatar!: string | null;
 
-  @Column({ type: 'varchar', length: 50, comment: '邮箱' })
-  email!: string;
+  @Column({ type: 'varchar', length: 50, nullable: true, comment: '邮箱' })
+  email!: string | null;
 
   @Column({ type: 'varchar', length: 100, nullable: true, comment: '个性签名' })
   signature!: string | null;
