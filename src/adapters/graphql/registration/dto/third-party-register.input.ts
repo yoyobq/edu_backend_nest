@@ -4,7 +4,7 @@ import { AudienceTypeEnum, ThirdPartyProviderEnum } from '@app-types/models/acco
 import { normalizeText, toLowerCase, trimText } from '@core/common/text/text.helper';
 import { Field, InputType } from '@nestjs/graphql';
 import '@src/adapters/graphql/auth/enums/audience-type.enum';
-import '@src/adapters/graphql/third-party-accounts/enums/third-party-provider.enum';
+import '@src/adapters/graphql/third-party-auth/enums/third-party-provider.enum';
 import { Transform, TransformFnParams } from 'class-transformer';
 import {
   IsEmail,

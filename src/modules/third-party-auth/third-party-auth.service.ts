@@ -14,9 +14,9 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { LoginResult } from '@src/adapters/graphql/account/dto/login-result.dto';
 import { Repository } from 'typeorm';
-import { BindThirdPartyInput } from '../../adapters/graphql/third-party-accounts/dto/bind-third-party.input';
-import { ThirdPartyLoginInput } from '../../adapters/graphql/third-party-accounts/dto/third-party-login.input';
-import { UnbindThirdPartyInput } from '../../adapters/graphql/third-party-accounts/dto/unbind-third-party.input';
+import { BindThirdPartyInput } from '../../adapters/graphql/third-party-auth/dto/bind-third-party.input';
+import { ThirdPartyLoginInput } from '../../adapters/graphql/third-party-auth/dto/third-party-login.input';
+import { UnbindThirdPartyInput } from '../../adapters/graphql/third-party-auth/dto/unbind-third-party.input';
 import { ThirdPartyProvider } from './interfaces/third-party-provider.interface';
 
 /** 第三方认证提供者映射的依赖注入标识 */

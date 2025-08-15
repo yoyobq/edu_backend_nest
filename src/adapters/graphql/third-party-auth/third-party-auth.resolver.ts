@@ -7,10 +7,10 @@ import { ThirdPartyAuthService } from '@modules/third-party-auth/third-party-aut
 import { UseGuards } from '@nestjs/common';
 import { Args, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { LoginResult } from '@src/adapters/graphql/account/dto/login-result.dto';
-import { BindThirdPartyInput } from '@src/adapters/graphql/third-party-accounts/dto/bind-third-party.input';
-import { ThirdPartyAuthDTO } from '@src/adapters/graphql/third-party-accounts/dto/third-party-auth.dto';
-import { ThirdPartyLoginInput } from '@src/adapters/graphql/third-party-accounts/dto/third-party-login.input';
-import { UnbindThirdPartyInput } from '@src/adapters/graphql/third-party-accounts/dto/unbind-third-party.input';
+import { BindThirdPartyInput } from '@src/adapters/graphql/third-party-auth/dto/bind-third-party.input';
+import { ThirdPartyAuthDTO } from '@src/adapters/graphql/third-party-auth/dto/third-party-auth.dto';
+import { ThirdPartyLoginInput } from '@src/adapters/graphql/third-party-auth/dto/third-party-login.input';
+import { UnbindThirdPartyInput } from '@src/adapters/graphql/third-party-auth/dto/unbind-third-party.input';
 
 /**
  * 第三方认证 GraphQL 解析器
