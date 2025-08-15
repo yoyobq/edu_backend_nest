@@ -1,9 +1,9 @@
 // src/core/common/filters/graphql-exception.filter.ts
+import { ExceptionPayload } from '@app-types/errors/exception-payload';
 import { ArgumentsHost, Catch, HttpException } from '@nestjs/common';
 import { BaseExceptionFilter } from '@nestjs/core';
 import { GqlArgumentsHost } from '@nestjs/graphql';
 import { GraphQLError, GraphQLResolveInfo } from 'graphql';
-import { ExceptionPayload } from '../../../types/errors/exception-payload';
 
 /** 将 HTTP 状态码映射为 GraphQL 标准错误类别代码（extensions.code）
  *  注意：这是 GraphQL/Apollo 通用的大类，不是业务 errorCode（业务码放在 extensions.errorCode）

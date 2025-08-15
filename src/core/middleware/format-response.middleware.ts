@@ -1,10 +1,10 @@
 /* eslint-disable no-console */
 // src/middleware/format-response.middleware.ts
 
+import { ApiResponse, ShowType } from '@app-types/response.types';
 import { Injectable, NestMiddleware } from '@nestjs/common';
 import { NextFunction, Request, Response } from 'express';
 import { GraphQLError } from 'graphql';
-import { ApiResponse, ShowType } from '../../types/response.types';
 
 /**
  * HTTP 响应格式化中间件

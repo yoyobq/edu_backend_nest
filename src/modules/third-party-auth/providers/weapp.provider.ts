@@ -1,12 +1,12 @@
 // src/modules/thirdPartyAuth/providers/weapp.provider.ts
-import { HttpService } from '@nestjs/axios';
-import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import { AudienceTypeEnum, ThirdPartyProviderEnum } from '../../../types/models/account.types';
+import { AudienceTypeEnum, ThirdPartyProviderEnum } from '@app-types/models/account.types';
 import {
   ThirdPartySession,
   WeAppCode2SessionResponse,
-} from '../../../types/models/third-party-auth.types';
+} from '@app-types/models/third-party-auth.types';
+import { HttpService } from '@nestjs/axios';
+import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { ThirdPartyProvider } from '../interfaces/third-party-provider.interface';
 
 /**

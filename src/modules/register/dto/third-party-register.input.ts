@@ -1,5 +1,8 @@
 // src/modules/register/dto/third-party-register.input.ts
 
+import { AudienceTypeEnum, ThirdPartyProviderEnum } from '@app-types/models/account.types';
+import { normalizeText, toLowerCase, trimText } from '@core/common/text/text.helper';
+import '@modules/auth/graphql/enums/audience-type.enum';
 import { Field, InputType } from '@nestjs/graphql';
 import { Transform, TransformFnParams } from 'class-transformer';
 import {
@@ -12,10 +15,7 @@ import {
   MaxLength,
   MinLength,
 } from 'class-validator';
-import { normalizeText, toLowerCase, trimText } from '../../../core/common/text/text.helper';
-import { AudienceTypeEnum, ThirdPartyProviderEnum } from '../../../types/models/account.types';
-import '../../auth/graphql/enums/audience-type.enum';
-import '../../thirdPartyAuth/graphql/enums/third-party-provider.enum';
+import '../../third-party-auth/graphql/enums/third-party-provider.enum';
 
 /**
  * 第三方注册输入参数

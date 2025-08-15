@@ -1,3 +1,4 @@
+import { AccountStatus } from '@app-types/models/account.types';
 import {
   Column,
   CreateDateColumn,
@@ -7,7 +8,6 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
-import { AccountStatus } from '../../../types/models/account.types';
 import '../graphql/enums/account-status.enum';
 import '../graphql/enums/identity-type.enum';
 import { LoginHistoryItem } from '../graphql/types/login-history.types';

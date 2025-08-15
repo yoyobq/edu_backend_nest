@@ -1,7 +1,7 @@
 // src/modules/register/register.module.ts
 
+import { AccountModule } from '@modules/account/account.module';
 import { Module } from '@nestjs/common';
-import { AccountModule } from '../account/account.module';
 import './graphql/enums/register-type.enum';
 import { RegisterResolver } from './register.resolver';
 import { RegisterService } from './register.service';

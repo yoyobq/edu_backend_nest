@@ -1,8 +1,8 @@
 // src/modules/register/register.resolver.ts
 
+import { ValidateInput } from '@core/common/errors/validate-input.decorator';
 import { Args, Context, Mutation, Resolver } from '@nestjs/graphql';
 import { Request } from 'express';
-import { ValidateInput } from '../../core/common/errors/validate-input.decorator';
 import { RegisterResult } from './dto/register-result.dto';
 import { RegisterInput } from './dto/register.input';
 import { RegisterService } from './register.service';

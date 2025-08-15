@@ -1,8 +1,8 @@
 // src/modules/auth/auth.resolver.ts
 
+import { LoginResult } from '@modules/account/dto/login-result.dto';
 import { Args, Mutation, Resolver } from '@nestjs/graphql';
 import { AuthService } from './auth.service';
-import { LoginResult } from '../account/dto/login-result.dto';
 import { AuthLoginInput } from './dto/auth-login.input';
 
 /**

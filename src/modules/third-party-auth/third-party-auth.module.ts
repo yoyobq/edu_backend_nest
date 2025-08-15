@@ -4,11 +4,11 @@ import { Module, Provider, forwardRef } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
-import { AccountModule } from '../account/account.module';
-import { ThirdPartyAuthEntity } from '../account/entities/third-party-auth.entity';
-import { AuthModule } from '../auth/auth.module';
+import { AccountModule } from '@modules/account/account.module';
+import { ThirdPartyAuthEntity } from '@modules/account/entities/third-party-auth.entity';
+import { AuthModule } from '@modules/auth/auth.module';
 
-import { ThirdPartyProviderEnum } from '../../types/models/account.types';
+import { ThirdPartyProviderEnum } from '@app-types/models/account.types';
 import { ThirdPartyProvider } from './interfaces/third-party-provider.interface';
 import { WeAppProvider } from './providers/weapp.provider';
 import { WechatProvider } from './providers/wechat.provider';

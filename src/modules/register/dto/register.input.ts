@@ -1,5 +1,7 @@
 // src/modules/register/dto/register.input.ts
 
+import { RegisterTypeEnum } from '@app-types/services/register.types';
+import { normalizeText, toLowerCase, trimText } from '@core/common/text/text.helper';
 import { Field, InputType } from '@nestjs/graphql';
 import { Transform, TransformFnParams } from 'class-transformer';
 import {
@@ -12,8 +14,6 @@ import {
   MaxLength,
   MinLength,
 } from 'class-validator';
-import { normalizeText, toLowerCase, trimText } from '../../../core/common/text/text.helper';
-import { RegisterTypeEnum } from '../../../types/services/register.types';
 
 /**
  * 用户注册输入参数

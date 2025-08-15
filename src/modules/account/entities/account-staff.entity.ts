@@ -1,5 +1,6 @@
 // src/modules/account/entities/account-staff.entity.ts
 // import { Field, ID, ObjectType, Int } from '@nestjs/graphql';
+import { EmploymentStatus } from '@app-types/models/account.types';
 import {
   Column,
   CreateDateColumn,
@@ -9,7 +10,6 @@ import {
   PrimaryColumn,
   UpdateDateColumn,
 } from 'typeorm';
-import { EmploymentStatus } from '../../../types/models/account.types';
 import { AccountEntity } from './account.entity';
 
 @Entity('member_staff')

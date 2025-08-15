@@ -1,7 +1,7 @@
 // src/modules/account/dto/identity/coach.dto.ts
 
+import { EmploymentStatus } from '@app-types/models/account.types';
 import { Field, ID, ObjectType } from '@nestjs/graphql';
-import { EmploymentStatus } from '../../../../types/models/account.types';
 
 /**
  * 教练身份信息 DTO

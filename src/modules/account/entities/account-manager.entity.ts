@@ -1,4 +1,5 @@
 // src/modules/account/entities/account-manager.entity.ts
+import { EmploymentStatus } from '@app-types/models/account.types';
 import {
   Column,
   CreateDateColumn,
@@ -8,7 +9,6 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
-import { EmploymentStatus } from '../../../types/models/account.types';
 import { AccountEntity } from './account.entity';
 
 @Entity('member_manager')

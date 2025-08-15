@@ -1,6 +1,6 @@
 // src/modules/thirdPartyAuth/interfaces/third-party-provider.interface.ts
-import { AudienceTypeEnum, ThirdPartyProviderEnum } from '../../../types/models/account.types';
-import { ThirdPartySession } from '../../../types/models/third-party-auth.types';
+import { AudienceTypeEnum, ThirdPartyProviderEnum } from '@app-types/models/account.types';
+import { ThirdPartySession } from '@app-types/models/third-party-auth.types';
 
 /**
  * 第三方认证提供者接口

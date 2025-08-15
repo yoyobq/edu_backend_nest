@@ -1,7 +1,7 @@
 // src/modules/auth/graphql/enums/audience-type.enum.ts
 
+import { AudienceTypeEnum } from '@app-types/models/account.types';
 import { registerEnumType } from '@nestjs/graphql';
-import { AudienceTypeEnum } from '../../../../types/models/account.types';
 
 /**
  * 注册客户端类型枚举到 GraphQL Schema

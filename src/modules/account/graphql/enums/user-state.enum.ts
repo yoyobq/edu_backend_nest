@@ -1,6 +1,6 @@
 // src/modules/account/graphql/enums/user-state.enum.ts
+import { UserState } from '@app-types/models/user-info.types';
 import { registerEnumType } from '@nestjs/graphql';
-import { UserState } from '../../../../types/models/user-info.types';
 
 // 注册 UserState 枚举类型到 GraphQL Schema
 registerEnumType(UserState, {

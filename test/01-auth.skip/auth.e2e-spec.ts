@@ -1,12 +1,12 @@
 // test/01-auth/auth.e2e-spec.ts
+import { PasswordPbkdf2Helper } from '@core/common/password/password.pbkdf2.helper';
+import { AccountEntity } from '@modules/account/entities/account.entity';
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
+import { AppModule } from '@src/app.module';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { DataSource, In } from 'typeorm';
-import { AppModule } from '../../src/app.module';
-import { PasswordPbkdf2Helper } from '../../src/core/common/password/password.pbkdf2.helper';
-import { AccountEntity } from '../../src/modules/account/entities/account.entity';
 import {
   AccountStatus,
   AudienceTypeEnum,

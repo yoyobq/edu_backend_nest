@@ -1,7 +1,7 @@
 // src/modules/account/dto/login-result.dto.ts
 
+import { IdentityTypeEnum } from '@app-types/models/account.types';
 import { Field, ID, ObjectType } from '@nestjs/graphql';
-import { IdentityTypeEnum } from '../../../types/models/account.types';
 import { IdentityUnion, IdentityUnionType } from './identity/identity-union.type';
 
 /**

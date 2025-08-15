@@ -1,7 +1,7 @@
 // src/modules/thirdPartyAuth/dto/third-party-login.input.ts
+import { AudienceTypeEnum, ThirdPartyProviderEnum } from '@app-types/models/account.types';
 import { Field, InputType } from '@nestjs/graphql';
 import { IsEnum, IsNotEmpty, IsOptional, IsString } from 'class-validator';
-import { AudienceTypeEnum, ThirdPartyProviderEnum } from '../../../types/models/account.types';
 import '../graphql/enums/third-party-provider.enum';
 
 /**

@@ -1,13 +1,13 @@
 // src/modules/common/token/token.helper.ts
 
-import { Injectable } from '@nestjs/common';
-import { JsonWebTokenError, JwtService, NotBeforeError, TokenExpiredError } from '@nestjs/jwt';
-import { PinoLogger } from 'nestjs-pino';
 import {
   GenerateAccessTokenParams,
   GenerateRefreshTokenParams,
   JwtPayload,
-} from '../../../types/jwt.types';
+} from '@app-types/jwt.types';
+import { Injectable } from '@nestjs/common';
+import { JsonWebTokenError, JwtService, NotBeforeError, TokenExpiredError } from '@nestjs/jwt';
+import { PinoLogger } from 'nestjs-pino';
 
 /**
  * Token 助手类

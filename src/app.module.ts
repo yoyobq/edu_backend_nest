@@ -5,6 +5,7 @@ import { APP_FILTER } from '@nestjs/core';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { CatsModule } from './cats/cats.module';
+import { GqlAllExceptionsFilter } from './core/common/filters/graphql-exception.filter';
 import { AppConfigModule } from './core/config/config.module';
 import { DatabaseModule } from './core/database/database.module';
 import { AppGraphQLModule } from './core/graphql/graphql.module';
@@ -14,8 +15,7 @@ import { AccountModule } from './modules/account/account.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { EncryptionModule } from './modules/common/encryption/encryption.module';
 import { RegisterModule } from './modules/register/register.module';
-import { ThirdPartyAuthModule } from './modules/thirdPartyAuth/third-party-auth.module';
-import { GqlAllExceptionsFilter } from './core/common/filters/graphql-exception.filter';
+import { ThirdPartyAuthModule } from './modules/third-party-auth/third-party-auth.module';
 
 @Module({
   imports: [

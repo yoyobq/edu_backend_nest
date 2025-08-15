@@ -1,6 +1,6 @@
 // src/modules/account/graphql/enums/account-status.enum.ts
+import { AccountStatus } from '@app-types/models/account.types';
 import { registerEnumType } from '@nestjs/graphql';
-import { AccountStatus } from '../../../../types/models/account.types';
 
 // 注册 AccountStatus 枚举类型到 GraphQL Schema
 registerEnumType(AccountStatus, {

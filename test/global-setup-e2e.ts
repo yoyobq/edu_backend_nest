@@ -1,10 +1,10 @@
 // test/global-setup-e2e.ts
 import 'reflect-metadata';
 
+import databaseConfig from '@core/config/database.config';
 import * as dotenv from 'dotenv';
 import * as path from 'path';
 import { DataSource, DataSourceOptions } from 'typeorm';
-import databaseConfig from '../src/core/config/database.config';
 
 /**
  * 全局类型定义

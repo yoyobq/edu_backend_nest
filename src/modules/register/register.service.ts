@@ -2,16 +2,16 @@
 
 import { ConflictException, Injectable } from '@nestjs/common';
 // import { ConfigService } from '@nestjs/config';
-import { PinoLogger } from 'nestjs-pino';
+import { AccountStatus } from '@app-types/models/account.types';
+import { PreparedRegisterData } from '@app-types/services/register.types';
 import {
   getRealClientIp,
   isPrivateIp,
   isServerIp,
-} from '../../core/common/network/network-access.helper';
-import { AccountStatus } from '../../types/models/account.types';
-import { PreparedRegisterData } from '../../types/services/register.types';
-import { AccountService } from '../account/account.service';
-import { AccountEntity } from '../account/entities/account.entity';
+} from '@core/common/network/network-access.helper';
+import { AccountService } from '@modules/account/account.service';
+import { AccountEntity } from '@modules/account/entities/account.entity';
+import { PinoLogger } from 'nestjs-pino';
 import { RegisterResult } from './dto/register-result.dto';
 import { RegisterInput } from './dto/register.input';
 

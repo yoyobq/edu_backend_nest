@@ -1,13 +1,13 @@
 // src/modules/auth/auth.service.ts
 
+import { IdentityTypeEnum } from '@app-types/models/account.types';
+import { TokenHelper } from '@core/common/token/token.helper';
+import { AccountService } from '@modules/account/account.service';
+import { IdentityUnionType } from '@modules/account/dto/identity/identity-union.type';
+import { LoginResult } from '@modules/account/dto/login-result.dto';
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PinoLogger } from 'nestjs-pino';
-import { TokenHelper } from '../../core/common/token/token.helper';
-import { IdentityTypeEnum } from '../../types/models/account.types';
-import { AccountService } from '../account/account.service';
-import { IdentityUnionType } from '../account/dto/identity/identity-union.type';
-import { LoginResult } from '../account/dto/login-result.dto';
 import { AuthLoginInput } from './dto/auth-login.input';
 
 /**

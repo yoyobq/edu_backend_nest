@@ -1,7 +1,7 @@
 // src/modules/register/graphql/enums/register-type.enum.ts
 
+import { RegisterTypeEnum } from '@app-types/services/register.types';
 import { registerEnumType } from '@nestjs/graphql';
-import { RegisterTypeEnum } from '../../../../types/services/register.types';
 /**
  * 注册类型枚举
  */

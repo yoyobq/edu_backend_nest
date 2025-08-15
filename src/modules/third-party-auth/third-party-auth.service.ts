@@ -1,4 +1,9 @@
 // src/modules/thirdPartyAuth/third-party-auth.service.ts
+import { AudienceTypeEnum, ThirdPartyProviderEnum } from '@app-types/models/account.types';
+import { ThirdPartySession } from '@app-types/models/third-party-auth.types';
+import { LoginResult } from '@modules/account/dto/login-result.dto';
+import { ThirdPartyAuthEntity } from '@modules/account/entities/third-party-auth.entity';
+import { AuthService } from '@modules/auth/auth.service';
 import {
   BadRequestException,
   HttpException,
@@ -9,11 +14,6 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { AudienceTypeEnum, ThirdPartyProviderEnum } from '../../types/models/account.types';
-import { ThirdPartySession } from '../../types/models/third-party-auth.types';
-import { LoginResult } from '../account/dto/login-result.dto';
-import { ThirdPartyAuthEntity } from '../account/entities/third-party-auth.entity';
-import { AuthService } from '../auth/auth.service';
 import { BindThirdPartyInput } from './dto/bind-third-party.input';
 import { ThirdPartyLoginInput } from './dto/third-party-login.input';
 import { UnbindThirdPartyInput } from './dto/unbind-third-party.input';

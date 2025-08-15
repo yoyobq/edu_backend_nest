@@ -1,4 +1,5 @@
 // src/modules/account/entities/third-party-auth.entity.ts
+import { ThirdPartyProviderEnum } from '@app-types/models/account.types';
 import {
   Column,
   CreateDateColumn,
@@ -9,7 +10,6 @@ import {
   Unique,
   UpdateDateColumn,
 } from 'typeorm';
-import { ThirdPartyProviderEnum } from '../../../types/models/account.types';
 import { AccountEntity } from './account.entity';
 
 /**

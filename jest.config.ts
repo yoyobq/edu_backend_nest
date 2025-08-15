@@ -20,6 +20,18 @@ const config: Config = {
   moduleNameMapper: {
     // eslint-disable-next-line @typescript-eslint/naming-convention
     '^src/(.*)$': '<rootDir>/src/$1',
+    // eslint-disable-next-line @typescript-eslint/naming-convention
+    '^@core/(.*)$': '<rootDir>/src/core/$1',
+    // eslint-disable-next-line @typescript-eslint/naming-convention
+    '^@modules/(.*)$': '<rootDir>/src/modules/$1',
+    // eslint-disable-next-line @typescript-eslint/naming-convention
+    '^@interfaces/(.*)$': '<rootDir>/src/interfaces/$1',
+    // eslint-disable-next-line @typescript-eslint/naming-convention
+    '^@usecases/(.*)$': '<rootDir>/src/usecases/$1',
+    // eslint-disable-next-line @typescript-eslint/naming-convention
+    '^@shared/(.*)$': '<rootDir>/src/shared/$1',
+    // eslint-disable-next-line @typescript-eslint/naming-convention
+    '^@app-types/(.*)$': '<rootDir>/src/types/$1',
   },
 
   // 修改：只匹配单元测试文件，排除 E2E 测试

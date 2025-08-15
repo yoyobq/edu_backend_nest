@@ -4,7 +4,7 @@ import { StaffType } from './staff.dto';
 import { CoachType } from './coach.dto';
 import { ManagerType } from './manager.dto';
 // import { CustomerType } from './customer.dto';
-import { IdentityTypeEnum } from '../../../../types/models/account.types';
+import { IdentityTypeEnum } from '@app-types/models/account.types';
 
 // 导入枚举注册文件以确保 GraphQL 类型系统正确识别所有枚举
 import '../../graphql/enums/identity-type.enum';

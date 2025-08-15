@@ -1,3 +1,4 @@
+import { Gender, GeographicInfo, UserState } from '@app-types/models/user-info.types';
 import { Field, ID } from '@nestjs/graphql';
 import {
   Column,
@@ -8,7 +9,6 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
-import { Gender, GeographicInfo, UserState } from '../../../types/models/user-info.types';
 import { EncryptionHelper } from '../../common/encryption/encryption.helper';
 import '../graphql/enums/gender.enum';
 import '../graphql/enums/user-state.enum';

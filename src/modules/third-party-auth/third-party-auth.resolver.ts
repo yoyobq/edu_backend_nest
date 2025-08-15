@@ -1,10 +1,10 @@
 // src/modules/thirdPartyAuth/third-party-auth.resolver.ts
 
+import { JwtPayload } from '@app-types/jwt.types';
+import { LoginResult } from '@modules/account/dto/login-result.dto';
+import { JwtAuthGuard } from '@modules/auth/guards/jwt-auth.guard';
 import { UseGuards } from '@nestjs/common';
 import { Args, Mutation, Query, Resolver } from '@nestjs/graphql';
-import { JwtPayload } from '../../types/jwt.types';
-import { LoginResult } from '../account/dto/login-result.dto';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { currentUser } from '../common/decorators/current-user.decorator';
 import { BindThirdPartyInput } from './dto/bind-third-party.input';
 import { ThirdPartyAuthDTO } from './dto/third-party-auth.dto';

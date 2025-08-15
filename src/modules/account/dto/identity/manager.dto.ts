@@ -1,7 +1,7 @@
 // src/modules/account/dto/identity/manager.dto.ts
 
+import { EmploymentStatus } from '@app-types/models/account.types';
 import { Field, ID, ObjectType } from '@nestjs/graphql';
-import { EmploymentStatus } from '../../../../types/models/account.types';
 
 /**
  * 经理身份信息 DTO

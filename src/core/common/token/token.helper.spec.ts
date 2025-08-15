@@ -4,14 +4,14 @@
 /* eslint-disable max-lines-per-function */
 // src/modules/common/token.helper.spec.ts
 
-import { JsonWebTokenError, JwtService, NotBeforeError, TokenExpiredError } from '@nestjs/jwt';
-import { Test, TestingModule } from '@nestjs/testing';
-import { PinoLogger } from 'nestjs-pino';
 import {
   GenerateAccessTokenParams,
   GenerateRefreshTokenParams,
   JwtPayload,
-} from '../../../types/jwt.types';
+} from '@app-types/jwt.types';
+import { JsonWebTokenError, JwtService, NotBeforeError, TokenExpiredError } from '@nestjs/jwt';
+import { Test, TestingModule } from '@nestjs/testing';
+import { PinoLogger } from 'nestjs-pino';
 import { TokenHelper } from './token.helper';
 
 describe('TokenHelper', () => {

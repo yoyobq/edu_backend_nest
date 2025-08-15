@@ -1,8 +1,8 @@
 // src/modules/auth/dto/auth-login.input.ts
 
+import { AudienceTypeEnum, LoginTypeEnum } from '@app-types/models/account.types';
 import { Field, InputType } from '@nestjs/graphql';
 import { IsEnum, IsNotEmpty, IsOptional, IsString } from 'class-validator';
-import { AudienceTypeEnum, LoginTypeEnum } from '../../../types/models/account.types';
 import '../graphql/enums/audience-type.enum';
 import '../graphql/enums/login-type.enum';
 
