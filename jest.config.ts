@@ -32,6 +32,8 @@ const config: Config = {
     '^@shared/(.*)$': '<rootDir>/src/shared/$1',
     // eslint-disable-next-line @typescript-eslint/naming-convention
     '^@app-types/(.*)$': '<rootDir>/src/types/$1',
+    // eslint-disable-next-line @typescript-eslint/naming-convention
+    '^@adapters/(.*)$': '<rootDir>/src/adapters/$1',
   },
 
   // 修改：只匹配单元测试文件，排除 E2E 测试

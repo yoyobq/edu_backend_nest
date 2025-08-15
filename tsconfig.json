@@ -21,6 +21,7 @@
       "@shared/*": ["src/shared/*"],
       "@modules/*": ["src/modules/*"],
       "@interfaces/*": ["src/interfaces/*"],
+      "@adapters/*": ["src/adapters/*"],
       "@usecases/*": ["src/usecases/*"],
       "@app-types/*": ["src/types/*"]
     }
