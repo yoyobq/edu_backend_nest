@@ -9,8 +9,8 @@ import '@src/adapters/graphql/account/enums/login-history.types';
 import { AuthResolver } from '../../adapters/graphql/auth/auth.resolver';
 import '../../adapters/graphql/auth/enums/audience-type.enum';
 import '../../adapters/graphql/auth/enums/login-type.enum';
+import { JwtAuthGuard } from '../../adapters/guards/jwt-auth.guard';
 import { AuthService } from './auth.service';
-import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { JwtStrategy } from './strategies/jwt.strategy';
 
 /**
