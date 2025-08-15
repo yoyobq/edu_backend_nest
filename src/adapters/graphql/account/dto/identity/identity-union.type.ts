@@ -7,7 +7,7 @@ import { ManagerType } from './manager.dto';
 import { IdentityTypeEnum } from '@app-types/models/account.types';
 
 // 导入枚举注册文件以确保 GraphQL 类型系统正确识别所有枚举
-import '../../graphql/enums/identity-type.enum';
+import '@src/adapters/graphql/account/enums/identity-type.enum';
 
 /**
  * 身份联合类型的所有可能类型

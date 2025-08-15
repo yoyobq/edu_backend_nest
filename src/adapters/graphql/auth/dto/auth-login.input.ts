@@ -2,9 +2,9 @@
 
 import { AudienceTypeEnum, LoginTypeEnum } from '@app-types/models/account.types';
 import { Field, InputType } from '@nestjs/graphql';
+import '@src/adapters/graphql/auth/enums/audience-type.enum';
+import '@src/adapters/graphql/auth/enums/login-type.enum';
 import { IsEnum, IsNotEmpty, IsOptional, IsString } from 'class-validator';
-import '../graphql/enums/audience-type.enum';
-import '../graphql/enums/login-type.enum';
 
 /**
  * 用户登录输入参数

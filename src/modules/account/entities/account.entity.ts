@@ -8,9 +8,9 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
-import '../graphql/enums/account-status.enum';
-import '../graphql/enums/identity-type.enum';
-import { LoginHistoryItem } from '../graphql/types/login-history.types';
+import '../../../adapters/graphql/account/enums/account-status.enum';
+import '../../../adapters/graphql/account/enums/identity-type.enum';
+import { LoginHistoryItem } from '../../../adapters/graphql/account/enums/login-history.types';
 import { ThirdPartyAuthEntity } from './third-party-auth.entity';
 import { UserInfoEntity } from './user-info.entity';
 

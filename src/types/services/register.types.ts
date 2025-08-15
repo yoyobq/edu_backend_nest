@@ -1,6 +1,6 @@
 // src/types/services/register.types.ts
 
-import { RegisterInput } from '../../modules/register/dto/register.input';
+import { RegisterInput } from '../../adapters/graphql/registration/dto/register.input';
 import { AccountStatus } from '../models/account.types';
 
 /**

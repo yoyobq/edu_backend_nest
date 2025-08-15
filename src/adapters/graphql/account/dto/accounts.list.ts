@@ -1,6 +1,6 @@
 // src/modules/account/dto/accounts.list.ts
+import { AccountStatus } from '@app-types/models/account.types';
 import { Field, ID, Int, ObjectType } from '@nestjs/graphql';
-import { AccountStatus } from 'src/types/models/account.types';
 
 /**
  * 账户信息响应对象

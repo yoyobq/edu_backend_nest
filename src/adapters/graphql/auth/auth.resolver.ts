@@ -1,9 +1,9 @@
 // src/modules/auth/auth.resolver.ts
 
-import { LoginResult } from '@modules/account/dto/login-result.dto';
+import { AuthService } from '@modules/auth/auth.service';
 import { Args, Mutation, Resolver } from '@nestjs/graphql';
-import { AuthService } from './auth.service';
-import { AuthLoginInput } from './dto/auth-login.input';
+import { LoginResult } from '@src/adapters/graphql/account/dto/login-result.dto';
+import { AuthLoginInput } from '@src/adapters/graphql/auth/dto/auth-login.input';
 
 /**
  * 认证 GraphQL 解析器

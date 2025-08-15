@@ -2,8 +2,9 @@
 
 import { AudienceTypeEnum, ThirdPartyProviderEnum } from '@app-types/models/account.types';
 import { normalizeText, toLowerCase, trimText } from '@core/common/text/text.helper';
-import '@modules/auth/graphql/enums/audience-type.enum';
 import { Field, InputType } from '@nestjs/graphql';
+import '@src/adapters/graphql/auth/enums/audience-type.enum';
+import '@src/adapters/graphql/third-party-accounts/enums/third-party-provider.enum';
 import { Transform, TransformFnParams } from 'class-transformer';
 import {
   IsEmail,
@@ -15,7 +16,6 @@ import {
   MaxLength,
   MinLength,
 } from 'class-validator';
-import '../../third-party-auth/graphql/enums/third-party-provider.enum';
 
 /**
  * 第三方注册输入参数

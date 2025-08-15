@@ -1,7 +1,7 @@
 // src/modules/account/dto/update-account.input.ts
+import { AccountStatus } from '@app-types/models/account.types';
 import { Field, ID, InputType } from '@nestjs/graphql';
 import { IsEmail, IsEnum, IsInt, IsOptional, IsString, MinLength } from 'class-validator';
-import { AccountStatus } from 'src/types/models/account.types';
 
 /**
  * 更新账户输入参数

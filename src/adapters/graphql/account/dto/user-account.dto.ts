@@ -1,7 +1,7 @@
 // src/modules/account/dto/account-detail.dto.ts
 import { AccountStatus } from '@app-types/models/account.types';
 import { Field, ID, ObjectType } from '@nestjs/graphql';
-import { LoginHistoryItem } from '../graphql/types/login-history.types';
+import { LoginHistoryItem } from '@src/adapters/graphql/account/enums/login-history.types';
 
 /**
  * user_account 表数据传输对象

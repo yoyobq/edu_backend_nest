@@ -1,14 +1,14 @@
 // src/modules/account/account.service.ts
 
+import { LoginHistoryItem } from '@adapters/graphql/account/enums/login-history.types';
 import { AccountStatus, AccountWithAccessGroup } from '@app-types/models/account.types';
 import { PasswordPbkdf2Helper } from '@core/common/password/password.pbkdf2.helper';
-import { AuthLoginInput } from '@modules/auth/dto/auth-login.input';
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { AuthLoginInput } from '@src/adapters/graphql/auth/dto/auth-login.input';
 import { Repository } from 'typeorm';
 import { AccountEntity } from './entities/account.entity';
 import { UserInfoEntity } from './entities/user-info.entity';
-import { LoginHistoryItem } from './graphql/types';
 
 /**
  * 账户服务

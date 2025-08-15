@@ -12,8 +12,8 @@ import {
 import { AccountService } from '@modules/account/account.service';
 import { AccountEntity } from '@modules/account/entities/account.entity';
 import { PinoLogger } from 'nestjs-pino';
-import { RegisterResult } from './dto/register-result.dto';
-import { RegisterInput } from './dto/register.input';
+import { RegisterResult } from '../../adapters/graphql/registration/dto/register-result.dto';
+import { RegisterInput } from '../../adapters/graphql/registration/dto/register.input';
 
 /**
  * 注册服务

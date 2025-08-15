@@ -1,17 +1,17 @@
 // src/modules/register/register.resolver.ts
 
 import { ValidateInput } from '@core/common/errors/validate-input.decorator';
+import { RegisterService } from '@modules/register/register.service';
 import { Args, Context, Mutation, Resolver } from '@nestjs/graphql';
+import { RegisterResult } from '@src/adapters/graphql/registration/dto/register-result.dto';
+import { RegisterInput } from '@src/adapters/graphql/registration/dto/register.input';
 import { Request } from 'express';
-import { RegisterResult } from './dto/register-result.dto';
-import { RegisterInput } from './dto/register.input';
-import { RegisterService } from './register.service';
 
 /**
  * 注册解析器
  */
 @Resolver()
-export class RegisterResolver {
+export class RegistrationResolver {
   constructor(private readonly registerService: RegisterService) {}
 
   /**

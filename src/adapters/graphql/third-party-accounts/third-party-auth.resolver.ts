@@ -1,16 +1,16 @@
 // src/modules/thirdPartyAuth/third-party-auth.resolver.ts
 
 import { JwtPayload } from '@app-types/jwt.types';
-import { LoginResult } from '@modules/account/dto/login-result.dto';
 import { JwtAuthGuard } from '@modules/auth/guards/jwt-auth.guard';
+import { currentUser } from '@modules/common/decorators/current-user.decorator';
+import { ThirdPartyAuthService } from '@modules/third-party-auth/third-party-auth.service';
 import { UseGuards } from '@nestjs/common';
 import { Args, Mutation, Query, Resolver } from '@nestjs/graphql';
-import { currentUser } from '../common/decorators/current-user.decorator';
-import { BindThirdPartyInput } from './dto/bind-third-party.input';
-import { ThirdPartyAuthDTO } from './dto/third-party-auth.dto';
-import { ThirdPartyLoginInput } from './dto/third-party-login.input';
-import { UnbindThirdPartyInput } from './dto/unbind-third-party.input';
-import { ThirdPartyAuthService } from './third-party-auth.service';
+import { LoginResult } from '@src/adapters/graphql/account/dto/login-result.dto';
+import { BindThirdPartyInput } from '@src/adapters/graphql/third-party-accounts/dto/bind-third-party.input';
+import { ThirdPartyAuthDTO } from '@src/adapters/graphql/third-party-accounts/dto/third-party-auth.dto';
+import { ThirdPartyLoginInput } from '@src/adapters/graphql/third-party-accounts/dto/third-party-login.input';
+import { UnbindThirdPartyInput } from '@src/adapters/graphql/third-party-accounts/dto/unbind-third-party.input';
 
 /**
  * 第三方认证 GraphQL 解析器

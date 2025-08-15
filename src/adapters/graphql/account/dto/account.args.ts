@@ -2,9 +2,9 @@
 
 // 负责单个账户的 input 和 output 设定
 // 由于是聚合根，所以不只是对应 account entities
+import { LoginTypeEnum } from '@app-types/models/account.types';
 import { ArgsType, Field, ID } from '@nestjs/graphql';
 import { IsEnum, IsNotEmpty, IsOptional, IsString } from 'class-validator';
-import { LoginTypeEnum } from 'src/types/models/account.types';
 
 /**
  * 账户登录参数

@@ -3,12 +3,12 @@
 import { IdentityTypeEnum } from '@app-types/models/account.types';
 import { TokenHelper } from '@core/common/token/token.helper';
 import { AccountService } from '@modules/account/account.service';
-import { IdentityUnionType } from '@modules/account/dto/identity/identity-union.type';
-import { LoginResult } from '@modules/account/dto/login-result.dto';
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { IdentityUnionType } from '@src/adapters/graphql/account/dto/identity/identity-union.type';
+import { LoginResult } from '@src/adapters/graphql/account/dto/login-result.dto';
 import { PinoLogger } from 'nestjs-pino';
-import { AuthLoginInput } from './dto/auth-login.input';
+import { AuthLoginInput } from '../../adapters/graphql/auth/dto/auth-login.input';
 
 /**
  * 认证服务

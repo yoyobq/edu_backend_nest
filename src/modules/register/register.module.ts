@@ -2,8 +2,8 @@
 
 import { AccountModule } from '@modules/account/account.module';
 import { Module } from '@nestjs/common';
-import './graphql/enums/register-type.enum';
-import { RegisterResolver } from './register.resolver';
+import '../../adapters/graphql/registration/enums/register-type.enum';
+import { RegistrationResolver } from '../../adapters/graphql/registration/registration.resolver';
 import { RegisterService } from './register.service';
 
 /**
@@ -11,7 +11,7 @@ import { RegisterService } from './register.service';
  */
 @Module({
   imports: [AccountModule],
-  providers: [RegisterResolver, RegisterService],
+  providers: [RegistrationResolver, RegisterService],
   exports: [RegisterService],
 })
 export class RegisterModule {}

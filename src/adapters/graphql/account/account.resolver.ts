@@ -1,8 +1,8 @@
 // src/modules/account/account.resolver.ts
+import { AccountService } from '@modules/account/account.service';
 import { Args, Query, Resolver } from '@nestjs/graphql';
-import { AccountService } from './account.service';
-import { AccountArgs } from './dto/account.args';
-import { UserAccountDTO } from './dto/user-account.dto';
+import { AccountArgs } from '@src/adapters/graphql/account/dto/account.args';
+import { UserAccountDTO } from '@src/adapters/graphql/account/dto/user-account.dto';
 
 /**
  * 账户 GraphQL 解析器

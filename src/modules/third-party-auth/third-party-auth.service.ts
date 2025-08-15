@@ -1,7 +1,6 @@
 // src/modules/thirdPartyAuth/third-party-auth.service.ts
 import { AudienceTypeEnum, ThirdPartyProviderEnum } from '@app-types/models/account.types';
 import { ThirdPartySession } from '@app-types/models/third-party-auth.types';
-import { LoginResult } from '@modules/account/dto/login-result.dto';
 import { ThirdPartyAuthEntity } from '@modules/account/entities/third-party-auth.entity';
 import { AuthService } from '@modules/auth/auth.service';
 import {
@@ -13,10 +12,11 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { LoginResult } from '@src/adapters/graphql/account/dto/login-result.dto';
 import { Repository } from 'typeorm';
-import { BindThirdPartyInput } from './dto/bind-third-party.input';
-import { ThirdPartyLoginInput } from './dto/third-party-login.input';
-import { UnbindThirdPartyInput } from './dto/unbind-third-party.input';
+import { BindThirdPartyInput } from '../../adapters/graphql/third-party-accounts/dto/bind-third-party.input';
+import { ThirdPartyLoginInput } from '../../adapters/graphql/third-party-accounts/dto/third-party-login.input';
+import { UnbindThirdPartyInput } from '../../adapters/graphql/third-party-accounts/dto/unbind-third-party.input';
 import { ThirdPartyProvider } from './interfaces/third-party-provider.interface';
 
 /** 第三方认证提供者映射的依赖注入标识 */

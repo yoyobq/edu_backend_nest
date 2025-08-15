@@ -9,10 +9,10 @@ import { ThirdPartyAuthEntity } from '@modules/account/entities/third-party-auth
 import { AuthModule } from '@modules/auth/auth.module';
 
 import { ThirdPartyProviderEnum } from '@app-types/models/account.types';
+import { ThirdPartyAuthResolver } from '../../adapters/graphql/third-party-accounts/third-party-auth.resolver';
 import { ThirdPartyProvider } from './interfaces/third-party-provider.interface';
 import { WeAppProvider } from './providers/weapp.provider';
 import { WechatProvider } from './providers/wechat.provider';
-import { ThirdPartyAuthResolver } from './third-party-auth.resolver';
 import { PROVIDER_MAP, ThirdPartyAuthService } from './third-party-auth.service';
 
 /**
