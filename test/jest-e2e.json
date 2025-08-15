@@ -1,19 +1,32 @@
 {
   "preset": "ts-jest",
-  "moduleFileExtensions": ["js", "json", "ts"],
-  "rootDir": ".",
-  "globalSetup": "<rootDir>/global-setup-e2e.ts",
-  "globalTeardown": "<rootDir>/global-teardown-e2e.ts",
-
+  "rootDir": "../",
   "testEnvironment": "node",
-  "testMatch": ["**/?(*.)e2e-spec.ts"],
+
+  "moduleFileExtensions": ["ts", "js", "json"],
+
+  "testMatch": ["<rootDir>/test/**/?(*.)e2e-spec.ts"],
   "testPathIgnorePatterns": ["/node_modules/", "\\.skip\\.ts$", "/__.*\\.skip__/", "/.*\\.skip/"],
+
   "transform": {
-    "^.+\\.(t|j)s$": "ts-jest"
+    "^.+\\.(t|j)s$": ["ts-jest", { "tsconfig": "<rootDir>/tsconfig.json" }]
   },
+
+  "setupFiles": ["tsconfig-paths/register"],
+
+  "globalSetup": "<rootDir>/test/global-setup-e2e.ts",
+  "globalTeardown": "<rootDir>/test/global-teardown-e2e.ts",
+
   "moduleNameMapper": {
-    "^src/(.*)$": "<rootDir>/../src/$1"
+    "^@core/(.*)$": "<rootDir>/src/core/$1",
+    "^@modules/(.*)$": "<rootDir>/src/modules/$1",
+    "^@usecases/(.*)$": "<rootDir>/src/usecases/$1",
+    "^@adapters/(.*)$": "<rootDir>/src/adapters/$1",
+    "^@shared/(.*)$": "<rootDir>/src/shared/$1",
+    "^@app-types/(.*)$": "<rootDir>/src/types/$1",
+    "^src/(.*)$": "<rootDir>/src/$1"
   },
+
   "testTimeout": 30000,
   "maxWorkers": 1,
   "forceExit": true,

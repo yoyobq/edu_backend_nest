@@ -1,10 +1,12 @@
 // test/global-setup-e2e.ts
 import 'reflect-metadata';
+import 'tsconfig-paths/register';
 
-import databaseConfig from '@core/config/database.config';
+// 将路径别名改为相对路径
 import * as dotenv from 'dotenv';
 import * as path from 'path';
 import { DataSource, DataSourceOptions } from 'typeorm';
+import databaseConfig from '../src/core/config/database.config';
 
 /**
  * 全局类型定义
