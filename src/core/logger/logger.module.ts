@@ -1,4 +1,4 @@
-// src/logger/logger.module.ts
+// src/core/logger/logger.module.ts
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { LoggerModule as PinoLoggerModule } from 'nestjs-pino';

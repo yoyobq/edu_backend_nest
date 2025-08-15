@@ -1,4 +1,4 @@
-// src/modules/thirdPartyAuth/third-party-auth.service.ts
+// src/modules/third-party-auth/third-party-auth.service.ts
 import { AudienceTypeEnum, ThirdPartyProviderEnum } from '@app-types/models/account.types';
 import { ThirdPartySession } from '@app-types/models/third-party-auth.types';
 import { ThirdPartyAuthEntity } from '@modules/account/entities/third-party-auth.entity';

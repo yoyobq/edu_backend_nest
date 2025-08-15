@@ -1,4 +1,4 @@
-// src/modules/account/account.resolver.ts
+// src/adapters/graphql/account/account.resolver.ts
 import { AccountService } from '@modules/account/account.service';
 import { Args, Query, Resolver } from '@nestjs/graphql';
 import { AccountArgs } from '@src/adapters/graphql/account/dto/account.args';

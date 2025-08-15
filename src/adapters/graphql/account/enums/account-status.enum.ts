@@ -1,4 +1,4 @@
-// src/modules/account/graphql/enums/account-status.enum.ts
+// src/adapters/graphql/account/graphql/enums/account-status.enum.ts
 import { AccountStatus } from '@app-types/models/account.types';
 import { registerEnumType } from '@nestjs/graphql';
 

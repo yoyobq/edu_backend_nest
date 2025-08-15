@@ -1,4 +1,4 @@
-// src/modules/account/graphql/enums/identity-type.enum.ts
+// src/adapters/graphql/account/graphql/enums/identity-type.enum.ts
 import { EmploymentStatus, IdentityTypeEnum } from '@app-types/models/account.types';
 import { registerEnumType } from '@nestjs/graphql';
 

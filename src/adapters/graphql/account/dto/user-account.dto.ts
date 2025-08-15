@@ -1,4 +1,4 @@
-// src/modules/account/dto/account-detail.dto.ts
+// src/adapters/graphql/account/dto/account-detail.dto.ts
 import { AccountStatus } from '@app-types/models/account.types';
 import { Field, ID, ObjectType } from '@nestjs/graphql';
 import { LoginHistoryItem } from '@src/adapters/graphql/account/enums/login-history.types';

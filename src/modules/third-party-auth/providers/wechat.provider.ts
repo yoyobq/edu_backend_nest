@@ -1,4 +1,4 @@
-// src/modules/thirdPartyAuth/providers/wechat.provider.ts
+// src/modules/third-party-auth/providers/wechat.provider.ts
 import { AudienceTypeEnum, ThirdPartyProviderEnum } from '@app-types/models/account.types';
 import { ThirdPartySession } from '@app-types/models/third-party-auth.types';
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';

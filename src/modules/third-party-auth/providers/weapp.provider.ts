@@ -1,4 +1,4 @@
-// src/modules/thirdPartyAuth/providers/weapp.provider.ts
+// src/modules/third-party-auth/providers/weapp.provider.ts
 import { AudienceTypeEnum, ThirdPartyProviderEnum } from '@app-types/models/account.types';
 import {
   ThirdPartySession,

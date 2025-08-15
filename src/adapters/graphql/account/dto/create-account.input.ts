@@ -1,4 +1,4 @@
-// src/modules/account/dto/create-account.input.ts
+// src/adapters/graphql/account/dto/create-account.input.ts
 import { AccountStatus } from '@app-types/models/account.types';
 import { Field, InputType } from '@nestjs/graphql';
 import { IsEmail, IsEnum, IsNotEmpty, IsOptional, IsString, MinLength } from 'class-validator';

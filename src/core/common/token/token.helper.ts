@@ -1,4 +1,4 @@
-// src/modules/common/token/token.helper.ts
+// src/core/common/token/token.helper.ts
 
 import {
   GenerateAccessTokenParams,

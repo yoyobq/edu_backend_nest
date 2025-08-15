@@ -1,4 +1,4 @@
-// src/config/config.module.ts
+// src/core/config/config.module.ts
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import databaseConfig from './database.config'; // 添加数据库配置导入

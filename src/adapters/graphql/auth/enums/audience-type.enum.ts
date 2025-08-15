@@ -1,4 +1,4 @@
-// src/modules/auth/graphql/enums/audience-type.enum.ts
+// src/adapters/graphql/auth/graphql/enums/audience-type.enum.ts
 
 import { AudienceTypeEnum } from '@app-types/models/account.types';
 import { registerEnumType } from '@nestjs/graphql';

@@ -1,4 +1,4 @@
-// src/config/logger.config.ts
+// src/core/config/logger.config.ts
 import { ConfigFactory } from '@nestjs/config';
 import { IncomingMessage, ServerResponse } from 'http';
 

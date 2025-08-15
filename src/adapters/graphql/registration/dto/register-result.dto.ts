@@ -1,4 +1,4 @@
-// src/modules/register/dto/register-result.dto.ts
+// src/adapters/graphql/registration/dto/register-result.dto.ts
 
 import { Field, ID, ObjectType } from '@nestjs/graphql';
 

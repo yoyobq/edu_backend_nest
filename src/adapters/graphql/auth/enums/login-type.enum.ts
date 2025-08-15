@@ -1,4 +1,4 @@
-// src/modules/auth/graphql/enums/login-type.enum.ts
+// src/adapters/graphql/auth/graphql/enums/login-type.enum.ts
 
 import { LoginTypeEnum } from '@app-types/models/account.types';
 import { registerEnumType } from '@nestjs/graphql';

@@ -1,4 +1,4 @@
-// src/config/graphql.config.ts
+// src/core/config/graphql.config.ts
 
 const graphqlConfig = () => ({
   graphql: {

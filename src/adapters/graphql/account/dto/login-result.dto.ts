@@ -1,4 +1,4 @@
-// src/modules/account/dto/login-result.dto.ts
+// src/adapters/graphql/account/dto/login-result.dto.ts
 
 import { IdentityTypeEnum } from '@app-types/models/account.types';
 import { Field, ID, ObjectType } from '@nestjs/graphql';

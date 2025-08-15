@@ -1,4 +1,4 @@
-// src/modules/account/graphql/enums/user-state.enum.ts
+// src/adapters/graphql/account/graphql/enums/user-state.enum.ts
 import { UserState } from '@app-types/models/user-info.types';
 import { registerEnumType } from '@nestjs/graphql';
 

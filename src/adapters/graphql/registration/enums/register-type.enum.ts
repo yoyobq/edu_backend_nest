@@ -1,4 +1,4 @@
-// src/modules/register/graphql/enums/register-type.enum.ts
+// src/adapters/graphql/registration/graphql/enums/register-type.enum.ts
 
 import { RegisterTypeEnum } from '@app-types/services/register.types';
 import { registerEnumType } from '@nestjs/graphql';

@@ -1,4 +1,4 @@
-// src/modules/thirdPartyAuth/third-party-auth.resolver.ts
+// src/adapters/graphql/third-party-auth/third-party-auth.resolver.ts
 
 import { JwtPayload } from '@app-types/jwt.types';
 import { ThirdPartyAuthService } from '@modules/third-party-auth/third-party-auth.service';

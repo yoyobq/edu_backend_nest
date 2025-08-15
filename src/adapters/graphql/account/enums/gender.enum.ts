@@ -1,4 +1,4 @@
-// src/modules/account/graphql/enums/gender.enum.ts
+// src/adapters/graphql/account/graphql/enums/gender.enum.ts
 import { Gender } from '@app-types/models/user-info.types';
 import { registerEnumType } from '@nestjs/graphql';
 

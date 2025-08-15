@@ -1,4 +1,4 @@
-// src/modules/account/graphql/enums/third-party-provider.enum.ts
+// src/adapters/graphql/account/graphql/enums/third-party-provider.enum.ts
 import { ThirdPartyProviderEnum } from '@app-types/models/account.types';
 import { registerEnumType } from '@nestjs/graphql';
 

@@ -1,4 +1,4 @@
-// src/modules/auth/dto/auth-login.input.ts
+// src/adapters/graphql/auth/dto/auth-login.input.ts
 
 import { AudienceTypeEnum, LoginTypeEnum } from '@app-types/models/account.types';
 import { Field, InputType } from '@nestjs/graphql';

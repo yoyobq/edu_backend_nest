@@ -1,4 +1,4 @@
-// src/config/server.config.ts
+// src/core/config/server.config.ts
 import { ConfigFactory } from '@nestjs/config';
 
 const serverConfig: ConfigFactory = () => ({

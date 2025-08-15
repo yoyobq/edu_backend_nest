@@ -1,4 +1,4 @@
-// src/modules/thirdPartyAuth/third-party-auth.module.ts
+// src/modules/third-party-auth/third-party-auth.module.ts
 import { HttpModule } from '@nestjs/axios';
 import { Module, Provider, forwardRef } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';

@@ -1,4 +1,4 @@
-// src/modules/account/dto/identity/manager.dto.ts
+// src/adapters/graphql/account/dto/identity/manager.dto.ts
 
 import { EmploymentStatus } from '@app-types/models/account.types';
 import { Field, ID, ObjectType } from '@nestjs/graphql';

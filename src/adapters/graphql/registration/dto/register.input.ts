@@ -1,4 +1,4 @@
-// src/modules/register/dto/register.input.ts
+// src/adapters/graphql/registration/dto/register.input.ts
 
 import { RegisterTypeEnum } from '@app-types/services/register.types';
 import { normalizeText, toLowerCase, trimText } from '@core/common/text/text.helper';

@@ -1,4 +1,4 @@
-// src/modules/register/dto/third-party-register.input.ts
+// src/adapters/graphql/registration/dto/third-party-register.input.ts
 
 import { AudienceTypeEnum, ThirdPartyProviderEnum } from '@app-types/models/account.types';
 import { normalizeText, toLowerCase, trimText } from '@core/common/text/text.helper';

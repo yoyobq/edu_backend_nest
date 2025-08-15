@@ -1,4 +1,4 @@
-// src/modules/register/register.resolver.ts
+// src/adapters/graphql/registration/register.resolver.ts
 
 import { ValidateInput } from '@core/common/errors/validate-input.decorator';
 import { RegisterService } from '@modules/register/register.service';

@@ -1,4 +1,4 @@
-// src/modules/account/dto/accounts.list.ts
+// src/adapters/graphql/account/dto/accounts.list.ts
 import { AccountStatus } from '@app-types/models/account.types';
 import { Field, ID, Int, ObjectType } from '@nestjs/graphql';
 

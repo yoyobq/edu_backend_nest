@@ -1,5 +1,5 @@
 /* eslint-disable no-console */
-// src/middleware/format-response.middleware.ts
+// src/core/middleware/format-response.middleware.ts
 
 import { ApiResponse, ShowType } from '@app-types/response.types';
 import { Injectable, NestMiddleware } from '@nestjs/common';

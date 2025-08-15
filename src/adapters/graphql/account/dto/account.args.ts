@@ -1,4 +1,4 @@
-// src/modules/account/dto/account.args.ts
+// src/adapters/graphql/account/dto/account.args.ts
 
 // 负责单个账户的 input 和 output 设定
 // 由于是聚合根，所以不只是对应 account entities

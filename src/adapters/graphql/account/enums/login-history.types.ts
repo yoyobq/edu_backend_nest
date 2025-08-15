@@ -1,4 +1,4 @@
-// src/modules/account/graphql/types/login-history.types.ts
+// src/adapters/graphql/account/graphql/types/login-history.types.ts
 import { Field, ObjectType } from '@nestjs/graphql';
 
 /**

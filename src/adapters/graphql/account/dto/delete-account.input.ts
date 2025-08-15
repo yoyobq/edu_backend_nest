@@ -1,4 +1,4 @@
-// src/modules/account/dto/delete-account.input.ts
+// src/adapters/graphql/account/dto/delete-account.input.ts
 import { Field, ID, InputType } from '@nestjs/graphql';
 import { IsInt, IsOptional, IsString } from 'class-validator';
 

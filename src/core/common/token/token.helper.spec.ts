@@ -2,7 +2,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 /* eslint-disable @typescript-eslint/unbound-method */
 /* eslint-disable max-lines-per-function */
-// src/modules/common/token.helper.spec.ts
+// src/core/common/token.helper.spec.ts
 
 import {
   GenerateAccessTokenParams,

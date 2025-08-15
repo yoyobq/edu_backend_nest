@@ -1,4 +1,4 @@
-// src/modules/auth/guards/jwt-auth.guard.ts
+// src/adapters/guards/jwt-auth.guard.ts
 
 import { JwtPayload } from '@app-types/jwt.types';
 import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from '@nestjs/common';

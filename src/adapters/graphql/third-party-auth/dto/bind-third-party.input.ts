@@ -1,4 +1,4 @@
-// src/modules/thirdPartyAuth/dto/bind-third-party.input.ts
+// src/adapters/graphql/third-party-auth/dto/bind-third-party.input.ts
 import { ThirdPartyProviderEnum } from '@app-types/models/account.types';
 import { Field, InputType } from '@nestjs/graphql';
 import '@src/adapters/graphql/third-party-auth/enums/third-party-provider.enum';

@@ -1,4 +1,4 @@
-// src/modules/account/dto/accounts.args.ts
+// src/adapters/graphql/account/dto/accounts.args.ts
 import { AccountStatus, IdentityTypeEnum } from '@app-types/models/account.types';
 import { ArgsType, Field, Int } from '@nestjs/graphql';
 import { IsEnum, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
