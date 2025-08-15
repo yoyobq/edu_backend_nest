@@ -5,9 +5,9 @@ import request from 'supertest';
 import { App } from 'supertest/types';
 import { DataSource, In } from 'typeorm';
 import { AppModule } from '../../src/app.module';
+import { FieldEncryptionService } from '../../src/core/field-encryption/field-encryption.service';
 import { AccountEntity } from '../../src/modules/account/entities/account.entity';
 import { UserInfoEntity } from '../../src/modules/account/entities/user-info.entity';
-import { EncryptionHelper } from '../../src/modules/common/encryption/encryption.helper';
 import { AccountStatus } from '../../src/types/models/account.types';
 import { RegisterTypeEnum } from '../../src/types/services/register.types';
 
@@ -449,10 +449,13 @@ describe('Register (e2e)', () => {
   });
 
   describe('数据加密验证场景', () => {
-    let encryptionHelper: EncryptionHelper;
+    let fieldEncryptionService: FieldEncryptionService;
 
     beforeEach(() => {
-      encryptionHelper = new EncryptionHelper();
+      // 替换旧的 EncryptionHelper
+      // encryptionHelper = new EncryptionHelper();
+      // 使用新的服务
+      fieldEncryptionService = new FieldEncryptionService();
     });
 
     /**
@@ -481,8 +484,8 @@ describe('Register (e2e)', () => {
       expect(encryptedMetaDigest).not.toBe('REGISTRANT');
       expect(encryptedMetaDigest).not.toContain('REGISTRANT');
 
-      // 验证可以正确解密
-      const decryptedValue = encryptionHelper.decrypt(encryptedMetaDigest);
+      // 验证可以正确解密 - 使用新的服务
+      const decryptedValue = fieldEncryptionService.decrypt(encryptedMetaDigest);
       expect(decryptedValue).toBe('["REGISTRANT"]'); // 数组被序列化为 JSON 字符串
     });
 
@@ -522,13 +525,13 @@ describe('Register (e2e)', () => {
     it('加密解密应该保持数据一致性', () => {
       const originalData = '["REGISTRANT","TEST_DATA"]';
 
-      // 加密
-      const encrypted = encryptionHelper.encrypt(originalData);
+      // 加密 - 使用新的服务
+      const encrypted = fieldEncryptionService.encrypt(originalData);
       expect(encrypted).toBeDefined();
       expect(encrypted).not.toBe(originalData);
 
-      // 解密
-      const decrypted = encryptionHelper.decrypt(encrypted);
+      // 解密 - 使用新的服务
+      const decrypted = fieldEncryptionService.decrypt(encrypted);
       expect(decrypted).toBe(originalData);
     });
   });

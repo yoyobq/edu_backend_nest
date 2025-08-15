@@ -2,7 +2,7 @@
 
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { EncryptionModule } from '../common/encryption/encryption.module';
+import { FieldEncryptionModule } from '../../core/field-encryption/field-encryption.module';
 import { AccountResolver } from './account.resolver';
 import { AccountService } from './account.service';
 import { AccountEntity } from './entities/account.entity';
@@ -23,7 +23,7 @@ import './graphql/types/login-history.types';
       // StudentEntity,
       // StaffEntity
     ]),
-    EncryptionModule, // 导入加密模块
+    FieldEncryptionModule,
   ],
   providers: [AccountService, AccountResolver],
   exports: [AccountService, TypeOrmModule],

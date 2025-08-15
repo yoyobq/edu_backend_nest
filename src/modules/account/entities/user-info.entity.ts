@@ -1,4 +1,7 @@
-import { Gender, GeographicInfo, UserState } from '@app-types/models/user-info.types';
+// src/modules/account/entities/user-info.entity.ts
+
+import { Gender, UserState, type GeographicInfo } from '@app-types/models/user-info.types';
+import { EncryptedField } from '@core/field-encryption';
 import { Field, ID } from '@nestjs/graphql';
 import {
   Column,
@@ -9,7 +12,6 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
-import { EncryptionHelper } from '../../common/encryption/encryption.helper';
 import '../graphql/enums/gender.enum';
 import '../graphql/enums/user-state.enum';
 import { AccountEntity } from './account.entity';
@@ -72,7 +74,7 @@ export class UserInfoEntity {
     nullable: true,
     comment: '私有数据加密字段',
   })
-  @EncryptionHelper.EncryptedField() // 添加加密装饰器
+  @EncryptedField() // 使用新的加密装饰器
   metaDigest!: string | string[];
 
   @Column({ name: 'notify_count', type: 'int', default: 0, comment: '通知数' })

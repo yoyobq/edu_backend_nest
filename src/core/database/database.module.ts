@@ -1,13 +1,15 @@
 // src/core/database/database.module.ts
 
+import { FieldEncryptionModule } from '@core/field-encryption/field-encryption.module';
+import { FieldEncryptionSubscriber } from '@core/field-encryption/field-encryption.subscriber';
 import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { TypeOrmModule, TypeOrmModuleOptions } from '@nestjs/typeorm';
-import { EncryptionHelper } from '../../modules/common/encryption/encryption.helper';
 
 /**
  * 数据库配置工厂函数
  * @param config 配置服务实例
+ * @param fieldEncryptionSubscriber 字段加密订阅者
  * @returns TypeORM 配置选项
  */
 const createDatabaseConfig = (config: ConfigService): TypeOrmModuleOptions => ({
@@ -24,7 +26,8 @@ const createDatabaseConfig = (config: ConfigService): TypeOrmModuleOptions => ({
   extra: config.get('mysql.extra'),
   // 自动加载 entities
   autoLoadEntities: true,
-  subscribers: [EncryptionHelper],
+  // 注册 subscriber
+  subscribers: [FieldEncryptionSubscriber],
   // 实体文件路径
   // entities: [__dirname + '/**/*.entity{.ts,.js}'],
 });
@@ -35,8 +38,10 @@ const createDatabaseConfig = (config: ConfigService): TypeOrmModuleOptions => ({
  */
 @Module({
   imports: [
+    FieldEncryptionModule, // 导入加密模块
     TypeOrmModule.forRootAsync({
-      inject: [ConfigService],
+      imports: [FieldEncryptionModule], // 确保加密模块在此处可用
+      inject: [ConfigService, FieldEncryptionSubscriber],
       useFactory: createDatabaseConfig,
     }),
   ],
