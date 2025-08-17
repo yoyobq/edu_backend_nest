@@ -1,5 +1,6 @@
 // src/core/common/filters/graphql-exception.filter.ts
 import { ExceptionPayload } from '@app-types/errors/exception-payload';
+import { ACCOUNT_ERROR, AUTH_ERROR, DomainError, isDomainError } from '@core/common/errors';
 import { ArgumentsHost, Catch, HttpException } from '@nestjs/common';
 import { BaseExceptionFilter } from '@nestjs/core';
 import { GqlArgumentsHost } from '@nestjs/graphql';
@@ -102,6 +103,47 @@ function buildGraphQLErrorFromUnknown(exception: unknown, host: ArgumentsHost): 
 }
 
 /** GraphQL 全局异常过滤器 */
+/** 将 DomainError 错误码映射为 GraphQL 错误类别 */
+function mapDomainErrorToGqlCode(errorCode: string): string {
+  // 认证相关错误
+  if (errorCode === AUTH_ERROR.ACCOUNT_NOT_FOUND || errorCode === AUTH_ERROR.INVALID_PASSWORD) {
+    return 'UNAUTHENTICATED';
+  }
+  if (errorCode === AUTH_ERROR.ACCOUNT_INACTIVE || errorCode === AUTH_ERROR.ACCOUNT_BANNED) {
+    return 'FORBIDDEN';
+  }
+  if (errorCode === AUTH_ERROR.INVALID_AUDIENCE) {
+    return 'BAD_USER_INPUT';
+  }
+
+  // 账户相关错误
+  if (errorCode === ACCOUNT_ERROR.NICKNAME_TAKEN || errorCode === ACCOUNT_ERROR.EMAIL_TAKEN) {
+    return 'CONFLICT';
+  }
+  if (errorCode === ACCOUNT_ERROR.USER_INFO_NOT_FOUND) {
+    return 'NOT_FOUND';
+  }
+
+  // 默认为业务逻辑错误
+  return 'BAD_USER_INPUT';
+}
+
+/** 从 DomainError 构建 GraphQL 错误对象 */
+function buildGraphQLErrorFromDomainError(
+  exception: DomainError,
+  host: ArgumentsHost,
+): GraphQLError {
+  return new GraphQLError(exception.message, {
+    path: getGqlPath(host),
+    extensions: {
+      code: mapDomainErrorToGqlCode(exception.code),
+      errorCode: exception.code,
+      errorMessage: exception.message,
+      ...(exception.details ? { details: exception.details } : {}),
+    },
+  });
+}
+
 @Catch()
 export class GqlAllExceptionsFilter extends BaseExceptionFilter {
   override catch(exception: unknown, host: ArgumentsHost) {
@@ -109,9 +151,16 @@ export class GqlAllExceptionsFilter extends BaseExceptionFilter {
     if (host.getType() === 'http') {
       return super.catch(exception, host);
     }
+
+    // 专门处理 DomainError
+    if (isDomainError(exception)) {
+      return buildGraphQLErrorFromDomainError(exception, host);
+    }
+
     if (exception instanceof HttpException) {
       return buildGraphQLErrorFromHttpException(exception, host);
     }
+
     return buildGraphQLErrorFromUnknown(exception, host);
   }
 }

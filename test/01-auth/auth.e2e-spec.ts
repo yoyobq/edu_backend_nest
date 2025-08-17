@@ -1,17 +1,17 @@
 // test/01-auth/auth.e2e-spec.ts
-import { PasswordPbkdf2Helper } from '@core/common/password/password.pbkdf2.helper';
+import { AccountService } from '@modules/account/account.service';
 import { AccountEntity } from '@modules/account/entities/account.entity';
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { AppModule } from '@src/app.module';
+import { AccountStatus, AudienceTypeEnum, LoginTypeEnum } from '@src/types/models/account.types';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { DataSource, In } from 'typeorm';
-import {
-  AccountStatus,
-  AudienceTypeEnum,
-  LoginTypeEnum,
-} from '../../src/types/models/account.types';
+
+// 在文件顶部添加 UserInfoEntity 的导入
+import { Gender, UserState } from '@app-types/models/user-info.types';
+import { UserInfoEntity } from '@modules/account/entities/user-info.entity';
 
 /**
  * Auth 模块 E2E 测试
@@ -100,28 +100,28 @@ describe('Auth (e2e)', () => {
    */
   const createTestAccounts = async (): Promise<void> => {
     try {
-      const repository = dataSource.getRepository(AccountEntity);
+      const accountRepository = dataSource.getRepository(AccountEntity);
+      const userInfoRepository = dataSource.getRepository(UserInfoEntity);
 
       // 创建账户时需要对密码进行哈希处理
-      await Promise.all(
+      const createdAccounts = await Promise.all(
         Object.values(testAccountsPlaintext).map(async (account) => {
           // 先保存账户以获取 createdAt，然后更新密码
-          const savedAccount = await repository.save({
+          const savedAccount = await accountRepository.save({
             ...account,
             loginPassword: 'temp', // 临时密码
             recentLoginHistory: null,
             identityHint: null,
           });
 
-          // 使用 createdAt 作为 salt 对密码进行哈希
-          const salt = savedAccount.createdAt.toString();
-          const hashedPassword = PasswordPbkdf2Helper.hashPasswordWithCrypto(
+          // 使用 AccountService 的标准方法对密码进行哈希
+          const hashedPassword = AccountService.hashPasswordWithTimestamp(
             account.loginPassword,
-            salt,
+            savedAccount.createdAt,
           );
 
           // 更新为哈希后的密码
-          await repository.update(savedAccount.id, {
+          await accountRepository.update(savedAccount.id, {
             loginPassword: hashedPassword,
           });
 
@@ -129,16 +129,40 @@ describe('Auth (e2e)', () => {
         }),
       );
 
+      // 为每个账户创建对应的用户信息记录
+      await Promise.all(
+        createdAccounts.map(async (account) => {
+          await userInfoRepository.save({
+            accountId: account.id,
+            nickname: `${account.loginName}_nickname`,
+            gender: Gender.SECRET,
+            birthDate: null,
+            avatar: null,
+            email: account.loginEmail,
+            signature: null,
+            accessGroup: ['guest'], // 默认访问组
+            address: null,
+            phone: null,
+            tags: null,
+            geographic: null,
+            metaDigest: '',
+            notifyCount: 0,
+            unreadCount: 0,
+            userState: UserState.ACTIVE,
+          });
+        }),
+      );
+
       // 验证所有测试账户是否创建成功
-      const createdAccounts = await repository.find({
+      const createdAccountsCheck = await accountRepository.find({
         where: {
           loginName: In(Object.values(testAccountsPlaintext).map((acc) => acc.loginName)),
         },
       });
 
-      if (createdAccounts.length !== Object.keys(testAccountsPlaintext).length) {
+      if (createdAccountsCheck.length !== Object.keys(testAccountsPlaintext).length) {
         throw new Error(
-          `测试账户创建不完整，期望 ${Object.keys(testAccountsPlaintext).length} 个，实际创建 ${createdAccounts.length} 个`,
+          `测试账户创建不完整，期望 ${Object.keys(testAccountsPlaintext).length} 个，实际创建 ${createdAccountsCheck.length} 个`,
         );
       }
     } catch (error) {
@@ -157,8 +181,6 @@ describe('Auth (e2e)', () => {
     audience: keyof typeof AudienceTypeEnum = 'DESKTOP', // 改为接受枚举键名
     ip?: string,
   ) => {
-    console.log('🚀 登录请求参数:', { loginName, loginPassword, type, audience, ip });
-
     const response = await request(app.getHttpServer())
       .post('/graphql')
       .send({
@@ -167,7 +189,7 @@ describe('Auth (e2e)', () => {
             login(input: $input) {
               accessToken
               refreshToken
-              userId
+              accountId
             }
           }
         `,
@@ -183,15 +205,14 @@ describe('Auth (e2e)', () => {
       })
       .expect(200);
 
-    console.dir(response.body, { depth: null });
+    console.log('🚀 登录请求参数:', { loginName, loginPassword, type, audience, ip });
+    // console.dir(response.body, { depth: null });
     console.log('📥 登录响应:', JSON.stringify(response.body, null, 2));
     return response;
   };
 
   describe('登录成功场景', () => {
-    /**
-     * 测试用户名登录成功
-     */
+    // 用户名登录成功测试
     it('应该支持用户名登录成功', async () => {
       const response = await performLogin(
         testAccountsPlaintext.activeUser.loginName,
@@ -199,16 +220,14 @@ describe('Auth (e2e)', () => {
       );
 
       const { data } = response.body;
-      expect(data?.login.userId).toBeDefined();
+      expect(data?.login.accountId).toBeDefined();
       expect(data?.login.accessToken).toBeDefined();
       expect(data?.login.refreshToken).toBeDefined();
       expect(typeof data?.login.accessToken).toBe('string');
       expect(typeof data?.login.refreshToken).toBe('string');
     });
 
-    /**
-     * 测试邮箱登录成功
-     */
+    // 邮箱登录成功测试
     it('应该支持邮箱登录成功', async () => {
       const response = await performLogin(
         testAccountsPlaintext.activeUser.loginEmail,
@@ -216,31 +235,45 @@ describe('Auth (e2e)', () => {
       );
 
       const { data } = response.body;
-      expect(data?.login.userId).toBeDefined();
+      expect(data?.login.accountId).toBeDefined();
       expect(data?.login.accessToken).toBeDefined();
       expect(data?.login.refreshToken).toBeDefined();
       expect(typeof data?.login.accessToken).toBe('string');
       expect(typeof data?.login.refreshToken).toBe('string');
     });
 
-    /**
-     * 测试有效的 audience
-     */
+    // 有效 audience 登录测试
     it('应该支持有效的 audience 登录成功', async () => {
       const response = await performLogin(
         testAccountsPlaintext.activeUser.loginName,
         testAccountsPlaintext.activeUser.loginPassword,
         LoginTypeEnum.PASSWORD,
-        'SSTSTEST', // 使用测试环境配置中的有效 audience
+        'SSTSTEST',
       );
 
       const { data } = response.body;
       console.log(data);
-      expect(data?.login.userId).toBeDefined();
+      expect(data?.login.accountId).toBeDefined();
       expect(data?.login.accessToken).toBeDefined();
       expect(data?.login.refreshToken).toBeDefined();
       expect(typeof data?.login.accessToken).toBe('string');
       expect(typeof data?.login.refreshToken).toBe('string');
+    });
+
+    // 用户 ID 验证测试
+    it('登录成功后应该返回正确的用户 ID', async () => {
+      const accountRepository = dataSource.getRepository(AccountEntity);
+      const account = await accountRepository.findOne({
+        where: { loginName: testAccountsPlaintext.activeUser.loginName },
+      });
+
+      const response = await performLogin(
+        testAccountsPlaintext.activeUser.loginName,
+        testAccountsPlaintext.activeUser.loginPassword,
+      );
+
+      const { data } = response.body;
+      expect(data?.login.accountId).toBe(account?.id.toString());
     });
 
     /**
@@ -285,7 +318,7 @@ describe('Auth (e2e)', () => {
 
       const { errors } = response.body;
       expect(errors).toBeDefined();
-      expect(errors?.[0]?.message).toContain('账户已被禁用');
+      expect(errors?.[0]?.message).toContain('账户未激活或已被禁用');
     });
 
     /**
@@ -299,7 +332,7 @@ describe('Auth (e2e)', () => {
 
       const { errors } = response.body;
       expect(errors).toBeDefined();
-      expect(errors?.[0]?.message).toContain('账户已被禁用');
+      expect(errors?.[0]?.message).toContain('账户未激活或已被禁用');
     });
   });
 
@@ -354,7 +387,7 @@ describe('Auth (e2e)', () => {
               login {
                 accessToken
                 refreshToken
-                userId
+                accountId
               }
             }
           `,
@@ -365,12 +398,8 @@ describe('Auth (e2e)', () => {
       expect(errors).toBeDefined();
       expect(errors?.[0]?.message).toContain('input');
     });
-  });
 
-  describe('业务逻辑验证', () => {
-    /**
-     * 测试登录成功后返回正确的用户 ID
-     */
+    // 修正第二个测试用例中的字段访问
     it('登录成功后应该返回正确的用户 ID', async () => {
       const accountRepository = dataSource.getRepository(AccountEntity);
       const account = await accountRepository.findOne({
@@ -383,7 +412,7 @@ describe('Auth (e2e)', () => {
       );
 
       const { data } = response.body;
-      expect(data?.login.userId).toBe(account?.id.toString());
+      expect(data?.login.accountId).toBe(account?.id.toString());
     });
 
     /**
