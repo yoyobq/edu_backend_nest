@@ -3,7 +3,6 @@ import { AudienceTypeEnum, ThirdPartyProviderEnum } from '@app-types/models/acco
 import { ThirdPartySession } from '@app-types/models/third-party-auth.types';
 import { ThirdPartyAuthEntity } from '@modules/account/entities/third-party-auth.entity';
 import { AuthService } from '@modules/auth/auth.service';
-import { LoginByAccountIdUsecase } from '@usecases/auth/login-by-account-id.usecase';
 import {
   BadRequestException,
   HttpException,
@@ -14,11 +13,15 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { LoginResult } from '@src/adapters/graphql/account/dto/login-result.dto';
+import { LoginByAccountIdUsecase } from '@usecases/auth/login-by-account-id.usecase';
 import { Repository } from 'typeorm';
 import { BindThirdPartyInput } from '../../adapters/graphql/third-party-auth/dto/bind-third-party.input';
 import { ThirdPartyLoginInput } from '../../adapters/graphql/third-party-auth/dto/third-party-login.input';
 import { UnbindThirdPartyInput } from '../../adapters/graphql/third-party-auth/dto/unbind-third-party.input';
 import { ThirdPartyProvider } from './interfaces/third-party-provider.interface';
+// 在文件顶部添加导入
+import { IdentityUnionType } from '@src/adapters/graphql/account/dto/identity/identity-union.type';
+import { LoginResultModel } from '../../types/models/auth.types';
 
 /** 第三方认证提供者映射的依赖注入标识 */
 export const PROVIDER_MAP = Symbol('THIRD_PARTY_PROVIDER_MAP');
@@ -91,6 +94,19 @@ export class ThirdPartyAuthService {
    * @returns 登录结果 (包含访问令牌等信息)
    * @throws UnauthorizedException 当账户未绑定时抛出异常
    */
+  /**
+   * 将领域模型转换为 DTO
+   */
+  private convertToLoginResult(loginResultModel: LoginResultModel): LoginResult {
+    return {
+      accessToken: loginResultModel.accessToken,
+      refreshToken: loginResultModel.refreshToken,
+      accountId: loginResultModel.accountId,
+      role: loginResultModel.role,
+      identity: loginResultModel.identity as IdentityUnionType | null,
+    };
+  }
+
   async thirdPartyLogin({
     provider,
     authCredential,
@@ -111,11 +127,13 @@ export class ThirdPartyAuthService {
     });
 
     if (existingAuth?.accountId) {
-      return this.loginByAccountIdUsecase.execute({
+      const loginResult = await this.loginByAccountIdUsecase.execute({
         accountId: existingAuth.accountId,
         ip,
         audience,
       });
+
+      return this.convertToLoginResult(loginResult);
     }
 
     // 账户未绑定：返回平台无关的标准错误码

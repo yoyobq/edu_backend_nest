@@ -1,6 +1,6 @@
 // src/usecases/account/validate-login.usecase.ts
-import { AuthLoginInput } from '@adapters/graphql/auth/dto/auth-login.input';
 import { AccountStatus } from '@app-types/models/account.types';
+import { AuthLoginModel } from '@app-types/models/auth.types';
 import { AUTH_ERROR, DomainError } from '@core/common/errors';
 import { AccountService } from '@modules/account/account.service';
 import { AccountEntity } from '@modules/account/entities/account.entity';
@@ -22,7 +22,7 @@ export class ValidateLoginUsecase {
   async execute({
     loginName,
     loginPassword,
-  }: Pick<AuthLoginInput, 'loginName' | 'loginPassword'>): Promise<AccountEntity> {
+  }: Pick<AuthLoginModel, 'loginName' | 'loginPassword'>): Promise<AccountEntity> {
     // 查找账户（支持登录名或邮箱）
     const account = await this.accountService.findByLoginName(loginName);
     if (!account) {

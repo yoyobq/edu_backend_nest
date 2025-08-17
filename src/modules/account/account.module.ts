@@ -4,6 +4,9 @@ import { FieldEncryptionModule } from '@core/field-encryption/field-encryption.m
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AccountService } from './account.service';
+import { CoachEntity } from './entities/account-coach.entity';
+import { ManagerEntity } from './entities/account-manager.entity';
+import { StaffEntity } from './entities/account-staff.entity';
 import { AccountEntity } from './entities/account.entity';
 
 // 确保所有 GraphQL 类型和枚举都被导入
@@ -15,7 +18,16 @@ import '@src/adapters/graphql/account/enums/login-history.types';
 import { UserInfoEntity } from './entities/user-info.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([AccountEntity, UserInfoEntity]), FieldEncryptionModule],
+  imports: [
+    TypeOrmModule.forFeature([
+      AccountEntity,
+      UserInfoEntity,
+      StaffEntity,
+      CoachEntity,
+      ManagerEntity,
+    ]),
+    FieldEncryptionModule,
+  ],
   providers: [
     AccountService,
     // 移除 AccountResolver - 它应该在 GraphQLAdapterModule 中注册

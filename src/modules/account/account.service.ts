@@ -5,15 +5,15 @@ import { PasswordPbkdf2Helper } from '@core/common/password/password.pbkdf2.help
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { EntityManager, Repository } from 'typeorm';
+import { UserAccountDTO } from '../../adapters/graphql/account/dto/user-account.dto';
+import { ACCOUNT_ERROR, DomainError } from '../../core/common/errors/domain-error';
+import { AccountWithAccessGroup } from '../../types/models/account.types';
+import { CoachEntity } from './entities/account-coach.entity';
+import { ManagerEntity } from './entities/account-manager.entity';
+import { StaffEntity } from './entities/account-staff.entity';
 import { AccountEntity } from './entities/account.entity';
 import { UserInfoEntity } from './entities/user-info.entity';
-import { UserAccountDTO } from '../../adapters/graphql/account/dto/user-account.dto';
-import { AccountWithAccessGroup } from '../../types/models/account.types';
-import { DomainError, ACCOUNT_ERROR } from '../../core/common/errors/domain-error';
 
-/**
- * 账户服务 - 提供账户相关的技术实现
- */
 @Injectable()
 export class AccountService {
   constructor(
@@ -21,6 +21,12 @@ export class AccountService {
     private readonly accountRepository: Repository<AccountEntity>,
     @InjectRepository(UserInfoEntity)
     private readonly userInfoRepository: Repository<UserInfoEntity>,
+    @InjectRepository(StaffEntity)
+    private readonly staffRepository: Repository<StaffEntity>,
+    @InjectRepository(CoachEntity)
+    private readonly coachRepository: Repository<CoachEntity>,
+    @InjectRepository(ManagerEntity)
+    private readonly managerRepository: Repository<ManagerEntity>,
   ) {}
 
   /**
@@ -289,5 +295,38 @@ export class AccountService {
       loginEmail: account.loginEmail || '',
       accessGroup: userInfo?.accessGroup || ['guest'],
     };
+  }
+
+  /**
+   * 根据账户 ID 查找员工信息
+   * @param accountId 账户 ID
+   * @returns 员工信息或 null
+   */
+  async findStaffByAccountId(accountId: number): Promise<StaffEntity | null> {
+    return await this.staffRepository.findOne({
+      where: { accountId },
+    });
+  }
+
+  /**
+   * 根据账户 ID 查找教练信息
+   * @param accountId 账户 ID
+   * @returns 教练信息或 null
+   */
+  async findCoachByAccountId(accountId: number): Promise<CoachEntity | null> {
+    return await this.coachRepository.findOne({
+      where: { accountId },
+    });
+  }
+
+  /**
+   * 根据账户 ID 查找经理信息
+   * @param accountId 账户 ID
+   * @returns 经理信息或 null
+   */
+  async findManagerByAccountId(accountId: number): Promise<ManagerEntity | null> {
+    return await this.managerRepository.findOne({
+      where: { accountId },
+    });
   }
 }

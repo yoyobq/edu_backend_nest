@@ -22,5 +22,5 @@ export class LoginResult {
   role!: IdentityTypeEnum;
 
   @Field(() => IdentityUnion, { nullable: true, description: '当前身份信息' })
-  identity?: IdentityUnionType;
+  identity?: IdentityUnionType | null; // 明确支持 null
 }
