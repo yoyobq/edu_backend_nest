@@ -53,9 +53,22 @@ export const ACCOUNT_ERROR = {
 } as const;
 Object.freeze(ACCOUNT_ERROR);
 
+// 第三方认证相关错误码
+export const THIRDPARTY_ERROR = {
+  CREDENTIAL_INVALID: 'THIRDPARTY_CREDENTIAL_INVALID',
+  ACCOUNT_NOT_BOUND: 'THIRDPARTY_ACCOUNT_NOT_BOUND',
+  LOGIN_FAILED: 'THIRDPARTY_LOGIN_FAILED',
+  BIND_FAILED: 'THIRDPARTY_BIND_FAILED',
+  UNBIND_FAILED: 'THIRDPARTY_UNBIND_FAILED',
+  PROVIDER_NOT_SUPPORTED: 'THIRDPARTY_PROVIDER_NOT_SUPPORTED',
+  ACCOUNT_ALREADY_BOUND: 'THIRDPARTY_ACCOUNT_ALREADY_BOUND',
+} as const;
+Object.freeze(THIRDPARTY_ERROR);
+
 // 类型辅助
 export type AuthErrorCode = (typeof AUTH_ERROR)[keyof typeof AUTH_ERROR];
 export type AccountErrorCode = (typeof ACCOUNT_ERROR)[keyof typeof ACCOUNT_ERROR];
+export type ThirdPartyErrorCode = (typeof THIRDPARTY_ERROR)[keyof typeof THIRDPARTY_ERROR];
 
 // 类型守卫：统一判断是否为领域错误（兼容多包/反序列化场景）
 export const isDomainError = (error: unknown): error is DomainError => {

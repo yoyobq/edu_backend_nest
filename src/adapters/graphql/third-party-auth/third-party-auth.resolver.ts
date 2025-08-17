@@ -1,9 +1,11 @@
 // src/adapters/graphql/third-party-auth/third-party-auth.resolver.ts
 
 import { JwtPayload } from '@app-types/jwt.types';
+import { LoginResultModel } from '@app-types/models/auth.types';
 import { ThirdPartyAuthService } from '@modules/third-party-auth/third-party-auth.service';
 import { UseGuards } from '@nestjs/common';
 import { Args, Mutation, Query, Resolver } from '@nestjs/graphql';
+import { IdentityUnionType } from '@src/adapters/graphql/account/dto/identity/identity-union.type';
 import { LoginResult } from '@src/adapters/graphql/account/dto/login-result.dto';
 import { currentUser } from '@src/adapters/graphql/decorators/current-user.decorator';
 import { JwtAuthGuard } from '@src/adapters/graphql/guards/jwt-auth.guard';
@@ -11,6 +13,10 @@ import { BindThirdPartyInput } from '@src/adapters/graphql/third-party-auth/dto/
 import { ThirdPartyAuthDTO } from '@src/adapters/graphql/third-party-auth/dto/third-party-auth.dto';
 import { ThirdPartyLoginInput } from '@src/adapters/graphql/third-party-auth/dto/third-party-login.input';
 import { UnbindThirdPartyInput } from '@src/adapters/graphql/third-party-auth/dto/unbind-third-party.input';
+import {
+  LoginWithThirdPartyUsecase,
+  ThirdPartyLoginParams,
+} from '@usecases/auth/login-with-third-party.usecase';
 
 /**
  * 第三方认证 GraphQL 解析器
@@ -18,19 +24,35 @@ import { UnbindThirdPartyInput } from '@src/adapters/graphql/third-party-auth/dt
  */
 @Resolver()
 export class ThirdPartyAuthResolver {
-  constructor(private readonly thirdPartyAuthService: ThirdPartyAuthService) {}
+  constructor(
+    private readonly thirdPartyAuthService: ThirdPartyAuthService,
+    private readonly loginWithThirdPartyUsecase: LoginWithThirdPartyUsecase,
+  ) {}
 
   /**
    * 第三方平台登录
-   * 使用第三方平台凭证进行用户登录认证
-   * @param input 第三方登录参数 (包含平台类型、凭证、客户端信息等)
-   * @returns 登录结果 (包含访问令牌、用户信息等)
-   * @throws UnauthorizedException 当凭证无效或账户未绑定时抛出异常
+   * - DTO -> 用例输入的薄映射
+   * - 用例只抛 DomainError；全局 GQL Filter 统一映射为 GraphQL 错误
    */
   @Mutation(() => LoginResult, { description: '第三方登录' })
   async thirdPartyLogin(@Args('input') input: ThirdPartyLoginInput): Promise<LoginResult> {
-    // 委托给服务层处理完整的登录业务逻辑
-    return await this.thirdPartyAuthService.thirdPartyLogin(input);
+    const params: ThirdPartyLoginParams = {
+      provider: input.provider,
+      credential: input.authCredential,
+      audience: String(input.audience),
+      ip: input.ip,
+    };
+
+    const result: LoginResultModel = await this.loginWithThirdPartyUsecase.execute(params);
+
+    // 用例结果 -> GraphQL DTO 的薄映射
+    return {
+      accessToken: result.accessToken,
+      refreshToken: result.refreshToken,
+      accountId: result.accountId,
+      role: result.role,
+      identity: result.identity as IdentityUnionType | null,
+    };
   }
 
   /**

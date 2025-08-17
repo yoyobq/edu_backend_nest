@@ -3,6 +3,7 @@
 import { TokenHelper } from '@core/common/token/token.helper';
 import { CoreJwtModule } from '@core/jwt/jwt.module';
 import { AccountModule } from '@modules/account/account.module';
+import { ThirdPartyAuthModule } from '@modules/third-party-auth/third-party-auth.module';
 import { Module } from '@nestjs/common';
 import { PassportModule } from '@nestjs/passport';
 import { AuthService } from './auth.service';
@@ -12,12 +13,18 @@ import { ValidateLoginUsecase } from '@usecases/account/validate-login.usecase';
 import { ExecuteLoginFlowUsecase } from '@usecases/auth/execute-login-flow.usecase';
 import { LoginByAccountIdUsecase } from '@usecases/auth/login-by-account-id.usecase';
 import { LoginWithPasswordUsecase } from '@usecases/auth/login-with-password.usecase';
+import { LoginWithThirdPartyUsecase } from '@usecases/auth/login-with-third-party.usecase';
 
 /**
  * 认证模块
  */
 @Module({
-  imports: [AccountModule, CoreJwtModule, PassportModule.register({ defaultStrategy: 'jwt' })],
+  imports: [
+    AccountModule,
+    CoreJwtModule,
+    ThirdPartyAuthModule,
+    PassportModule.register({ defaultStrategy: 'jwt' }),
+  ],
   providers: [
     AuthService,
     TokenHelper,
@@ -26,6 +33,7 @@ import { LoginWithPasswordUsecase } from '@usecases/auth/login-with-password.use
     ValidateLoginUsecase,
     ExecuteLoginFlowUsecase,
     LoginByAccountIdUsecase,
+    LoginWithThirdPartyUsecase,
   ],
   exports: [
     AuthService,
@@ -35,6 +43,7 @@ import { LoginWithPasswordUsecase } from '@usecases/auth/login-with-password.use
     ValidateLoginUsecase,
     ExecuteLoginFlowUsecase,
     LoginByAccountIdUsecase,
+    LoginWithThirdPartyUsecase,
   ],
 })
 export class AuthModule {}
