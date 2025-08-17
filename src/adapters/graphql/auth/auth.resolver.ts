@@ -2,15 +2,15 @@
 
 import { IdentityTypeEnum } from '@app-types/models/account.types';
 import { AuthLoginModel, LoginResultModel } from '@app-types/models/auth.types';
-import { AccountService } from '@modules/account/account.service';
 import { Args, Mutation, Resolver } from '@nestjs/graphql';
+import { FetchIdentityByRoleUsecase } from '@usecases/account/fetch-identity-by-role.usecase';
 import { LoginWithPasswordUsecase } from '@usecases/auth/login-with-password.usecase';
+import { CoachType } from '../account/dto/identity/coach.dto';
 import { IdentityUnionType } from '../account/dto/identity/identity-union.type';
+import { ManagerType } from '../account/dto/identity/manager.dto';
+import { StaffType } from '../account/dto/identity/staff.dto';
 import { LoginResult } from '../account/dto/login-result.dto';
 import { AuthLoginInput } from './dto/auth-login.input';
-import { StaffType } from '../account/dto/identity/staff.dto';
-import { CoachType } from '../account/dto/identity/coach.dto';
-import { ManagerType } from '../account/dto/identity/manager.dto';
 
 /**
  * 认证相关的 GraphQL Resolver
@@ -19,7 +19,7 @@ import { ManagerType } from '../account/dto/identity/manager.dto';
 export class AuthResolver {
   constructor(
     private readonly loginWithPasswordUsecase: LoginWithPasswordUsecase,
-    private readonly accountService: AccountService,
+    private readonly fetchIdentityByRole: FetchIdentityByRoleUsecase,
   ) {}
 
   /**
@@ -40,7 +40,7 @@ export class AuthResolver {
     const result: LoginResultModel = await this.loginWithPasswordUsecase.execute(authLoginModel);
 
     // 获取身份信息，让 IdentityUnion 自动处理类型解析
-    const identity = await this.getIdentityByRole(result.accountId, result.role);
+    const identity = await this.getIdentityForGraphQL(result.accountId, result.role);
 
     // 将领域模型转换回 DTO
     const loginResult: LoginResult = {
@@ -57,33 +57,20 @@ export class AuthResolver {
   /**
    * 根据角色获取身份信息
    */
-  private async getIdentityByRole(
+  private async getIdentityForGraphQL(
     accountId: number,
     role: IdentityTypeEnum,
   ): Promise<IdentityUnionType | null> {
-    try {
-      switch (role) {
-        case IdentityTypeEnum.STAFF: {
-          const entity = await this.accountService.findStaffByAccountId(accountId);
-          return entity ? ({ ...entity, staffId: entity.id } as StaffType) : null;
-        }
-
-        case IdentityTypeEnum.COACH: {
-          const entity = await this.accountService.findCoachByAccountId(accountId);
-          return entity ? ({ ...entity, coachId: entity.id } as CoachType) : null;
-        }
-
-        case IdentityTypeEnum.MANAGER: {
-          const entity = await this.accountService.findManagerByAccountId(accountId);
-          return entity ? ({ ...entity, managerId: entity.id } as ManagerType) : null;
-        }
-
-        default:
-          return null;
-      }
-    } catch (error) {
-      console.error('Error fetching identity:', error);
-      return null;
+    const raw = await this.fetchIdentityByRole.execute(accountId, role);
+    switch (raw.kind) {
+      case 'STAFF':
+        return { ...raw.data, jobId: raw.data.id } as StaffType;
+      case 'COACH':
+        return { ...raw.data, coachId: raw.data.id } as CoachType;
+      case 'MANAGER':
+        return { ...raw.data, managerId: raw.data.id } as ManagerType;
+      default:
+        return null;
     }
   }
 }

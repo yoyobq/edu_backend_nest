@@ -9,7 +9,7 @@ import { Field, ID, ObjectType } from '@nestjs/graphql';
 @ObjectType({ description: '教练身份信息' })
 export class CoachType {
   @Field(() => ID, { description: '教练 ID' })
-  coachId!: number;
+  id!: number;
 
   @Field(() => ID, { description: '关联的账户 ID' })
   accountId!: number;

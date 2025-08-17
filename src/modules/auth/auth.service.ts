@@ -1,11 +1,8 @@
 // src/modules/auth/auth.service.ts
 
-import { IdentityTypeEnum } from '@app-types/models/account.types';
 import { TokenHelper } from '@core/common/token/token.helper';
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { IdentityUnionType } from '@src/adapters/graphql/account/dto/identity/identity-union.type';
-import { LoginResult } from '@src/adapters/graphql/account/dto/login-result.dto';
 import { JwtPayload } from '@src/types/jwt.types';
 import { PinoLogger } from 'nestjs-pino';
 
@@ -45,90 +42,31 @@ export class AuthService {
   }
 
   /**
-   * 创建登录结果对象
-   * @param params 登录结果参数
-   * @returns 登录结果
-   */
-  createLoginResult({
-    accessToken,
-    refreshToken,
-    accountId,
-    role,
-    identity,
-  }: {
-    accessToken: string;
-    refreshToken: string;
-    accountId: number;
-    role: IdentityTypeEnum;
-    identity?: IdentityUnionType;
-  }): LoginResult {
-    return {
-      accessToken,
-      refreshToken,
-      accountId,
-      role,
-      identity,
-    };
-  }
-
-  /**
    * 记录登录成功日志
    * @param params 日志参数
    */
-  logLoginSuccess({
-    accountId,
-    loginName,
-    accessGroup,
-    role,
-    ip,
-    audience,
-  }: {
+  logLoginSuccess(params: {
     accountId: number;
     loginName: string;
     accessGroup: string;
-    role: IdentityTypeEnum;
+    role: string;
     ip?: string;
     audience?: string;
   }): void {
-    this.logger.info(
-      {
-        accountId,
-        loginName,
-        accessGroup,
-        role,
-        ip,
-        audience,
-      },
-      `从 ${audience} 登录成功`,
-    );
+    this.logger.info(params, `从 ${params.audience} 登录成功`);
   }
 
   /**
    * 记录登录失败日志
    * @param params 日志参数
    */
-  logLoginFailure({
-    loginName,
-    accountId,
-    ip,
-    audience,
-    error,
-  }: {
+  logLoginFailure(params: {
     loginName?: string;
     accountId?: number;
     ip?: string;
     audience?: string;
     error: string;
   }): void {
-    this.logger.error(
-      {
-        loginName,
-        accountId,
-        ip,
-        audience,
-        error,
-      },
-      '用户登录失败',
-    );
+    this.logger.error(params, '用户登录失败');
   }
 }

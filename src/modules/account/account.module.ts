@@ -15,6 +15,7 @@ import '@adapters/graphql/account/enums/gender.enum';
 import '@adapters/graphql/account/enums/identity-type.enum';
 import '@src/adapters/graphql/account/dto/user-state.enum';
 import '@src/adapters/graphql/account/enums/login-history.types';
+import { FetchIdentityByRoleUsecase } from '@usecases/account/fetch-identity-by-role.usecase';
 import { UserInfoEntity } from './entities/user-info.entity';
 
 @Module({
@@ -28,11 +29,12 @@ import { UserInfoEntity } from './entities/user-info.entity';
     ]),
     FieldEncryptionModule,
   ],
-  providers: [
+  providers: [AccountService, FetchIdentityByRoleUsecase],
+  exports: [
     AccountService,
-    // 移除 AccountResolver - 它应该在 GraphQLAdapterModule 中注册
-    // AccountResolver,
+    TypeOrmModule,
+    // 添加 FetchIdentityByRoleUsecase 到导出列表
+    FetchIdentityByRoleUsecase,
   ],
-  exports: [AccountService, TypeOrmModule],
 })
 export class AccountModule {}

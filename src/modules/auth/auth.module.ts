@@ -5,9 +5,6 @@ import { CoreJwtModule } from '@core/jwt/jwt.module';
 import { AccountModule } from '@modules/account/account.module';
 import { Module } from '@nestjs/common';
 import { PassportModule } from '@nestjs/passport';
-import '@src/adapters/graphql/account/enums/login-history.types';
-import '../../adapters/graphql/auth/enums/audience-type.enum';
-import '../../adapters/graphql/auth/enums/login-type.enum';
 import { AuthService } from './auth.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
 // 添加 usecase 导入
