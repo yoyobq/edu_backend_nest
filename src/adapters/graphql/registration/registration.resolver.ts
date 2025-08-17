@@ -1,34 +1,46 @@
 // src/adapters/graphql/registration/registration.resolver.ts
-
 import { ValidateInput } from '@core/common/errors/validate-input.decorator';
-import { RegisterService } from '@modules/register/register.service';
 import { Args, Context, Mutation, Resolver } from '@nestjs/graphql';
-import { RegisterResult } from '@src/adapters/graphql/registration/dto/register-result.dto';
-import { RegisterInput } from '@src/adapters/graphql/registration/dto/register.input';
+import { RegisterWithEmailUsecase } from '@usecases/registration/register-with-email.usecase';
 import { Request } from 'express';
+import { RegisterResult } from './dto/register-result.dto';
+import { RegisterInput } from './dto/register.input';
 
-// 导入枚举文件以确保 GraphQL 枚举类型被注册
+// 枚举注册（side-effect）
 import './enums/register-type.enum';
 
-/**
- * 注册解析器
- */
 @Resolver()
 export class RegistrationResolver {
-  constructor(private readonly registerService: RegisterService) {}
+  constructor(private readonly registerWithEmail: RegisterWithEmailUsecase) {}
 
-  /**
-   * 用户注册
-   * @param input 注册参数
-   * @param context GraphQL 上下文，包含 request 对象
-   * @returns 注册结果
-   */
   @Mutation(() => RegisterResult, { description: '用户注册' })
   @ValidateInput()
   async register(
     @Args('input') input: RegisterInput,
     @Context() context: { req: Request },
   ): Promise<RegisterResult> {
-    return await this.registerService.register(input, context.req);
+    // 只传递 usecase 关心的"扁平请求形状"，避免把 Express 类型下沉到用例层
+    const req = context?.req;
+    const safeRequest = req
+      ? {
+          headers: req.headers as Record<string, string | string[] | undefined>,
+          ip: req.ip || req.socket?.remoteAddress || undefined,
+          connection: { remoteAddress: req.socket?.remoteAddress },
+        }
+      : undefined;
+
+    const result = await this.registerWithEmail.execute({
+      loginName: input.loginName ?? null,
+      loginEmail: input.loginEmail,
+      loginPassword: input.loginPassword,
+      nickname: input.nickname,
+      request: safeRequest,
+    });
+
+    return {
+      success: result.success,
+      message: result.message,
+      accountId: result.accountId,
+    };
   }
 }
