@@ -1,7 +1,5 @@
 // src/modules/register/register.service.ts
 
-import { ConflictException, Injectable } from '@nestjs/common';
-// import { ConfigService } from '@nestjs/config';
 import { AccountStatus } from '@app-types/models/account.types';
 import { PreparedRegisterData } from '@app-types/services/register.types';
 import {
@@ -11,9 +9,11 @@ import {
 } from '@core/common/network/network-access.helper';
 import { AccountService } from '@modules/account/account.service';
 import { AccountEntity } from '@modules/account/entities/account.entity';
+import { ConflictException, Injectable } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { RegisterResult } from '../../adapters/graphql/registration/dto/register-result.dto';
 import { RegisterInput } from '../../adapters/graphql/registration/dto/register.input';
+import { CreateAccountUsecase } from '@usecases/account/create-account.usecase';
 
 /**
  * 注册服务
@@ -22,7 +22,7 @@ import { RegisterInput } from '../../adapters/graphql/registration/dto/register.
 export class RegisterService {
   constructor(
     private readonly accountService: AccountService,
-    // private readonly configService: ConfigService,
+    private readonly createAccountUsecase: CreateAccountUsecase,
     private readonly logger: PinoLogger,
   ) {
     this.logger.setContext(RegisterService.name);
@@ -95,19 +95,12 @@ export class RegisterService {
 
   /**
    * 准备注册数据
-   * 将原始注册输入转换为包含默认值和处理后字段的完整数据
-   * @param param 原始注册输入
-   * @param param.loginName 登录名
-   * @param param.loginEmail 登录邮箱
-   * @param param.loginPassword 登录密码
-   * @param param.nickname 昵称
-   * @returns 准备好的注册数据
    */
   private async prepareRegisterData({
     loginName = null,
     loginEmail,
     nickname,
-    type: _, // 移除之前已经处理的 type
+    type: _,
     ...restInput
   }: RegisterInput): Promise<PreparedRegisterData> {
     // 生成 nickname 的优先级：input.nickname > input.loginName > input.loginEmail 的 @ 前面部分
@@ -115,10 +108,9 @@ export class RegisterService {
     if (!finalNickname && loginEmail) {
       finalNickname = loginEmail.split('@')[0];
     }
-    // 实际上不可能是 ''，此处为避免 eslint 漏算
     finalNickname = finalNickname || '';
 
-    // 确保 nickname 在表中不重复，
+    // 直接调用 AccountService 方法检查昵称是否存在
     const nicknameExists = await this.accountService.checkNicknameExists(finalNickname);
     if (nicknameExists) {
       if (nickname) {
@@ -131,7 +123,7 @@ export class RegisterService {
       loginName,
       loginEmail,
       ...restInput,
-      status: AccountStatus.PENDING, // 实际在注册成功时会更新为 ACTIVE
+      status: AccountStatus.PENDING,
       nickname: finalNickname,
       email: loginEmail,
       accessGroup: ['REGISTRANT'],
@@ -142,31 +134,18 @@ export class RegisterService {
 
   /**
    * 检查账户是否已存在
-   * @param input 注册参数
-   * @throws ConflictException 账户已存在时抛出异常
    */
   private async checkAccountExists({ loginName = null, loginEmail }: RegisterInput): Promise<void> {
-    const accountExists = await this.accountService.checkAccountExists({
+    const exists = await this.accountService.checkAccountExists({
       loginName,
       loginEmail,
     });
 
-    if (accountExists) {
-      if (loginName && loginEmail) {
-        throw new ConflictException('该登录名或邮箱已被注册');
-      } else if (loginName) {
-        throw new ConflictException('该登录名已被注册');
-      } else if (loginEmail) {
-        throw new ConflictException('该邮箱已被注册');
-      }
+    if (exists) {
+      throw new ConflictException('账户已存在');
     }
   }
 
-  /**
-   * 创建未经过核验的 REGISTRANT 账户
-   * @param PreparedRegisterData 准备好的注册数据
-   * @returns 创建的账户实体
-   */
   private async createAccount({
     loginName,
     loginEmail,
@@ -178,23 +157,21 @@ export class RegisterService {
     identityHint,
     metaDigest,
   }: PreparedRegisterData): Promise<AccountEntity> {
-    // 准备账户数据
-    const accountData = {
-      loginName,
-      loginEmail,
-      loginPassword,
-      status,
-      identityHint,
-    };
-
-    // 准备用户信息数据
-    const userInfoData = {
-      nickname,
-      email,
-      accessGroup,
-      metaDigest,
-    };
-
-    return await this.accountService.createAccount(accountData, userInfoData);
+    // 调用 CreateAccountUsecase 处理复杂的账户创建逻辑
+    return await this.createAccountUsecase.execute({
+      accountData: {
+        loginName,
+        loginEmail,
+        loginPassword,
+        status,
+        identityHint,
+      },
+      userInfoData: {
+        nickname,
+        email,
+        accessGroup,
+        metaDigest,
+      },
+    });
   }
 }

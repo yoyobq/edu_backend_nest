@@ -1,17 +1,18 @@
 // src/modules/account/account.service.ts
 
 import { LoginHistoryItem } from '@adapters/graphql/account/enums/login-history.types';
-import { AccountStatus, AccountWithAccessGroup } from '@app-types/models/account.types';
 import { PasswordPbkdf2Helper } from '@core/common/password/password.pbkdf2.helper';
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { AuthLoginInput } from '@src/adapters/graphql/auth/dto/auth-login.input';
-import { Repository } from 'typeorm';
+import { EntityManager, Repository } from 'typeorm';
 import { AccountEntity } from './entities/account.entity';
 import { UserInfoEntity } from './entities/user-info.entity';
+import { UserAccountDTO } from '../../adapters/graphql/account/dto/user-account.dto';
+import { AccountWithAccessGroup } from '../../types/models/account.types';
+import { DomainError, ACCOUNT_ERROR } from '../../core/common/errors/domain-error';
 
 /**
- * 账户服务
+ * 账户服务 - 提供账户相关的技术实现
  */
 @Injectable()
 export class AccountService {
@@ -21,79 +22,6 @@ export class AccountService {
     @InjectRepository(UserInfoEntity)
     private readonly userInfoRepository: Repository<UserInfoEntity>,
   ) {}
-
-  /**
-   * 验证用户登录信息
-   * @param args 登录参数
-   * @returns 验证通过的账户信息
-   * @throws 验证失败时抛出错误
-   */
-  async validateLogin({
-    loginName,
-    loginPassword,
-  }: Pick<AuthLoginInput, 'loginName' | 'loginPassword'>): Promise<AccountEntity> {
-    // 根据登录名或邮箱查找账户，需要包含 createdAt 字段用于生成 salt
-    const account = await this.accountRepository
-      .createQueryBuilder('account')
-      .where('account.loginName = :loginName', { loginName })
-      .orWhere('account.loginEmail = :loginEmail', { loginEmail: loginName })
-      .getOne();
-
-    if (!account) {
-      throw new Error('账户不存在');
-    }
-
-    // 检查账户状态
-    if (account.status !== AccountStatus.ACTIVE) {
-      throw new Error('账户已被禁用');
-    }
-
-    // 使用 createdAt 作为 salt 进行密码验证
-    const salt = account.createdAt.toString();
-    const hashedInputPassword = PasswordPbkdf2Helper.hashPasswordWithCrypto(loginPassword, salt);
-
-    // 验证密码哈希是否匹配
-    if (account.loginPassword !== hashedInputPassword) {
-      throw new Error('密码错误');
-    }
-
-    return account;
-  }
-
-  /**
-   * 获取用户完整信息（包括 accessGroup）
-   * @param accountId 账户 ID
-   * @returns 包含用户详细信息的账户数据
-   * @throws 用户不存在时抛出错误
-   */
-  async getUserWithAccessGroup({
-    accountId,
-  }: {
-    accountId: number;
-  }): Promise<AccountWithAccessGroup> {
-    // 查询账户基本信息
-    const account = await this.accountRepository.findOne({
-      where: { id: accountId },
-      select: ['id', 'loginName', 'loginEmail'],
-    });
-
-    if (!account) {
-      throw new UnauthorizedException('账户不存在');
-    }
-
-    // 查询用户详细信息获取 accessGroup
-    const userInfo = await this.userInfoRepository.findOne({
-      where: { accountId },
-      select: ['accessGroup'],
-    });
-
-    return {
-      id: account.id,
-      loginName: account.loginName || '',
-      loginEmail: account.loginEmail || '',
-      accessGroup: userInfo?.accessGroup || ['guest'],
-    };
-  }
 
   /**
    * 记录用户登录历史
@@ -137,97 +65,229 @@ export class AccountService {
    * @param id 账户 ID
    * @returns 账户详细信息
    */
-  async findOneById(id: number): Promise<AccountEntity> {
-    const account = await this.accountRepository.findOne({
+  async findOneById(id: number): Promise<AccountEntity | null> {
+    return await this.accountRepository.findOne({
       where: { id },
     });
-
-    if (!account) {
-      throw new Error('账户不存在');
-    }
-
-    return account;
   }
 
   /**
-   * 检查账户是否已存在（根据登录名或邮箱）
-   * @param loginName 登录名
+   * 根据登录名查找账户（支持登录名或邮箱）
+   * @param loginName 登录名或邮箱
+   * @returns 账户信息或 null
+   */
+  async findByLoginName(loginName: string): Promise<AccountEntity | null> {
+    return await this.accountRepository
+      .createQueryBuilder('account')
+      .where('account.loginName = :loginName', { loginName })
+      .orWhere('account.loginEmail = :loginEmail', { loginEmail: loginName })
+      .getOne();
+  }
+
+  /**
+   * 根据邮箱查找账户
    * @param loginEmail 登录邮箱
-   * @returns 如果账户存在返回 true，否则返回 false
+   * @returns 账户信息或 null
    */
-  async checkAccountExists({
-    loginName = null,
-    loginEmail, // 移除默认值，因为现在总是提供
-  }: {
-    loginName?: string | null;
-    loginEmail: string; // 改为必需
-  }): Promise<boolean> {
-    const queryBuilder = this.accountRepository.createQueryBuilder('account');
-
-    if (loginName) {
-      queryBuilder.where('account.loginName = :loginName OR account.loginEmail = :loginEmail', {
-        loginName,
-        loginEmail,
-      });
-    } else {
-      queryBuilder.where('account.loginEmail = :loginEmail', { loginEmail });
-    }
-
-    const existingAccount = await queryBuilder.getOne();
-    return !!existingAccount;
+  async findByEmail(loginEmail: string): Promise<AccountEntity | null> {
+    return await this.accountRepository.findOne({
+      where: { loginEmail },
+    });
   }
 
   /**
-   * 检查昵称是否已存在
-   * @param nickname 昵称
-   * @returns 是否存在
+   * 根据登录名查找账户（精确匹配登录名）
+   * @param loginName 登录名
+   * @returns 账户信息或 null
    */
-  async checkNicknameExists(nickname: string): Promise<boolean> {
-    const existingUserInfo = await this.userInfoRepository.findOne({
+  async findByName(loginName: string): Promise<AccountEntity | null> {
+    return await this.accountRepository.findOne({
+      where: { loginName },
+    });
+  }
+
+  /**
+   * 根据账户 ID 查找用户信息
+   * @param accountId 账户 ID
+   * @returns 用户信息或 null
+   */
+  async findUserInfoByAccountId(accountId: number): Promise<UserInfoEntity | null> {
+    return await this.userInfoRepository.findOne({
+      where: { accountId },
+      relations: ['account'],
+    });
+  }
+
+  /**
+   * 根据昵称查找用户信息
+   * @param nickname 昵称
+   * @returns 用户信息或 null
+   */
+  async findUserInfoByNickname(nickname: string): Promise<UserInfoEntity | null> {
+    return await this.userInfoRepository.findOne({
       where: { nickname },
     });
-    return !!existingUserInfo;
   }
 
   /**
-   * 创建新账户（包含账户和用户信息）
-   * @param accountData 账户基本信息
-   * @param userInfoData 用户详细信息
-   * @returns 创建的账户实体
+   * 创建账户实体（不保存到数据库）
+   * @param accountData 账户数据
+   * @returns 账户实体
    */
-  async createAccount(
-    accountData: Partial<AccountEntity>,
-    userInfoData: Partial<UserInfoEntity>,
-  ): Promise<AccountEntity> {
-    // 使用事务确保数据一致性
-    return await this.accountRepository.manager.transaction(async (manager) => {
-      // 先创建账户，给密码一个临时值
-      const account = manager.create(AccountEntity, {
-        ...accountData,
-        loginPassword: 'TEMP_PASSWORD', // 临时密码值
-      });
-      const savedAccount = await manager.save(account);
+  createAccountEntity(accountData: Partial<AccountEntity>): AccountEntity {
+    return this.accountRepository.create(accountData);
+  }
 
-      // 使用 created_at 作为盐值加密密码
-      const salt = savedAccount.createdAt.toString();
-      const hashedPassword = PasswordPbkdf2Helper.hashPasswordWithCrypto(
-        accountData.loginPassword as string,
-        salt,
-      );
+  /**
+   * 保存账户实体到数据库
+   * @param account 账户实体
+   * @returns 保存后的账户实体
+   */
+  async saveAccount(account: AccountEntity): Promise<AccountEntity> {
+    return await this.accountRepository.save(account);
+  }
 
-      // 更新账户密码
-      savedAccount.loginPassword = hashedPassword;
-      savedAccount.status = AccountStatus.ACTIVE;
-      await manager.save(savedAccount);
+  /**
+   * 更新账户信息
+   * @param id 账户 ID
+   * @param updateData 更新数据
+   */
+  async updateAccount(id: number, updateData: Partial<AccountEntity>): Promise<void> {
+    await this.accountRepository.update(id, updateData);
+  }
 
-      // 创建用户信息
-      const userInfo = manager.create(UserInfoEntity, {
-        ...userInfoData,
-        accountId: savedAccount.id,
-      });
-      await manager.save(userInfo);
+  /**
+   * 创建用户信息实体（不保存到数据库）
+   * @param userInfoData 用户信息数据
+   * @returns 用户信息实体
+   */
+  createUserInfoEntity(userInfoData: Partial<UserInfoEntity>): UserInfoEntity {
+    return this.userInfoRepository.create(userInfoData);
+  }
 
-      return savedAccount;
-    });
+  /**
+   * 保存用户信息实体到数据库
+   * @param userInfo 用户信息实体
+   * @returns 保存后的用户信息实体
+   */
+  async saveUserInfo(userInfo: UserInfoEntity): Promise<UserInfoEntity> {
+    return await this.userInfoRepository.save(userInfo);
+  }
+
+  /**
+   * 执行数据库事务
+   * @param callback 事务回调函数
+   * @returns 事务执行结果
+   */
+  async runTransaction<T>(callback: (manager: EntityManager) => Promise<T>): Promise<T> {
+    return await this.accountRepository.manager.transaction(callback);
+  }
+
+  /**
+   * 使用时间戳作为盐值加密密码
+   * @param password 原始密码
+   * @param createdAt 创建时间
+   * @returns 加密后的密码
+   */
+  static hashPasswordWithTimestamp(password: string, createdAt: Date): string {
+    const salt = createdAt.toString();
+    return PasswordPbkdf2Helper.hashPasswordWithCrypto(password, salt);
+  }
+
+  /**
+   * 验证密码是否匹配
+   * @param inputPassword 输入的密码
+   * @param hashedPassword 存储的加密密码
+   * @param createdAt 账户创建时间（用作盐值）
+   * @returns 是否匹配
+   */
+  static verifyPassword(inputPassword: string, hashedPassword: string, createdAt: Date): boolean {
+    const hashedInputPassword = this.hashPasswordWithTimestamp(inputPassword, createdAt);
+    return hashedInputPassword === hashedPassword;
+  }
+
+  /**
+   * 检查账户是否存在
+   * @param params 检查参数
+   * @returns 账户是否存在
+   */
+  async checkAccountExists({
+    loginName,
+    loginEmail,
+  }: {
+    loginName?: string | null;
+    loginEmail: string;
+  }): Promise<boolean> {
+    // 检查邮箱是否存在
+    const accountByEmail = await this.findByEmail(loginEmail);
+    if (accountByEmail) {
+      return true;
+    }
+
+    // 如果提供了登录名，检查登录名是否存在
+    if (loginName) {
+      const accountByName = await this.findByName(loginName);
+      if (accountByName) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  /**
+   * 检查昵称是否存在
+   * @param nickname 昵称
+   * @returns 昵称是否存在
+   */
+  async checkNicknameExists(nickname: string): Promise<boolean> {
+    const userInfo = await this.findUserInfoByNickname(nickname);
+    return !!userInfo;
+  }
+
+  /**
+   * 根据 ID 获取账户详细信息（包含 DTO 转换）
+   * @param accountId 账户 ID
+   * @returns 账户详细信息 DTO
+   */
+  async getAccountById(accountId: number): Promise<UserAccountDTO> {
+    const account = await this.findOneById(accountId);
+
+    if (!account) {
+      throw new DomainError(ACCOUNT_ERROR.ACCOUNT_NOT_FOUND, '账户不存在');
+    }
+
+    return {
+      id: account.id,
+      loginName: account.loginName,
+      loginEmail: account.loginEmail,
+      status: account.status,
+      identityHint: account.identityHint,
+      recentLoginHistory: account.recentLoginHistory || null,
+      createdAt: account.createdAt,
+      updatedAt: account.updatedAt,
+    };
+  }
+
+  /**
+   * 获取用户完整信息（包括 accessGroup）
+   * @param accountId 账户 ID
+   * @returns 包含用户详细信息的账户数据
+   */
+  async getUserWithAccessGroup(accountId: number): Promise<AccountWithAccessGroup> {
+    const account = await this.findOneById(accountId);
+
+    if (!account) {
+      throw new DomainError(ACCOUNT_ERROR.ACCOUNT_NOT_FOUND, '账户不存在');
+    }
+
+    const userInfo = await this.findUserInfoByAccountId(accountId);
+
+    return {
+      id: account.id,
+      loginName: account.loginName || '',
+      loginEmail: account.loginEmail || '',
+      accessGroup: userInfo?.accessGroup || ['guest'],
+    };
   }
 }

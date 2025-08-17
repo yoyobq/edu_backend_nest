@@ -3,6 +3,7 @@ import { AudienceTypeEnum, ThirdPartyProviderEnum } from '@app-types/models/acco
 import { ThirdPartySession } from '@app-types/models/third-party-auth.types';
 import { ThirdPartyAuthEntity } from '@modules/account/entities/third-party-auth.entity';
 import { AuthService } from '@modules/auth/auth.service';
+import { LoginByAccountIdUsecase } from '@usecases/auth/login-by-account-id.usecase';
 import {
   BadRequestException,
   HttpException,
@@ -32,6 +33,7 @@ export class ThirdPartyAuthService {
     @InjectRepository(ThirdPartyAuthEntity)
     private readonly thirdPartyAuthRepository: Repository<ThirdPartyAuthEntity>,
     private readonly authService: AuthService,
+    private readonly loginByAccountIdUsecase: LoginByAccountIdUsecase,
     @Inject(PROVIDER_MAP)
     private readonly adapters: Map<ThirdPartyProviderEnum, ThirdPartyProvider>,
   ) {}
@@ -109,7 +111,7 @@ export class ThirdPartyAuthService {
     });
 
     if (existingAuth?.accountId) {
-      return this.authService.loginByAccountId({
+      return this.loginByAccountIdUsecase.execute({
         accountId: existingAuth.accountId,
         ip,
         audience,

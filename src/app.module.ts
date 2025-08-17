@@ -2,6 +2,7 @@
 
 import { Module } from '@nestjs/common';
 import { APP_FILTER } from '@nestjs/core';
+import { GraphQLAdapterModule } from './adapters/graphql/graphql-adapter.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { CatsModule } from './cats/cats.module';
@@ -15,21 +16,22 @@ import { MiddlewareModule } from './core/middleware/middleware.module';
 import { AccountModule } from './modules/account/account.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { RegisterModule } from './modules/register/register.module';
-import { ThirdPartyAuthModule } from './modules/third-party-auth/third-party-auth.module';
 
 @Module({
   imports: [
     AppConfigModule,
     LoggerModule,
-    MiddlewareModule, // 添加中间件模块
+    MiddlewareModule,
     DatabaseModule,
-    AppGraphQLModule, // 使用独立的 GraphQL 模块
-    FieldEncryptionModule, // 使用新的字段加密模块
+    AppGraphQLModule,
+    FieldEncryptionModule,
     CatsModule,
     AccountModule,
     AuthModule,
-    RegisterModule, // 添加 RegisterModule
-    ThirdPartyAuthModule,
+    RegisterModule,
+    // 添加 GraphQL 适配器模块
+    GraphQLAdapterModule,
+    // ThirdPartyAuthModule, // 暂时屏蔽第三方认证模块
   ],
   controllers: [AppController],
   providers: [

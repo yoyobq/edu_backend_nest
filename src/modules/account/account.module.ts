@@ -1,6 +1,5 @@
 // src/modules/account/account.module.ts
 
-import { AccountResolver } from '@adapters/graphql/account/account.resolver';
 import { FieldEncryptionModule } from '@core/field-encryption/field-encryption.module';
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -16,16 +15,12 @@ import '@src/adapters/graphql/account/enums/login-history.types';
 import { UserInfoEntity } from './entities/user-info.entity';
 
 @Module({
-  imports: [
-    TypeOrmModule.forFeature([
-      AccountEntity,
-      UserInfoEntity,
-      // StudentEntity,
-      // StaffEntity
-    ]),
-    FieldEncryptionModule,
+  imports: [TypeOrmModule.forFeature([AccountEntity, UserInfoEntity]), FieldEncryptionModule],
+  providers: [
+    AccountService,
+    // 移除 AccountResolver - 它应该在 GraphQLAdapterModule 中注册
+    // AccountResolver,
   ],
-  providers: [AccountService, AccountResolver],
   exports: [AccountService, TypeOrmModule],
 })
 export class AccountModule {}

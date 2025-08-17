@@ -2,21 +2,19 @@
 
 import { IdentityTypeEnum } from '@app-types/models/account.types';
 import { TokenHelper } from '@core/common/token/token.helper';
-import { AccountService } from '@modules/account/account.service';
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { IdentityUnionType } from '@src/adapters/graphql/account/dto/identity/identity-union.type';
 import { LoginResult } from '@src/adapters/graphql/account/dto/login-result.dto';
+import { JwtPayload } from '@src/types/jwt.types';
 import { PinoLogger } from 'nestjs-pino';
-import { AuthLoginInput } from '../../adapters/graphql/auth/dto/auth-login.input';
 
 /**
- * 认证服务
+ * 认证服务 - 提供认证相关的技术实现
  */
 @Injectable()
 export class AuthService {
   constructor(
-    private readonly accountService: AccountService,
     private readonly tokenHelper: TokenHelper,
     private readonly configService: ConfigService,
     private readonly logger: PinoLogger,
@@ -25,139 +23,45 @@ export class AuthService {
   }
 
   /**
-   * 用户登录认证
-   * @param input 登录参数
-   * @returns 登录结果
-   * @throws UnauthorizedException 登录失败时抛出异常
-   */
-  async login({ loginName, loginPassword, ip, audience }: AuthLoginInput): Promise<LoginResult> {
-    try {
-      // 验证登录信息
-      const account = await this.accountService.validateLogin({ loginName, loginPassword });
-
-      // 执行通用登录流程
-      return await this.executeLoginFlow({
-        accountId: account.id,
-        ip,
-        audience,
-      });
-    } catch (error) {
-      this.logger.error(
-        {
-          loginName,
-          ip,
-          audience,
-          error: error instanceof Error ? error.message : '未知错误',
-        },
-        '用户登录失败',
-      );
-
-      throw new UnauthorizedException(error instanceof Error ? error.message : '登录失败');
-    }
-  }
-
-  /**
-   * 通过账户 ID 进行登录（用于第三方登录）
-   * @param accountId 账户 ID
-   * @param ip 登录 IP
+   * 验证客户端类型是否有效
    * @param audience 客户端类型
-   * @returns 登录结果
-   * @throws UnauthorizedException 登录失败时抛出异常
+   * @returns 是否有效
    */
-  async loginByAccountId({
-    accountId,
-    ip,
-    audience,
-  }: {
-    accountId: number;
-    ip?: string;
-    audience?: string;
-  }): Promise<LoginResult> {
-    try {
-      // 执行通用登录流程
-      return await this.executeLoginFlow({
-        accountId,
-        ip,
-        audience,
-      });
-    } catch (error) {
-      this.logger.error(
-        {
-          accountId,
-          ip,
-          audience,
-          error: error instanceof Error ? error.message : '未知错误',
-        },
-        `从 ${audience} 登录失败`,
-      );
-
-      throw new UnauthorizedException(error instanceof Error ? error.message : '第三方登录失败');
-    }
+  validateAudience(audience: string): boolean {
+    const configAudience = this.configService.get<string>('jwt.audience');
+    return this.tokenHelper.validateAudience(audience, configAudience!);
   }
 
   /**
-   * 执行通用登录流程
-   * @param params 登录参数
-   * @returns 登录结果
-   * @throws UnauthorizedException 登录失败时抛出异常
+   * 生成访问令牌和刷新令牌
+   * @param payload JWT 载荷
+   * @returns 令牌对
    */
-  private async executeLoginFlow({
-    accountId,
-    ip,
-    audience,
-  }: {
-    accountId: number;
-    ip?: string;
-    audience?: string;
-  }): Promise<LoginResult> {
-    // 验证 audience 是否有效
-    if (audience) {
-      const configAudience = this.configService.get<string>('jwt.audience');
-      if (!this.tokenHelper.validateAudience(audience, configAudience!)) {
-        throw new UnauthorizedException(`无效的客户端类型: ${audience}`);
-      }
-    }
-
-    // 获取用户完整信息（包括 accessGroup）
-    const userWithAccessGroup = await this.accountService.getUserWithAccessGroup({
-      accountId,
-    });
-
-    // 获取账户信息以获取 identityHint
-    const account = await this.accountService.findOneById(accountId);
-
-    // 记录登录历史
-    const timestamp = new Date().toISOString();
-    await this.accountService.recordLoginHistory(accountId, timestamp, ip, audience);
-
-    // 创建 JWT payload
-    const payload = this.tokenHelper.createPayloadFromUser({ ...userWithAccessGroup });
-
-    // 生成 access token
+  generateTokens(payload: JwtPayload): { accessToken: string; refreshToken: string } {
     const accessToken = this.tokenHelper.generateAccessToken({ payload });
-
-    // 生成 refresh token
     const refreshToken = this.tokenHelper.generateRefreshToken({ payload });
 
-    // 确定用户角色（从 identityHint 获取，默认为 REGISTRANT）
-    const role = (account?.identityHint as IdentityTypeEnum) || IdentityTypeEnum.REGISTRANT;
+    return { accessToken, refreshToken };
+  }
 
-    // 获取用户身份信息（暂时设为 undefined，需要根据实际业务逻辑实现）
-    const identity: IdentityUnionType | undefined = undefined; // TODO: 根据 role 获取具体的身份信息
-
-    // 记录成功日志
-    this.logger.info(
-      {
-        accountId,
-        loginName: userWithAccessGroup.loginName,
-        accessGroup: userWithAccessGroup.accessGroup,
-        role,
-        ip,
-        audience,
-      },
-      `从 ${audience} 登录成功`,
-    );
-
+  /**
+   * 创建登录结果对象
+   * @param params 登录结果参数
+   * @returns 登录结果
+   */
+  createLoginResult({
+    accessToken,
+    refreshToken,
+    accountId,
+    role,
+    identity,
+  }: {
+    accessToken: string;
+    refreshToken: string;
+    accountId: number;
+    role: IdentityTypeEnum;
+    identity?: IdentityUnionType;
+  }): LoginResult {
     return {
       accessToken,
       refreshToken,
@@ -165,5 +69,66 @@ export class AuthService {
       role,
       identity,
     };
+  }
+
+  /**
+   * 记录登录成功日志
+   * @param params 日志参数
+   */
+  logLoginSuccess({
+    accountId,
+    loginName,
+    accessGroup,
+    role,
+    ip,
+    audience,
+  }: {
+    accountId: number;
+    loginName: string;
+    accessGroup: string;
+    role: IdentityTypeEnum;
+    ip?: string;
+    audience?: string;
+  }): void {
+    this.logger.info(
+      {
+        accountId,
+        loginName,
+        accessGroup,
+        role,
+        ip,
+        audience,
+      },
+      `从 ${audience} 登录成功`,
+    );
+  }
+
+  /**
+   * 记录登录失败日志
+   * @param params 日志参数
+   */
+  logLoginFailure({
+    loginName,
+    accountId,
+    ip,
+    audience,
+    error,
+  }: {
+    loginName?: string;
+    accountId?: number;
+    ip?: string;
+    audience?: string;
+    error: string;
+  }): void {
+    this.logger.error(
+      {
+        loginName,
+        accountId,
+        ip,
+        audience,
+        error,
+      },
+      '用户登录失败',
+    );
   }
 }

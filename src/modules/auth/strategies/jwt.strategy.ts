@@ -44,9 +44,9 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   /**
-   * 验证 JWT payload
+   * 验证 JWT payload 并返回用户信息
    * @param payload JWT 载荷
-   * @returns 用户信息
+   * @returns 验证后的用户信息
    */
   async validate(payload: JwtPayload): Promise<JwtPayload> {
     const userId = payload?.sub;
@@ -57,7 +57,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       }
 
       // 验证用户是否存在且状态正常，不存在会抛出异常
-      const user = await this.accountService.getUserWithAccessGroup({ accountId: userId });
+      const user = await this.accountService.findOneById(userId);
 
       if (!user) {
         throw new UnauthorizedException('用户不存在或已禁用');
@@ -70,16 +70,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       if (error instanceof UnauthorizedException) {
         throw error;
       }
-      // 记录未知错误
-      this.logger.error(
-        {
-          userId,
-          error: error instanceof Error ? error.message : '未知错误',
-        },
-        'JWT 验证失败',
-      );
-
-      throw new UnauthorizedException('认证失败');
+      // 处理其他类型的错误
+      throw new UnauthorizedException('身份验证失败');
     }
   }
 }
