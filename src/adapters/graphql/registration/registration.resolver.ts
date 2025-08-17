@@ -1,4 +1,4 @@
-// src/adapters/graphql/registration/register.resolver.ts
+// src/adapters/graphql/registration/registration.resolver.ts
 
 import { ValidateInput } from '@core/common/errors/validate-input.decorator';
 import { RegisterService } from '@modules/register/register.service';
@@ -6,6 +6,9 @@ import { Args, Context, Mutation, Resolver } from '@nestjs/graphql';
 import { RegisterResult } from '@src/adapters/graphql/registration/dto/register-result.dto';
 import { RegisterInput } from '@src/adapters/graphql/registration/dto/register.input';
 import { Request } from 'express';
+
+// 导入枚举文件以确保 GraphQL 枚举类型被注册
+import './enums/register-type.enum';
 
 /**
  * 注册解析器

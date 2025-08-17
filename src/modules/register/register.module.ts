@@ -2,22 +2,13 @@
 
 import { AccountModule } from '@modules/account/account.module';
 import { Module } from '@nestjs/common';
-import '../../adapters/graphql/registration/enums/register-type.enum';
-import { RegisterService } from './register.service';
 import { CreateAccountUsecase } from '@usecases/account/create-account.usecase';
+import { RegisterWithEmailUsecase } from '@usecases/registration/register-with-email.usecase';
+import { RegisterService } from './register.service';
 
 @Module({
   imports: [AccountModule],
-  providers: [
-    RegisterService,
-    CreateAccountUsecase, // 保留复杂业务逻辑的 usecase
-    // 移除纯读操作的 usecase：
-    // CheckNicknameExistsUsecase,
-    // CheckAccountExistsUsecase,
-  ],
-  exports: [
-    RegisterService,
-    CreateAccountUsecase, // 导出供 GraphQLAdapterModule 使用
-  ],
+  providers: [RegisterService, CreateAccountUsecase, RegisterWithEmailUsecase],
+  exports: [RegisterService, RegisterWithEmailUsecase],
 })
 export class RegisterModule {}

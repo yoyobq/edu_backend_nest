@@ -228,7 +228,7 @@ describe('Register (e2e)', () => {
       expect(createdAccount).toBeDefined();
       expect(createdAccount?.loginName).toBe(testRegisterData.validUser.loginName);
       expect(createdAccount?.loginEmail).toBe(testRegisterData.validUser.loginEmail);
-      expect(createdAccount?.status).toBe(AccountStatus.ACTIVE);
+      expect(createdAccount?.status).toBe(AccountStatus.PENDING);
     });
 
     /**
@@ -378,7 +378,7 @@ describe('Register (e2e)', () => {
     /**
      * 测试注册成功后账户状态正确
      */
-    it('注册成功后账户状态应该为 ACTIVE', async () => {
+    it('注册成功后账户状态应该为 PENDING', async () => {
       const response = await performRegister(testRegisterData.validUser);
 
       const { data } = response.body;
@@ -389,7 +389,7 @@ describe('Register (e2e)', () => {
         where: { id: accountId },
       });
 
-      expect(account?.status).toBe(AccountStatus.ACTIVE);
+      expect(account?.status).toBe(AccountStatus.PENDING);
     });
 
     /**
