@@ -20,6 +20,45 @@ declare global {
   var testDataSource: DataSource | undefined;
 }
 
+/**
+ * 清理测试数据库
+ * 在测试开始前清理所有测试相关的数据
+ */
+const cleanupTestDatabase = async (dataSource: DataSource): Promise<void> => {
+  try {
+    console.log('🧹 开始清理测试数据库...');
+
+    // 获取所有表名
+    const queryRunner = dataSource.createQueryRunner();
+    const tables = await queryRunner.query(
+      "SELECT table_name FROM information_schema.tables WHERE table_schema = DATABASE() AND table_type = 'BASE TABLE'",
+    );
+
+    if (tables.length > 0) {
+      // 禁用外键检查
+      await queryRunner.query('SET FOREIGN_KEY_CHECKS = 0');
+
+      // 清空所有表数据（保留表结构）
+      for (const table of tables) {
+        const tableName = table.table_name || table.TABLE_NAME;
+        await queryRunner.query(`TRUNCATE TABLE \`${tableName}\``);
+      }
+
+      // 重新启用外键检查
+      await queryRunner.query('SET FOREIGN_KEY_CHECKS = 1');
+
+      console.log(`✅ 已清理 ${tables.length} 个表的数据`);
+    } else {
+      console.log('📝 未发现需要清理的表');
+    }
+
+    await queryRunner.release();
+  } catch (error) {
+    console.error('❌ 清理测试数据库失败:', error);
+    // 不抛出错误，允许测试继续进行
+  }
+};
+
 export default async (): Promise<void> => {
   try {
     console.log('🔧 开始初始化 E2E 测试环境...');
@@ -58,6 +97,9 @@ export default async (): Promise<void> => {
       `✅ 成功加载 ${entities.length} 个实体:`,
       entities.map((e) => e.name),
     );
+
+    // 在测试开始前清理数据库
+    await cleanupTestDatabase(ds);
 
     global.testDataSource = ds;
 

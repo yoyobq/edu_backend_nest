@@ -150,30 +150,65 @@ describe('Register (e2e)', () => {
       const accountRepository = dataSource.getRepository(AccountEntity);
       const userInfoRepository = dataSource.getRepository(UserInfoEntity);
 
-      // 收集所有测试邮箱
-      const emails = Object.values(testRegisterData)
-        .map((data) => data.loginEmail)
-        .filter((email) => email !== null && email !== undefined && email !== '');
+      // 收集所有测试数据的标识符
+      const emails: string[] = [];
+      const loginNames: string[] = [];
+      const nicknames: string[] = [];
 
+      Object.values(testRegisterData).forEach((data) => {
+        if (data.loginEmail && data.loginEmail !== '') {
+          emails.push(data.loginEmail);
+        }
+        if (data.loginName && data.loginName !== '') {
+          loginNames.push(data.loginName);
+        }
+        if (data.nickname && data.nickname !== '') {
+          nicknames.push(data.nickname);
+        }
+      });
+
+      // 通过多个条件查找需要清理的账户
+      const whereConditions: Array<{ loginEmail?: any; loginName?: any }> = [];
       if (emails.length > 0) {
-        // 先通过邮箱找到对应的账户 ID
+        whereConditions.push({ loginEmail: In(emails) });
+      }
+      if (loginNames.length > 0) {
+        whereConditions.push({ loginName: In(loginNames) });
+      }
+
+      if (whereConditions.length > 0) {
         const accounts = await accountRepository.find({
-          where: { loginEmail: In(emails) },
-          select: ['id', 'loginEmail'],
+          where: whereConditions,
+          select: ['id'],
         });
 
         const accountIds = accounts.map((account) => account.id);
 
         if (accountIds.length > 0) {
-          // 先删除 UserInfo 记录（外键约束）
-          await userInfoRepository.delete({
-            accountId: In(accountIds),
-          });
+          // 通过昵称查找 UserInfo 记录
+          const userInfosToDelete: number[] = [];
+          if (nicknames.length > 0) {
+            const userInfosByNickname = await userInfoRepository.find({
+              where: { nickname: In(nicknames) },
+              select: ['accountId'],
+            });
+            userInfosToDelete.push(...userInfosByNickname.map((ui) => ui.accountId));
+          }
 
-          // 再删除 Account 记录
-          await accountRepository.delete({
-            loginEmail: In(emails),
-          });
+          // 合并需要删除的账户 ID
+          const allAccountIds = [...new Set([...accountIds, ...userInfosToDelete])];
+
+          if (allAccountIds.length > 0) {
+            // 先删除 UserInfo 记录
+            await userInfoRepository.delete({
+              accountId: In(allAccountIds),
+            });
+
+            // 再删除 Account 记录
+            await accountRepository.delete({
+              id: In(allAccountIds),
+            });
+          }
         }
       }
     } catch (error) {

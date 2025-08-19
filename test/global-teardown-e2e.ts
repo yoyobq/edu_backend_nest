@@ -2,7 +2,8 @@
 
 /**
  * E2E 测试全局清理文件
- * 用于清理测试环境和关闭数据库连接
+ * 用于关闭数据库连接和清理资源
+ * 注意：不再清理数据库数据，数据清理已移至 global-setup-e2e.ts
  */
 
 /**
@@ -15,7 +16,7 @@ export default async (): Promise<void> => {
     if (global.testDataSource) {
       // 检查连接是否仍然活跃
       if (global.testDataSource.isInitialized) {
-        console.log('🧹 开始清理 E2E 测试环境...');
+        console.log('🔌 开始关闭 E2E 测试数据库连接...');
 
         // 关闭数据库连接
         await global.testDataSource.destroy();
@@ -23,12 +24,12 @@ export default async (): Promise<void> => {
         console.log('✅ 数据库连接已关闭');
       }
 
-      // 清理全局变量
+      // 清理全局变量（默认不清理）
       global.testDataSource = undefined;
 
-      console.log('E2E 测试环境清理完成');
+      // console.log('🏁 E2E 测试环境清理完成');
     } else {
-      console.log('未发现活跃的测试数据源，跳过清理');
+      console.log('📝 未发现活跃的测试数据源，跳过清理');
     }
 
     // 如果仍有进程挂起，强制清理可能的挂起句柄
