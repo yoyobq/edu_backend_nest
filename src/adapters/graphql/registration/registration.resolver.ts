@@ -2,16 +2,21 @@
 import { ValidateInput } from '@core/common/errors/validate-input.decorator';
 import { Args, Context, Mutation, Resolver } from '@nestjs/graphql';
 import { RegisterWithEmailUsecase } from '@usecases/registration/register-with-email.usecase';
+import { RegisterWithThirdPartyUsecase } from '@usecases/registration/register-with-third-party.usecase';
 import { Request } from 'express';
 import { RegisterResult } from './dto/register-result.dto';
 import { RegisterInput } from './dto/register.input';
+import { ThirdPartyRegisterInput } from './dto/third-party-register.input';
 
 // 枚举注册（side-effect）
 import './enums/register-type.enum';
 
 @Resolver()
 export class RegistrationResolver {
-  constructor(private readonly registerWithEmail: RegisterWithEmailUsecase) {}
+  constructor(
+    private readonly registerWithEmail: RegisterWithEmailUsecase,
+    private readonly registerWithThirdParty: RegisterWithThirdPartyUsecase,
+  ) {}
 
   @Mutation(() => RegisterResult, { description: '用户注册' })
   @ValidateInput()
@@ -35,6 +40,27 @@ export class RegistrationResolver {
       loginPassword: input.loginPassword,
       nickname: input.nickname,
       request: safeRequest,
+    });
+
+    return {
+      success: result.success,
+      message: result.message,
+      accountId: result.accountId,
+    };
+  }
+
+  /**
+   * 第三方注册
+   */
+  @Mutation(() => RegisterResult, { description: '第三方注册' })
+  @ValidateInput()
+  async thirdPartyRegister(@Args('input') input: ThirdPartyRegisterInput): Promise<RegisterResult> {
+    const result = await this.registerWithThirdParty.execute({
+      provider: input.provider,
+      credential: input.authCredential,
+      audience: input.audience,
+      nickname: input.nickname,
+      email: input.email,
     });
 
     return {
