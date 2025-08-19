@@ -187,6 +187,9 @@ export class RegisterWithEmailUsecase {
         accessGroup,
         metaDigest,
       },
+      // 添加 manager 参数，传入 undefined 让 CreateAccountUsecase 自己管理事务
+      // TODO: 本地注册还可传入更多身份数据
+      manager: undefined,
     });
   }
 }
