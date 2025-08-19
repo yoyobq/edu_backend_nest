@@ -243,4 +243,49 @@ export class ThirdPartyAuthService {
       select: ['id', 'provider', 'providerUserId', 'unionId', 'createdAt'],
     });
   }
+
+  /**
+   * 注册流程中的第三方账户绑定
+   * 直接接受 ThirdPartySession 数据，适用于注册场景
+   * @param params 绑定参数
+   * @param params.accountId 账户 ID
+   * @param params.provider 第三方平台类型
+   * @param params.session 第三方会话信息
+   * @returns 绑定后的第三方认证实体
+   * @throws HttpException 当绑定冲突时抛出异常
+   */
+  async bindThirdPartyForRegistration(params: {
+    accountId: number;
+    provider: ThirdPartyProviderEnum;
+    session: ThirdPartySession;
+  }): Promise<ThirdPartyAuthEntity> {
+    const { accountId, provider, session } = params;
+
+    // 检查当前账户是否已绑定该平台
+    const existedByAccount = await this.thirdPartyAuthRepository.findOne({
+      where: { accountId, provider },
+    });
+    if (existedByAccount) {
+      throw new HttpException(`该账户已绑定 ${provider} 平台`, HttpStatus.CONFLICT);
+    }
+
+    // 检查该第三方账户是否已被其他用户绑定
+    const existedByProvider = await this.thirdPartyAuthRepository.findOne({
+      where: { provider, providerUserId: session.providerUserId },
+    });
+    if (existedByProvider) {
+      throw new HttpException(`该 ${provider} 账户已被其他用户绑定`, HttpStatus.CONFLICT);
+    }
+
+    // 创建新的绑定关系
+    const thirdPartyAuth = this.thirdPartyAuthRepository.create({
+      accountId,
+      provider,
+      providerUserId: session.providerUserId,
+      unionId: session.unionId || null,
+      accessToken: null, // ThirdPartySession 中没有 accessToken，设为 null
+    });
+
+    return this.thirdPartyAuthRepository.save(thirdPartyAuth);
+  }
 }

@@ -28,7 +28,7 @@ export class ThirdPartySessionType {
     nullable: true,
     description: '联合 ID，用于跨应用识别同一用户 (仅特定平台返回，如微信 unionid)',
   })
-  unionId?: string | null;
+  unionId!: string | null;
 
   @Field(() => ThirdPartyProfileType, {
     nullable: true,

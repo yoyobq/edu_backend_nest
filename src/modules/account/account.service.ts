@@ -1,13 +1,13 @@
 // src/modules/account/account.service.ts
 
+import { UserAccountDTO } from '@adapters/graphql/account/dto/user-account.dto';
 import { LoginHistoryItem } from '@adapters/graphql/account/enums/login-history.types';
+import { AccountWithAccessGroup, ThirdPartyProviderEnum } from '@app-types/models/account.types';
+import { ACCOUNT_ERROR, DomainError } from '@core/common/errors/domain-error';
 import { PasswordPbkdf2Helper } from '@core/common/password/password.pbkdf2.helper';
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { EntityManager, Repository } from 'typeorm';
-import { UserAccountDTO } from '../../adapters/graphql/account/dto/user-account.dto';
-import { ACCOUNT_ERROR, DomainError } from '../../core/common/errors/domain-error';
-import { AccountWithAccessGroup } from '../../types/models/account.types';
 import { CoachEntity } from './entities/account-coach.entity';
 import { ManagerEntity } from './entities/account-manager.entity';
 import { StaffEntity } from './entities/account-staff.entity';
@@ -328,5 +328,142 @@ export class AccountService {
     return await this.managerRepository.findOne({
       where: { accountId },
     });
+  }
+
+  /**
+   * 选择可用的昵称
+   * 优先级：用户提供的昵称 > 备选选项 > 最终保底（'用户' + '#' + 随机字符串）
+   * @param params 包含昵称处理所需参数的对象。
+   * @param params.providedNickname 用户提供的昵称。
+   * @param params.fallbackOptions 备选昵称的优先级列表，例如 [loginName, loginEmail]。
+   * @returns 处理后的最终昵称，保证一定返回可用昵称。
+   */
+  /**
+   * 选择可用的昵称
+   * @param providedNickname 用户提供的昵称
+   * @param fallbackOptions 备选昵称选项
+   * @param provider 第三方平台类型，如果未提供则表示本站注册
+   * @returns 可用的昵称，本站注册时如果无法生成则返回 undefined
+   */
+  async pickAvailableNickname({
+    providedNickname,
+    fallbackOptions = [],
+    provider,
+  }: {
+    providedNickname?: string;
+    fallbackOptions?: string[];
+    provider?: ThirdPartyProviderEnum;
+  }): Promise<string | undefined> {
+    // 输入边界处理：清理和验证输入
+    const cleanProvidedNickname = providedNickname?.trim() || undefined;
+    const cleanFallbackOptions = fallbackOptions
+      .map((option) => option?.trim())
+      .filter((option) => option && option.length > 0);
+
+    // 候选昵称列表，按优先级排序
+    const candidates: string[] = [];
+
+    // 1. 用户提供的昵称
+    if (cleanProvidedNickname) {
+      candidates.push(cleanProvidedNickname);
+    }
+
+    // 2. 备选选项
+    for (const option of cleanFallbackOptions) {
+      if (option) {
+        // 如果是邮箱，取 @ 前面的部分
+        const nickname = option.includes('@') ? option.split('@')[0] : option;
+        if (nickname && nickname.length > 0) {
+          candidates.push(nickname);
+        }
+      }
+    }
+
+    // 尝试每个候选昵称
+    for (const candidate of candidates) {
+      const exists = await this.checkNicknameExists(candidate);
+      if (!exists) {
+        return candidate;
+      }
+
+      // 如果昵称已存在，尝试添加随机后缀
+      const uniqueNickname = await this.generateUniqueNicknameWithSuffix(candidate);
+      if (uniqueNickname) {
+        return uniqueNickname;
+      }
+    }
+
+    // 如果未提供 provider，说明是本站注册，不使用保底逻辑，返回 undefined
+    if (!provider) {
+      return undefined;
+    }
+
+    // 第三方注册的保底逻辑：根据平台类型生成不同的默认昵称
+    const fallbackBase = this.getFallbackNicknameByProvider(provider);
+    const fallbackNickname = await this.generateUniqueNicknameWithSuffix(fallbackBase);
+    if (fallbackNickname) {
+      return fallbackNickname;
+    }
+
+    // 极端情况保底：如果连默认昵称都重复，直接生成一个更长的随机昵称
+    const randomSuffix = this.generateRandomString(12);
+    return `${fallbackBase}#${randomSuffix}`;
+  }
+
+  /**
+   * 根据第三方平台类型获取保底昵称基础名称
+   * @param provider 第三方平台类型
+   * @returns 保底昵称基础名称
+   */
+  private getFallbackNicknameByProvider(provider: ThirdPartyProviderEnum): string {
+    switch (provider) {
+      case ThirdPartyProviderEnum.WEAPP:
+        return '微信用户';
+      case ThirdPartyProviderEnum.WECHAT:
+        return '微信用户';
+      case ThirdPartyProviderEnum.QQ:
+        return 'QQ用户';
+      case ThirdPartyProviderEnum.GOOGLE:
+        return 'Google用户';
+      case ThirdPartyProviderEnum.GITHUB:
+        return 'GitHub用户';
+      default:
+        return '用户';
+    }
+  }
+
+  /**
+   * 为昵称添加随机后缀以生成唯一昵称
+   * @param baseNickname 基础昵称
+   * @returns 唯一昵称，如果多次尝试都失败则返回 undefined
+   */
+  private async generateUniqueNicknameWithSuffix(
+    baseNickname: string,
+  ): Promise<string | undefined> {
+    const maxAttempts = 5; // 最多尝试 5 次
+
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      const randomSuffix = this.generateRandomString(6);
+      const uniqueNickname = `${baseNickname}#${randomSuffix}`;
+
+      const uniqueExists = await this.checkNicknameExists(uniqueNickname);
+      if (!uniqueExists) {
+        return uniqueNickname;
+      }
+    }
+
+    // 如果多次尝试都失败，返回 undefined
+    return undefined;
+  }
+
+  /**
+   * 生成指定长度的随机字符串
+   * @param length 字符串长度
+   * @returns 随机字符串
+   */
+  private generateRandomString(length: number): string {
+    return Math.random()
+      .toString(36)
+      .substring(2, 2 + length);
   }
 }

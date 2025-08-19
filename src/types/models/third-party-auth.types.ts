@@ -8,7 +8,7 @@ export type ThirdPartySession = {
   /** 第三方平台用户唯一标识 (如微信 openid、OAuth sub、用户 id) */
   providerUserId: string;
   /** 联合 ID，用于跨应用识别同一用户 (仅特定平台返回，如微信 unionid) */
-  unionId?: string | null;
+  unionId: string | null;
   /** 用户基本信息 (仅特定平台返回，如 OAuth 用户信息接口) */
   profile?: {
     /** 用户昵称 */

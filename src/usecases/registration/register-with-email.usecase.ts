@@ -119,25 +119,17 @@ export class RegisterWithEmailUsecase {
     loginPassword: string;
     nickname?: string;
   }) {
-    // 生成 nickname 的优先级：input.nickname > input.loginName > input.loginEmail 的 @ 前面部分
-    let finalNickname = nickname || loginName;
-    if (!finalNickname && loginEmail) {
-      finalNickname = loginEmail.split('@')[0];
-    }
-    finalNickname = finalNickname || '';
+    // 使用 AccountService 的通用昵称处理方法
+    const finalNickname = await this.accountService.pickAvailableNickname({
+      providedNickname: nickname,
+      fallbackOptions: [loginName || '', loginEmail.split('@')[0]],
+      // 注意：这里没有传入 provider 参数，表示本站注册
+    });
 
-    // 检查昵称是否存在
-    const nicknameExists = await this.accountService.checkNicknameExists(finalNickname);
-    if (nicknameExists) {
-      if (nickname) {
-        throw new DomainError(
-          ACCOUNT_ERROR.NICKNAME_ALREADY_EXISTS,
-          `昵称 "${nickname}" 已被使用，请选择其他昵称`,
-        );
-      }
+    if (!finalNickname) {
       throw new DomainError(
         ACCOUNT_ERROR.NICKNAME_ALREADY_EXISTS,
-        `自适配昵称 "${finalNickname}" 已被使用，请填写昵称字段`,
+        '昵称已被使用或不合规，请选择其他昵称',
       );
     }
 
