@@ -203,20 +203,25 @@ export class TokenHelper {
    * @param params.type Token 类型
    * @returns JWT Payload
    */
+  /**
+   * 从用户信息创建 JWT payload
+   * @param user 用户信息对象
+   * @returns JWT payload
+   */
   createPayloadFromUser({
     id,
-    loginName,
+    nickname,
     loginEmail,
     accessGroup,
   }: {
     id: number;
-    loginName: string;
+    nickname: string; // 使用昵称作为 username
     loginEmail: string;
     accessGroup: string[];
   }): Pick<JwtPayload, 'sub' | 'username' | 'email' | 'accessGroup'> {
     const payload: Pick<JwtPayload, 'sub' | 'username' | 'email' | 'accessGroup'> = {
       sub: id,
-      username: loginName,
+      username: nickname, // 昵称作为 JWT 中的 username
       email: loginEmail,
       accessGroup: accessGroup,
     };

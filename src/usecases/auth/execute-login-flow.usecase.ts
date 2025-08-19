@@ -1,6 +1,6 @@
 // src/usecases/auth/execute-login-flow.usecase.ts
 
-import { IdentityTypeEnum } from '@app-types/models/account.types';
+import { IdentityTypeEnum, ThirdPartyProviderEnum } from '@app-types/models/account.types';
 import { IdentityModel, LoginResultModel } from '@app-types/models/auth.types';
 import { ACCOUNT_ERROR, AUTH_ERROR, DomainError } from '@core/common/errors';
 import { TokenHelper } from '@core/common/token/token.helper';
@@ -33,10 +33,12 @@ export class ExecuteLoginFlowUsecase {
     accountId,
     ip,
     audience,
+    provider, // 新增 provider 参数
   }: {
     accountId: number;
     ip?: string;
     audience?: string;
+    provider?: ThirdPartyProviderEnum; // 第三方登录时传入 provider
   }): Promise<LoginResultModel> {
     // 验证 audience 是否有效
     if (audience) {
@@ -52,15 +54,19 @@ export class ExecuteLoginFlowUsecase {
       throw new DomainError(ACCOUNT_ERROR.USER_INFO_NOT_FOUND, '用户信息不存在');
     }
 
-    // 验证必要字段
-    if (!userInfo.account.loginName) {
+    // 根据是否为第三方登录决定是否验证 loginName
+    const isThirdPartyLogin = provider && Object.values(ThirdPartyProviderEnum).includes(provider);
+
+    // 验证必要字段 - 第三方登录用户可能没有 loginName
+    if (!isThirdPartyLogin && !userInfo.account.loginName) {
       throw new DomainError(AUTH_ERROR.ACCOUNT_NOT_FOUND, '用户登录名不存在');
     }
 
     // 构建用户完整信息对象
     const userWithAccessGroup = {
       id: accountId,
-      loginName: userInfo.account.loginName,
+      nickname: userInfo.nickname, // 添加昵称字段
+      loginName: userInfo.account.loginName || null, // 第三方登录时可能为 null
       loginEmail: userInfo.account.loginEmail,
       accessGroup: userInfo.accessGroup,
     };

@@ -74,6 +74,7 @@ export class LoginWithThirdPartyUsecase {
       accountId: bound.accountId,
       ip,
       audience,
+      provider, // 添加 provider 参数
     });
 
     return result; // { accessToken, refreshToken, accountId, role, identity? }

@@ -23,13 +23,14 @@ describe('TokenHelper', () => {
   const mockUser = {
     id: 1,
     loginName: 'testuser',
+    nickname: 'Test User', // 添加昵称字段
     loginEmail: 'test@example.com',
     accessGroup: ['user', 'admin'],
   };
 
   const mockJwtPayload: JwtPayload = {
     sub: 1,
-    username: 'testuser',
+    username: 'Test User', // JWT 中的 username 对应 nickname
     email: 'test@example.com',
     accessGroup: ['user', 'admin'],
     type: 'access',
@@ -417,7 +418,7 @@ describe('TokenHelper', () => {
       // Assert
       expect(result).toEqual({
         sub: mockUser.id,
-        username: mockUser.loginName,
+        username: mockUser.nickname, // 使用 nickname 作为 username
         email: mockUser.loginEmail,
         accessGroup: mockUser.accessGroup,
       });

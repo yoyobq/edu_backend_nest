@@ -72,3 +72,13 @@ export enum EmploymentStatus {
   SUSPENDED = 'SUSPENDED',
   LEFT = 'LEFT',
 }
+
+/**
+ * 用户信息（包含昵称）
+ */
+export type UserWithAccessGroup = {
+  id: number;
+  nickname: string; // 使用昵称作为用户名
+  loginEmail: string;
+  accessGroup: string[];
+};

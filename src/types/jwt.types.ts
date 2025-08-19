@@ -22,7 +22,7 @@ export type GenerateRefreshTokenParams = {
 export type JwtPayload = {
   // 自定义字段
   sub: number; // 用户 ID
-  username: string; // 用户名
+  username: string; // 用户昵称（来自 UserInfoEntity.nickname）
   email: string; // 邮箱
   accessGroup: string[]; // 角色或分组
   type?: 'access' | 'refresh';
