@@ -3,7 +3,9 @@ import { ValidateInput } from '@core/common/errors/validate-input.decorator';
 import { Args, Context, Mutation, Resolver } from '@nestjs/graphql';
 import { RegisterWithEmailUsecase } from '@usecases/registration/register-with-email.usecase';
 import { RegisterWithThirdPartyUsecase } from '@usecases/registration/register-with-third-party.usecase';
+import { GetWeappPhoneUsecase } from '@usecases/third-party-accounts/get-weapp-phone.usecase';
 import { Request } from 'express';
+import { PinoLogger } from 'nestjs-pino';
 import { RegisterResult } from './dto/register-result.dto';
 import { RegisterInput } from './dto/register.input';
 import { ThirdPartyRegisterInput } from './dto/third-party-register.input';
@@ -16,7 +18,11 @@ export class RegistrationResolver {
   constructor(
     private readonly registerWithEmail: RegisterWithEmailUsecase,
     private readonly registerWithThirdParty: RegisterWithThirdPartyUsecase,
-  ) {}
+    private readonly getWeappPhoneUsecase: GetWeappPhoneUsecase,
+    private readonly logger: PinoLogger,
+  ) {
+    this.logger.setContext(RegistrationResolver.name);
+  }
 
   @Mutation(() => RegisterResult, { description: '用户注册' })
   @ValidateInput()
@@ -57,11 +63,13 @@ export class RegistrationResolver {
   async thirdPartyRegister(@Args('input') input: ThirdPartyRegisterInput): Promise<RegisterResult> {
     const result = await this.registerWithThirdParty.execute({
       provider: input.provider,
-      credential: input.authCredential,
+      authCredential: input.authCredential, // 使用正确的字段名
       audience: input.audience,
-      nickname: input.nickname,
       email: input.email,
+      weAppData: input.weAppData, // 传递整个 weAppData 对象
     });
+
+    // 移除之前单独获取手机号的逻辑，因为现在在注册时就处理了
 
     return {
       success: result.success,

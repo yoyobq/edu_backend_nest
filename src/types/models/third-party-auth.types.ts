@@ -50,3 +50,81 @@ export interface WeAppCode2SessionError {
  * 微信小程序 code2session 接口响应联合类型
  */
 export type WeAppCode2SessionResponse = WeAppCode2SessionSuccess | WeAppCode2SessionError;
+
+/**
+ * 微信小程序获取手机号接口成功响应
+ */
+export interface WeAppGetPhoneNumberSuccess {
+  /** 错误码（成功时为 0） */
+  errcode: 0;
+  /** 错误信息（成功时为 "ok"） */
+  errmsg: string;
+  /** 手机号信息 */
+  phone_info: {
+    /** 用户绑定的手机号（国外手机号会有区号） */
+    phoneNumber: string;
+    /** 不带区号的手机号 */
+    purePhoneNumber: string;
+    /** 区号（数字类型） */
+    countryCode: number;
+    /** 数据水印 */
+    watermark: {
+      /** 小程序 appid */
+      appid: string;
+      /** 时间戳 */
+      timestamp: number;
+    };
+  };
+}
+
+/**
+ * 微信小程序获取手机号接口错误响应
+ */
+export interface WeAppGetPhoneNumberError {
+  /** 错误码 */
+  errcode: number;
+  /** 错误信息 */
+  errmsg: string;
+}
+
+/**
+ * 微信小程序获取手机号接口响应联合类型
+ */
+export type WeAppGetPhoneNumberResponse = WeAppGetPhoneNumberSuccess | WeAppGetPhoneNumberError;
+
+/**
+ * 获取手机号的结果
+ */
+export interface PhoneNumberResult {
+  /** 完整手机号（包含区号） */
+  phoneNumber: string;
+  /** 纯手机号（不含区号） */
+  purePhoneNumber: string;
+  /** 国家区号（字符串类型，便于前端处理） */
+  countryCode: string;
+}
+
+/**
+ * 微信小程序获取 access_token 接口成功响应
+ */
+export interface WeAppGetAccessTokenSuccess {
+  /** access_token */
+  access_token: string;
+  /** 凭证有效时间，单位：秒 */
+  expires_in: number;
+}
+
+/**
+ * 微信小程序获取 access_token 接口错误响应
+ */
+export interface WeAppGetAccessTokenError {
+  /** 错误码 */
+  errcode: number;
+  /** 错误信息 */
+  errmsg: string;
+}
+
+/**
+ * 微信小程序获取 access_token 接口响应联合类型
+ */
+export type WeAppGetAccessTokenResponse = WeAppGetAccessTokenSuccess | WeAppGetAccessTokenError;

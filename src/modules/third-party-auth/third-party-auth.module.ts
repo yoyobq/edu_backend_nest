@@ -9,6 +9,7 @@ import { ThirdPartyAuthEntity } from '@modules/account/entities/third-party-auth
 import { AuthModule } from '@modules/auth/auth.module';
 
 import { ThirdPartyProviderEnum } from '@app-types/models/account.types';
+import { GetWeappPhoneUsecase } from '@usecases/third-party-accounts/get-weapp-phone.usecase';
 import { ThirdPartyProvider } from './interfaces/third-party-provider.interface';
 import { WeAppProvider } from './providers/weapp.provider';
 import { WechatProvider } from './providers/wechat.provider';
@@ -49,9 +50,8 @@ const providerMapFactory: Provider = {
     WechatProvider,
     providerMapFactory,
     ThirdPartyAuthService,
-    // 移除 ThirdPartyAuthResolver - 它应该在 GraphQLAdapterModule 中注册
-    // ThirdPartyAuthResolver,
+    GetWeappPhoneUsecase, // 添加新的 usecase
   ],
-  exports: [ThirdPartyAuthService],
+  exports: [ThirdPartyAuthService, GetWeappPhoneUsecase], // 导出 usecase
 })
 export class ThirdPartyAuthModule {}

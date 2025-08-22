@@ -10,13 +10,19 @@ import { LoginResult } from '@src/adapters/graphql/account/dto/login-result.dto'
 import { currentUser } from '@src/adapters/graphql/decorators/current-user.decorator';
 import { JwtAuthGuard } from '@src/adapters/graphql/guards/jwt-auth.guard';
 import { BindThirdPartyInput } from '@src/adapters/graphql/third-party-auth/dto/bind-third-party.input';
+import { GetWeappPhoneInput } from '@src/adapters/graphql/third-party-auth/dto/get-weapp-phone.input';
 import { ThirdPartyAuthDTO } from '@src/adapters/graphql/third-party-auth/dto/third-party-auth.dto';
 import { ThirdPartyLoginInput } from '@src/adapters/graphql/third-party-auth/dto/third-party-login.input';
 import { UnbindThirdPartyInput } from '@src/adapters/graphql/third-party-auth/dto/unbind-third-party.input';
+import { WeappPhoneResultDTO } from '@src/adapters/graphql/third-party-auth/dto/weapp-phone-result.dto';
 import {
   LoginWithThirdPartyUsecase,
   ThirdPartyLoginParams,
 } from '@usecases/auth/login-with-third-party.usecase';
+import {
+  GetWeappPhoneParams,
+  GetWeappPhoneUsecase,
+} from '@usecases/third-party-accounts/get-weapp-phone.usecase';
 
 /**
  * 第三方认证 GraphQL 解析器
@@ -27,6 +33,7 @@ export class ThirdPartyAuthResolver {
   constructor(
     private readonly thirdPartyAuthService: ThirdPartyAuthService,
     private readonly loginWithThirdPartyUsecase: LoginWithThirdPartyUsecase,
+    private readonly getWeappPhoneUsecase: GetWeappPhoneUsecase, // 注入新的 usecase
   ) {}
 
   /**
@@ -38,7 +45,7 @@ export class ThirdPartyAuthResolver {
   async thirdPartyLogin(@Args('input') input: ThirdPartyLoginInput): Promise<LoginResult> {
     const params: ThirdPartyLoginParams = {
       provider: input.provider,
-      credential: input.authCredential,
+      authCredential: input.authCredential,
       audience: String(input.audience),
       ip: input.ip,
     };
@@ -105,5 +112,28 @@ export class ThirdPartyAuthResolver {
   @Query(() => [ThirdPartyAuthDTO], { description: '获取我的第三方绑定列表' })
   async myThirdPartyAuths(@currentUser() user: JwtPayload): Promise<ThirdPartyAuthDTO[]> {
     return await this.thirdPartyAuthService.getThirdPartyAuths(user.sub);
+  }
+
+  /**
+   * 获取微信小程序手机号
+   * 通过微信小程序的 phoneCode 获取用户手机号信息
+   * @param input 包含 phoneCode 和 audience 的输入参数
+   * @returns 手机号信息
+   */
+  @Mutation(() => WeappPhoneResultDTO, { description: '获取微信小程序手机号' })
+  async getWeappPhone(@Args('input') input: GetWeappPhoneInput): Promise<WeappPhoneResultDTO> {
+    const params: GetWeappPhoneParams = {
+      phoneCode: input.phoneCode,
+      audience: input.audience,
+    };
+
+    const result = await this.getWeappPhoneUsecase.execute(params);
+
+    // 用例结果 -> GraphQL DTO 的薄映射
+    return {
+      phoneNumber: result.phoneInfo.phoneNumber,
+      purePhoneNumber: result.phoneInfo.purePhoneNumber,
+      countryCode: result.phoneInfo.countryCode,
+    };
   }
 }

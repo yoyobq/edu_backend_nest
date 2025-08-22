@@ -17,18 +17,18 @@ export class WechatProvider implements ThirdPartyProvider {
    * 微信网页/公众号 OAuth 认证凭证交换
    * TODO: 实现 code → access_token → userinfo 的完整 OAuth 流程
    * @param params 交换参数
-   * @param params.credential 微信网页授权获取的 code
+   * @param params.authCredential 微信网页授权获取的 code
    * @param params.audience 客户端类型
    * @returns 标准化的第三方会话信息
    * @throws HttpException 当前未实现，抛出占位异常
    */
   exchangeCredential({
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    credential,
+    authCredential,
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     audience,
   }: {
-    credential: string;
+    authCredential: string;
     audience: AudienceTypeEnum;
   }): Promise<ThirdPartySession> {
     // TODO: 实现微信网页/公众号 OAuth 的 code→access_token→userinfo 流程

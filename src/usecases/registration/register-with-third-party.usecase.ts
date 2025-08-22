@@ -6,10 +6,13 @@ import { WeappRegisterUsecase } from './weapp-register.usecase';
 
 export interface ThirdPartyRegisterParams {
   provider: ThirdPartyProviderEnum;
-  credential: string;
+  authCredential: string;
   audience?: string;
-  nickname?: string;
+  // nickname?: string; // 移除此字段 - 昵称应通过第三方平台获取，而非前端传递
   email?: string;
+  weAppData?: {
+    phoneCode?: string;
+  };
 }
 
 export interface ThirdPartyRegisterResult {

@@ -15,7 +15,7 @@ import { LoginByAccountIdUsecase } from './login-by-account-id.usecase';
  */
 export interface ThirdPartyLoginParams {
   provider: ThirdPartyProviderEnum;
-  credential: string; // 小程序 js_code、网页 code、id_token 等
+  authCredential: string; // 小程序 js_code、网页 code、id_token 等
   audience: AudienceTypeEnum | string;
   ip?: string;
 }
@@ -41,9 +41,9 @@ export class LoginWithThirdPartyUsecase {
     const provider = params.provider;
     const audience = String(params.audience ?? '');
     const ip = params.ip;
-    const credential = (params.credential ?? '').trim();
+    const authCredential = (params.authCredential ?? '').trim();
 
-    if (!credential) {
+    if (!authCredential) {
       // 统一的领域错误，避免把 HTTP 异常冒泡到适配层
       throw new DomainError('THIRDPARTY_CREDENTIAL_INVALID', '第三方凭证无效');
     }
@@ -51,7 +51,7 @@ export class LoginWithThirdPartyUsecase {
     // 1) 解析第三方凭证
     const session = await this.resolveIdentitySafe({
       provider,
-      credential,
+      authCredential,
       audience: audience as AudienceTypeEnum,
     });
 
@@ -86,7 +86,7 @@ export class LoginWithThirdPartyUsecase {
    */
   private async resolveIdentitySafe(args: {
     provider: ThirdPartyProviderEnum;
-    credential: string;
+    authCredential: string;
     audience: AudienceTypeEnum;
   }) {
     try {

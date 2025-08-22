@@ -54,11 +54,11 @@ export class ThirdPartyAuthService {
    */
   async resolveIdentity({
     provider,
-    credential,
+    authCredential,
     audience,
   }: {
     provider: ThirdPartyProviderEnum;
-    credential: string;
+    authCredential: string;
     audience: AudienceTypeEnum;
   }): Promise<ThirdPartySession> {
     const adapter = this.adapters.get(provider);
@@ -71,7 +71,7 @@ export class ThirdPartyAuthService {
 
     try {
       return await adapter.exchangeCredential({
-        credential,
+        authCredential,
         audience,
       });
     } catch {
@@ -115,7 +115,7 @@ export class ThirdPartyAuthService {
   }: ThirdPartyLoginInput): Promise<LoginResult> {
     const session = await this.resolveIdentity({
       provider,
-      credential: authCredential,
+      authCredential,
       audience,
     });
 
@@ -287,5 +287,20 @@ export class ThirdPartyAuthService {
     });
 
     return this.thirdPartyAuthRepository.save(thirdPartyAuth);
+  }
+
+  /**
+   * 根据账户 ID 和第三方平台类型查找第三方认证记录
+   * @param accountId 账户 ID
+   * @param provider 第三方平台类型
+   * @returns 第三方认证记录或 null
+   */
+  async findThirdPartyAuthByAccountId(
+    accountId: number,
+    provider: ThirdPartyProviderEnum,
+  ): Promise<ThirdPartyAuthEntity | null> {
+    return this.thirdPartyAuthRepository.findOne({
+      where: { accountId, provider },
+    });
   }
 }

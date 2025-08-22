@@ -5,14 +5,13 @@ import {
   AudienceTypeEnum,
   ThirdPartyProviderEnum,
 } from '@app-types/models/account.types';
-import { Gender, GeographicInfo } from '@app-types/models/user-info.types';
 import { DomainError, THIRDPARTY_ERROR } from '@core/common/errors/domain-error';
-import { normalizeText } from '@core/common/text/text.helper';
 import { AccountService } from '@modules/account/account.service';
 import { ThirdPartyAuthEntity } from '@modules/account/entities/third-party-auth.entity';
 import { ThirdPartyAuthService } from '@modules/third-party-auth/third-party-auth.service';
 import { HttpException, Injectable } from '@nestjs/common';
 import { CreateAccountUsecase } from '@usecases/account/create-account.usecase';
+import { GetWeappPhoneUsecase } from '@usecases/third-party-accounts/get-weapp-phone.usecase';
 import { PinoLogger } from 'nestjs-pino';
 import { EntityManager } from 'typeorm';
 import { ThirdPartySession } from '../../types/models/third-party-auth.types';
@@ -25,34 +24,24 @@ import {
 type Overwrite<T, U> = Omit<T, keyof U> & U;
 
 /**
- * 微信用户信息接口
- */
-interface WechatUserInfo {
-  nickName?: string;
-  gender?: 0 | 1 | 2; // 微信返回：0=SECRET, 1=MALE, 2=FEMALE
-  city?: string;
-  province?: string;
-  avatarUrl?: string;
-}
-
-/**
  * 验证后的微信小程序注册参数
  */
 interface ValidatedWeappRegisterParams {
-  credential: string;
+  authCredential: string;
   audience: AudienceTypeEnum;
-  wechatUserInfo?: WechatUserInfo;
 }
 
 /**
  * 微信小程序注册参数
- * 扩展通用第三方注册参数，添加微信用户信息
+ * 扩展通用第三方注册参数
  */
 type WeappRegisterParams = Overwrite<
   ThirdPartyRegisterParams,
   {
     audience: AudienceTypeEnum; // 明确要求 audience 为必需参数
-    wechatUserInfo?: WechatUserInfo;
+    weAppData?: {
+      phoneCode?: string;
+    }; // 确保 weAppData 在类型中存在
   }
 >;
 
@@ -66,6 +55,7 @@ export class WeappRegisterUsecase {
     private readonly tpa: ThirdPartyAuthService,
     private readonly accountService: AccountService,
     private readonly createAccountUsecase: CreateAccountUsecase,
+    private readonly getWeappPhoneUsecase: GetWeappPhoneUsecase,
     private readonly logger: PinoLogger,
   ) {
     this.logger.setContext(WeappRegisterUsecase.name);
@@ -77,332 +67,174 @@ export class WeappRegisterUsecase {
   async execute(params: WeappRegisterParams): Promise<ThirdPartyRegisterResult> {
     // 1. 参数验证
     const validatedParams = this.validateParams(params);
-    const { credential, audience, wechatUserInfo } = validatedParams;
+    const { authCredential, audience } = validatedParams;
 
     try {
       // 2. 解析身份信息
       const session = await this.tpa.resolveIdentity({
         provider: ThirdPartyProviderEnum.WEAPP,
-        credential,
+        authCredential,
         audience,
       });
 
       // 3. 检查是否已绑定
       await this.checkNotAlreadyBound(session.providerUserId);
 
-      // 4. 验证和处理昵称
-      const processedNickname = this.validateAndProcessNickname(wechatUserInfo?.nickName);
-
-      // 5. 准备账户数据
-      const accountData = await this.prepareAccountData({
-        session,
-        wechatUserInfo: {
-          ...wechatUserInfo,
-          nickName: processedNickname,
-        },
+      // 4. 准备账户数据
+      const { accountData, userInfoData } = await this.prepareAccountData({
+        phoneCode: params.weAppData?.phoneCode,
+        audience,
       });
 
-      // 5. 在一个事务中完成账户创建和第三方绑定
-      const result = await this.accountService.runTransaction(async (manager: EntityManager) => {
-        // 5.1 创建账户和用户信息（复用现有事务）
-        const account = await this.createAccountUsecase.execute({
-          accountData: accountData.accountData,
-          userInfoData: accountData.userInfoData,
-          manager, // 传入事务管理器
-        });
-
-        // 5.2 在同一事务中创建第三方绑定
-        const thirdPartyAuth = await this.createThirdPartyBinding(manager, account.id, session);
-
-        return { account, thirdPartyAuth };
+      // 5. 创建账户
+      const account = await this.createAccountUsecase.execute({
+        accountData,
+        userInfoData,
       });
 
-      this.logger.info(
-        {
-          accountId: result.account.id,
-          provider: ThirdPartyProviderEnum.WEAPP,
-          providerUserId: session.providerUserId,
-          audience: audience, // 修复：使用正确的变量名
-        },
-        '微信小程序注册成功',
-      );
+      // 6. 创建第三方绑定关系
+      await this.accountService.runTransaction(async (manager: EntityManager) => {
+        await this.createThirdPartyBinding(manager, account.id, session);
+      });
+
+      this.logger.info(`微信小程序注册成功: ${account.id}`);
 
       return {
         success: true,
-        message: '微信小程序注册成功',
-        accountId: result.account.id,
+        message: '注册成功',
+        accountId: account.id,
       };
     } catch (error) {
-      if (error instanceof HttpException) {
-        const resp = error.getResponse() as
-          | string
-          | { errorCode?: string; errorMessage?: string; message?: string };
-
-        const code =
-          typeof resp === 'object' && resp?.errorCode
-            ? String(resp.errorCode)
-            : THIRDPARTY_ERROR.CREDENTIAL_INVALID;
-
-        const message =
-          typeof resp === 'object' && (resp.errorMessage || resp.message)
-            ? String(resp.errorMessage || resp.message)
-            : '微信小程序凭证无效或已过期';
-
-        throw new DomainError(code, message);
-      }
-
       if (error instanceof DomainError) {
         throw error;
       }
 
-      throw new DomainError(THIRDPARTY_ERROR.REGISTRATION_FAILED, '微信小程序注册失败', {
-        cause: (error as Error)?.message,
-      });
+      if (error instanceof HttpException) {
+        throw error;
+      }
+
+      this.logger.error(
+        `微信小程序注册失败: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      throw new DomainError(THIRDPARTY_ERROR.REGISTRATION_FAILED, '微信小程序注册失败');
     }
   }
 
   /**
-   * 验证微信小程序凭证
+   * 验证身份凭证格式
    */
   private validateCredential(credential: string): void {
-    if (!credential?.trim()) {
-      throw new DomainError(
-        THIRDPARTY_ERROR.CREDENTIAL_INVALID,
-        '未提供微信小程序凭证或凭证无效，无法注册',
-      );
+    if (!credential || credential.trim().length === 0) {
+      throw new DomainError(THIRDPARTY_ERROR.INVALID_CREDENTIAL, '身份凭证不能为空');
     }
   }
 
   /**
-   * 检查第三方账户是否已绑定
+   * 检查用户是否已绑定
    */
   private async checkNotAlreadyBound(providerUserId: string): Promise<void> {
-    const existed = await this.tpa.findAccountByThirdParty({
+    const existingBinding = await this.tpa.findAccountByThirdParty({
       provider: ThirdPartyProviderEnum.WEAPP,
       providerUserId,
     });
 
-    if (existed?.accountId) {
-      throw new DomainError(THIRDPARTY_ERROR.ACCOUNT_ALREADY_BOUND, '该微信小程序账户已被绑定', {
-        accountId: existed.accountId,
-      });
+    if (existingBinding) {
+      throw new DomainError(THIRDPARTY_ERROR.ACCOUNT_ALREADY_BOUND, '该微信账号已绑定其他账户');
     }
   }
 
   /**
-   * 准备账户创建数据
+   * 准备账户数据
+   * 使用 AccountService 的 pickAvailableNickname 方法生成唯一昵称
    */
-  private async prepareAccountData(params: {
-    session: ThirdPartySession;
-    wechatUserInfo?: WechatUserInfo;
-  }) {
-    const { session, wechatUserInfo } = params;
+  private async prepareAccountData(params: { phoneCode?: string; audience: AudienceTypeEnum }) {
+    const { phoneCode, audience } = params;
 
-    // 对微信昵称进行文本规范化处理（包括 emoji 过滤）
-    const normalizedWechatNickname = wechatUserInfo?.nickName
-      ? normalizeText(wechatUserInfo.nickName)
-      : undefined;
-
-    // 使用 AccountService 的通用昵称处理方法
-    const finalNickname = await this.accountService.pickAvailableNickname({
-      providedNickname: normalizedWechatNickname,
-      fallbackOptions: [], // 微信昵称就是唯一来源，不需要其他备选
+    // 使用 AccountService 生成唯一的"微信用户"昵称
+    const nickname = await this.accountService.pickAvailableNickname({
+      providedNickname: '微信用户',
+      fallbackOptions: [],
       provider: ThirdPartyProviderEnum.WEAPP,
     });
 
-    // 处理微信用户信息
-    const geographic: GeographicInfo | undefined =
-      wechatUserInfo?.province || wechatUserInfo?.city
-        ? {
-            province: wechatUserInfo.province || '',
-            city: wechatUserInfo.city || '',
-          }
-        : undefined;
+    if (!nickname) {
+      throw new DomainError(THIRDPARTY_ERROR.REGISTRATION_FAILED, '生成用户昵称失败');
+    }
 
-    const gender: Gender =
-      wechatUserInfo?.gender === 1
-        ? Gender.MALE
-        : wechatUserInfo?.gender === 2
-          ? Gender.FEMALE
-          : Gender.SECRET;
+    // 获取手机号 - 简化调用
+    let phone: string | undefined;
+    if (phoneCode) {
+      try {
+        const phoneResult = await this.getWeappPhoneUsecase.execute({
+          phoneCode: phoneCode,
+          audience: audience,
+        });
 
-    return {
-      accountData: {
-        loginName: null, // 第三方登录用户不需要登录名
-        loginEmail: `${session.providerUserId}@weapp.local`, // 保留作为唯一标识
-        loginPassword: '', // 第三方登录用户不需要密码
-        status: AccountStatus.ACTIVE,
-        identityHint: 'REGISTRANT',
-      },
-      userInfoData: {
-        nickname: finalNickname,
-        gender,
-        // TODO: 头像处理应该在专门的文件上传/用户资料管理模块中处理
-        // avatar: wechatUserInfo?.avatarUrl,
-        geographic,
-        accessGroup: ['REGISTRANT'],
-        metaDigest: ['REGISTRANT'],
-      },
+        phone = phoneResult.phoneInfo.phoneNumber;
+
+        this.logger.info('成功获取用户手机号', { phoneNumber: phone });
+      } catch (error) {
+        this.logger.error('获取手机号失败', { error, phoneCode: '[REDACTED]' });
+        // 注册流程中手机号获取失败不应该阻止注册，只是记录日志
+      }
+    }
+
+    // 准备账户数据
+    const accountData = {
+      status: AccountStatus.ACTIVE,
+      audience: audience, // 使用传入的 audience 参数
     };
+
+    // 准备用户信息数据
+    const userInfoData = {
+      nickname,
+      avatar: undefined, // 微信小程序不再获取头像
+      geographicInfo: undefined, // 微信小程序不再获取地理信息
+      gender: undefined, // 微信小程序不再获取性别
+      phone, // 添加手机号字段
+      accessGroup: ['guest'], // 添加默认的访问权限组
+    };
+
+    return { accountData, userInfoData };
   }
 
   /**
-   * 在事务中创建第三方绑定关系
-   * @param manager 事务管理器
-   * @param accountId 账户 ID
-   * @param session 第三方会话信息
-   * @returns 创建的第三方绑定实体
+   * 创建第三方绑定关系
    */
   private async createThirdPartyBinding(
     manager: EntityManager,
     accountId: number,
     session: ThirdPartySession,
   ): Promise<ThirdPartyAuthEntity> {
-    try {
-      // 在事务中检查是否已绑定（双重检查，防止并发问题）
-      const existedByAccount = await manager.findOne(ThirdPartyAuthEntity, {
-        where: { accountId, provider: ThirdPartyProviderEnum.WEAPP },
-      });
-      if (existedByAccount) {
-        throw new DomainError(THIRDPARTY_ERROR.ACCOUNT_ALREADY_BOUND, '该账户已绑定微信小程序平台');
-      }
+    const thirdPartyAuth = new ThirdPartyAuthEntity();
+    thirdPartyAuth.accountId = accountId;
+    thirdPartyAuth.provider = ThirdPartyProviderEnum.WEAPP;
+    thirdPartyAuth.providerUserId = session.providerUserId;
+    thirdPartyAuth.unionId = session.unionId;
+    // 移除 profile 字段赋值，因为 ThirdPartyAuthEntity 中没有此字段
+    thirdPartyAuth.createdAt = new Date();
+    thirdPartyAuth.updatedAt = new Date();
 
-      const existedByProvider = await manager.findOne(ThirdPartyAuthEntity, {
-        where: {
-          provider: ThirdPartyProviderEnum.WEAPP,
-          providerUserId: session.providerUserId,
-        },
-      });
-      if (existedByProvider) {
-        throw new DomainError(
-          THIRDPARTY_ERROR.ACCOUNT_ALREADY_BOUND,
-          '该微信小程序账户已被其他用户绑定',
-        );
-      }
-
-      // 创建新的绑定关系
-      const thirdPartyAuth = manager.create(ThirdPartyAuthEntity, {
-        accountId,
-        provider: ThirdPartyProviderEnum.WEAPP,
-        providerUserId: session.providerUserId,
-        unionId: session.unionId || null,
-        accessToken: null,
-      });
-
-      return await manager.save(thirdPartyAuth);
-    } catch (error) {
-      this.logger.error(
-        {
-          accountId,
-          provider: ThirdPartyProviderEnum.WEAPP,
-          providerUserId: session.providerUserId,
-          error: error instanceof Error ? error.message : String(error),
-        },
-        '创建第三方绑定失败',
-      );
-
-      if (error instanceof DomainError) {
-        throw error;
-      }
-
-      throw new DomainError(THIRDPARTY_ERROR.BIND_FAILED, '绑定微信小程序账户失败', {
-        cause: error instanceof Error ? error.message : String(error),
-      });
-    }
+    return await manager.save(ThirdPartyAuthEntity, thirdPartyAuth);
   }
 
   /**
-   * 验证微信用户信息的类型守卫
-   */
-  private isValidWechatUserInfo(userInfo: unknown): userInfo is WechatUserInfo {
-    if (!userInfo || typeof userInfo !== 'object') {
-      return true; // 允许为空
-    }
-
-    const info = userInfo as Record<string, unknown>;
-
-    // 验证 nickName
-    if (info.nickName !== undefined && typeof info.nickName !== 'string') {
-      return false;
-    }
-
-    // 验证 gender
-    if (info.gender !== undefined && ![0, 1, 2].includes(info.gender as number)) {
-      return false;
-    }
-
-    // 验证地理信息
-    if (info.city !== undefined && typeof info.city !== 'string') {
-      return false;
-    }
-
-    if (info.province !== undefined && typeof info.province !== 'string') {
-      return false;
-    }
-
-    // 验证头像 URL
-    if (info.avatarUrl !== undefined && typeof info.avatarUrl !== 'string') {
-      return false;
-    }
-
-    return true;
-  }
-
-  /**
-   * 验证注册参数的完整性和有效性
+   * 验证参数
    */
   private validateParams(params: WeappRegisterParams): ValidatedWeappRegisterParams {
-    // 验证凭证
-    if (!params.credential?.trim()) {
-      throw new DomainError(THIRDPARTY_ERROR.CREDENTIAL_INVALID, '微信小程序凭证不能为空');
-    }
+    const { authCredential, audience } = params;
 
-    // 验证凭证格式（微信 js_code 通常是 32 位字符串）
-    if (!/^[A-Za-z0-9]{10,50}$/.test(params.credential.trim())) {
-      throw new DomainError(THIRDPARTY_ERROR.CREDENTIAL_INVALID, '微信小程序凭证格式无效');
-    }
+    // 验证身份凭证
+    this.validateCredential(authCredential);
 
     // 验证 audience
-    if (!params.audience || !Object.values(AudienceTypeEnum).includes(params.audience)) {
-      throw new DomainError(THIRDPARTY_ERROR.INVALID_AUDIENCE, '客户端类型无效');
-    }
-
-    // 验证微信用户信息
-    if (params.wechatUserInfo && !this.isValidWechatUserInfo(params.wechatUserInfo)) {
-      throw new DomainError(THIRDPARTY_ERROR.INVALID_USER_INFO, '微信用户信息格式无效');
+    if (!audience || !Object.values(AudienceTypeEnum).includes(audience)) {
+      throw new DomainError(THIRDPARTY_ERROR.INVALID_AUDIENCE, '无效的客户端类型');
     }
 
     return {
-      credential: params.credential.trim(),
-      audience: params.audience,
-      wechatUserInfo: params.wechatUserInfo,
+      authCredential,
+      audience,
     };
-  }
-
-  /**
-   * 验证和处理昵称
-   */
-  private validateAndProcessNickname(nickname?: string): string | undefined {
-    if (!nickname?.trim()) {
-      return undefined;
-    }
-
-    const trimmed = nickname.trim();
-
-    // 长度验证
-    if (trimmed.length < 2 || trimmed.length > 20) {
-      this.logger.warn({ nickname: trimmed }, '微信昵称长度不符合要求，将使用默认昵称');
-      return undefined;
-    }
-
-    // 格式验证（与 GraphQL DTO 保持一致）
-    const nicknameRegex =
-      /^(?![\p{Script=Han}]{8,})[\p{Script=Han}A-Za-z0-9 _\-\u00B7\u30FB.]{2,20}$/u;
-    if (!nicknameRegex.test(trimmed)) {
-      this.logger.warn({ nickname: trimmed }, '微信昵称格式不符合要求，将使用默认昵称');
-      return undefined;
-    }
-
-    return normalizeText(trimmed);
   }
 }
