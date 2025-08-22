@@ -183,16 +183,16 @@ export class WeappRegisterUsecase {
     const accountData = {
       status: AccountStatus.ACTIVE,
       audience: audience, // 使用传入的 audience 参数
+      loginEmail: 'user@weapp', // 添加统一的登录邮箱格式
+      identityHint: 'CUSTOMER', // 添加身份提示
     };
 
     // 准备用户信息数据
     const userInfoData = {
       nickname,
-      avatar: undefined, // 微信小程序不再获取头像
-      geographicInfo: undefined, // 微信小程序不再获取地理信息
-      gender: undefined, // 微信小程序不再获取性别
       phone, // 添加手机号字段
-      accessGroup: ['guest'], // 添加默认的访问权限组
+      accessGroup: ['CUSTOMER'], // 修改为 CUSTOMER 访问权限组
+      metaDigest: ['CUSTOMER'], // 添加元数据摘要
     };
 
     return { accountData, userInfoData };
