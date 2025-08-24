@@ -8,6 +8,7 @@ import {
 import { Injectable } from '@nestjs/common';
 import { JsonWebTokenError, JwtService, NotBeforeError, TokenExpiredError } from '@nestjs/jwt';
 import { PinoLogger } from 'nestjs-pino';
+import { DomainError, JWT_ERROR } from '../errors/domain-error'; // 新增导入
 
 /**
  * Token 助手类
@@ -58,8 +59,11 @@ export class TokenHelper {
         'access token 生成失败',
       );
 
-      throw new Error(
+      throw new DomainError(
+        JWT_ERROR.ACCESS_TOKEN_GENERATION_FAILED,
         `access token 生成失败: ${error instanceof Error ? error.message : '未知错误'}`,
+        { userId: payload.sub, tokenType: 'access' },
+        error,
       );
     }
   }
@@ -92,8 +96,11 @@ export class TokenHelper {
         'refresh token 生成失败',
       );
 
-      throw new Error(
+      throw new DomainError(
+        JWT_ERROR.REFRESH_TOKEN_GENERATION_FAILED,
         `refresh token 生成失败: ${error instanceof Error ? error.message : '未知错误'}`,
+        { userId: payload.sub, tokenType: 'refresh' },
+        error,
       );
     }
   }
@@ -129,22 +136,58 @@ export class TokenHelper {
       // 区分错误类型
       if (error instanceof TokenExpiredError) {
         // 过期是正常行为，不记录
-        throw new Error(`Token 已过期: ${error instanceof Error ? error.message : 'Token 已过期'}`);
+        throw new DomainError(
+          JWT_ERROR.TOKEN_EXPIRED,
+          `Token 已过期: ${error instanceof Error ? error.message : 'Token 已过期'}`,
+          { tokenPrefix: token.substring(0, 20) + '...' },
+          error,
+        );
       }
 
-      if (error instanceof JsonWebTokenError || error instanceof NotBeforeError) {
+      if (error instanceof NotBeforeError) {
         // 记录安全相关的 Token 验证失败
         this.logger.error(
           {
-            error: error instanceof Error ? error.message : '非法 token，结构错误、伪造、未生效等',
+            error: error instanceof Error ? error.message : 'Token 未生效',
             tokenPrefix: token.substring(0, 20) + '...', // 只记录 token 前缀，避免泄露完整 token
             timestamp: new Date().toISOString(),
           },
           'JWT Token 手动验证失败 - 关注潜在的安全问题',
         );
+
+        throw new DomainError(
+          JWT_ERROR.TOKEN_NOT_BEFORE,
+          `Token 验证失败: ${error instanceof Error ? error.message : 'Token 未生效'}`, // 修改为统一前缀
+          { tokenPrefix: token.substring(0, 20) + '...' },
+          error,
+        );
       }
 
-      throw new Error(`Token 验证失败: ${error instanceof Error ? error.message : '未知错误'}`);
+      if (error instanceof JsonWebTokenError) {
+        // 记录安全相关的 Token 验证失败
+        this.logger.error(
+          {
+            error: error instanceof Error ? error.message : '非法 token，结构错误、伪造等',
+            tokenPrefix: token.substring(0, 20) + '...', // 只记录 token 前缀，避免泄露完整 token
+            timestamp: new Date().toISOString(),
+          },
+          'JWT Token 手动验证失败 - 关注潜在的安全问题',
+        );
+
+        throw new DomainError(
+          JWT_ERROR.TOKEN_INVALID,
+          `Token 验证失败: ${error instanceof Error ? error.message : '非法 token'}`,
+          { tokenPrefix: token.substring(0, 20) + '...' },
+          error,
+        );
+      }
+
+      throw new DomainError(
+        JWT_ERROR.TOKEN_VERIFICATION_FAILED,
+        `Token 验证失败: ${error instanceof Error ? error.message : '未知错误'}`,
+        { tokenPrefix: token.substring(0, 20) + '...' },
+        error,
+      );
     }
   }
 

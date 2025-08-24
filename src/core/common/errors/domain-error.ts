@@ -76,10 +76,24 @@ export const THIRDPARTY_ERROR = {
 } as const;
 Object.freeze(THIRDPARTY_ERROR);
 
+// JWT 相关错误码（Token 生成、验证、解析等）
+export const JWT_ERROR = {
+  TOKEN_EXPIRED: 'JWT_TOKEN_EXPIRED',
+  TOKEN_INVALID: 'JWT_TOKEN_INVALID',
+  TOKEN_NOT_BEFORE: 'JWT_TOKEN_NOT_BEFORE',
+  TOKEN_GENERATION_FAILED: 'JWT_TOKEN_GENERATION_FAILED',
+  TOKEN_VERIFICATION_FAILED: 'JWT_TOKEN_VERIFICATION_FAILED',
+  ACCESS_TOKEN_GENERATION_FAILED: 'JWT_ACCESS_TOKEN_GENERATION_FAILED',
+  REFRESH_TOKEN_GENERATION_FAILED: 'JWT_REFRESH_TOKEN_GENERATION_FAILED',
+  AUTHENTICATION_FAILED: 'JWT_AUTHENTICATION_FAILED',
+} as const;
+Object.freeze(JWT_ERROR);
+
 // 类型辅助
 export type AuthErrorCode = (typeof AUTH_ERROR)[keyof typeof AUTH_ERROR];
 export type AccountErrorCode = (typeof ACCOUNT_ERROR)[keyof typeof ACCOUNT_ERROR];
 export type ThirdPartyErrorCode = (typeof THIRDPARTY_ERROR)[keyof typeof THIRDPARTY_ERROR];
+export type JwtErrorCode = (typeof JWT_ERROR)[keyof typeof JWT_ERROR]; // 新增
 
 // 类型守卫：统一判断是否为领域错误（兼容多包/反序列化场景）
 export const isDomainError = (error: unknown): error is DomainError => {

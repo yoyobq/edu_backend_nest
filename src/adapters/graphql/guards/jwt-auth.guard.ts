@@ -1,9 +1,10 @@
 // src/adapters/guards/jwt-auth.guard.ts
 
 import { JwtPayload } from '@app-types/jwt.types';
-import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from '@nestjs/common';
+import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
 import { GqlExecutionContext } from '@nestjs/graphql';
 import { AuthGuard } from '@nestjs/passport';
+import { DomainError, JWT_ERROR } from '../../../core/common/errors/domain-error'; // 新增导入
 
 /**
  * JWT 认证守卫
@@ -48,10 +49,18 @@ export class JwtAuthGuard extends AuthGuard('jwt') implements CanActivate {
   ): TUser {
     // 如果有错误或用户信息为空，则认证失败
     if (err || !user) {
-      // 抛出具体的错误或默认的认证失败错误
-      throw err instanceof UnauthorizedException
-        ? err
-        : new UnauthorizedException('JWT 自动验证认证失败');
+      // 如果已经是 DomainError，直接抛出
+      if (err && err instanceof DomainError) {
+        throw err;
+      }
+
+      // 抛出统一的认证失败错误
+      throw new DomainError(
+        JWT_ERROR.AUTHENTICATION_FAILED,
+        'JWT 认证失败',
+        { originalError: err?.message },
+        err,
+      );
     }
     return user;
   }
