@@ -1,4 +1,5 @@
-// src/modules/account/entities/account-manager.entity.ts
+// src/modules/account/entities/account-staff.entity.ts
+// import { Field, ID, ObjectType, Int } from '@nestjs/graphql';
 import { EmploymentStatus } from '@app-types/models/account.types';
 import {
   Column,
@@ -6,18 +7,18 @@ import {
   Entity,
   JoinColumn,
   OneToOne,
-  PrimaryGeneratedColumn,
+  PrimaryColumn,
   UpdateDateColumn,
 } from 'typeorm';
-import { AccountEntity } from './account.entity';
+import { AccountEntity } from '../../../base/entities/account.entity';
 
-@Entity('member_manager')
-export class ManagerEntity {
+@Entity('member_staff')
+export class StaffEntity {
   /**
-   * 经理 ID，主键，自增
+   * 员工 ID，主键
    */
-  @PrimaryGeneratedColumn({ type: 'int' })
-  id!: number;
+  @PrimaryColumn({ type: 'varchar', length: 8 })
+  id!: string;
 
   /**
    * 关联的账户 ID
@@ -33,7 +34,7 @@ export class ManagerEntity {
   account!: AccountEntity;
 
   /**
-   * 经理姓名
+   * 员工姓名
    */
   @Column({ type: 'varchar', length: 50, nullable: true })
   name!: string | null;
@@ -64,7 +65,7 @@ export class ManagerEntity {
     type: 'enum',
     enum: EmploymentStatus,
     default: EmploymentStatus.ACTIVE,
-    comment: '经理就职状态：ACTIVE=在职，SUSPENDED=暂离（如休假、暂停履职），LEFT=已离职',
+    comment: '教职工状态：ACTIVE=在职，SUSPENDED=暂离（如休假、暂停教学），LEFT=已离职',
   })
   employmentStatus!: EmploymentStatus;
 

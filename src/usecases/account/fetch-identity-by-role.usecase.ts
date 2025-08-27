@@ -1,7 +1,7 @@
 // src/usecases/account/fetch-identity-by-role.usecase.ts
 import { IdentityTypeEnum } from '@app-types/models/account.types';
-import { AccountService } from '@modules/account/account.service';
 import { Injectable } from '@nestjs/common';
+import { AccountService } from '@src/modules/account/base/services/account.service';
 import { CoachType } from '../../adapters/graphql/account/dto/identity/coach.dto';
 import { ManagerType } from '../../adapters/graphql/account/dto/identity/manager.dto';
 import { StaffType } from '../../adapters/graphql/account/dto/identity/staff.dto';

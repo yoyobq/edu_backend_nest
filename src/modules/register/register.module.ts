@@ -9,7 +9,11 @@ import { RegisterWithThirdPartyUsecase } from '@usecases/registration/register-w
 import { WeappRegisterUsecase } from '@usecases/registration/weapp-register.usecase';
 
 @Module({
-  imports: [AccountModule, ThirdPartyAuthModule],
+  imports: [
+    // ✅ 正确：使用 forRoot() 方法导入动态模块
+    AccountModule.forRoot({ preset: 'training' }), // 使用默认配置：{ preset: 'custom', identities: [] }
+    ThirdPartyAuthModule,
+  ],
   providers: [
     CreateAccountUsecase,
     RegisterWithEmailUsecase,

@@ -22,7 +22,7 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
 @Module({
   imports: [
     // 导入业务模块以获取服务
-    AccountModule,
+    AccountModule.forRoot({ preset: 'training' }), // 或根据你的需求选择合适的预设
     AuthModule,
     RegisterModule,
     ThirdPartyAuthModule,

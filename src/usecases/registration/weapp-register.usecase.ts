@@ -6,10 +6,10 @@ import {
   ThirdPartyProviderEnum,
 } from '@app-types/models/account.types';
 import { DomainError, THIRDPARTY_ERROR } from '@core/common/errors/domain-error';
-import { AccountService } from '@modules/account/account.service';
-import { ThirdPartyAuthEntity } from '@modules/account/entities/third-party-auth.entity';
 import { ThirdPartyAuthService } from '@modules/third-party-auth/third-party-auth.service';
 import { HttpException, Injectable } from '@nestjs/common';
+import { ThirdPartyAuthEntity } from '@src/modules/account/base/entities/third-party-auth.entity';
+import { AccountService } from '@src/modules/account/base/services/account.service';
 import { CreateAccountUsecase } from '@usecases/account/create-account.usecase';
 import { GetWeappPhoneUsecase } from '@usecases/third-party-accounts/get-weapp-phone.usecase';
 import { PinoLogger } from 'nestjs-pino';

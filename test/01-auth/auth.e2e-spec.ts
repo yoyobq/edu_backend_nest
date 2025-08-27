@@ -1,9 +1,9 @@
 // test/01-auth/auth.e2e-spec.ts
-import { AccountService } from '@modules/account/account.service';
-import { AccountEntity } from '@modules/account/entities/account.entity';
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { AppModule } from '@src/app.module';
+import { AccountEntity } from '@src/modules/account/base/entities/account.entity';
+import { AccountService } from '@src/modules/account/base/services/account.service';
 import { AccountStatus, AudienceTypeEnum, LoginTypeEnum } from '@src/types/models/account.types';
 import request from 'supertest';
 import { App } from 'supertest/types';
@@ -11,7 +11,7 @@ import { DataSource, In } from 'typeorm';
 
 // 在文件顶部添加 UserInfoEntity 的导入
 import { Gender, UserState } from '@app-types/models/user-info.types';
-import { UserInfoEntity } from '@modules/account/entities/user-info.entity';
+import { UserInfoEntity } from '@src/modules/account/base/entities/user-info.entity';
 
 /**
  * Auth 模块 E2E 测试

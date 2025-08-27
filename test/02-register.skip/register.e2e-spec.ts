@@ -6,8 +6,8 @@ import { App } from 'supertest/types';
 import { DataSource, In } from 'typeorm';
 import { AppModule } from '../../src/app.module';
 import { FieldEncryptionService } from '../../src/core/field-encryption/field-encryption.service';
-import { AccountEntity } from '../../src/modules/account/entities/account.entity';
-import { UserInfoEntity } from '../../src/modules/account/entities/user-info.entity';
+import { AccountEntity } from '../../src/modules/account/base/entities/account.entity';
+import { UserInfoEntity } from '../../src/modules/account/base/entities/user-info.entity';
 import { AccountStatus } from '../../src/types/models/account.types';
 import { RegisterTypeEnum } from '../../src/types/services/register.types';
 

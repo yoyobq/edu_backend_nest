@@ -1,4 +1,4 @@
-// src/modules/account/entities/account-coach.entity.ts
+// src/modules/account/entities/account-manager.entity.ts
 import { EmploymentStatus } from '@app-types/models/account.types';
 import {
   Column,
@@ -9,12 +9,12 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
-import { AccountEntity } from './account.entity';
+import { AccountEntity } from '../../../base/entities/account.entity';
 
-@Entity('member_coach')
-export class CoachEntity {
+@Entity('member_manager')
+export class ManagerEntity {
   /**
-   * 教练 ID，主键，自增
+   * 经理 ID，主键，自增
    */
   @PrimaryGeneratedColumn({ type: 'int' })
   id!: number;
@@ -33,7 +33,7 @@ export class CoachEntity {
   account!: AccountEntity;
 
   /**
-   * 教练姓名
+   * 经理姓名
    */
   @Column({ type: 'varchar', length: 50, nullable: true })
   name!: string | null;
@@ -64,7 +64,7 @@ export class CoachEntity {
     type: 'enum',
     enum: EmploymentStatus,
     default: EmploymentStatus.ACTIVE,
-    comment: '教练就职状态：ACTIVE=在职，SUSPENDED=暂离（如休假、暂停教学），LEFT=已离职',
+    comment: '经理就职状态：ACTIVE=在职，SUSPENDED=暂离（如休假、暂停履职），LEFT=已离职',
   })
   employmentStatus!: EmploymentStatus;
 

@@ -2,10 +2,10 @@
 
 import { JwtPayload } from '@app-types/jwt.types';
 import { TokenHelper } from '@core/common/token/token.helper';
-import { AccountService } from '@modules/account/account.service';
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
+import { AccountService } from '@src/modules/account/base/services/account.service';
 import { PinoLogger } from 'nestjs-pino';
 import { ExtractJwt, JwtFromRequestFunction, Strategy } from 'passport-jwt';
 

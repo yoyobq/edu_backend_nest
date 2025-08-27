@@ -7,9 +7,9 @@ import {
   isPrivateIp,
   isServerIp,
 } from '@core/common/network/network-access.helper';
-import { AccountService } from '@modules/account/account.service';
-import { AccountEntity } from '@modules/account/entities/account.entity';
 import { Injectable } from '@nestjs/common';
+import { AccountEntity } from '@src/modules/account/base/entities/account.entity';
+import { AccountService } from '@src/modules/account/base/services/account.service';
 import {
   RegisterWithEmailParams,
   RegisterWithEmailResult,

@@ -1,7 +1,6 @@
 // src/modules/third-party-auth/third-party-auth.service.ts
 import { AudienceTypeEnum, ThirdPartyProviderEnum } from '@app-types/models/account.types';
 import { ThirdPartySession } from '@app-types/models/third-party-auth.types';
-import { ThirdPartyAuthEntity } from '@modules/account/entities/third-party-auth.entity';
 import { AuthService } from '@modules/auth/auth.service';
 import {
   BadRequestException,
@@ -13,6 +12,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { LoginResult } from '@src/adapters/graphql/account/dto/login-result.dto';
+import { ThirdPartyAuthEntity } from '@src/modules/account/base/entities/third-party-auth.entity';
 import { LoginByAccountIdUsecase } from '@usecases/auth/login-by-account-id.usecase';
 import { Repository } from 'typeorm';
 import { BindThirdPartyInput } from '../../adapters/graphql/third-party-auth/dto/bind-third-party.input';

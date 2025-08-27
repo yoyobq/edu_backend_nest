@@ -2,9 +2,9 @@
 import { AccountStatus } from '@app-types/models/account.types';
 import { AuthLoginModel } from '@app-types/models/auth.types';
 import { AUTH_ERROR, DomainError } from '@core/common/errors';
-import { AccountService } from '@modules/account/account.service';
-import { AccountEntity } from '@modules/account/entities/account.entity';
 import { Injectable } from '@nestjs/common';
+import { AccountEntity } from '@src/modules/account/base/entities/account.entity';
+import { AccountService } from '@src/modules/account/base/services/account.service';
 
 /**
  * 用户登录验证用例

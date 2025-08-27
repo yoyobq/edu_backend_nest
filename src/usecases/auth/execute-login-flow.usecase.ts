@@ -4,9 +4,9 @@ import { IdentityTypeEnum, ThirdPartyProviderEnum } from '@app-types/models/acco
 import { IdentityModel, LoginResultModel } from '@app-types/models/auth.types';
 import { ACCOUNT_ERROR, AUTH_ERROR, DomainError } from '@core/common/errors';
 import { TokenHelper } from '@core/common/token/token.helper';
-import { AccountService } from '@modules/account/account.service';
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { AccountService } from '@src/modules/account/base/services/account.service';
 import { PinoLogger } from 'nestjs-pino';
 
 /**

@@ -5,8 +5,8 @@ import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
 import { AccountModule } from '@modules/account/account.module';
-import { ThirdPartyAuthEntity } from '@modules/account/entities/third-party-auth.entity';
 import { AuthModule } from '@modules/auth/auth.module';
+import { ThirdPartyAuthEntity } from '@src/modules/account/base/entities/third-party-auth.entity';
 
 import { ThirdPartyProviderEnum } from '@app-types/models/account.types';
 import { GetWeappPhoneUsecase } from '@usecases/third-party-accounts/get-weapp-phone.usecase';

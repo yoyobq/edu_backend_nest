@@ -1,9 +1,9 @@
 // src/usecases/account/create-account.usecase.ts
 import { AccountStatus } from '@app-types/models/account.types';
-import { AccountService } from '@modules/account/account.service';
-import { AccountEntity } from '@modules/account/entities/account.entity';
-import { UserInfoEntity } from '@modules/account/entities/user-info.entity';
 import { Injectable } from '@nestjs/common';
+import { AccountEntity } from '@src/modules/account/base/entities/account.entity';
+import { UserInfoEntity } from '@src/modules/account/base/entities/user-info.entity';
+import { AccountService } from '@src/modules/account/base/services/account.service';
 import { EntityManager } from 'typeorm';
 
 /**

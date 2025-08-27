@@ -20,7 +20,7 @@ import { LoginWithThirdPartyUsecase } from '@usecases/auth/login-with-third-part
  */
 @Module({
   imports: [
-    AccountModule,
+    AccountModule.forRoot({ preset: 'training' }), // 使用动态模块配置
     CoreJwtModule,
     ThirdPartyAuthModule,
     PassportModule.register({ defaultStrategy: 'jwt' }),

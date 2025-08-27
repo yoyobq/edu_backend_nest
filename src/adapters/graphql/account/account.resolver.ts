@@ -2,11 +2,11 @@
 import { JwtPayload } from '@app-types/jwt.types';
 import { UseGuards } from '@nestjs/common';
 import { Args, Query, Resolver } from '@nestjs/graphql';
-import { currentUser } from '@src/adapters/graphql/decorators/current-user.decorator';
-import { JwtAuthGuard } from '@src/adapters/graphql/guards/jwt-auth.guard';
 import { AccountArgs } from '@src/adapters/graphql/account/dto/account.args';
 import { UserAccountDTO } from '@src/adapters/graphql/account/dto/user-account.dto';
-import { AccountService } from '@modules/account/account.service';
+import { currentUser } from '@src/adapters/graphql/decorators/current-user.decorator';
+import { JwtAuthGuard } from '@src/adapters/graphql/guards/jwt-auth.guard';
+import { AccountService } from '@src/modules/account/base/services/account.service';
 
 /**
  * 账户 GraphQL 解析器
