@@ -315,15 +315,54 @@ describe('Register (e2e)', () => {
     });
 
     /**
-     * 测试昵称重复
+     * 测试昵称重复 - 适配新的自动生成后缀功能
      */
-    it('应该正确处理昵称重复的情况', async () => {
+    it('应该正确处理昵称重复的情况 - 自动生成带后缀的新昵称', async () => {
       const response = await performRegister(testRegisterData.duplicateNickname);
 
-      const { errors } = response.body;
-      expect(errors).toBeDefined();
-      expect(errors?.[0]?.message).toContain('昵称 "测试用户" 已被使用，请选择其他昵称');
+      expect(response.status).toBe(200);
+      const { data } = response.body;
+      expect(data?.register.success).toBe(true);
+      expect(data?.register.message).toBe('注册成功');
+      expect(data?.register.accountId).toBeDefined();
+
+      // 验证账户是否正确创建
+      const accountRepository = dataSource.getRepository(AccountEntity);
+      const createdAccount = await accountRepository.findOne({
+        where: { id: parseInt(data?.register.accountId) },
+      });
+
+      expect(createdAccount).toBeDefined();
+      expect(createdAccount?.loginName).toBe(testRegisterData.duplicateNickname.loginName);
+      expect(createdAccount?.loginEmail).toBe(testRegisterData.duplicateNickname.loginEmail);
+      expect(createdAccount?.status).toBe(AccountStatus.PENDING);
+
+      // 验证昵称已自动生成带后缀的新昵称
+      const userInfoRepository = dataSource.getRepository(UserInfoEntity);
+      const userInfo = await userInfoRepository.findOne({
+        where: { accountId: parseInt(data?.register.accountId) },
+      });
+
+      expect(userInfo).toBeDefined();
+      expect(userInfo?.nickname).toBeDefined();
+      // 验证昵称不是原始的重复昵称，而是带后缀的新昵称
+      expect(userInfo?.nickname).not.toBe(testRegisterData.duplicateNickname.nickname);
+      // 验证昵称包含原始昵称作为前缀
+      expect(userInfo?.nickname).toContain(testRegisterData.duplicateNickname.nickname);
+      // 验证昵称包含 # 后缀分隔符
+      expect(userInfo?.nickname).toMatch(/.*#[a-zA-Z0-9]{6}$/);
     });
+
+    /**
+     * 测试昵称重复
+     */
+    // it('应该正确处理昵称重复的情况', async () => {
+    //   const response = await performRegister(testRegisterData.duplicateNickname);
+
+    //   const { errors } = response.body;
+    //   expect(errors).toBeDefined();
+    //   expect(errors?.[0]?.message).toContain('昵称 "测试用户" 已被使用，请选择其他昵称');
+    // });
   });
 
   describe('输入参数验证场景', () => {
