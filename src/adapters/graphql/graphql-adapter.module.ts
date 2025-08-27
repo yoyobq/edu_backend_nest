@@ -1,10 +1,10 @@
 // src/adapters/graphql/graphql-adapter.module.ts
 
-import { AccountModule } from '@modules/account/account.module';
 import { AuthModule } from '@modules/auth/auth.module';
 import { RegisterModule } from '@modules/register/register.module';
 import { ThirdPartyAuthModule } from '@modules/third-party-auth/third-party-auth.module';
 import { Module } from '@nestjs/common';
+import { AccountInstallerModule } from '@src/modules/account/account-installer.module';
 
 // Resolvers
 import { AccountResolver } from './account/account.resolver';
@@ -22,7 +22,7 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
 @Module({
   imports: [
     // 导入业务模块以获取服务
-    AccountModule.forRoot({ preset: 'training' }), // 或根据你的需求选择合适的预设
+    AccountInstallerModule, // 或根据你的需求选择合适的预设
     AuthModule,
     RegisterModule,
     ThirdPartyAuthModule,

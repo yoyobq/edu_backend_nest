@@ -2,10 +2,10 @@
 
 import { TokenHelper } from '@core/common/token/token.helper';
 import { CoreJwtModule } from '@core/jwt/jwt.module';
-import { AccountModule } from '@modules/account/account.module';
 import { ThirdPartyAuthModule } from '@modules/third-party-auth/third-party-auth.module';
 import { Module } from '@nestjs/common';
 import { PassportModule } from '@nestjs/passport';
+import { AccountInstallerModule } from '@src/modules/account/account-installer.module';
 import { AuthService } from './auth.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
 // 添加 usecase 导入
@@ -20,7 +20,7 @@ import { LoginWithThirdPartyUsecase } from '@usecases/auth/login-with-third-part
  */
 @Module({
   imports: [
-    AccountModule.forRoot({ preset: 'training' }), // 使用动态模块配置
+    AccountInstallerModule, // 使用动态模块配置
     CoreJwtModule,
     ThirdPartyAuthModule,
     PassportModule.register({ defaultStrategy: 'jwt' }),
