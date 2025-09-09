@@ -70,6 +70,20 @@ export class LearnerEntity {
   customer!: CustomerEntity;
 
   /**
+   * 统一计次比例
+   * 对该学员所有课程生效，默认为 1.00
+   */
+  @Column({
+    name: 'count_per_session',
+    type: 'decimal',
+    precision: 4,
+    scale: 2,
+    default: 1.0,
+    comment: '统一计次比例（对该学员所有课程生效）',
+  })
+  countPerSession!: number;
+
+  /**
    * 学员姓名
    * 必填字段，最大长度 64 个字符
    */
@@ -161,7 +175,7 @@ export class LearnerEntity {
    */
   @CreateDateColumn({
     name: 'created_at',
-    type: 'datetime',
+    type: 'timestamp',
     comment: '创建时间',
   })
   createdAt!: Date;
@@ -172,7 +186,7 @@ export class LearnerEntity {
    */
   @UpdateDateColumn({
     name: 'updated_at',
-    type: 'datetime',
+    type: 'timestamp',
     comment: '更新时间',
   })
   updatedAt!: Date;

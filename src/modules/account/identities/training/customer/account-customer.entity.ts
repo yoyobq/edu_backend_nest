@@ -129,7 +129,7 @@ export class CustomerEntity {
    */
   @CreateDateColumn({
     name: 'created_at',
-    type: 'datetime',
+    type: 'timestamp',
     comment: '创建时间',
   })
   createdAt!: Date;
@@ -140,7 +140,7 @@ export class CustomerEntity {
    */
   @UpdateDateColumn({
     name: 'updated_at',
-    type: 'datetime',
+    type: 'timestamp',
     comment: '更新时间',
   })
   updatedAt!: Date;

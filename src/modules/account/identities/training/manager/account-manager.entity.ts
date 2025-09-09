@@ -1,5 +1,4 @@
-// src/modules/account/entities/account-manager.entity.ts
-import { EmploymentStatus } from '@app-types/models/account.types';
+// src/modules/account/identities/training/manager/account-manager.entity.ts
 import {
   Column,
   CreateDateColumn,
@@ -11,10 +10,10 @@ import {
 } from 'typeorm';
 import { AccountEntity } from '../../../base/entities/account.entity';
 
-@Entity('member_manager')
+@Entity('member_managers')
 export class ManagerEntity {
   /**
-   * 经理 ID，主键，自增
+   * 管理员 ID，主键，自增
    */
   @PrimaryGeneratedColumn({ type: 'int' })
   id!: number;
@@ -33,50 +32,49 @@ export class ManagerEntity {
   account!: AccountEntity;
 
   /**
-   * 经理姓名
+   * 管理员姓名
    */
-  @Column({ type: 'varchar', length: 50, nullable: true })
-  name!: string | null;
+  @Column({ type: 'varchar', length: 64 })
+  name!: string;
 
   /**
-   * 部门 ID
-   */
-  @Column({ name: 'department_id', type: 'int', nullable: true })
-  departmentId!: number | null;
-
-  /**
-   * 备注信息
-   */
-  @Column({ type: 'text', nullable: true })
-  remarks!: string | null;
-
-  /**
-   * 职位名称
-   */
-  @Column({ name: 'job_title', type: 'varchar', length: 50, nullable: true })
-  jobTitle!: string | null;
-
-  /**
-   * 就业状态
+   * 下线时间，NULL=有效；非 NULL=下线
    */
   @Column({
-    name: 'employment_status',
-    type: 'enum',
-    enum: EmploymentStatus,
-    default: EmploymentStatus.ACTIVE,
-    comment: '经理就职状态：ACTIVE=在职，SUSPENDED=暂离（如休假、暂停履职），LEFT=已离职',
+    name: 'deactivated_at',
+    type: 'datetime',
+    nullable: true,
+    comment: 'NULL=有效；非 NULL=下线',
   })
-  employmentStatus!: EmploymentStatus;
+  deactivatedAt!: Date | null;
 
   /**
    * 创建时间
    */
-  @CreateDateColumn({ name: 'created_at', type: 'datetime' })
+  @CreateDateColumn({ name: 'created_at', type: 'timestamp' })
   createdAt!: Date;
 
   /**
    * 更新时间
    */
-  @UpdateDateColumn({ name: 'updated_at', type: 'datetime' })
+  @UpdateDateColumn({ name: 'updated_at', type: 'timestamp' })
   updatedAt!: Date;
+
+  /**
+   * 创建者 ID
+   */
+  @Column({ name: 'created_by', type: 'int', nullable: true })
+  createdBy!: number | null;
+
+  /**
+   * 更新者 ID
+   */
+  @Column({ name: 'updated_by', type: 'int', nullable: true })
+  updatedBy!: number | null;
+
+  /**
+   * 备注，不对外
+   */
+  @Column({ type: 'varchar', length: 255, nullable: true, comment: '备注，不对外' })
+  remark!: string | null;
 }
