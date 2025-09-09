@@ -19,10 +19,10 @@ import { AccountEntity } from './account.entity';
 @Entity('base_user_info')
 export class UserInfoEntity {
   @Field(() => ID)
-  @PrimaryGeneratedColumn({ type: 'int' })
+  @PrimaryGeneratedColumn({ type: 'int', comment: '主键' })
   id!: number;
 
-  @Column({ name: 'account_id', type: 'int' })
+  @Column({ name: 'account_id', type: 'int', comment: 'user_accouts.id' })
   accountId!: number;
 
   @OneToOne(() => AccountEntity, { createForeignKeyConstraints: false })

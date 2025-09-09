@@ -35,7 +35,7 @@ export class AccountEntity {
     nullable: true,
     comment: '账号email',
   })
-  loginEmail!: string;
+  loginEmail!: string | null;
 
   @Column({ name: 'login_password', type: 'varchar', length: 255, comment: '密码' })
   loginPassword!: string;
@@ -56,7 +56,7 @@ export class AccountEntity {
     type: 'varchar',
     length: 30,
     nullable: true,
-    comment: '身份提示字段，用于加速判断',
+    comment: '身份提示字段，用于加速判断：如 ["staff","student","customer"]',
   })
   identityHint!: string | null;
 
@@ -77,9 +77,17 @@ export class AccountEntity {
   // })
   // thirdPartyAuths?: ThirdPartyAuthEntity[];
 
-  @CreateDateColumn({ name: 'created_at', type: 'datetime', comment: 'created time' })
+  @CreateDateColumn({
+    name: 'created_at',
+    type: 'timestamp',
+    comment: '创建时间',
+  })
   createdAt!: Date;
 
-  @UpdateDateColumn({ name: 'updated_at', type: 'datetime', comment: 'updated time' })
+  @UpdateDateColumn({
+    name: 'updated_at',
+    type: 'timestamp',
+    comment: '更新时间',
+  })
   updatedAt!: Date;
 }

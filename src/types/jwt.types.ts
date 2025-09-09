@@ -23,7 +23,7 @@ export type JwtPayload = {
   // 自定义字段
   sub: number; // 用户 ID
   username: string; // 用户昵称（来自 UserInfoEntity.nickname）
-  email: string; // 邮箱
+  email: string | null; // 邮箱，允许为空
   accessGroup: string[]; // 角色或分组
   type?: 'access' | 'refresh';
   tokenVersion?: number; // Refresh 控制用

@@ -259,7 +259,7 @@ export class TokenHelper {
   }: {
     id: number;
     nickname: string; // 使用昵称作为 username
-    loginEmail: string;
+    loginEmail: string | null; // 允许为空
     accessGroup: string[];
   }): Pick<JwtPayload, 'sub' | 'username' | 'email' | 'accessGroup'> {
     const payload: Pick<JwtPayload, 'sub' | 'username' | 'email' | 'accessGroup'> = {
