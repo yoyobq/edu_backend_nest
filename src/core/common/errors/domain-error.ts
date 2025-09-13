@@ -89,11 +89,20 @@ export const JWT_ERROR = {
 } as const;
 Object.freeze(JWT_ERROR);
 
+// 权限相关错误码（角色权限、访问控制等）
+export const PERMISSION_ERROR = {
+  INSUFFICIENT_PERMISSIONS: 'INSUFFICIENT_PERMISSIONS',
+  ACCESS_DENIED: 'ACCESS_DENIED',
+  ROLE_REQUIRED: 'ROLE_REQUIRED',
+} as const;
+Object.freeze(PERMISSION_ERROR);
+
 // 类型辅助
 export type AuthErrorCode = (typeof AUTH_ERROR)[keyof typeof AUTH_ERROR];
 export type AccountErrorCode = (typeof ACCOUNT_ERROR)[keyof typeof ACCOUNT_ERROR];
 export type ThirdPartyErrorCode = (typeof THIRDPARTY_ERROR)[keyof typeof THIRDPARTY_ERROR];
-export type JwtErrorCode = (typeof JWT_ERROR)[keyof typeof JWT_ERROR]; // 新增
+export type JwtErrorCode = (typeof JWT_ERROR)[keyof typeof JWT_ERROR];
+export type PermissionErrorCode = (typeof PERMISSION_ERROR)[keyof typeof PERMISSION_ERROR]; // 新增
 
 // 类型守卫：统一判断是否为领域错误（兼容多包/反序列化场景）
 export const isDomainError = (error: unknown): error is DomainError => {

@@ -1,6 +1,13 @@
 // src/core/common/filters/graphql-exception.filter.ts
 import { ExceptionPayload } from '@app-types/errors/exception-payload';
-import { ACCOUNT_ERROR, AUTH_ERROR, DomainError, isDomainError } from '@core/common/errors';
+import {
+  ACCOUNT_ERROR,
+  AUTH_ERROR,
+  DomainError,
+  isDomainError,
+  JWT_ERROR,
+  PERMISSION_ERROR,
+} from '@core/common/errors';
 import { ArgumentsHost, Catch, HttpException } from '@nestjs/common';
 import { BaseExceptionFilter } from '@nestjs/core';
 import { GqlArgumentsHost } from '@nestjs/graphql';
@@ -105,27 +112,38 @@ function buildGraphQLErrorFromUnknown(exception: unknown, host: ArgumentsHost): 
 /** GraphQL 全局异常过滤器 */
 /** 将 DomainError 错误码映射为 GraphQL 错误类别 */
 function mapDomainErrorToGqlCode(errorCode: string): string {
-  // 认证相关错误
-  if (errorCode === AUTH_ERROR.ACCOUNT_NOT_FOUND || errorCode === AUTH_ERROR.INVALID_PASSWORD) {
-    return 'UNAUTHENTICATED';
-  }
-  if (errorCode === AUTH_ERROR.ACCOUNT_INACTIVE || errorCode === AUTH_ERROR.ACCOUNT_BANNED) {
-    return 'FORBIDDEN';
-  }
-  if (errorCode === AUTH_ERROR.INVALID_AUDIENCE) {
-    return 'BAD_USER_INPUT';
-  }
+  // 错误码到 GraphQL 错误类别的映射表
+  const errorCodeMap: Record<string, string> = {
+    // 认证相关错误
+    [AUTH_ERROR.ACCOUNT_NOT_FOUND]: 'UNAUTHENTICATED',
+    [AUTH_ERROR.INVALID_PASSWORD]: 'UNAUTHENTICATED',
+    [AUTH_ERROR.ACCOUNT_INACTIVE]: 'FORBIDDEN',
+    [AUTH_ERROR.ACCOUNT_BANNED]: 'FORBIDDEN',
+    [AUTH_ERROR.INVALID_AUDIENCE]: 'BAD_USER_INPUT',
 
-  // 账户相关错误
-  if (errorCode === ACCOUNT_ERROR.NICKNAME_TAKEN || errorCode === ACCOUNT_ERROR.EMAIL_TAKEN) {
-    return 'CONFLICT';
-  }
-  if (errorCode === ACCOUNT_ERROR.USER_INFO_NOT_FOUND) {
-    return 'NOT_FOUND';
-  }
+    // JWT 相关错误
+    [JWT_ERROR.TOKEN_EXPIRED]: 'UNAUTHENTICATED',
+    [JWT_ERROR.TOKEN_INVALID]: 'UNAUTHENTICATED',
+    [JWT_ERROR.TOKEN_NOT_BEFORE]: 'UNAUTHENTICATED',
+    [JWT_ERROR.TOKEN_VERIFICATION_FAILED]: 'UNAUTHENTICATED',
+    [JWT_ERROR.AUTHENTICATION_FAILED]: 'UNAUTHENTICATED',
+    [JWT_ERROR.TOKEN_GENERATION_FAILED]: 'INTERNAL_SERVER_ERROR',
+    [JWT_ERROR.ACCESS_TOKEN_GENERATION_FAILED]: 'INTERNAL_SERVER_ERROR',
+    [JWT_ERROR.REFRESH_TOKEN_GENERATION_FAILED]: 'INTERNAL_SERVER_ERROR',
 
-  // 默认为业务逻辑错误
-  return 'BAD_USER_INPUT';
+    // 权限相关错误
+    [PERMISSION_ERROR.INSUFFICIENT_PERMISSIONS]: 'FORBIDDEN',
+    [PERMISSION_ERROR.ACCESS_DENIED]: 'FORBIDDEN',
+    [PERMISSION_ERROR.ROLE_REQUIRED]: 'FORBIDDEN',
+
+    // 账户相关错误
+    [ACCOUNT_ERROR.NICKNAME_TAKEN]: 'CONFLICT',
+    [ACCOUNT_ERROR.EMAIL_TAKEN]: 'CONFLICT',
+    [ACCOUNT_ERROR.USER_INFO_NOT_FOUND]: 'NOT_FOUND',
+  };
+
+  // 返回映射结果，如果没有找到则返回默认值
+  return errorCodeMap[errorCode] || 'BAD_USER_INPUT';
 }
 
 /** 从 DomainError 构建 GraphQL 错误对象 */
