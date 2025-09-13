@@ -1,6 +1,7 @@
 // src/adapters/graphql/graphql-adapter.module.ts
 
 import { AuthModule } from '@modules/auth/auth.module';
+import { CourseCatalogsModule } from '@modules/course-catalogs/course-catalogs.module';
 import { RegisterModule } from '@modules/register/register.module';
 import { ThirdPartyAuthModule } from '@modules/third-party-auth/third-party-auth.module';
 import { Module } from '@nestjs/common';
@@ -9,6 +10,7 @@ import { AccountInstallerModule } from '@src/modules/account/account-installer.m
 // Resolvers
 import { AccountResolver } from './account/account.resolver';
 import { AuthResolver } from './auth/auth.resolver';
+import { CourseCatalogResolver } from './course-catalogs/course-catalog.resolver';
 import { RegistrationResolver } from './registration/registration.resolver';
 import { ThirdPartyAuthResolver } from './third-party-auth/third-party-auth.resolver';
 
@@ -26,6 +28,7 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
     AuthModule,
     RegisterModule,
     ThirdPartyAuthModule,
+    CourseCatalogsModule, // 导入课程目录模块
   ],
   providers: [
     // 注册所有 GraphQL Resolvers
@@ -33,6 +36,7 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
     AuthResolver,
     RegistrationResolver,
     ThirdPartyAuthResolver,
+    CourseCatalogResolver, // 注册课程目录 resolver
     // 注册 GraphQL 相关的 Guards
     JwtAuthGuard,
   ],
@@ -42,6 +46,7 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
     AuthResolver,
     RegistrationResolver,
     ThirdPartyAuthResolver,
+    CourseCatalogResolver, // 导出课程目录 resolver
     JwtAuthGuard,
   ],
 })

@@ -2,6 +2,8 @@
 
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { ListCatalogsUsecase } from '@usecases/course-catalogs/list-catalogs.usecase';
+import { UpdateCatalogDetailsUsecase } from '@usecases/course-catalogs/update-catalog-details.usecase';
 import { CourseCatalogEntity } from './course-catalog.entity';
 import { CourseCatalogService } from './course-catalog.service';
 
@@ -11,7 +13,16 @@ import { CourseCatalogService } from './course-catalog.service';
  */
 @Module({
   imports: [TypeOrmModule.forFeature([CourseCatalogEntity])],
-  providers: [CourseCatalogService],
-  exports: [TypeOrmModule, CourseCatalogService],
+  providers: [
+    CourseCatalogService,
+    ListCatalogsUsecase, // 添加列表查询 usecase
+    UpdateCatalogDetailsUsecase, // 更新详情 usecase
+  ],
+  exports: [
+    TypeOrmModule,
+    CourseCatalogService,
+    ListCatalogsUsecase, // 导出列表查询 usecase
+    UpdateCatalogDetailsUsecase, // 导出更新详情 usecase
+  ],
 })
 export class CourseCatalogsModule {}

@@ -9,7 +9,7 @@ import { Injectable } from '@nestjs/common';
 // 假设的会话和权限类型，需要根据实际项目调整
 interface AccountSession {
   accountId: number;
-  role: string;
+  roles: string[]; // 修改：改为角色数组
   // 其他会话信息
 }
 
@@ -65,8 +65,11 @@ export class UpdateCatalogDetailsUsecase {
    * @param session 用户会话
    */
   private validatePermissions(session: AccountSession): void {
-    // 根据实际项目的权限系统调整
-    if (session.role !== 'manager') {
+    // 统一转换为小写再比较，更优雅且高效
+    const allowedRoles = ['admin', 'teacher', 'manager'];
+    const hasPermission = session.roles.some((role) => allowedRoles.includes(role.toLowerCase()));
+
+    if (!hasPermission) {
       throw new DomainError('INSUFFICIENT_PERMISSIONS', '仅管理员可以更新课程目录');
     }
   }
