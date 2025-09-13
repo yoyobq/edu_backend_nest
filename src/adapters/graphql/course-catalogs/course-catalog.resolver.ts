@@ -11,6 +11,8 @@ import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 import { CourseCatalogDTO } from './dto/course-catalog.dto';
 import { GetCatalogByLevelInput, UpdateCatalogDetailsInput } from './dto/course-catalog.input';
 import { CourseCatalogsListResult, UpdateCatalogDetailsResult } from './dto/course-catalog.result';
+// 导入枚举注册文件，确保 CourseLevel 枚举被注册到 GraphQL Schema
+import './enums/course-level.enum';
 
 /**
  * 课程目录 GraphQL Resolver
