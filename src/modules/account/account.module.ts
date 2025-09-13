@@ -39,6 +39,7 @@ import {
   LearnerIdentityModule,
   ManagerIdentityModule,
 } from './identities/training';
+import { AccountSecurityService } from './base/services/account-security.service';
 
 /** 预设：school / training / custom */
 export type IdentityPreset = 'school' | 'training' | 'custom';
@@ -134,6 +135,7 @@ export class AccountModule {
       ],
       providers: [
         AccountService,
+        AccountSecurityService, // 添加这一行
         FetchIdentityByRoleUsecase,
         providerMapFactory, // 聚合 Map
       ],

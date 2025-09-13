@@ -13,6 +13,8 @@ import { EntityManager, Repository } from 'typeorm';
 import { AccountEntity } from '../entities/account.entity';
 import { UserInfoEntity } from '../entities/user-info.entity';
 
+import { AccountSecurityService } from './account-security.service';
+
 // ✅ 可插拔 provider 的聚合 Map（identity → provider）
 import { PROFILE_PROVIDER_MAP_TOKEN } from '../constants/provider-tokens';
 import type { AccountProfileProvider } from '../interfaces/account-profile-provider.interface';
@@ -42,13 +44,12 @@ type IdentityToEntity = {
 @Injectable()
 export class AccountService {
   constructor(
-    // ---- base 仓库（始终存在）----
+    // private readonly passwordHelper: PasswordPbkdf2Helper, // 移除这行
     @InjectRepository(AccountEntity)
     private readonly accountRepository: Repository<AccountEntity>,
     @InjectRepository(UserInfoEntity)
     private readonly userInfoRepository: Repository<UserInfoEntity>,
-
-    // ---- 可插拔身份 Provider 的聚合映射 ----
+    private readonly accountSecurityService: AccountSecurityService,
     @Inject(PROFILE_PROVIDER_MAP_TOKEN)
     private readonly providerMap: Map<string, AccountProfileProvider<unknown>>,
   ) {}
@@ -177,13 +178,13 @@ export class AccountService {
   /** 使用创建时间作为盐值进行 PBKDF2 加密 */
   static hashPasswordWithTimestamp(password: string, createdAt: Date): string {
     const salt = createdAt.toString();
-    return PasswordPbkdf2Helper.hashPasswordWithCrypto(password, salt);
+    return PasswordPbkdf2Helper.hashPasswordWithCrypto(password, salt); // 直接使用静态方法
   }
 
   /** 验证密码 */
-  static verifyPassword(inputPassword: string, hashedPassword: string, createdAt: Date): boolean {
-    const hashedInputPassword = this.hashPasswordWithTimestamp(inputPassword, createdAt);
-    return hashedInputPassword === hashedPassword;
+  static verifyPassword(password: string, hashedPassword: string, createdAt: Date): boolean {
+    const salt = createdAt.toString();
+    return PasswordPbkdf2Helper.verifyPasswordWithCrypto(password, salt, hashedPassword); // 直接使用静态方法
   }
 
   // =========================================================
@@ -245,11 +246,32 @@ export class AccountService {
     }
 
     const userInfo = await this.findUserInfoByAccountId(accountId);
+    if (!userInfo) {
+      throw new DomainError(ACCOUNT_ERROR.ACCOUNT_NOT_FOUND, '用户信息不存在');
+    }
+
+    // 执行安全检查
+    const securityResult = this.accountSecurityService.checkAndHandleAccountSecurity({
+      ...account,
+      userInfo,
+    });
+
+    // 如果账号被暂停，抛出错误
+    if (securityResult.wasSuspended) {
+      throw new DomainError(ACCOUNT_ERROR.ACCOUNT_SUSPENDED, '账户因安全问题已被暂停');
+    }
+
+    // 使用真实的 accessGroup（如果验证成功）或默认值
+    const accessGroup =
+      securityResult.isValid && securityResult.realAccessGroup
+        ? securityResult.realAccessGroup
+        : userInfo.accessGroup || ['guest'];
+
     return {
       id: account.id,
       loginName: account.loginName || '',
       loginEmail: account.loginEmail || '',
-      accessGroup: userInfo?.accessGroup || ['guest'],
+      accessGroup,
     };
   }
 
