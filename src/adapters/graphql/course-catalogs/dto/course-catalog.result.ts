@@ -1,6 +1,6 @@
 // src/adapters/graphql/course-catalogs/dto/course-catalog.result.ts
 
-import { Field, Int, ObjectType } from '@nestjs/graphql';
+import { Field, ObjectType } from '@nestjs/graphql';
 import { CourseCatalogDTO } from './course-catalog.dto';
 
 /**
@@ -39,10 +39,4 @@ export class CourseCatalogsListResult {
    */
   @Field(() => [CourseCatalogDTO], { description: '课程目录列表' })
   items!: CourseCatalogDTO[];
-
-  /**
-   * 总数量
-   */
-  @Field(() => Int, { description: '总数量' })
-  total!: number;
 }

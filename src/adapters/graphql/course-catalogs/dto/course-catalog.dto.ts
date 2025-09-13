@@ -16,8 +16,8 @@ export class CourseCatalogDTO {
   @Field(() => String, { description: '课程目录标题' })
   title!: string;
 
-  @Field(() => String, { description: '课程目录描述' })
-  description!: string;
+  @Field(() => String, { description: '课程目录描述', nullable: true })
+  description?: string | null;
 
   @Field(() => Date, { description: '创建时间' })
   createdAt!: Date;
