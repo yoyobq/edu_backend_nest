@@ -37,7 +37,8 @@ export class AccountSecurityService {
 
       if (!metaDigestValue || typeof metaDigestValue !== 'string') {
         this.logger.error(
-          `Invalid metaDigest format for account ${account.id}: ${typeof metaDigestValue}`,
+          { accountId: account.id, metaDigestType: typeof metaDigestValue },
+          `账号 ${account.id} 的 metaDigest 格式无效`,
         );
         return {
           isValid: false,
@@ -45,7 +46,7 @@ export class AccountSecurityService {
         };
       }
 
-      // 从 metaDigest 中解密获取真实的 accessGroup（移除 await）
+      // 从 metaDigest 中解密获取真实的 accessGroup
       const decryptedData = this.fieldEncryptionService.decrypt(metaDigestValue);
 
       // 安全地解析 JSON 数据
@@ -54,8 +55,8 @@ export class AccountSecurityService {
         parsedData = JSON.parse(decryptedData) as { accessGroup?: string[] };
       } catch (parseError) {
         this.logger.error(
-          `Failed to parse decrypted metaDigest for account ${account.id}`,
-          parseError,
+          { err: parseError, accountId: account.id },
+          `解析账号 ${account.id} 的解密 metaDigest 失败`,
         );
         return {
           isValid: false,
@@ -66,29 +67,30 @@ export class AccountSecurityService {
       const realAccessGroup = parsedData.accessGroup;
 
       if (!Array.isArray(realAccessGroup)) {
-        this.logger.error(`Invalid accessGroup format in metaDigest for account ${account.id}`);
+        this.logger.error(
+          { accountId: account.id, realAccessGroupType: typeof realAccessGroup },
+          `账号 ${account.id} 的 metaDigest 中 accessGroup 格式无效`,
+        );
         return {
           isValid: false,
           shouldSuspend: true,
         };
       }
 
-      // 检查一致性
+      // 检查一致性 - 移除不必要的 sort()
       const isConsistent =
-        JSON.stringify(realAccessGroup.sort()) ===
-        JSON.stringify(account.userInfo.accessGroup.sort());
+        JSON.stringify(realAccessGroup) === JSON.stringify(account.userInfo.accessGroup);
 
       if (!isConsistent) {
         // 记录严重安全错误
         this.logger.error(
-          `Access group inconsistency detected for account ${account.id}: ` +
-            `stored=${JSON.stringify(account.userInfo.accessGroup)}, real=${JSON.stringify(realAccessGroup)}`,
           {
             accountId: account.id,
             storedAccessGroup: account.userInfo.accessGroup,
             realAccessGroup,
             timestamp: new Date().toISOString(),
           },
+          `检测到账号 ${account.id} 的访问组不一致：存储=${JSON.stringify(account.userInfo.accessGroup)}，实际=${JSON.stringify(realAccessGroup)}`,
         );
 
         return {
@@ -105,8 +107,8 @@ export class AccountSecurityService {
       };
     } catch (error) {
       this.logger.error(
-        `Failed to validate access group consistency for account ${account.id}`,
-        error,
+        { err: error, accountId: account.id },
+        `验证账号 ${account.id} 的访问组一致性失败`,
       );
 
       return {
@@ -140,11 +142,14 @@ export class AccountSecurityService {
     eventType: string;
     details: Record<string, unknown>;
   }) {
-    this.logger.error(`Security Event: ${event.eventType}`, {
-      accountId: event.accountId,
-      ...event.details,
-      timestamp: new Date().toISOString(),
-    });
+    this.logger.error(
+      {
+        accountId: event.accountId,
+        ...event.details,
+        timestamp: new Date().toISOString(),
+      },
+      `安全事件：${event.eventType}`,
+    );
   }
 
   /**
@@ -168,10 +173,10 @@ export class AccountSecurityService {
         },
       });
 
-      this.logger.warn(`Account ${accountId} has been suspended due to: ${reason}`);
+      this.logger.warn({ accountId, reason }, `账号 ${accountId} 已被暂停`);
       return true;
     } catch (error) {
-      this.logger.error(`Failed to suspend account ${accountId}`, error);
+      this.logger.error({ err: error, accountId }, `暂停账号 ${accountId} 失败`);
       return false;
     }
   }
@@ -194,20 +199,17 @@ export class AccountSecurityService {
         accountId: account.id,
         eventType: 'SECURITY_BREACH_DETECTED',
         details: {
-          reason: 'Access group inconsistency detected - potential security breach',
+          reason: '检测到访问组不一致 - 潜在安全威胁',
           detectedAt: new Date().toISOString(),
           immediateBlock: true,
         },
       });
 
       // 异步尝试暂停账号，但不等待结果
-      this.suspendAccount(
-        account.id,
-        'Access group inconsistency detected - potential security breach',
-      ).catch((error) => {
+      this.suspendAccount(account.id, '检测到访问组不一致 - 潜在安全威胁').catch((error: Error) => {
         this.logger.error(
-          `Failed to suspend account ${account.id} in database, but access is still blocked`,
-          error,
+          { err: error, accountId: account.id },
+          `在数据库中暂停账号 ${account.id} 失败，但访问仍被阻止`,
         );
       });
 
