@@ -300,6 +300,13 @@ export class AccountService {
     return await provider.getProfile(accountId);
   }
 
+  /** 根据账户 ID 查找客户（Customer）信息（未启用 customer 包时返回 null） */
+  async findCustomerByAccountId(accountId: number): Promise<CustomerEntity | null> {
+    const provider = this.getProviderByIdentity('CUSTOMER');
+    if (!provider) return null;
+    return await provider.getProfile(accountId);
+  }
+
   // =========================================================
   // 昵称挑选（原样保留）
   // =========================================================

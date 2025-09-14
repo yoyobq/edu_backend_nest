@@ -184,15 +184,15 @@ export class WeappRegisterUsecase {
       status: AccountStatus.ACTIVE,
       audience: audience, // 使用传入的 audience 参数
       loginEmail: 'user@weapp', // 添加统一的登录邮箱格式
-      identityHint: 'CUSTOMER', // 添加身份提示
+      identityHint: 'REGISTRANT', // 默认身份是注册用户
     };
 
     // 准备用户信息数据
     const userInfoData = {
       nickname,
       phone, // 添加手机号字段
-      accessGroup: ['CUSTOMER'], // 修改为 CUSTOMER 访问权限组
-      metaDigest: ['CUSTOMER'], // 添加元数据摘要
+      accessGroup: ['REGISTRANT'], // 修改为 REGISTRANT 访问权限组
+      metaDigest: ['REGISTRANT'], // 修改为 REGISTRANT 元数据摘要
     };
 
     return { accountData, userInfoData };

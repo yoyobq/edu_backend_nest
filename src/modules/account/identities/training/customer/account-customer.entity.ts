@@ -5,6 +5,7 @@ import {
   Column,
   CreateDateColumn,
   Entity,
+  Index,
   JoinColumn,
   OneToMany,
   OneToOne,
@@ -20,6 +21,7 @@ import { LearnerEntity } from '../learner/account-learner.entity';
  * 用于存储付款人/监护人/客户信息，包含会员等级管理
  */
 @Entity('member_customers')
+@Index('uk_customer_account', ['accountId'], { unique: true })
 export class CustomerEntity {
   /**
    * 客户 ID，主键

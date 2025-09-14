@@ -1,23 +1,130 @@
 // src/usecases/account/fetch-identity-by-role.usecase.ts
 import { EmploymentStatus, IdentityTypeEnum } from '@app-types/models/account.types';
+import { AUTH_ERROR, DomainError } from '@core/common/errors';
 import { Injectable } from '@nestjs/common';
 import { AccountService } from '@src/modules/account/base/services/account.service';
 import { CoachType } from '../../adapters/graphql/account/dto/identity/coach.dto';
+import { CustomerType } from '../../adapters/graphql/account/dto/identity/customer.dto';
 import { ManagerType } from '../../adapters/graphql/account/dto/identity/manager.dto';
 import { StaffType } from '../../adapters/graphql/account/dto/identity/staff.dto';
 
 export type RawIdentity =
   | { kind: 'STAFF'; data: StaffType & { id: string } }
-  | { kind: 'COACH'; data: CoachType & { id: number } }
-  | { kind: 'MANAGER'; data: ManagerType & { id: number } }
+  | {
+      kind: 'COACH';
+      data: Pick<CoachType, 'accountId' | 'name' | 'remarks' | 'employmentStatus'> & {
+        id: number;
+        specialty: string | null;
+      };
+    }
+  | {
+      kind: 'MANAGER';
+      data: Pick<ManagerType, 'accountId' | 'name' | 'remarks' | 'employmentStatus'> & {
+        id: number;
+      };
+    }
+  | {
+      kind: 'CUSTOMER';
+      data: Pick<
+        CustomerType,
+        | 'accountId'
+        | 'name'
+        | 'contactPhone'
+        | 'preferredContactTime'
+        | 'membershipLevel'
+        | 'remarks'
+      > & { id: number };
+    }
   | { kind: 'NONE' };
 
 @Injectable()
 export class FetchIdentityByRoleUsecase {
   constructor(private readonly accountService: AccountService) {}
 
+  /**
+   * 检查实体是否已被停用，如果是则抛出错误
+   */
+  private checkEntityDeactivation(entity: { deactivatedAt: Date | null }): void {
+    if (entity.deactivatedAt !== null) {
+      throw new DomainError(AUTH_ERROR.ACCOUNT_INACTIVE, '用户账户已被停用');
+    }
+  }
+
+  /**
+   * 映射 Coach 实体数据
+   */
+  private mapCoachData(entity: {
+    id: number;
+    accountId: number;
+    name: string;
+    specialty: string | null;
+    remark: string | null;
+    deactivatedAt: Date | null;
+  }): Pick<CoachType, 'accountId' | 'name' | 'remarks' | 'employmentStatus'> & {
+    id: number;
+    specialty: string | null;
+  } {
+    return {
+      id: entity.id,
+      accountId: entity.accountId,
+      name: entity.name,
+      remarks: entity.remark,
+      specialty: entity.specialty,
+      employmentStatus: entity.deactivatedAt ? EmploymentStatus.LEFT : EmploymentStatus.ACTIVE,
+    };
+  }
+
+  /**
+   * 映射 Manager 实体数据
+   */
+  private mapManagerData(entity: {
+    id: number;
+    accountId: number;
+    name: string;
+    remark: string | null;
+    deactivatedAt: Date | null;
+  }): Pick<ManagerType, 'accountId' | 'name' | 'remarks' | 'employmentStatus'> & { id: number } {
+    return {
+      id: entity.id,
+      accountId: entity.accountId,
+      name: entity.name,
+      remarks: entity.remark,
+      employmentStatus: entity.deactivatedAt ? EmploymentStatus.LEFT : EmploymentStatus.ACTIVE,
+    };
+  }
+
+  /**
+   * 映射 Customer 实体数据
+   */
+  private mapCustomerData(entity: {
+    id: number;
+    accountId: number | null;
+    name: string;
+    contactPhone: string | null;
+    preferredContactTime: string | null;
+    membershipLevel: number | null;
+    remark: string | null;
+    deactivatedAt: Date | null;
+  }): Pick<
+    CustomerType,
+    'accountId' | 'name' | 'contactPhone' | 'preferredContactTime' | 'membershipLevel' | 'remarks'
+  > & { id: number } {
+    return {
+      id: entity.id,
+      accountId: entity.accountId!,
+      name: entity.name,
+      contactPhone: entity.contactPhone,
+      preferredContactTime: entity.preferredContactTime,
+      membershipLevel: entity.membershipLevel?.toString() || null,
+      remarks: entity.remark,
+    };
+  }
+
   async execute(accountId: number, role: IdentityTypeEnum): Promise<RawIdentity> {
     switch (role) {
+      case IdentityTypeEnum.REGISTRANT: {
+        return { kind: 'NONE' };
+      }
       case IdentityTypeEnum.STAFF: {
         const entity = await this.accountService.findStaffByAccountId(accountId);
         return entity ? { kind: 'STAFF', data: entity } : { kind: 'NONE' };
@@ -26,39 +133,25 @@ export class FetchIdentityByRoleUsecase {
         const entity = await this.accountService.findCoachByAccountId(accountId);
         if (!entity) return { kind: 'NONE' };
 
-        // 将 CoachEntity 字段映射到 CoachType 格式
-        const mappedData: CoachType & { id: number } = {
-          id: entity.id,
-          accountId: entity.accountId,
-          name: entity.name,
-          departmentId: null, // CoachEntity 没有 departmentId 字段
-          remarks: entity.remark, // 映射 remark -> remarks
-          jobTitle: null, // CoachEntity 没有 jobTitle 字段
-          employmentStatus: entity.deactivatedAt ? EmploymentStatus.LEFT : EmploymentStatus.ACTIVE,
-          createdAt: entity.createdAt,
-          updatedAt: entity.updatedAt,
-        };
-
+        this.checkEntityDeactivation(entity);
+        const mappedData = this.mapCoachData(entity);
         return { kind: 'COACH', data: mappedData };
       }
       case IdentityTypeEnum.MANAGER: {
         const entity = await this.accountService.findManagerByAccountId(accountId);
         if (!entity) return { kind: 'NONE' };
 
-        // 将 ManagerEntity 字段映射到 ManagerType 格式
-        const mappedData: ManagerType & { id: number } = {
-          id: entity.id,
-          accountId: entity.accountId,
-          name: entity.name,
-          departmentId: null, // ManagerEntity 没有 departmentId 字段
-          remarks: entity.remark, // 映射 remark -> remarks
-          jobTitle: null, // ManagerEntity 没有 jobTitle 字段
-          employmentStatus: entity.deactivatedAt ? EmploymentStatus.LEFT : EmploymentStatus.ACTIVE,
-          createdAt: entity.createdAt,
-          updatedAt: entity.updatedAt,
-        };
-
+        this.checkEntityDeactivation(entity);
+        const mappedData = this.mapManagerData(entity);
         return { kind: 'MANAGER', data: mappedData };
+      }
+      case IdentityTypeEnum.CUSTOMER: {
+        const entity = await this.accountService.findCustomerByAccountId(accountId);
+        if (!entity) return { kind: 'NONE' };
+
+        this.checkEntityDeactivation(entity);
+        const mappedData = this.mapCustomerData(entity);
+        return { kind: 'CUSTOMER', data: mappedData };
       }
       default:
         return { kind: 'NONE' };
