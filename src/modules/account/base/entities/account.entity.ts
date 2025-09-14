@@ -56,7 +56,7 @@ export class AccountEntity {
     type: 'varchar',
     length: 30,
     nullable: true,
-    comment: '身份提示字段，用于加速判断：如 ["staff","student","customer"]',
+    comment: '身份提示字段，用于加速判断：如 "staff","student","customer" 等',
   })
   identityHint!: string | null;
 
