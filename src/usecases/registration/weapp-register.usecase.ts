@@ -184,7 +184,7 @@ export class WeappRegisterUsecase {
     const accountData = {
       status: AccountStatus.ACTIVE,
       audience: audience, // 使用传入的 audience 参数
-      loginEmail: 'user@weapp', // 添加统一的登录邮箱格式
+      loginEmail: `weapp_${Date.now()}_${Math.random().toString(36).slice(2, 8)}@local`, // 添加统一的登录邮箱格式
       identityHint: IdentityTypeEnum.REGISTRANT, // 修复：使用 IdentityTypeEnum 枚举
     };
 

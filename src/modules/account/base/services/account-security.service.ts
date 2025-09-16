@@ -4,14 +4,13 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { PinoLogger } from 'nestjs-pino';
 import { Repository } from 'typeorm';
-import { FieldEncryptionService } from '../../../../core/field-encryption/field-encryption.service';
 import { AccountEntity } from '../entities/account.entity';
 import { UserInfoEntity } from '../entities/user-info.entity';
 
 @Injectable()
 export class AccountSecurityService {
   constructor(
-    private readonly fieldEncryptionService: FieldEncryptionService,
+    // 移除 FieldEncryptionService 注入
     @InjectRepository(AccountEntity)
     private readonly accountRepository: Repository<AccountEntity>,
     private readonly logger: PinoLogger,
