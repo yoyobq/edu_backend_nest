@@ -1,6 +1,6 @@
 // src/usecases/auth/login-by-account-id.usecase.ts
 
-import { EnrichedLoginResult } from '@app-types/auth/login-flow.types';
+import { EnrichedLoginResult, LoginWarningType } from '@app-types/auth/login-flow.types';
 import { AudienceTypeEnum, ThirdPartyProviderEnum } from '@app-types/models/account.types';
 import { Injectable } from '@nestjs/common';
 import { DecideLoginRoleUsecase } from './decide-login-role.usecase';
@@ -48,7 +48,7 @@ export class LoginByAccountIdUsecase {
     });
 
     // Decide: 决策最终角色
-    const { finalRole } = this.decideLoginRoleUsecase.execute(
+    const { finalRole, reason } = this.decideLoginRoleUsecase.execute(
       { roleFromHint: basicResult.roleFromHint, accessGroup: basicResult.accessGroup },
       {
         accountId: basicResult.accountId,
@@ -68,6 +68,14 @@ export class LoginByAccountIdUsecase {
       userInfo: basicResult.userInfo,
       options: { includeIdentity: true },
     });
+
+    // 如果角色决策使用了 fallback 策略，添加警告信息
+    if (reason === 'fallback') {
+      enrichedResult.warnings = [
+        ...(enrichedResult.warnings ?? []),
+        LoginWarningType.ROLE_FALLBACK,
+      ];
+    }
 
     return enrichedResult;
   }
