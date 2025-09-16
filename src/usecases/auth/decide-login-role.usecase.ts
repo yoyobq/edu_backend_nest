@@ -88,7 +88,7 @@ export class DecideLoginRoleUsecase implements IDecideLoginRoleUsecase {
    * @param accessGroup 访问组
    * @returns 哈希值
    */
-  private hashAccessGroup(accessGroup: string[]): string {
+  private hashAccessGroup(accessGroup: IdentityTypeEnum[]): string {
     const sortedGroups = [...accessGroup].sort().join(',');
     return createHash('sha256').update(sortedGroups).digest('hex').substring(0, 16);
   }
@@ -111,7 +111,7 @@ export class DecideLoginRoleUsecase implements IDecideLoginRoleUsecase {
         userAgent: auditData.userAgent,
         timestamp: auditData.timestamp.toISOString(),
       },
-      `Login role decision: account=${auditData.accountId}, finalRole=${auditData.finalRole}, reason=${auditData.reason}`,
+      `登录角色决策: 账户=${auditData.accountId}, 最终角色=${auditData.finalRole}, 原因=${auditData.reason}`,
     );
   }
 }

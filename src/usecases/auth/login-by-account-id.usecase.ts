@@ -53,7 +53,7 @@ export class LoginByAccountIdUsecase {
       {
         accountId: basicResult.accountId,
         ip: ip || '',
-        userAgent: '',
+        userAgent: '-',
         audience: audience || AudienceTypeEnum.DESKTOP,
       },
     );

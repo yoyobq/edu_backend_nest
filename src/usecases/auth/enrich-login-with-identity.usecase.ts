@@ -107,7 +107,7 @@ export class EnrichLoginWithIdentityUsecase implements IEnrichLoginWithIdentityU
           finalRole,
           error: error instanceof Error ? error.message : 'Unknown error',
         },
-        `Failed to fetch identity for account ${accountId} with role ${finalRole}`,
+        `账户 ${accountId} 角色 ${finalRole} 身份信息获取失败`,
       );
       return { identity: null, warnings };
     }
@@ -136,7 +136,7 @@ export class EnrichLoginWithIdentityUsecase implements IEnrichLoginWithIdentityU
           accountId,
           finalRole,
         },
-        `Identity not found for account ${accountId} with role ${finalRole}`,
+        `账户 ${accountId} 角色 ${finalRole} 未找到身份信息`,
       );
       return { identity: null, warnings };
     }
@@ -153,7 +153,7 @@ export class EnrichLoginWithIdentityUsecase implements IEnrichLoginWithIdentityU
           finalRole,
           identityStatus: 'disabled',
         },
-        `Identity disabled for account ${accountId} with role ${finalRole}`,
+        `账户 ${accountId} 角色 ${finalRole} 身份信息已停用`,
       );
       return { identity: null, warnings };
     }
@@ -245,7 +245,7 @@ export class EnrichLoginWithIdentityUsecase implements IEnrichLoginWithIdentityU
         warningsCount: warnings.length,
         warnings,
       },
-      `Login enrichment completed for account ${accountId}`,
+      `账户 ${accountId} 登录信息装配完成`,
     );
   }
 }

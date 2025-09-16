@@ -190,7 +190,7 @@ export class ExecuteLoginFlowUsecase {
   }): Promise<void> {
     try {
       if (provider) {
-        this.logger.info(`第三方登录: accountId=${accountId}, provider=${provider}, ip=${ip}`);
+        this.logger.info(`第三方登录: 账户ID=${accountId}, 提供商=${provider}, IP=${ip}`);
       }
       await this.accountService.recordLoginHistory(
         accountId,
