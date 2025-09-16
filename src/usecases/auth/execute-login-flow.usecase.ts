@@ -83,7 +83,7 @@ export class ExecuteLoginFlowUsecase {
     const tokens = this.generateTokens(userData);
 
     // 记录登录历史
-    this.handleLoginHistory({ accountId, ip, audience, provider });
+    await this.handleLoginHistory({ accountId, ip, audience, provider });
 
     // 构建并返回基础登录结果
     return this.buildLoginResult(userData, tokens);
@@ -170,7 +170,7 @@ export class ExecuteLoginFlowUsecase {
    * 处理登录历史记录
    * @param params 登录历史参数
    */
-  private handleLoginHistory({
+  private async handleLoginHistory({
     accountId,
     ip,
     audience,
@@ -180,16 +180,18 @@ export class ExecuteLoginFlowUsecase {
     ip?: string;
     audience?: AudienceTypeEnum;
     provider?: ThirdPartyProviderEnum;
-  }): void {
+  }): Promise<void> {
     try {
-      this.recordLoginHistory({
+      if (provider) {
+        this.logger.info(`第三方登录: accountId=${accountId}, provider=${provider}, ip=${ip}`);
+      }
+      await this.accountService.recordLoginHistory(
         accountId,
-        ip: ip || 'unknown',
-        audience: audience || AudienceTypeEnum.DESKTOP,
-        provider,
-      });
-    } catch (error: unknown) {
-      // 记录错误但不阻塞主流程
+        new Date().toISOString(),
+        ip,
+        audience,
+      );
+    } catch (error) {
       this.logger.error(
         {
           accountId,
