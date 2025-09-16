@@ -3,7 +3,6 @@
 import { IdentityTypeEnum } from '@app-types/models/account.types';
 import { Injectable } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
-import { IdentityUnionType } from '../../adapters/graphql/account/dto/identity/identity-union.type';
 import {
   EnrichedLoginResult,
   EnrichLoginWithIdentityInput,
@@ -39,8 +38,8 @@ export class EnrichLoginWithIdentityUsecase implements IEnrichLoginWithIdentityU
     const { includeIdentity = true, includeAccount = true, includeUserInfo = true } = options;
 
     const warnings: string[] = [];
-    // 修复：将 identity 类型从 unknown 改为 IdentityUnionType | null
-    let identity: IdentityUnionType | null = null;
+    // 修复：使用 unknown 类型
+    let identity: unknown = null;
 
     // 身份装配逻辑
     if (includeIdentity) {
@@ -49,7 +48,8 @@ export class EnrichLoginWithIdentityUsecase implements IEnrichLoginWithIdentityU
         accountId,
         warnings,
       );
-      identity = identityProcessingResult.identity as IdentityUnionType | null;
+      // 修复：直接赋值，不进行类型转换
+      identity = identityProcessingResult.identity;
       warnings.push(...identityProcessingResult.warnings);
     }
 
@@ -58,7 +58,7 @@ export class EnrichLoginWithIdentityUsecase implements IEnrichLoginWithIdentityU
       tokens,
       accountId,
       finalRole,
-      accessGroup: accessGroup.map((group) => group), // 修复：转换 string[] 为 IdentityTypeEnum[]
+      accessGroup,
       account,
       userInfo,
       identity,
@@ -186,7 +186,7 @@ export class EnrichLoginWithIdentityUsecase implements IEnrichLoginWithIdentityU
     accessGroup: IdentityTypeEnum[];
     account: MinimalAccountInfo;
     userInfo: MinimalUserInfo;
-    identity: IdentityUnionType | null;
+    identity: unknown; // 修复：使用 unknown 类型
     warnings: string[];
     includeAccount: boolean;
     includeUserInfo: boolean;
@@ -204,7 +204,7 @@ export class EnrichLoginWithIdentityUsecase implements IEnrichLoginWithIdentityU
       includeUserInfo,
     } = params;
 
-    const result: EnrichedLoginResult = {
+    return {
       // 认证信息
       accessToken: tokens.accessToken,
       refreshToken: tokens.refreshToken,
@@ -212,23 +212,16 @@ export class EnrichLoginWithIdentityUsecase implements IEnrichLoginWithIdentityU
 
       // 角色和身份
       role: finalRole,
-      identity,
+      identity, // 直接使用 unknown 类型
       accessGroup,
 
-      // 警告信息（仅在有警告时包含）
+      // 账号和用户信息（根据选项决定是否包含）
+      ...(includeAccount && { account }),
+      ...(includeUserInfo && { userInfo }),
+
+      // 警告信息（仅在有警告时返回）
       ...(warnings.length > 0 && { warnings }),
     };
-
-    // 只在需要时添加可选字段
-    if (includeAccount) {
-      result.account = account;
-    }
-
-    if (includeUserInfo) {
-      result.userInfo = userInfo;
-    }
-
-    return result;
   }
 
   /**
@@ -255,28 +248,4 @@ export class EnrichLoginWithIdentityUsecase implements IEnrichLoginWithIdentityU
       `Login enrichment completed for account ${accountId}`,
     );
   }
-
-  // 删除这两个方法，因为不再需要创建空对象占位
-  // private createEmptyAccountInfo(): MinimalAccountInfo {
-  // return {
-  //   id: 0,
-  //   loginName: null,
-  //   loginEmail: null,
-  //   status: '',
-  //   identityHint: null,
-  //   createdAt: new Date(0),
-  //   updatedAt: new Date(0),
-  // };
-  // }
-
-  // private createEmptyUserInfo(): MinimalUserInfo {
-  // return {
-  //   id: 0,
-  //   accountId: 0,
-  //   nickname: '',
-  //   avatarUrl: null,
-  //   createdAt: new Date(0),
-  //   updatedAt: new Date(0),
-  // };
-  // }
 }

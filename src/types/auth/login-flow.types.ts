@@ -1,7 +1,6 @@
 // src/types/auth/login-flow.types.ts
 
 import { AudienceTypeEnum, IdentityTypeEnum } from '@app-types/models/account.types';
-import { IdentityUnionType } from '../../adapters/graphql/account/dto/identity/identity-union.type';
 
 /**
  * ExecuteLoginFlowUsecase 输出类型
@@ -13,7 +12,7 @@ export interface BasicLoginResult {
   };
   accountId: number;
   roleFromHint: IdentityTypeEnum | null;
-  accessGroup: IdentityTypeEnum[]; // 修复：从 string[] 改为 IdentityTypeEnum[]
+  accessGroup: IdentityTypeEnum[];
   account: MinimalAccountInfo;
   userInfo: MinimalUserInfo;
 }
@@ -68,8 +67,8 @@ export interface EnrichedLoginResult {
 
   // 角色和身份
   role: IdentityTypeEnum;
-  identity: IdentityUnionType | null; // 修复：从 unknown 改为 IdentityUnionType | null
-  accessGroup: IdentityTypeEnum[]; // 修复：从 string[] 改为 IdentityTypeEnum[]
+  identity: unknown; // 改为 unknown，由适配器层处理具体类型
+  accessGroup: IdentityTypeEnum[];
 
   // 账号和用户信息（改为可选字段）
   account?: MinimalAccountInfo;
