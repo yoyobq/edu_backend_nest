@@ -32,7 +32,7 @@ export class TokenHelper {
    * @param params.expiresIn 可选，用于覆盖默认 JWT 签名时间
    * @returns 生成的 JWT Access Token 字符串
    */
-  generateAccessToken({ payload, expiresIn }: GenerateAccessTokenParams): string {
+  generateAccessToken({ payload, expiresIn, audience }: GenerateAccessTokenParams): string {
     try {
       const accessPayload = {
         ...payload,
@@ -43,6 +43,10 @@ export class TokenHelper {
 
       if (expiresIn) {
         signOptions.expiresIn = expiresIn;
+      }
+
+      if (audience) {
+        signOptions.audience = audience;
       }
 
       const token = this.jwtService.sign(accessPayload, signOptions);

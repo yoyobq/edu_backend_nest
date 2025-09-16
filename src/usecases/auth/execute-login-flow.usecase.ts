@@ -79,8 +79,8 @@ export class ExecuteLoginFlowUsecase {
     // 获取用户相关数据
     const userData = await this.fetchUserData(accountId);
 
-    // 生成 JWT tokens
-    const tokens = this.generateTokens(userData);
+    // 生成 JWT tokens，传入 audience 参数
+    const tokens = this.generateTokens(userData, audience);
 
     // 记录登录历史
     await this.handleLoginHistory({ accountId, ip, audience, provider });
@@ -138,9 +138,13 @@ export class ExecuteLoginFlowUsecase {
   /**
    * 生成 JWT tokens
    * @param userData 用户数据集合
+   * @param audience 客户端类型（用于 JWT audience 声明）
    * @returns JWT tokens 对象
    */
-  private generateTokens(userData: UserDataCollection): {
+  private generateTokens(
+    userData: UserDataCollection,
+    audience?: AudienceTypeEnum,
+  ): {
     accessToken: string;
     refreshToken: string;
   } {
@@ -154,9 +158,10 @@ export class ExecuteLoginFlowUsecase {
       accessGroup: userWithAccessGroup.accessGroup,
     });
 
-    // 生成 tokens
+    // 生成 tokens，传入 audience 参数
     const accessToken = this.tokenHelper.generateAccessToken({
       payload: jwtPayload,
+      audience: audience, // 传递 audience 参数
     });
 
     const refreshToken = this.tokenHelper.generateRefreshToken({

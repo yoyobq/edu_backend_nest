@@ -46,7 +46,7 @@ export class ThirdPartyAuthResolver {
     const params: ThirdPartyLoginParams = {
       provider: input.provider,
       authCredential: input.authCredential,
-      audience: String(input.audience),
+      audience: input.audience,
       ip: input.ip,
     };
 

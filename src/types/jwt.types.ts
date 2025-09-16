@@ -6,6 +6,7 @@
 export type GenerateAccessTokenParams = {
   payload: JwtPayload;
   expiresIn?: string;
+  audience?: string; // 新增：支持 audience 参数
 };
 
 /**

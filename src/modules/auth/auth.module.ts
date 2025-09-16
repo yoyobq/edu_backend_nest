@@ -10,6 +10,8 @@ import { AuthService } from './auth.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
 // 添加 usecase 导入
 import { ValidateLoginUsecase } from '@usecases/account/validate-login.usecase';
+import { DecideLoginRoleUsecase } from '@usecases/auth/decide-login-role.usecase';
+import { EnrichLoginWithIdentityUsecase } from '@usecases/auth/enrich-login-with-identity.usecase';
 import { ExecuteLoginFlowUsecase } from '@usecases/auth/execute-login-flow.usecase';
 import { LoginByAccountIdUsecase } from '@usecases/auth/login-by-account-id.usecase';
 import { LoginWithPasswordUsecase } from '@usecases/auth/login-with-password.usecase';
@@ -34,6 +36,9 @@ import { LoginWithThirdPartyUsecase } from '@usecases/auth/login-with-third-part
     ExecuteLoginFlowUsecase,
     LoginByAccountIdUsecase,
     LoginWithThirdPartyUsecase,
+    // 添加缺失的 usecase providers
+    DecideLoginRoleUsecase,
+    EnrichLoginWithIdentityUsecase,
   ],
   exports: [
     AuthService,
@@ -44,6 +49,9 @@ import { LoginWithThirdPartyUsecase } from '@usecases/auth/login-with-third-part
     ExecuteLoginFlowUsecase,
     LoginByAccountIdUsecase,
     LoginWithThirdPartyUsecase,
+    // 导出新添加的 usecases
+    DecideLoginRoleUsecase,
+    EnrichLoginWithIdentityUsecase,
   ],
 })
 export class AuthModule {}
