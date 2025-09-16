@@ -16,7 +16,7 @@ import { LoginByAccountIdUsecase } from './login-by-account-id.usecase';
 export interface ThirdPartyLoginParams {
   provider: ThirdPartyProviderEnum;
   authCredential: string; // 小程序 js_code、网页 code、id_token 等
-  audience: AudienceTypeEnum | string;
+  audience: AudienceTypeEnum;
   ip?: string;
 }
 
@@ -39,7 +39,7 @@ export class LoginWithThirdPartyUsecase {
 
   async execute(params: ThirdPartyLoginParams): Promise<LoginResultModel> {
     const provider = params.provider;
-    const audience = String(params.audience ?? '');
+    const audience = params.audience ?? AudienceTypeEnum.DESKTOP; // 修复：直接使用枚举值
     const ip = params.ip;
     const authCredential = (params.authCredential ?? '').trim();
 
@@ -52,7 +52,7 @@ export class LoginWithThirdPartyUsecase {
     const session = await this.resolveIdentitySafe({
       provider,
       authCredential,
-      audience: audience as AudienceTypeEnum,
+      audience, // 修复：现在是 AudienceTypeEnum 类型
     });
 
     // 2) 查找绑定关系
@@ -73,8 +73,8 @@ export class LoginWithThirdPartyUsecase {
     const result = await this.loginByAccountId.execute({
       accountId: bound.accountId,
       ip,
-      audience,
-      provider, // 添加 provider 参数
+      audience, // 修复：现在是 AudienceTypeEnum 类型
+      provider,
     });
 
     return result; // { accessToken, refreshToken, accountId, role, identity? }

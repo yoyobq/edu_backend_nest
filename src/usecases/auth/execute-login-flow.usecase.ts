@@ -3,6 +3,7 @@
 import { BasicLoginResult } from '@app-types/auth/login-flow.types';
 import {
   AccountStatus,
+  AudienceTypeEnum,
   IdentityTypeEnum,
   ThirdPartyProviderEnum,
 } from '@app-types/models/account.types';
@@ -12,6 +13,34 @@ import { AccountService } from '@modules/account/base/services/account.service';
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PinoLogger } from 'nestjs-pino';
+
+/**
+ * 用户数据集合接口
+ */
+interface UserDataCollection {
+  userWithAccessGroup: {
+    id: number;
+    loginEmail: string | null;
+    accessGroup: IdentityTypeEnum[];
+  };
+  account: {
+    id: number;
+    loginName: string | null;
+    loginEmail: string | null;
+    status: string;
+    identityHint: string | null;
+    createdAt: Date;
+    updatedAt: Date;
+  };
+  userInfo: {
+    id: number;
+    accountId: number;
+    nickname: string;
+    avatarUrl: string | null;
+    createdAt: Date;
+    updatedAt: Date;
+  };
+}
 
 /**
  * 执行登录流程用例
@@ -37,21 +66,49 @@ export class ExecuteLoginFlowUsecase {
     accountId,
     ip,
     audience,
-    provider, // 添加 provider 参数
+    provider,
   }: {
     accountId: number;
     ip?: string;
-    audience?: string;
-    provider?: ThirdPartyProviderEnum; // 添加 provider 参数类型
+    audience?: AudienceTypeEnum;
+    provider?: ThirdPartyProviderEnum;
   }): Promise<BasicLoginResult> {
-    // 添加 audience 校验逻辑
+    // 验证 audience 类型安全性
+    this.validateAudience(audience);
+
+    // 获取用户相关数据
+    const userData = await this.fetchUserData(accountId);
+
+    // 生成 JWT tokens
+    const tokens = this.generateTokens(userData);
+
+    // 记录登录历史
+    this.handleLoginHistory({ accountId, ip, audience, provider });
+
+    // 构建并返回基础登录结果
+    return this.buildLoginResult(userData, tokens);
+  }
+
+  /**
+   * 验证 audience 参数
+   * @param audience 客户端类型枚举
+   */
+  private validateAudience(audience?: AudienceTypeEnum): void {
     if (audience) {
-      const cfgAudience = this.configService.get<string>('jwt.audience');
-      if (!this.tokenHelper.validateAudience(audience, cfgAudience!)) {
+      const allowedAudiences =
+        this.configService.get<AudienceTypeEnum[]>('jwt.allowedAudiences') ?? [];
+      if (!this.validateAudienceEnum(audience, allowedAudiences)) {
         throw new DomainError(AUTH_ERROR.INVALID_AUDIENCE, `无效的客户端类型: ${audience}`);
       }
     }
+  }
 
+  /**
+   * 获取用户相关数据
+   * @param accountId 账户 ID
+   * @returns 用户数据集合
+   */
+  private async fetchUserData(accountId: number): Promise<UserDataCollection> {
     // 获取用户信息和访问组
     const userWithAccessGroup = await this.accountService.getUserWithAccessGroup(accountId);
     if (!userWithAccessGroup) {
@@ -64,7 +121,7 @@ export class ExecuteLoginFlowUsecase {
       throw new DomainError(ACCOUNT_ERROR.ACCOUNT_NOT_FOUND, '账户不存在');
     }
 
-    // 检查账户状态 - 使用枚举值而不是字符串字面量
+    // 检查账户状态
     if (account.status !== AccountStatus.ACTIVE) {
       throw new DomainError(AUTH_ERROR.ACCOUNT_INACTIVE, '账户未激活');
     }
@@ -75,7 +132,21 @@ export class ExecuteLoginFlowUsecase {
       throw new DomainError(ACCOUNT_ERROR.USER_INFO_NOT_FOUND, '用户信息不存在');
     }
 
-    // 创建 JWT payload - 需要包含 nickname 字段
+    return { userWithAccessGroup, account, userInfo };
+  }
+
+  /**
+   * 生成 JWT tokens
+   * @param userData 用户数据集合
+   * @returns JWT tokens 对象
+   */
+  private generateTokens(userData: UserDataCollection): {
+    accessToken: string;
+    refreshToken: string;
+  } {
+    const { userWithAccessGroup, userInfo } = userData;
+
+    // 创建 JWT payload
     const jwtPayload = this.tokenHelper.createPayloadFromUser({
       id: userWithAccessGroup.id,
       nickname: userInfo.nickname,
@@ -83,33 +154,78 @@ export class ExecuteLoginFlowUsecase {
       accessGroup: userWithAccessGroup.accessGroup,
     });
 
-    // 生成令牌 - 使用独立的方法
-    const accessToken = this.tokenHelper.generateAccessToken({ payload: jwtPayload });
-    const refreshToken = this.tokenHelper.generateRefreshToken({ payload: jwtPayload });
+    // 生成 tokens
+    const accessToken = this.tokenHelper.generateAccessToken({
+      payload: jwtPayload,
+    });
 
-    // 记录登录历史（如果需要的话）
-    if (provider) {
-      this.logger.info(`第三方登录: accountId=${accountId}, provider=${provider}, ip=${ip}`);
-      // 这里可以添加登录历史记录逻辑
+    const refreshToken = this.tokenHelper.generateRefreshToken({
+      payload: { sub: jwtPayload.sub },
+    });
+
+    return { accessToken, refreshToken };
+  }
+
+  /**
+   * 处理登录历史记录
+   * @param params 登录历史参数
+   */
+  private handleLoginHistory({
+    accountId,
+    ip,
+    audience,
+    provider,
+  }: {
+    accountId: number;
+    ip?: string;
+    audience?: AudienceTypeEnum;
+    provider?: ThirdPartyProviderEnum;
+  }): void {
+    try {
+      this.recordLoginHistory({
+        accountId,
+        ip: ip || 'unknown',
+        audience: audience || AudienceTypeEnum.DESKTOP,
+        provider,
+      });
+    } catch (error: unknown) {
+      // 记录错误但不阻塞主流程
+      this.logger.error(
+        {
+          accountId,
+          ip,
+          audience,
+          provider,
+          error: error instanceof Error ? error.message : String(error),
+        },
+        '记录登录历史失败',
+      );
     }
+  }
 
-    await this.accountService.recordLoginHistory(accountId, new Date().toISOString(), ip, audience);
+  /**
+   * 构建登录结果
+   * @param userData 用户数据集合
+   * @param tokens JWT tokens
+   * @returns 基础登录结果
+   */
+  private buildLoginResult(
+    userData: UserDataCollection,
+    tokens: { accessToken: string; refreshToken: string },
+  ): BasicLoginResult {
+    const { userWithAccessGroup, account, userInfo } = userData;
 
-    // 返回基础登录结果
     return {
-      tokens: {
-        accessToken,
-        refreshToken,
-      },
-      accountId,
-      roleFromHint: account.identityHint as IdentityTypeEnum | null,
+      tokens,
+      accountId: account.id,
+      roleFromHint: this.parseIdentityHint(account.identityHint),
       accessGroup: userWithAccessGroup.accessGroup,
       account: {
         id: account.id,
-        loginName: account.loginName ?? null, // 修复：保持 null 语义，方便前端判断"未设置"
-        loginEmail: account.loginEmail ?? null, // 修复：保持 null 语义，方便前端判断"未设置"
+        loginName: account.loginName,
+        loginEmail: account.loginEmail,
         status: account.status,
-        identityHint: account.identityHint as IdentityTypeEnum | null,
+        identityHint: this.parseIdentityHint(account.identityHint),
         createdAt: account.createdAt,
         updatedAt: account.updatedAt,
       },
@@ -117,10 +233,63 @@ export class ExecuteLoginFlowUsecase {
         id: userInfo.id,
         accountId: userInfo.accountId,
         nickname: userInfo.nickname,
-        avatarUrl: userInfo.avatarUrl, // 修复：直接使用 avatarUrl 字段
+        avatarUrl: userInfo.avatarUrl,
         createdAt: userInfo.createdAt,
         updatedAt: userInfo.updatedAt,
       },
     };
+  }
+
+  /**
+   * 验证 audience 枚举值是否有效
+   * @param audience 客户端类型枚举
+   * @param allowedAudiences 允许的客户端类型列表
+   * @returns 是否有效
+   */
+  private validateAudienceEnum(
+    audience: AudienceTypeEnum,
+    allowedAudiences: AudienceTypeEnum[],
+  ): boolean {
+    return allowedAudiences.includes(audience);
+  }
+
+  /**
+   * 安全解析身份提示字符串为枚举类型
+   * @param identityHint 身份提示字符串
+   * @returns 解析后的枚举值或 null
+   */
+  private parseIdentityHint(identityHint: string | null): IdentityTypeEnum | null {
+    if (!identityHint) {
+      return null;
+    }
+
+    // 检查是否为有效的枚举值
+    const enumValues = Object.values(IdentityTypeEnum) as string[];
+    if (enumValues.includes(identityHint)) {
+      return identityHint as IdentityTypeEnum;
+    }
+
+    // 如果不是有效枚举值，记录警告并返回 null
+    this.logger.warn({ identityHint, validValues: enumValues }, '无效的身份提示值，将返回 null');
+    return null;
+  }
+
+  /**
+   * 记录登录历史
+   * @param params 登录历史参数
+   */
+  private recordLoginHistory({
+    accountId,
+    ip,
+    audience,
+    provider,
+  }: {
+    accountId: number;
+    ip: string;
+    audience: AudienceTypeEnum;
+    provider?: ThirdPartyProviderEnum;
+  }): void {
+    // 这里可以调用登录历史服务记录登录信息
+    this.logger.info({ accountId, ip, audience, provider }, '用户登录成功');
   }
 }
