@@ -166,6 +166,7 @@ export class ExecuteLoginFlowUsecase {
 
     const refreshToken = this.tokenHelper.generateRefreshToken({
       payload: { sub: jwtPayload.sub },
+      audience: audience, // 传递 audience 参数
     });
 
     return { accessToken, refreshToken };

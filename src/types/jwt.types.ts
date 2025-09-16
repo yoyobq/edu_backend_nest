@@ -15,6 +15,7 @@ export type GenerateAccessTokenParams = {
 export type GenerateRefreshTokenParams = {
   payload: Pick<JwtPayload, 'sub'>;
   tokenVersion?: number;
+  audience?: string; // 新增：支持 audience 参数
 };
 
 /**

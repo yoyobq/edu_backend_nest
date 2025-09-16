@@ -76,9 +76,15 @@ export class TokenHelper {
    * 生成刷新令牌
    * @param params 对象参数
    * @param params.payload JWT 载荷数据
+   * @param params.tokenVersion 令牌版本号，默认为 1
+   * @param params.audience 可选，用于覆盖默认 audience
    * @returns 生成的 JWT Refresh Token 字符串
    */
-  generateRefreshToken({ payload, tokenVersion = 1 }: GenerateRefreshTokenParams): string {
+  generateRefreshToken({
+    payload,
+    tokenVersion = 1,
+    audience,
+  }: GenerateRefreshTokenParams): string {
     try {
       const refreshPayload = {
         sub: payload.sub,
@@ -86,7 +92,13 @@ export class TokenHelper {
         tokenVersion: tokenVersion,
       };
 
-      const token = this.jwtService.sign(refreshPayload);
+      const signOptions: Record<string, unknown> = {};
+
+      if (audience) {
+        signOptions.audience = audience;
+      }
+
+      const token = this.jwtService.sign(refreshPayload, signOptions);
 
       return token;
     } catch (error) {
