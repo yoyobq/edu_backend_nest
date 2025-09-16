@@ -30,46 +30,24 @@ export class AccountSecurityService {
     shouldSuspend: boolean;
   } {
     try {
-      // 确保 metaDigest 是字符串类型
-      const metaDigestValue = Array.isArray(account.userInfo.metaDigest)
-        ? account.userInfo.metaDigest[0]
-        : account.userInfo.metaDigest;
+      // metaDigest 现在统一为对象类型，由加密装饰器自动处理
+      const metaDigestValue = account.userInfo.metaDigest;
 
-      if (!metaDigestValue || typeof metaDigestValue !== 'string') {
-        this.logger.error(
-          { accountId: account.id, metaDigestType: typeof metaDigestValue },
-          `账号 ${account.id} 的 metaDigest 格式无效`,
-        );
+      if (!metaDigestValue) {
+        this.logger.error({ accountId: account.id }, `账号 ${account.id} 的 metaDigest 为空`);
         return {
           isValid: false,
           shouldSuspend: true,
         };
       }
 
-      // 从 metaDigest 中解密获取真实的 accessGroup
-      const decryptedData = this.fieldEncryptionService.decrypt(metaDigestValue);
-
-      // 安全地解析 JSON 数据
-      let parsedData: { accessGroup?: IdentityTypeEnum[] };
-      try {
-        parsedData = JSON.parse(decryptedData) as { accessGroup?: IdentityTypeEnum[] };
-      } catch (parseError) {
-        this.logger.error(
-          { err: parseError, accountId: account.id },
-          `解析账号 ${account.id} 的解密 metaDigest 失败`,
-        );
-        return {
-          isValid: false,
-          shouldSuspend: true,
-        };
-      }
-
-      const realAccessGroup = parsedData.accessGroup;
+      // 从 metaDigest 对象中获取 accessGroup（已经是解密后的对象）
+      const realAccessGroup = metaDigestValue.accessGroup;
 
       if (!Array.isArray(realAccessGroup)) {
         this.logger.error(
-          { accountId: account.id, realAccessGroupType: typeof realAccessGroup },
-          `账号 ${account.id} 的 metaDigest 中 accessGroup 格式无效`,
+          { accountId: account.id, metaDigest: metaDigestValue },
+          `账号 ${account.id} 的 metaDigest.accessGroup 格式无效`,
         );
         return {
           isValid: false,
@@ -77,7 +55,7 @@ export class AccountSecurityService {
         };
       }
 
-      // 检查一致性 - 移除不必要的 sort()
+      // 检查一致性 - 对比明文 accessGroup 和加密存储的 accessGroup
       const isConsistent =
         JSON.stringify(realAccessGroup) === JSON.stringify(account.userInfo.accessGroup);
 

@@ -140,9 +140,9 @@ export class RegisterWithEmailUsecase {
       status: AccountStatus.PENDING,
       nickname: finalNickname,
       email: loginEmail,
-      accessGroup: [IdentityTypeEnum.REGISTRANT], // 修复：使用 IdentityTypeEnum 枚举
-      identityHint: IdentityTypeEnum.REGISTRANT, // 修复：使用 IdentityTypeEnum 枚举
-      metaDigest: [IdentityTypeEnum.REGISTRANT], // 修复：使用 IdentityTypeEnum 枚举
+      accessGroup: [IdentityTypeEnum.REGISTRANT],
+      identityHint: IdentityTypeEnum.REGISTRANT,
+      metaDigest: { accessGroup: [IdentityTypeEnum.REGISTRANT] }, // 修改为对象格式
     };
   }
 
@@ -160,7 +160,7 @@ export class RegisterWithEmailUsecase {
     email: string;
     accessGroup: IdentityTypeEnum[]; // 修复：从 string[] 改为 IdentityTypeEnum[]
     identityHint: IdentityTypeEnum; // 修复：从 string 改为 IdentityTypeEnum
-    metaDigest: IdentityTypeEnum[]; // 修复：从 string[] 改为 IdentityTypeEnum[]
+    metaDigest: { accessGroup: IdentityTypeEnum[] }; // 修复：从 IdentityTypeEnum[] 改为对象格式
   }): Promise<AccountEntity> {
     const {
       loginName,

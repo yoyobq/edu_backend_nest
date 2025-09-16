@@ -191,9 +191,9 @@ export class WeappRegisterUsecase {
     // 准备用户信息数据
     const userInfoData = {
       nickname,
-      phone, // 添加手机号字段
-      accessGroup: [IdentityTypeEnum.REGISTRANT], // 修复：使用 IdentityTypeEnum 枚举
-      metaDigest: [IdentityTypeEnum.REGISTRANT], // 修复：使用 IdentityTypeEnum 枚举
+      phone,
+      accessGroup: [IdentityTypeEnum.REGISTRANT],
+      metaDigest: { accessGroup: [IdentityTypeEnum.REGISTRANT] }, // 修改为对象格式
     };
 
     return { accountData, userInfoData };
