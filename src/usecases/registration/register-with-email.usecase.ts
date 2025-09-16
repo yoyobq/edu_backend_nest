@@ -1,6 +1,6 @@
 // src/usecases/registration/register-with-email.usecase.ts
 
-import { AccountStatus } from '@app-types/models/account.types';
+import { AccountStatus, IdentityTypeEnum } from '@app-types/models/account.types';
 import { ACCOUNT_ERROR, DomainError } from '@core/common/errors';
 import {
   getRealClientIp,
@@ -140,14 +140,16 @@ export class RegisterWithEmailUsecase {
       status: AccountStatus.PENDING,
       nickname: finalNickname,
       email: loginEmail,
-      accessGroup: ['REGISTRANT'],
-      identityHint: 'REGISTRANT',
-      metaDigest: ['REGISTRANT'],
+      accessGroup: [IdentityTypeEnum.REGISTRANT], // 修复：使用 IdentityTypeEnum 枚举
+      identityHint: IdentityTypeEnum.REGISTRANT, // 修复：使用 IdentityTypeEnum 枚举
+      metaDigest: [IdentityTypeEnum.REGISTRANT], // 修复：使用 IdentityTypeEnum 枚举
     };
   }
 
   /**
    * 创建账户
+   * @param preparedData 准备好的注册数据
+   * @returns 创建的账户实体
    */
   private async createAccount(preparedData: {
     loginName?: string | null;
@@ -156,9 +158,9 @@ export class RegisterWithEmailUsecase {
     status: AccountStatus;
     nickname: string;
     email: string;
-    accessGroup: string[];
-    identityHint: string;
-    metaDigest: string[];
+    accessGroup: IdentityTypeEnum[]; // 修复：从 string[] 改为 IdentityTypeEnum[]
+    identityHint: IdentityTypeEnum; // 修复：从 string 改为 IdentityTypeEnum
+    metaDigest: IdentityTypeEnum[]; // 修复：从 string[] 改为 IdentityTypeEnum[]
   }): Promise<AccountEntity> {
     const {
       loginName,

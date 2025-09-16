@@ -1,5 +1,5 @@
 // src/modules/account/base/services/account-security.service.ts
-import { AccountStatus } from '@app-types/models/account.types';
+import { AccountStatus, IdentityTypeEnum } from '@app-types/models/account.types';
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { PinoLogger } from 'nestjs-pino';
@@ -26,7 +26,7 @@ export class AccountSecurityService {
    */
   validateAccessGroupConsistency(account: AccountEntity & { userInfo: UserInfoEntity }): {
     isValid: boolean;
-    realAccessGroup?: string[];
+    realAccessGroup?: IdentityTypeEnum[];
     shouldSuspend: boolean;
   } {
     try {
@@ -50,9 +50,9 @@ export class AccountSecurityService {
       const decryptedData = this.fieldEncryptionService.decrypt(metaDigestValue);
 
       // 安全地解析 JSON 数据
-      let parsedData: { accessGroup?: string[] };
+      let parsedData: { accessGroup?: IdentityTypeEnum[] };
       try {
-        parsedData = JSON.parse(decryptedData) as { accessGroup?: string[] };
+        parsedData = JSON.parse(decryptedData) as { accessGroup?: IdentityTypeEnum[] };
       } catch (parseError) {
         this.logger.error(
           { err: parseError, accountId: account.id },
@@ -189,7 +189,7 @@ export class AccountSecurityService {
   checkAndHandleAccountSecurity(account: AccountEntity & { userInfo: UserInfoEntity }): {
     isValid: boolean;
     wasSuspended: boolean;
-    realAccessGroup?: string[];
+    realAccessGroup?: IdentityTypeEnum[];
   } {
     const validationResult = this.validateAccessGroupConsistency(account);
 

@@ -33,11 +33,23 @@ export class LoginByAccountIdUsecase {
     audience?: string;
     provider?: ThirdPartyProviderEnum;
   }): Promise<LoginResultModel> {
-    return this.executeLoginFlowUsecase.execute({
+    // 调用 ExecuteLoginFlowUsecase 获取基础登录结果
+    const basicResult = await this.executeLoginFlowUsecase.execute({
       accountId,
       ip,
       audience,
       provider,
     });
+
+    // 将 BasicLoginResult 转换为 LoginResultModel
+    const loginResult: LoginResultModel = {
+      accessToken: basicResult.tokens.accessToken,
+      refreshToken: basicResult.tokens.refreshToken,
+      accountId: basicResult.accountId,
+      role: basicResult.roleFromHint || basicResult.accessGroup[0], // 使用 roleFromHint 或 accessGroup 的第一个角色
+      identity: undefined, // 简化为 undefined，由适配器层处理
+    };
+
+    return loginResult;
   }
 }

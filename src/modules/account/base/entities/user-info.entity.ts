@@ -15,6 +15,7 @@ import {
 import '../../../../adapters/graphql/account/dto/user-state.enum';
 import '../../../../adapters/graphql/account/enums/gender.enum';
 import { AccountEntity } from './account.entity';
+import { IdentityTypeEnum } from '@app-types/models/account.types';
 
 @Entity('base_user_info')
 export class UserInfoEntity {
@@ -43,8 +44,8 @@ export class UserInfoEntity {
   @Column({ name: 'birth_date', type: 'date', nullable: true, comment: '出生日期，仅保留年月日' })
   birthDate!: string | null;
 
-  @Column({ type: 'varchar', length: 255, nullable: true, comment: '头像' })
-  avatar!: string | null;
+  @Column({ name: 'avatarUrl', type: 'varchar', length: 255, nullable: true, comment: '头像 Url' })
+  avatarUrl!: string | null;
 
   @Column({ type: 'varchar', length: 50, nullable: true, comment: '邮箱' })
   email!: string | null;
@@ -53,7 +54,7 @@ export class UserInfoEntity {
   signature!: string | null;
 
   @Column({ name: 'access_group', type: 'json', comment: '用户分组 ["guest"]' })
-  accessGroup!: string[];
+  accessGroup!: IdentityTypeEnum[];
 
   @Column({ type: 'varchar', length: 255, nullable: true, comment: '地址' })
   address!: string | null;

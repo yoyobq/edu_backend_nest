@@ -3,6 +3,7 @@
 import {
   AccountStatus,
   AudienceTypeEnum,
+  IdentityTypeEnum, // 添加 IdentityTypeEnum 导入
   ThirdPartyProviderEnum,
 } from '@app-types/models/account.types';
 import { DomainError, THIRDPARTY_ERROR } from '@core/common/errors/domain-error';
@@ -184,15 +185,15 @@ export class WeappRegisterUsecase {
       status: AccountStatus.ACTIVE,
       audience: audience, // 使用传入的 audience 参数
       loginEmail: 'user@weapp', // 添加统一的登录邮箱格式
-      identityHint: 'REGISTRANT', // 默认身份是注册用户
+      identityHint: IdentityTypeEnum.REGISTRANT, // 修复：使用 IdentityTypeEnum 枚举
     };
 
     // 准备用户信息数据
     const userInfoData = {
       nickname,
       phone, // 添加手机号字段
-      accessGroup: ['REGISTRANT'], // 修改为 REGISTRANT 访问权限组
-      metaDigest: ['REGISTRANT'], // 修改为 REGISTRANT 元数据摘要
+      accessGroup: [IdentityTypeEnum.REGISTRANT], // 修复：使用 IdentityTypeEnum 枚举
+      metaDigest: [IdentityTypeEnum.REGISTRANT], // 修复：使用 IdentityTypeEnum 枚举
     };
 
     return { accountData, userInfoData };

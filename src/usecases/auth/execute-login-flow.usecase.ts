@@ -1,17 +1,21 @@
 // src/usecases/auth/execute-login-flow.usecase.ts
 
-import { IdentityTypeEnum, ThirdPartyProviderEnum } from '@app-types/models/account.types';
-import { IdentityModel, LoginResultModel } from '@app-types/models/auth.types';
-import { ACCOUNT_ERROR, AUTH_ERROR, DomainError } from '@core/common/errors';
+import { BasicLoginResult } from '@app-types/auth/login-flow.types';
+import {
+  AccountStatus,
+  IdentityTypeEnum,
+  ThirdPartyProviderEnum,
+} from '@app-types/models/account.types';
+import { ACCOUNT_ERROR, AUTH_ERROR, DomainError } from '@core/common/errors/domain-error';
 import { TokenHelper } from '@core/common/token/token.helper';
+import { AccountService } from '@modules/account/base/services/account.service';
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { AccountService } from '@src/modules/account/base/services/account.service';
 import { PinoLogger } from 'nestjs-pino';
 
 /**
  * 执行登录流程用例
- * 负责生成令牌、记录登录历史等
+ * 职责：认证、发券、记录登录历史，返回基础登录信息
  */
 @Injectable()
 export class ExecuteLoginFlowUsecase {
@@ -26,81 +30,97 @@ export class ExecuteLoginFlowUsecase {
 
   /**
    * 执行登录流程
-   * @param params 登录流程参数
-   * @returns 登录结果
+   * @param params 登录参数
+   * @returns 基础登录结果
    */
   async execute({
     accountId,
     ip,
     audience,
-    provider, // 新增 provider 参数
+    provider, // 添加 provider 参数
   }: {
     accountId: number;
     ip?: string;
     audience?: string;
-    provider?: ThirdPartyProviderEnum; // 第三方登录时传入 provider
-  }): Promise<LoginResultModel> {
-    // 验证 audience 是否有效
+    provider?: ThirdPartyProviderEnum; // 添加 provider 参数类型
+  }): Promise<BasicLoginResult> {
+    // 添加 audience 校验逻辑
     if (audience) {
-      const configAudience = this.configService.get<string>('jwt.audience');
-      if (!this.tokenHelper.validateAudience(audience, configAudience!)) {
+      const cfgAudience = this.configService.get<string>('jwt.audience');
+      if (!this.tokenHelper.validateAudience(audience, cfgAudience!)) {
         throw new DomainError(AUTH_ERROR.INVALID_AUDIENCE, `无效的客户端类型: ${audience}`);
       }
     }
 
-    // 获取用户完整信息（包括 accessGroup）
-    const userInfo = await this.accountService.findUserInfoByAccountId(accountId);
-    if (!userInfo) {
-      throw new DomainError(ACCOUNT_ERROR.USER_INFO_NOT_FOUND, '用户信息不存在');
+    // 获取用户信息和访问组
+    const userWithAccessGroup = await this.accountService.getUserWithAccessGroup(accountId);
+    if (!userWithAccessGroup) {
+      throw new DomainError(ACCOUNT_ERROR.ACCOUNT_NOT_FOUND, '账户不存在');
     }
 
-    // 根据是否为第三方登录决定是否验证 loginName
-    const isThirdPartyLogin = provider && Object.values(ThirdPartyProviderEnum).includes(provider);
-
-    // 验证必要字段 - 第三方登录用户可能没有 loginName
-    if (!isThirdPartyLogin && !userInfo.account.loginName) {
-      throw new DomainError(AUTH_ERROR.ACCOUNT_NOT_FOUND, '用户登录名不存在');
-    }
-
-    // 构建用户完整信息对象
-    const userWithAccessGroup = {
-      id: accountId,
-      nickname: userInfo.nickname, // 添加昵称字段
-      loginName: userInfo.account.loginName || null, // 第三方登录时可能为 null
-      loginEmail: userInfo.account.loginEmail,
-      accessGroup: userInfo.accessGroup,
-    };
-
-    // 获取账户信息以获取 identityHint
+    // 获取账户信息
     const account = await this.accountService.findOneById(accountId);
     if (!account) {
       throw new DomainError(ACCOUNT_ERROR.ACCOUNT_NOT_FOUND, '账户不存在');
     }
 
-    // 创建 JWT payload
-    const jwtPayload = this.tokenHelper.createPayloadFromUser(userWithAccessGroup);
+    // 检查账户状态 - 使用枚举值而不是字符串字面量
+    if (account.status !== AccountStatus.ACTIVE) {
+      throw new DomainError(AUTH_ERROR.ACCOUNT_INACTIVE, '账户未激活');
+    }
+
+    // 获取用户详细信息
+    const userInfo = await this.accountService.findUserInfoByAccountId(accountId);
+    if (!userInfo) {
+      throw new DomainError(ACCOUNT_ERROR.USER_INFO_NOT_FOUND, '用户信息不存在');
+    }
+
+    // 创建 JWT payload - 需要包含 nickname 字段
+    const jwtPayload = this.tokenHelper.createPayloadFromUser({
+      id: userWithAccessGroup.id,
+      nickname: userInfo.nickname,
+      loginEmail: userWithAccessGroup.loginEmail,
+      accessGroup: userWithAccessGroup.accessGroup,
+    });
 
     // 生成令牌 - 使用独立的方法
     const accessToken = this.tokenHelper.generateAccessToken({ payload: jwtPayload });
     const refreshToken = this.tokenHelper.generateRefreshToken({ payload: jwtPayload });
 
-    // 记录登录历史
+    // 记录登录历史（如果需要的话）
+    if (provider) {
+      this.logger.info(`第三方登录: accountId=${accountId}, provider=${provider}, ip=${ip}`);
+      // 这里可以添加登录历史记录逻辑
+    }
+
     await this.accountService.recordLoginHistory(accountId, new Date().toISOString(), ip, audience);
 
-    // 构建身份信息
-    const identity: IdentityModel | null = account.identityHint
-      ? {
-          role: account.identityHint as IdentityTypeEnum,
-        }
-      : null;
-
-    // 返回登录结果
+    // 返回基础登录结果
     return {
-      accessToken,
-      refreshToken,
+      tokens: {
+        accessToken,
+        refreshToken,
+      },
       accountId,
-      role: (account.identityHint as IdentityTypeEnum) || IdentityTypeEnum.REGISTRANT,
-      identity,
+      roleFromHint: account.identityHint as IdentityTypeEnum | null,
+      accessGroup: userWithAccessGroup.accessGroup,
+      account: {
+        id: account.id,
+        loginName: account.loginName ?? null, // 修复：保持 null 语义，方便前端判断"未设置"
+        loginEmail: account.loginEmail ?? null, // 修复：保持 null 语义，方便前端判断"未设置"
+        status: account.status,
+        identityHint: account.identityHint as IdentityTypeEnum | null,
+        createdAt: account.createdAt,
+        updatedAt: account.updatedAt,
+      },
+      userInfo: {
+        id: userInfo.id,
+        accountId: userInfo.accountId,
+        nickname: userInfo.nickname,
+        avatarUrl: userInfo.avatarUrl, // 修复：直接使用 avatarUrl 字段
+        createdAt: userInfo.createdAt,
+        updatedAt: userInfo.updatedAt,
+      },
     };
   }
 }

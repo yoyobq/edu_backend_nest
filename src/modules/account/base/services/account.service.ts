@@ -2,7 +2,11 @@
 
 import { UserAccountDTO } from '@adapters/graphql/account/dto/user-account.dto';
 import { LoginHistoryItem } from '@adapters/graphql/account/enums/login-history.types';
-import { AccountWithAccessGroup, ThirdPartyProviderEnum } from '@app-types/models/account.types';
+import {
+  AccountWithAccessGroup,
+  IdentityTypeEnum,
+  ThirdPartyProviderEnum,
+} from '@app-types/models/account.types';
 import { ACCOUNT_ERROR, DomainError } from '@core/common/errors/domain-error';
 import { PasswordPbkdf2Helper } from '@core/common/password/password.pbkdf2.helper';
 import { Inject, Injectable } from '@nestjs/common';
@@ -247,10 +251,10 @@ export class AccountService {
 
     const userInfo = await this.findUserInfoByAccountId(accountId);
     if (!userInfo) {
-      throw new DomainError(ACCOUNT_ERROR.ACCOUNT_NOT_FOUND, '用户信息不存在');
+      throw new DomainError(ACCOUNT_ERROR.USER_INFO_NOT_FOUND, '用户信息不存在');
     }
 
-    // 执行安全检查
+    // 检查账户安全性
     const securityResult = this.accountSecurityService.checkAndHandleAccountSecurity({
       ...account,
       userInfo,
@@ -262,10 +266,10 @@ export class AccountService {
     }
 
     // 使用真实的 accessGroup（如果验证成功）或默认值
-    const accessGroup =
+    const accessGroup: IdentityTypeEnum[] =
       securityResult.isValid && securityResult.realAccessGroup
         ? securityResult.realAccessGroup
-        : userInfo.accessGroup || ['guest'];
+        : userInfo.accessGroup || [IdentityTypeEnum.REGISTRANT];
 
     return {
       id: account.id,

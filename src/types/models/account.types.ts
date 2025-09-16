@@ -51,7 +51,7 @@ export type AccountWithAccessGroup = {
   id: number;
   loginName: string;
   loginEmail: string;
-  accessGroup: string[];
+  accessGroup: IdentityTypeEnum[];
 };
 
 export enum AudienceTypeEnum {

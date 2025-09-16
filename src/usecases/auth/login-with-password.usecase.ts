@@ -37,11 +37,20 @@ export class LoginWithPasswordUsecase {
       const account = await this.validateLoginUsecase.execute({ loginName, loginPassword });
 
       // 执行登录流程
-      const loginResult = await this.executeLoginFlowUsecase.execute({
+      const basicResult = await this.executeLoginFlowUsecase.execute({
         accountId: account.id,
         ip,
         audience,
       });
+
+      // 将 BasicLoginResult 转换为 LoginResultModel
+      const loginResult: LoginResultModel = {
+        accessToken: basicResult.tokens.accessToken,
+        refreshToken: basicResult.tokens.refreshToken,
+        accountId: basicResult.accountId,
+        role: basicResult.roleFromHint || basicResult.accessGroup[0], // 使用 roleFromHint 或 accessGroup 的第一个角色
+        identity: undefined, // 简化为 undefined，由适配器层处理
+      };
 
       return loginResult;
     } catch (error) {
