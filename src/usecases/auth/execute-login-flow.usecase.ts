@@ -21,13 +21,14 @@ interface UserDataCollection {
   userWithAccessGroup: {
     id: number;
     loginEmail: string | null;
+    // 不应信任 token 中的 accessGroup，而应根据 id 从数据库中获取
     accessGroup: IdentityTypeEnum[];
   };
   account: {
     id: number;
     loginName: string | null;
     loginEmail: string | null;
-    status: string;
+    status: AccountStatus; // 修改：从 string 改为 AccountStatus
     identityHint: string | null;
     createdAt: Date;
     updatedAt: Date;
@@ -223,17 +224,20 @@ export class ExecuteLoginFlowUsecase {
   ): BasicLoginResult {
     const { userWithAccessGroup, account, userInfo } = userData;
 
+    // 只调用一次 parseIdentityHint，避免重复解析
+    const parsedIdentityHint = this.parseIdentityHint(account.identityHint);
+
     return {
       tokens,
       accountId: account.id,
-      roleFromHint: this.parseIdentityHint(account.identityHint),
+      roleFromHint: parsedIdentityHint, // 使用缓存的解析结果
       accessGroup: userWithAccessGroup.accessGroup,
       account: {
         id: account.id,
         loginName: account.loginName,
         loginEmail: account.loginEmail,
         status: account.status,
-        identityHint: this.parseIdentityHint(account.identityHint),
+        identityHint: parsedIdentityHint, // 使用缓存的解析结果
         createdAt: account.createdAt,
         updatedAt: account.updatedAt,
       },
@@ -258,7 +262,8 @@ export class ExecuteLoginFlowUsecase {
     audience: AudienceTypeEnum,
     allowedAudiences: AudienceTypeEnum[],
   ): boolean {
-    return allowedAudiences.includes(audience);
+    const allowedSet = new Set(allowedAudiences);
+    return allowedSet.has(audience);
   }
 
   /**
@@ -280,24 +285,5 @@ export class ExecuteLoginFlowUsecase {
     // 如果不是有效枚举值，记录警告并返回 null
     this.logger.warn({ identityHint, validValues: enumValues }, '无效的身份提示值，将返回 null');
     return null;
-  }
-
-  /**
-   * 记录登录历史
-   * @param params 登录历史参数
-   */
-  private recordLoginHistory({
-    accountId,
-    ip,
-    audience,
-    provider,
-  }: {
-    accountId: number;
-    ip: string;
-    audience: AudienceTypeEnum;
-    provider?: ThirdPartyProviderEnum;
-  }): void {
-    // 这里可以调用登录历史服务记录登录信息
-    this.logger.info({ accountId, ip, audience, provider }, '用户登录成功');
   }
 }
