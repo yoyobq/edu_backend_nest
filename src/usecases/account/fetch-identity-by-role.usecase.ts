@@ -12,14 +12,20 @@ export type RawIdentity =
   | { kind: 'STAFF'; data: StaffType & { id: string } }
   | {
       kind: 'COACH';
-      data: Pick<CoachType, 'accountId' | 'name' | 'remarks' | 'employmentStatus'> & {
+      data: Pick<
+        CoachType,
+        'accountId' | 'name' | 'remarks' | 'employmentStatus' | 'createdAt' | 'updatedAt'
+      > & {
         id: number;
         specialty: string | null;
       };
     }
   | {
       kind: 'MANAGER';
-      data: Pick<ManagerType, 'accountId' | 'name' | 'remarks' | 'employmentStatus'> & {
+      data: Pick<
+        ManagerType,
+        'accountId' | 'name' | 'remarks' | 'employmentStatus' | 'createdAt' | 'updatedAt'
+      > & {
         id: number;
       };
     }
@@ -60,7 +66,12 @@ export class FetchIdentityByRoleUsecase {
     specialty: string | null;
     remark: string | null;
     deactivatedAt: Date | null;
-  }): Pick<CoachType, 'accountId' | 'name' | 'remarks' | 'employmentStatus'> & {
+    createdAt: Date;
+    updatedAt: Date;
+  }): Pick<
+    CoachType,
+    'accountId' | 'name' | 'remarks' | 'employmentStatus' | 'createdAt' | 'updatedAt'
+  > & {
     id: number;
     specialty: string | null;
   } {
@@ -71,6 +82,8 @@ export class FetchIdentityByRoleUsecase {
       remarks: entity.remark,
       specialty: entity.specialty,
       employmentStatus: entity.deactivatedAt ? EmploymentStatus.LEFT : EmploymentStatus.ACTIVE,
+      createdAt: entity.createdAt,
+      updatedAt: entity.updatedAt,
     };
   }
 
@@ -83,13 +96,22 @@ export class FetchIdentityByRoleUsecase {
     name: string;
     remark: string | null;
     deactivatedAt: Date | null;
-  }): Pick<ManagerType, 'accountId' | 'name' | 'remarks' | 'employmentStatus'> & { id: number } {
+    createdAt: Date;
+    updatedAt: Date;
+  }): Pick<
+    ManagerType,
+    'accountId' | 'name' | 'remarks' | 'employmentStatus' | 'createdAt' | 'updatedAt'
+  > & {
+    id: number;
+  } {
     return {
       id: entity.id,
       accountId: entity.accountId,
       name: entity.name,
       remarks: entity.remark,
       employmentStatus: entity.deactivatedAt ? EmploymentStatus.LEFT : EmploymentStatus.ACTIVE,
+      createdAt: entity.createdAt,
+      updatedAt: entity.updatedAt,
     };
   }
 
@@ -120,7 +142,13 @@ export class FetchIdentityByRoleUsecase {
     };
   }
 
-  async execute(accountId: number, role: IdentityTypeEnum): Promise<RawIdentity> {
+  async execute({
+    accountId,
+    role,
+  }: {
+    accountId: number;
+    role: IdentityTypeEnum;
+  }): Promise<RawIdentity> {
     switch (role) {
       case IdentityTypeEnum.REGISTRANT: {
         return { kind: 'NONE' };

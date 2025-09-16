@@ -61,14 +61,28 @@ export class AuthResolver {
     accountId: number,
     role: IdentityTypeEnum,
   ): Promise<IdentityUnionType | null> {
-    const raw = await this.fetchIdentityByRole.execute(accountId, role);
+    const raw = await this.fetchIdentityByRole.execute({ accountId, role });
+    if (!raw) return null;
+
     switch (raw.kind) {
       case 'STAFF':
         return { ...raw.data, jobId: raw.data.id } as StaffType;
       case 'COACH':
-        return { ...raw.data, coachId: raw.data.id } as CoachType;
+        return {
+          ...raw.data,
+          coachId: raw.data.id,
+          // 为 DTO 中存在但实体中不存在的字段提供默认值
+          departmentId: null,
+          jobTitle: null,
+        } as CoachType;
       case 'MANAGER':
-        return { ...raw.data, managerId: raw.data.id } as ManagerType;
+        return {
+          ...raw.data,
+          managerId: raw.data.id,
+          // 为 DTO 中存在但实体中不存在的字段提供默认值
+          departmentId: null,
+          jobTitle: null,
+        } as ManagerType;
       default:
         return null;
     }
