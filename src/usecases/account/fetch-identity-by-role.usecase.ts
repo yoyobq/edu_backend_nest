@@ -14,7 +14,7 @@ export type RawIdentity =
       kind: 'COACH';
       data: Pick<
         CoachType,
-        'accountId' | 'name' | 'remarks' | 'employmentStatus' | 'createdAt' | 'updatedAt'
+        'accountId' | 'name' | 'remark' | 'employmentStatus' | 'createdAt' | 'updatedAt'
       > & {
         id: number;
         specialty: string | null;
@@ -24,7 +24,7 @@ export type RawIdentity =
       kind: 'MANAGER';
       data: Pick<
         ManagerType,
-        'accountId' | 'name' | 'remarks' | 'employmentStatus' | 'createdAt' | 'updatedAt'
+        'accountId' | 'name' | 'remark' | 'employmentStatus' | 'createdAt' | 'updatedAt'
       > & {
         id: number;
       };
@@ -72,7 +72,7 @@ export class FetchIdentityByRoleUsecase {
     updatedAt: Date;
   }): Pick<
     CoachType,
-    'accountId' | 'name' | 'remarks' | 'employmentStatus' | 'createdAt' | 'updatedAt'
+    'accountId' | 'name' | 'remark' | 'employmentStatus' | 'createdAt' | 'updatedAt'
   > & {
     id: number;
     specialty: string | null;
@@ -81,7 +81,7 @@ export class FetchIdentityByRoleUsecase {
       id: entity.id,
       accountId: entity.accountId,
       name: entity.name,
-      remarks: entity.remark,
+      remark: entity.remark, // 修正：直接映射 remark 字段
       specialty: entity.specialty,
       employmentStatus: entity.deactivatedAt ? EmploymentStatus.LEFT : EmploymentStatus.ACTIVE,
       createdAt: entity.createdAt,
@@ -102,7 +102,7 @@ export class FetchIdentityByRoleUsecase {
     updatedAt: Date;
   }): Pick<
     ManagerType,
-    'accountId' | 'name' | 'remarks' | 'employmentStatus' | 'createdAt' | 'updatedAt'
+    'accountId' | 'name' | 'remark' | 'employmentStatus' | 'createdAt' | 'updatedAt'
   > & {
     id: number;
   } {
@@ -110,7 +110,7 @@ export class FetchIdentityByRoleUsecase {
       id: entity.id,
       accountId: entity.accountId,
       name: entity.name,
-      remarks: entity.remark,
+      remark: entity.remark, // 修正：直接映射 remark 字段
       employmentStatus: entity.deactivatedAt ? EmploymentStatus.LEFT : EmploymentStatus.ACTIVE,
       createdAt: entity.createdAt,
       updatedAt: entity.updatedAt,

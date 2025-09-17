@@ -49,7 +49,7 @@ export class StaffEntity {
    * 备注信息
    */
   @Column({ type: 'text', nullable: true })
-  remarks!: string | null;
+  remark!: string | null;
 
   /**
    * 职位名称

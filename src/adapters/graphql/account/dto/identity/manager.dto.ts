@@ -21,7 +21,7 @@ export class ManagerType {
   departmentId!: number | null;
 
   @Field(() => String, { description: '备注信息', nullable: true })
-  remarks!: string | null;
+  remark!: string | null;
 
   @Field(() => String, { description: '职位名称', nullable: true })
   jobTitle!: string | null;
