@@ -76,7 +76,7 @@ export class UserInfoEntity {
     comment: '私有数据加密字段',
   })
   @EncryptedField() // 使用新的加密装饰器
-  metaDigest!: string | null;
+  metaDigest!: IdentityTypeEnum[] | null; // 修改：从 string | null 改为 IdentityTypeEnum[] | null
 
   @Column({ name: 'notify_count', type: 'int', default: 0, comment: '通知数' })
   notifyCount!: number;

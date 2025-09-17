@@ -29,7 +29,18 @@ export class AccountSecurityService {
     shouldSuspend: boolean;
   } {
     try {
-      // metaDigest 由装饰器自动解密，应该直接是 IdentityTypeEnum[] 数组
+      // 添加详细日志
+      this.logger.debug(
+        {
+          accountId: account.id,
+          accessGroup: account.userInfo.accessGroup,
+          metaDigest: account.userInfo.metaDigest,
+          accessGroupType: typeof account.userInfo.accessGroup,
+          metaDigestType: typeof account.userInfo.metaDigest,
+        },
+        '开始验证 accessGroup 一致性',
+      );
+
       const metaDigestValue = account.userInfo.metaDigest;
 
       if (!metaDigestValue) {
@@ -40,7 +51,6 @@ export class AccountSecurityService {
         };
       }
 
-      // 直接使用 metaDigestValue 作为 realAccessGroup，因为现在统一为数组格式
       const realAccessGroup = metaDigestValue;
 
       if (!Array.isArray(realAccessGroup)) {
@@ -54,9 +64,21 @@ export class AccountSecurityService {
         };
       }
 
-      // 检查一致性 - 对比明文 accessGroup 和解密后的 metaDigest
-      const isConsistent =
-        JSON.stringify(realAccessGroup) === JSON.stringify(account.userInfo.accessGroup);
+      // 添加更详细的比较日志
+      const accessGroupStr = JSON.stringify(account.userInfo.accessGroup);
+      const realAccessGroupStr = JSON.stringify(realAccessGroup);
+
+      this.logger.debug(
+        {
+          accountId: account.id,
+          accessGroupStr,
+          realAccessGroupStr,
+          isEqual: accessGroupStr === realAccessGroupStr,
+        },
+        '比较 accessGroup 和 metaDigest',
+      );
+
+      const isConsistent = accessGroupStr === realAccessGroupStr;
 
       if (!isConsistent) {
         // 记录严重安全错误

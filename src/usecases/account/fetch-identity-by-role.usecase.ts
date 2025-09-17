@@ -155,6 +155,33 @@ export class FetchIdentityByRoleUsecase {
     };
   }
 
+  /**
+   * 映射员工数据
+   */
+  private mapStaffData(entity: {
+    id: string;
+    accountId: number;
+    name: string;
+    departmentId: number | null;
+    remark: string | null;
+    jobTitle: string | null;
+    employmentStatus: EmploymentStatus;
+    createdAt: Date;
+    updatedAt: Date;
+  }): StaffType & { id: string } {
+    return {
+      id: entity.id,
+      accountId: entity.accountId,
+      name: entity.name,
+      departmentId: entity.departmentId,
+      remark: entity.remark,
+      jobTitle: entity.jobTitle,
+      employmentStatus: entity.employmentStatus,
+      createdAt: entity.createdAt,
+      updatedAt: entity.updatedAt,
+    };
+  }
+
   async execute({
     accountId,
     role,
@@ -168,7 +195,10 @@ export class FetchIdentityByRoleUsecase {
       }
       case IdentityTypeEnum.STAFF: {
         const entity = await this.accountService.findStaffByAccountId(accountId);
-        return entity ? { kind: 'STAFF', data: entity } : { kind: 'NONE' };
+        if (!entity) return { kind: 'NONE' };
+
+        const mappedData = this.mapStaffData(entity);
+        return { kind: 'STAFF', data: mappedData };
       }
       case IdentityTypeEnum.COACH: {
         const entity = await this.accountService.findCoachByAccountId(accountId);

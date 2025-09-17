@@ -39,21 +39,40 @@ export class FieldEncryptionService {
   }
 
   /** 对实体对象按标记字段加密（支持 string/对象/数组） */
+  /** 对实体对象按标记字段加密（支持 string/对象/数组） */
   encryptEntity(entity: unknown) {
     if (typeof entity !== 'object' || entity === null) return;
     const fields = (Reflect.getMetadata(ENCRYPTED_FIELDS_METADATA_KEY, entity.constructor) ??
       []) as (string | symbol)[];
     for (const field of fields) {
       const val = (entity as Record<string | symbol, unknown>)[field];
+
+      // 添加调试日志
+      console.log(`[FieldEncryption] 加密字段 ${String(field)}:`, {
+        originalValue: val,
+        type: typeof val,
+        isArray: Array.isArray(val),
+      });
+
       if (typeof val === 'string' && val) {
-        (entity as Record<string | symbol, unknown>)[field] = this.encrypt(val);
+        const encrypted = this.encrypt(val);
+        console.log(`[FieldEncryption] 字符串加密结果:`, { original: val, encrypted });
+        (entity as Record<string | symbol, unknown>)[field] = encrypted;
       } else if (Array.isArray(val) || (typeof val === 'object' && val !== null)) {
         const jsonString = JSON.stringify(val);
-        (entity as Record<string | symbol, unknown>)[field] = this.encrypt(jsonString);
+        const encrypted = this.encrypt(jsonString);
+        console.log(`[FieldEncryption] 对象/数组加密结果:`, {
+          original: val,
+          jsonString,
+          encrypted,
+          encryptedLength: encrypted.length,
+        });
+        (entity as Record<string | symbol, unknown>)[field] = encrypted;
       }
     }
   }
 
+  /** 对实体对象按标记字段解密（字符串→尽量转回原类型） */
   /** 对实体对象按标记字段解密（字符串→尽量转回原类型） */
   decryptEntity(entity: unknown) {
     if (typeof entity !== 'object' || entity === null) return;
@@ -61,15 +80,30 @@ export class FieldEncryptionService {
       []) as (string | symbol)[];
     for (const field of fields) {
       const val = (entity as Record<string | symbol, unknown>)[field];
+
+      // 添加调试日志
+      console.log(`[FieldEncryption] 解密字段 ${String(field)}:`, {
+        encryptedValue: val,
+        type: typeof val,
+        length: typeof val === 'string' ? val.length : 'N/A',
+      });
+
       if (typeof val === 'string' && val) {
         try {
           const decrypted = this.decrypt(val);
+          console.log(`[FieldEncryption] 解密结果:`, { encrypted: val, decrypted });
           try {
-            (entity as Record<string | symbol, unknown>)[field] = JSON.parse(decrypted);
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+            const parsed = JSON.parse(decrypted);
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+            console.log(`[FieldEncryption] JSON 解析结果:`, { decrypted, parsed });
+            (entity as Record<string | symbol, unknown>)[field] = parsed;
           } catch {
+            console.log(`[FieldEncryption] JSON 解析失败，使用原始字符串:`, decrypted);
             (entity as Record<string | symbol, unknown>)[field] = decrypted;
           }
-        } catch {
+        } catch (error) {
+          console.error(`[FieldEncryption] 解密失败:`, { field, val, error });
           // TODO: 解密失败时保留原始值，避免数据丢失（可在调用方记录错误）
         }
       }

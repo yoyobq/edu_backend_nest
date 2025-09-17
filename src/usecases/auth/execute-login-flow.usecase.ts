@@ -96,9 +96,14 @@ export class ExecuteLoginFlowUsecase {
    */
   private validateAudience(audience?: AudienceTypeEnum): void {
     if (audience) {
-      const allowedAudiences =
-        this.configService.get<AudienceTypeEnum[]>('jwt.allowedAudiences') ?? [];
-      if (!this.validateAudienceEnum(audience, allowedAudiences)) {
+      // 从 jwt.audience 配置中获取允许的客户端类型
+      const audienceConfig = this.configService.get<string>('jwt.audience') || '';
+      const allowedAudiences = audienceConfig
+        .split(',')
+        .map((item) => item.trim())
+        .filter((item) => item.length > 0);
+
+      if (!allowedAudiences.includes(audience)) {
         throw new DomainError(AUTH_ERROR.INVALID_AUDIENCE, `无效的客户端类型: ${audience}`);
       }
     }

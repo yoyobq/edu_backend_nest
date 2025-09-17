@@ -11,11 +11,11 @@ export class ManagerType {
   @Field(() => ID, { description: '经理 ID' })
   id!: number;
 
-  @Field(() => ID, { description: '关联的账户 ID' })
+  @Field(() => Number, { description: '关联的账户 ID' })
   accountId!: number;
 
-  @Field(() => String, { description: '经理姓名', nullable: true })
-  name!: string | null;
+  @Field(() => String, { description: '经理姓名' })
+  name!: string;
 
   @Field(() => Number, { description: '部门 ID', nullable: true })
   departmentId!: number | null;

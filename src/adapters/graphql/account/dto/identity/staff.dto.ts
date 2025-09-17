@@ -8,14 +8,14 @@ import { Field, ID, ObjectType } from '@nestjs/graphql';
  */
 @ObjectType({ description: '员工身份信息' })
 export class StaffType {
-  @Field(() => String, { description: '员工 ID，校园网工号' })
+  @Field(() => ID, { description: '员工 ID，校园网工号' })
   id!: string;
 
-  @Field(() => ID, { description: '关联的账户 ID' })
+  @Field(() => Number, { description: '关联的账户 ID' })
   accountId!: number;
 
-  @Field(() => String, { description: '员工姓名', nullable: true })
-  name!: string | null;
+  @Field(() => String, { description: '员工姓名' })
+  name!: string;
 
   @Field(() => Number, { description: '部门 ID', nullable: true })
   departmentId!: number | null;

@@ -36,8 +36,8 @@ export class StaffEntity {
   /**
    * 员工姓名
    */
-  @Column({ type: 'varchar', length: 50, nullable: true })
-  name!: string | null;
+  @Column({ type: 'varchar', length: 50, nullable: false })
+  name!: string;
 
   /**
    * 部门 ID

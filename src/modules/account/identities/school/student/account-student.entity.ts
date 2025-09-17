@@ -60,15 +60,15 @@ export class StudentEntity {
 
   /**
    * 学生姓名
-   * 可为空，最大长度 50 个字符
+   * 必填字段，最大长度 50 个字符
    */
   @Column({
     type: 'varchar',
     length: 50,
-    nullable: true,
+    nullable: false,
     comment: '学生姓名',
   })
-  name!: string | null;
+  name!: string;
 
   /**
    * 院系 ID

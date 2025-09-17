@@ -10,7 +10,7 @@ export class CustomerType {
   @Field(() => ID, { description: '客户 ID' })
   id!: number;
 
-  @Field(() => ID, { description: '关联的账户 ID', nullable: true })
+  @Field(() => Number, { description: '关联的账户 ID', nullable: true })
   accountId!: number | null;
 
   @Field(() => String, { description: '客户姓名' })

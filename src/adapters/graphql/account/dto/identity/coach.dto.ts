@@ -11,11 +11,11 @@ export class CoachType {
   @Field(() => ID, { description: '教练 ID' })
   id!: number;
 
-  @Field(() => ID, { description: '关联的账户 ID' })
+  @Field(() => Number, { description: '关联的账户 ID' })
   accountId!: number;
 
-  @Field(() => String, { description: '教练姓名', nullable: true })
-  name!: string | null;
+  @Field(() => String, { description: '教练姓名' })
+  name!: string;
 
   @Field(() => Number, { description: '部门 ID', nullable: true })
   departmentId!: number | null;
