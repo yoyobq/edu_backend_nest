@@ -13,6 +13,7 @@ import { JsonWebTokenError, JwtService, NotBeforeError, TokenExpiredError } from
 import { Test, TestingModule } from '@nestjs/testing';
 import { PinoLogger } from 'nestjs-pino';
 import { TokenHelper } from './token.helper';
+import { AudienceTypeEnum } from '@app-types/models/account.types';
 
 describe('TokenHelper', () => {
   let tokenHelper: TokenHelper;
@@ -129,6 +130,51 @@ describe('TokenHelper', () => {
       expect(result).toBe(mockToken);
     });
 
+    it('应该支持自定义 audience', () => {
+      // Arrange
+      jwtService.sign.mockReturnValue(mockToken);
+      const params: GenerateAccessTokenParams = {
+        payload: mockJwtPayload,
+        audience: AudienceTypeEnum.SSTSWEB,
+      };
+
+      // Act
+      const result = tokenHelper.generateAccessToken(params);
+
+      // Assert
+      expect(jwtService.sign).toHaveBeenCalledWith(
+        {
+          ...mockJwtPayload,
+          type: 'access',
+        },
+        { audience: AudienceTypeEnum.SSTSWEB },
+      );
+      expect(result).toBe(mockToken);
+    });
+
+    it('应该支持同时设置 audience 和 expiresIn', () => {
+      // Arrange
+      jwtService.sign.mockReturnValue(mockToken);
+      const params: GenerateAccessTokenParams = {
+        payload: mockJwtPayload,
+        audience: AudienceTypeEnum.SSTSWEAPP,
+        expiresIn: '1h',
+      };
+
+      // Act
+      const result = tokenHelper.generateAccessToken(params);
+
+      // Assert
+      expect(jwtService.sign).toHaveBeenCalledWith(
+        {
+          ...mockJwtPayload,
+          type: 'access',
+        },
+        { audience: AudienceTypeEnum.SSTSWEAPP, expiresIn: '1h' },
+      );
+      expect(result).toBe(mockToken);
+    });
+
     it('应该在生成失败时记录错误并抛出异常', () => {
       // Arrange
       const error = new Error('签名失败');
@@ -167,11 +213,14 @@ describe('TokenHelper', () => {
       const result = tokenHelper.generateRefreshToken(params);
 
       // Assert
-      expect(jwtService.sign).toHaveBeenCalledWith({
-        sub: mockJwtPayload.sub,
-        type: 'refresh',
-        tokenVersion: 1,
-      });
+      expect(jwtService.sign).toHaveBeenCalledWith(
+        {
+          sub: mockJwtPayload.sub,
+          type: 'refresh',
+          tokenVersion: 1,
+        },
+        {}, // 修复：添加第二个参数（空对象）
+      );
       expect(result).toBe(mockToken);
     });
 
@@ -187,11 +236,63 @@ describe('TokenHelper', () => {
       const result = tokenHelper.generateRefreshToken(params);
 
       // Assert
-      expect(jwtService.sign).toHaveBeenCalledWith({
-        sub: mockJwtPayload.sub,
-        type: 'refresh',
-        tokenVersion: 5,
-      });
+      expect(jwtService.sign).toHaveBeenCalledWith(
+        {
+          sub: mockJwtPayload.sub,
+          type: 'refresh',
+          tokenVersion: 5,
+        },
+        {}, // 修复：添加第二个参数（空对象）
+      );
+      expect(result).toBe(mockToken);
+    });
+
+    // 新增：测试 audience 参数
+    it('应该支持自定义 audience', () => {
+      // Arrange
+      jwtService.sign.mockReturnValue(mockToken);
+      const params: GenerateRefreshTokenParams = {
+        payload: { sub: mockJwtPayload.sub },
+        audience: AudienceTypeEnum.SSTSWEB,
+      };
+
+      // Act
+      const result = tokenHelper.generateRefreshToken(params);
+
+      // Assert
+      expect(jwtService.sign).toHaveBeenCalledWith(
+        {
+          sub: mockJwtPayload.sub,
+          type: 'refresh',
+          tokenVersion: 1,
+        },
+        { audience: AudienceTypeEnum.SSTSWEB }, // 修复：包含 audience 参数
+      );
+      expect(result).toBe(mockToken);
+    });
+
+    // 新增：测试同时设置 audience 和 tokenVersion
+    it('应该支持同时设置 audience 和 tokenVersion', () => {
+      // Arrange
+      jwtService.sign.mockReturnValue(mockToken);
+      const params: GenerateRefreshTokenParams = {
+        payload: { sub: mockJwtPayload.sub },
+        audience: AudienceTypeEnum.SSTSWEAPP,
+        tokenVersion: 3,
+      };
+
+      // Act
+      const result = tokenHelper.generateRefreshToken(params);
+
+      // Assert
+      expect(jwtService.sign).toHaveBeenCalledWith(
+        {
+          sub: mockJwtPayload.sub,
+          type: 'refresh',
+          tokenVersion: 3,
+        },
+        { audience: AudienceTypeEnum.SSTSWEAPP }, // 修复：包含 audience 参数
+      );
       expect(result).toBe(mockToken);
     });
 

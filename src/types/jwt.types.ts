@@ -1,12 +1,14 @@
 // src/types/jwt.types.ts
 
+import { AudienceTypeEnum } from './models/account.types';
+
 /**
  * 生成访问令牌的参数类型
  */
 export type GenerateAccessTokenParams = {
   payload: JwtPayload;
   expiresIn?: string;
-  audience?: string; // 新增：支持 audience 参数
+  audience?: AudienceTypeEnum; // 更明确的类型，使用枚举而非字符串
 };
 
 /**
@@ -15,7 +17,7 @@ export type GenerateAccessTokenParams = {
 export type GenerateRefreshTokenParams = {
   payload: Pick<JwtPayload, 'sub'>;
   tokenVersion?: number;
-  audience?: string; // 新增：支持 audience 参数
+  audience?: AudienceTypeEnum; // 更明确的类型，使用枚举而非字符串
 };
 
 /**
@@ -33,5 +35,5 @@ export type JwtPayload = {
   iat?: number; // 签发时间
   exp?: number; // 过期时间
   iss?: string; // 签发者
-  aud?: string; // 受众
+  aud?: string; // 受众 (audience)，对应 JWT 标准的 audience 声明，用于标识 token 的预期接收者
 };
