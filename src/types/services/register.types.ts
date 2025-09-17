@@ -40,5 +40,5 @@ export type PreparedRegisterData = Omit<RegisterInput, 'confirmPassword' | 'type
   /** 身份提示 */
   identityHint: string;
   /** 私有字段 */
-  metaDigest: string | string[];
+  metaDigest: string | null; // 修复：改为 string | null，与实体定义一致
 };

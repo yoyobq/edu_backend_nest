@@ -29,7 +29,7 @@ export class AccountSecurityService {
     shouldSuspend: boolean;
   } {
     try {
-      // metaDigest 现在统一为对象类型，由加密装饰器自动处理
+      // metaDigest 由装饰器自动解密，应该直接是 IdentityTypeEnum[] 数组
       const metaDigestValue = account.userInfo.metaDigest;
 
       if (!metaDigestValue) {
@@ -40,13 +40,13 @@ export class AccountSecurityService {
         };
       }
 
-      // 从 metaDigest 对象中获取 accessGroup（已经是解密后的对象）
-      const realAccessGroup = metaDigestValue.accessGroup;
+      // 直接使用 metaDigestValue 作为 realAccessGroup，因为现在统一为数组格式
+      const realAccessGroup = metaDigestValue;
 
       if (!Array.isArray(realAccessGroup)) {
         this.logger.error(
           { accountId: account.id, metaDigest: metaDigestValue },
-          `账号 ${account.id} 的 metaDigest.accessGroup 格式无效`,
+          `账号 ${account.id} 的 metaDigest 格式无效，应为数组`,
         );
         return {
           isValid: false,
@@ -54,7 +54,7 @@ export class AccountSecurityService {
         };
       }
 
-      // 检查一致性 - 对比明文 accessGroup 和加密存储的 accessGroup
+      // 检查一致性 - 对比明文 accessGroup 和解密后的 metaDigest
       const isConsistent =
         JSON.stringify(realAccessGroup) === JSON.stringify(account.userInfo.accessGroup);
 

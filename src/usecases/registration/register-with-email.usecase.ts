@@ -142,7 +142,7 @@ export class RegisterWithEmailUsecase {
       email: loginEmail,
       accessGroup: [IdentityTypeEnum.REGISTRANT],
       identityHint: IdentityTypeEnum.REGISTRANT,
-      metaDigest: { accessGroup: [IdentityTypeEnum.REGISTRANT] }, // 修改为对象格式
+      metaDigest: [IdentityTypeEnum.REGISTRANT],
     };
   }
 
@@ -158,9 +158,9 @@ export class RegisterWithEmailUsecase {
     status: AccountStatus;
     nickname: string;
     email: string;
-    accessGroup: IdentityTypeEnum[]; // 修复：从 string[] 改为 IdentityTypeEnum[]
-    identityHint: IdentityTypeEnum; // 修复：从 string 改为 IdentityTypeEnum
-    metaDigest: { accessGroup: IdentityTypeEnum[] }; // 修复：从 IdentityTypeEnum[] 改为对象格式
+    accessGroup: IdentityTypeEnum[];
+    identityHint: IdentityTypeEnum;
+    metaDigest: IdentityTypeEnum[];
   }): Promise<AccountEntity> {
     const {
       loginName,
@@ -187,7 +187,7 @@ export class RegisterWithEmailUsecase {
         nickname,
         email,
         accessGroup,
-        metaDigest,
+        metaDigest: JSON.stringify(metaDigest), // 手动序列化为字符串以匹配实体类型
       },
       // 添加 manager 参数，传入 undefined 让 CreateAccountUsecase 自己管理事务
       // TODO: 本地注册还可传入更多身份数据

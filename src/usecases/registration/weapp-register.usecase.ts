@@ -193,7 +193,7 @@ export class WeappRegisterUsecase {
       nickname,
       phone,
       accessGroup: [IdentityTypeEnum.REGISTRANT],
-      metaDigest: { accessGroup: [IdentityTypeEnum.REGISTRANT] }, // 修改为对象格式
+      metaDigest: JSON.stringify([IdentityTypeEnum.REGISTRANT]), // 修复：序列化为字符串
     };
 
     return { accountData, userInfoData };
