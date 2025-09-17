@@ -90,8 +90,8 @@ export class CustomerEntity {
 
   /**
    * 会员等级
-   * 枚举类型，1=普通，2=VIP，3=黄金，4=白金，5=钻石
-   * 默认值为普通会员
+   * 整型，1=普通，2=VIP，3=黄金，4=白金，5=钻石
+   * 默认值为 1（普通会员）
    */
   @Column({
     name: 'membership_level',
@@ -106,6 +106,7 @@ export class CustomerEntity {
    * 可为空，最大长度 255 个字符，用于内部管理备注
    */
   @Column({
+    name: 'remark', // 数据库字段名是 remark，不是 remarks
     type: 'varchar',
     length: 255,
     nullable: true,

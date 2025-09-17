@@ -38,7 +38,9 @@ export type RawIdentity =
         | 'contactPhone'
         | 'preferredContactTime'
         | 'membershipLevel'
-        | 'remarks'
+        | 'remark'
+        | 'createdAt'
+        | 'updatedAt'
       > & { id: number };
     }
   | { kind: 'NONE' };
@@ -127,9 +129,18 @@ export class FetchIdentityByRoleUsecase {
     membershipLevel: number | null;
     remark: string | null;
     deactivatedAt: Date | null;
+    createdAt: Date; // 添加缺失的字段
+    updatedAt: Date; // 添加缺失的字段
   }): Pick<
     CustomerType,
-    'accountId' | 'name' | 'contactPhone' | 'preferredContactTime' | 'membershipLevel' | 'remarks'
+    | 'accountId'
+    | 'name'
+    | 'contactPhone'
+    | 'preferredContactTime'
+    | 'membershipLevel'
+    | 'remark'
+    | 'createdAt'
+    | 'updatedAt'
   > & { id: number } {
     return {
       id: entity.id,
@@ -137,8 +148,10 @@ export class FetchIdentityByRoleUsecase {
       name: entity.name,
       contactPhone: entity.contactPhone,
       preferredContactTime: entity.preferredContactTime,
-      membershipLevel: entity.membershipLevel?.toString() || null,
-      remarks: entity.remark,
+      membershipLevel: entity.membershipLevel || null,
+      remark: entity.remark,
+      createdAt: entity.createdAt,
+      updatedAt: entity.updatedAt,
     };
   }
 

@@ -22,11 +22,11 @@ export class CustomerType {
   @Field(() => String, { description: '联络偏好时间', nullable: true })
   preferredContactTime!: string | null;
 
-  @Field(() => String, { description: '会员等级', nullable: true })
-  membershipLevel!: string | null;
+  @Field(() => Number, { description: '会员等级', nullable: true })
+  membershipLevel!: number | null;
 
   @Field(() => String, { description: '备注信息', nullable: true })
-  remarks!: string | null;
+  remark!: string | null; // 修正：从 remarks 改为 remark，与实体字段名保持一致
 
   @Field(() => Date, { description: '创建时间' })
   createdAt!: Date;

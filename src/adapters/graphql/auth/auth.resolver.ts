@@ -6,6 +6,7 @@ import { Args, Mutation, Resolver } from '@nestjs/graphql';
 import { FetchIdentityByRoleUsecase } from '@usecases/account/fetch-identity-by-role.usecase';
 import { LoginWithPasswordUsecase } from '@usecases/auth/login-with-password.usecase';
 import { CoachType } from '../account/dto/identity/coach.dto';
+import { CustomerType } from '../account/dto/identity/customer.dto';
 import { IdentityUnionType } from '../account/dto/identity/identity-union.type';
 import { ManagerType } from '../account/dto/identity/manager.dto';
 import { StaffType } from '../account/dto/identity/staff.dto';
@@ -83,6 +84,13 @@ export class AuthResolver {
           departmentId: null,
           jobTitle: null,
         } as ManagerType;
+      case 'CUSTOMER':
+        return {
+          ...raw.data,
+          customerId: raw.data.id,
+          // 为 DTO 中存在但 usecase 返回数据中不存在的字段提供默认值
+          deactivatedAt: null,
+        } as CustomerType;
       default:
         return null;
     }
