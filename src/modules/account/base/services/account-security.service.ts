@@ -29,18 +29,6 @@ export class AccountSecurityService {
     shouldSuspend: boolean;
   } {
     try {
-      // 添加详细日志
-      this.logger.debug(
-        {
-          accountId: account.id,
-          accessGroup: account.userInfo.accessGroup,
-          metaDigest: account.userInfo.metaDigest,
-          accessGroupType: typeof account.userInfo.accessGroup,
-          metaDigestType: typeof account.userInfo.metaDigest,
-        },
-        '开始验证 accessGroup 一致性',
-      );
-
       const metaDigestValue = account.userInfo.metaDigest;
 
       if (!metaDigestValue) {
@@ -64,19 +52,8 @@ export class AccountSecurityService {
         };
       }
 
-      // 添加更详细的比较日志
       const accessGroupStr = JSON.stringify(account.userInfo.accessGroup);
       const realAccessGroupStr = JSON.stringify(realAccessGroup);
-
-      this.logger.debug(
-        {
-          accountId: account.id,
-          accessGroupStr,
-          realAccessGroupStr,
-          isEqual: accessGroupStr === realAccessGroupStr,
-        },
-        '比较 accessGroup 和 metaDigest',
-      );
 
       const isConsistent = accessGroupStr === realAccessGroupStr;
 
