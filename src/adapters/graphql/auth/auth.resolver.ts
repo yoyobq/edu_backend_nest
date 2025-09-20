@@ -2,9 +2,12 @@
 
 import { IdentityTypeEnum } from '@app-types/models/account.types';
 import { AuthLoginModel, LoginResultModel, UserInfoView } from '@app-types/models/auth.types';
-import { AccountService } from '@modules/account/base/services/account.service';
+import { GeographicInfo } from '@app-types/models/user-info.types';
+import { StaffEntity } from '@modules/account/identities/school/staff/account-staff.entity';
+import { CoachEntity } from '@modules/account/identities/training/coach/account-coach.entity';
+import { CustomerEntity } from '@modules/account/identities/training/customer/account-customer.entity';
+import { ManagerEntity } from '@modules/account/identities/training/manager/account-manager.entity';
 import { Args, Mutation, Resolver } from '@nestjs/graphql';
-import { FetchIdentityByRoleUsecase } from '@usecases/account/fetch-identity-by-role.usecase';
 import { FetchUserInfoUsecase } from '@usecases/account/fetch-user-info.usecase';
 import { LoginWithPasswordUsecase } from '@usecases/auth/login-with-password.usecase';
 import { CoachType } from '../account/dto/identity/coach.dto';
@@ -23,8 +26,6 @@ import { AuthLoginInput } from './dto/auth-login.input';
 export class AuthResolver {
   constructor(
     private readonly loginWithPasswordUsecase: LoginWithPasswordUsecase,
-    private readonly fetchIdentityByRole: FetchIdentityByRoleUsecase,
-    private readonly accountService: AccountService,
     private readonly fetchUserInfoUsecase: FetchUserInfoUsecase,
   ) {}
 
@@ -42,8 +43,11 @@ export class AuthResolver {
     // 调用 usecase
     const result: LoginResultModel = await this.loginWithPasswordUsecase.execute(authLoginModel);
 
-    // 获取身份信息，让 IdentityUnion 自动处理类型解析
-    const identity = await this.getIdentityForGraphQL(result.accountId, result.role);
+    // 处理身份信息转换
+    let identity: IdentityUnionType | null = null;
+    if (result.identity && this.isValidIdentityEntity(result.identity)) {
+      identity = this.convertIdentityForGraphQL(result.identity, result.role);
+    }
 
     // 获取用户信息
     const userInfo = await this.getUserInfoForGraphQL(result.accountId);
@@ -54,7 +58,7 @@ export class AuthResolver {
       refreshToken: result.refreshToken,
       accountId: result.accountId,
       role: result.role,
-      identity, // 直接返回原始数据，GraphQL 会自动处理类型解析
+      identity,
       userInfo,
     };
 
@@ -62,9 +66,24 @@ export class AuthResolver {
   }
 
   /**
-   * 获取用于 GraphQL 响应的用户信息
-   * 如果用户信息不存在，抛出错误中止登录流程
+   * 检查对象是否为有效的身份实体
+   * @param obj 待检查的对象
+   * @returns 是否为有效的身份实体
    */
+  private isValidIdentityEntity(
+    obj: unknown,
+  ): obj is ManagerEntity | CoachEntity | StaffEntity | CustomerEntity {
+    return (
+      typeof obj === 'object' &&
+      obj !== null &&
+      'id' in obj &&
+      'accountId' in obj &&
+      'name' in obj &&
+      'createdAt' in obj &&
+      'updatedAt' in obj
+    );
+  }
+
   /**
    * 获取用于 GraphQL 响应的用户信息
    * 使用现有的安全验证流程，确保 accessGroup 和 metaDigest 已完成比对
@@ -100,62 +119,122 @@ export class AuthResolver {
       address: userInfoView.address,
       phone: userInfoView.phone,
 
-      // 扩展字段
+      // 标签和地理位置 - 需要序列化为字符串
       tags: userInfoView.tags,
-      geographic: userInfoView.geographic ? JSON.stringify(userInfoView.geographic) : null,
+      geographic: this.serializeGeographic(userInfoView.geographic),
 
-      // 系统字段（已经过安全验证的 accessGroup）
+      // 访问组和通知
       accessGroup: userInfoView.accessGroup,
       notifyCount: userInfoView.notifyCount,
       unreadCount: userInfoView.unreadCount,
-      userState: userInfoView.userState,
 
-      // 时间字段
+      // 状态和时间戳
+      userState: userInfoView.userState,
       createdAt: userInfoView.createdAt,
       updatedAt: userInfoView.updatedAt,
-
-      // 注意：metaDigest 字段被故意省略，不会暴露给前端
     };
   }
 
   /**
-   * 根据角色获取身份信息
+   * 将 GeographicInfo 对象序列化为字符串
+   * @param geographic 地理位置信息对象
+   * @returns 序列化后的字符串或 null
    */
-  private async getIdentityForGraphQL(
-    accountId: number,
-    role: IdentityTypeEnum,
-  ): Promise<IdentityUnionType | null> {
-    const raw = await this.fetchIdentityByRole.execute({ accountId, role });
-    if (!raw) return null;
+  private serializeGeographic(geographic: GeographicInfo | null): string | null {
+    if (!geographic) return null;
 
-    switch (raw.kind) {
-      case 'STAFF':
-        return { ...raw.data, jobId: raw.data.id } as StaffType;
-      case 'COACH':
+    const parts: string[] = [];
+    if (geographic.province) parts.push(geographic.province);
+    if (geographic.city) parts.push(geographic.city);
+
+    return parts.length > 0 ? parts.join(', ') : null;
+  }
+
+  /**
+   * 将身份信息转换为 GraphQL 格式
+   * @param identity 身份实体
+   * @param role 角色类型
+   * @returns 转换后的身份信息
+   */
+  private convertIdentityForGraphQL(
+    identity: ManagerEntity | CoachEntity | StaffEntity | CustomerEntity,
+    role: IdentityTypeEnum,
+  ): IdentityUnionType {
+    // 根据角色返回对应的 DTO 类型
+    switch (role) {
+      case IdentityTypeEnum.MANAGER: {
+        const manager = identity as ManagerEntity;
         return {
-          ...raw.data,
-          coachId: raw.data.id,
-          // 为 DTO 中存在但实体中不存在的字段提供默认值
-          departmentId: null,
-          jobTitle: null,
-        } as CoachType;
-      case 'MANAGER':
-        return {
-          ...raw.data,
-          managerId: raw.data.id,
-          // 为 DTO 中存在但实体中不存在的字段提供默认值
-          departmentId: null,
-          jobTitle: null,
+          id: manager.id,
+          accountId: manager.accountId,
+          name: manager.name,
+          departmentId: null, // Manager 实体没有 departmentId
+          remark: manager.remark,
+          jobTitle: null, // Manager 实体没有 jobTitle
+          employmentStatus: 'ACTIVE', // Manager 实体没有 employmentStatus
+          createdAt: manager.createdAt,
+          updatedAt: manager.updatedAt,
+          managerId: manager.id, // Union 类型解析标识符
+          deactivatedAt: manager.deactivatedAt,
         } as ManagerType;
-      case 'CUSTOMER':
+      }
+
+      case IdentityTypeEnum.COACH: {
+        const coach = identity as CoachEntity;
         return {
-          ...raw.data,
-          customerId: raw.data.id,
-          // 为 DTO 中存在但 usecase 返回数据中不存在的字段提供默认值
-          deactivatedAt: null,
+          id: coach.id,
+          accountId: coach.accountId,
+          name: coach.name,
+          departmentId: null, // Coach 实体没有 departmentId
+          remark: coach.remark,
+          jobTitle: null, // Coach 实体没有 jobTitle
+          employmentStatus: 'ACTIVE', // Coach 实体没有 employmentStatus
+          createdAt: coach.createdAt,
+          updatedAt: coach.updatedAt,
+          coachId: coach.id, // Union 类型解析标识符
+          level: coach.level,
+          description: coach.description,
+          avatarUrl: coach.avatarUrl,
+          specialty: coach.specialty,
+          deactivatedAt: coach.deactivatedAt,
+        } as CoachType;
+      }
+
+      case IdentityTypeEnum.STAFF: {
+        const staff = identity as StaffEntity;
+        return {
+          id: staff.id,
+          accountId: staff.accountId,
+          name: staff.name,
+          departmentId: staff.departmentId,
+          remark: staff.remark,
+          jobTitle: staff.jobTitle,
+          employmentStatus: staff.employmentStatus,
+          createdAt: staff.createdAt,
+          updatedAt: staff.updatedAt,
+          jobId: staff.id, // Union 类型解析标识符
+        } as StaffType;
+      }
+
+      case IdentityTypeEnum.CUSTOMER: {
+        const customer = identity as CustomerEntity;
+        return {
+          id: customer.id,
+          accountId: customer.accountId,
+          name: customer.name,
+          contactPhone: customer.contactPhone,
+          preferredContactTime: customer.preferredContactTime,
+          membershipLevel: customer.membershipLevel,
+          remark: customer.remark,
+          createdAt: customer.createdAt,
+          updatedAt: customer.updatedAt,
+          deactivatedAt: customer.deactivatedAt,
+          customerId: customer.id, // Union 类型解析标识符
         } as CustomerType;
+      }
+
       default:
-        return null;
+        throw new Error(`不支持的身份类型: ${role}`);
     }
   }
 }

@@ -1,7 +1,6 @@
 import { createUnionType } from '@nestjs/graphql';
 import { StaffType } from './staff.dto';
 // import { StudentType } from './student.dto';
-import { IdentityTypeEnum } from '@app-types/models/account.types';
 import { CoachType } from './coach.dto';
 import { CustomerType } from './customer.dto';
 import { ManagerType } from './manager.dto';
@@ -24,22 +23,20 @@ export const IdentityUnion = createUnionType({
   resolveType(
     value: IdentityTypes,
   ): typeof StaffType | typeof CustomerType | typeof CoachType | typeof ManagerType | null {
-    // 假设每个身份类型都有 role 字段
-    if ('role' in value) {
-      switch (value.role) {
-        case IdentityTypeEnum.STAFF:
-          return StaffType;
-        case IdentityTypeEnum.CUSTOMER:
-          return CustomerType;
-        case IdentityTypeEnum.COACH:
-          return CoachType;
-        case IdentityTypeEnum.MANAGER:
-          return ManagerType;
-        case IdentityTypeEnum.REGISTRANT:
-        default:
-          return null;
-      }
+    // 根据身份数据的特征字段来判断类型
+    if ('managerId' in value) {
+      return ManagerType;
     }
+    if ('coachId' in value) {
+      return CoachType;
+    }
+    if ('jobId' in value) {
+      return StaffType;
+    }
+    if ('customerId' in value) {
+      return CustomerType;
+    }
+
     return null;
   },
 });
