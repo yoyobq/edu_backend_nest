@@ -1,22 +1,22 @@
 // test/01-auth/auth-identity.e2e-spec.ts
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import { AppModule } from '@src/app.module';
-import { AccountEntity } from '@src/modules/account/base/entities/account.entity';
 import { CoachEntity } from '@src/modules/account/identities/training/coach/account-coach.entity';
 import { CustomerEntity } from '@src/modules/account/identities/training/customer/account-customer.entity';
+import { LearnerEntity } from '@src/modules/account/identities/training/learner/account-learner.entity';
 import { ManagerEntity } from '@src/modules/account/identities/training/manager/account-manager.entity';
 import { AccountStatus, IdentityTypeEnum, LoginTypeEnum } from '@src/types/models/account.types';
 import { MembershipLevel } from '@src/types/models/training.types';
 import request from 'supertest';
 import { App } from 'supertest/types';
-import { DataSource, In } from 'typeorm';
+import { DataSource } from 'typeorm';
 
 import { Gender, UserState } from '@app-types/models/user-info.types';
+import { AppModule } from '@src/app.module';
 import { CreateAccountUsecase } from '@src/usecases/account/create-account.usecase';
 
 /**
- * Auth 身份测试 E2E 测试 - 专门测试 Coach、Customer 和 Manager 身份
+ * Auth 身份测试 E2E 测试 - 专门测试 Coach、Customer、Manager 和 Learner 身份
  */
 describe('Auth Identity (e2e)', () => {
   let app: INestApplication<App>;
@@ -46,6 +46,13 @@ describe('Auth Identity (e2e)', () => {
       status: AccountStatus.ACTIVE,
       identityType: IdentityTypeEnum.MANAGER,
     },
+    learnerUser: {
+      loginName: 'learneruser',
+      loginEmail: 'learner@example.com',
+      loginPassword: 'password123',
+      status: AccountStatus.ACTIVE,
+      identityType: IdentityTypeEnum.LEARNER,
+    },
   };
 
   beforeAll(async () => {
@@ -56,7 +63,11 @@ describe('Auth Identity (e2e)', () => {
     app = moduleFixture.createNestApplication();
     dataSource = moduleFixture.get<DataSource>(DataSource);
     createAccountUsecase = moduleFixture.get<CreateAccountUsecase>(CreateAccountUsecase);
+
     await app.init();
+
+    // 创建测试账户
+    await createTestAccounts();
   }, 30000);
 
   afterAll(async () => {
@@ -65,61 +76,7 @@ describe('Auth Identity (e2e)', () => {
     }
   });
 
-  beforeEach(async () => {
-    await cleanupTestData();
-    await createTestAccounts();
-  });
-
-  /**
-   * 清理测试数据
-   */
-  const cleanupTestData = async (): Promise<void> => {
-    try {
-      const accountRepository = dataSource.getRepository(AccountEntity);
-      const coachRepository = dataSource.getRepository(CoachEntity);
-      const customerRepository = dataSource.getRepository(CustomerEntity);
-      const managerRepository = dataSource.getRepository(ManagerEntity);
-      const loginNames = Object.values(testAccountsPlaintext).map((account) => account.loginName);
-
-      if (loginNames.length > 0) {
-        // 先查找要删除的账户 ID
-        const accountsToDelete = await accountRepository.find({
-          where: { loginName: In(loginNames) },
-          select: ['id'],
-        });
-        const accountIds = accountsToDelete.map((account) => account.id);
-
-        // 先删除身份记录（避免外键约束问题）
-        if (accountIds.length > 0) {
-          await coachRepository.delete({
-            accountId: In(accountIds),
-          });
-          await customerRepository.delete({
-            accountId: In(accountIds),
-          });
-          await managerRepository.delete({
-            accountId: In(accountIds),
-          });
-        }
-
-        // 再删除账户记录
-        await accountRepository.delete({
-          loginName: In(loginNames),
-        });
-
-        console.log('🧹 身份测试数据清理完成:', {
-          deletedAccounts: accountIds.length,
-          loginNames,
-        });
-      }
-    } catch (error) {
-      console.warn('清理身份测试数据失败:', error);
-    }
-  };
-
-  /**
-   * 创建测试账户数据
-   */
+  // 创建测试账户的函数
   const createTestAccounts = async (): Promise<void> => {
     try {
       // 创建 Coach 用户
@@ -252,13 +209,62 @@ describe('Auth Identity (e2e)', () => {
       });
       await managerRepository.save(managerEntity);
 
+      // 创建 Learner 用户
+      const learnerAccount = testAccountsPlaintext.learnerUser;
+      const createdLearnerAccount = await createAccountUsecase.execute({
+        accountData: {
+          loginName: learnerAccount.loginName,
+          loginEmail: learnerAccount.loginEmail,
+          loginPassword: learnerAccount.loginPassword,
+          status: learnerAccount.status,
+          identityHint: IdentityTypeEnum.LEARNER,
+        },
+        userInfoData: {
+          nickname: `${learnerAccount.loginName}_nickname`,
+          gender: Gender.SECRET,
+          birthDate: null,
+          avatarUrl: null,
+          email: learnerAccount.loginEmail,
+          signature: null,
+          accessGroup: [IdentityTypeEnum.LEARNER],
+          address: null,
+          phone: null,
+          tags: null,
+          geographic: null,
+          metaDigest: [IdentityTypeEnum.LEARNER],
+          notifyCount: 0,
+          unreadCount: 0,
+          userState: UserState.ACTIVE,
+        },
+      });
+
+      // 为 Learner 用户创建对应的身份记录
+      const learnerRepository = dataSource.getRepository(LearnerEntity);
+      const learnerEntity = learnerRepository.create({
+        accountId: createdLearnerAccount.id,
+        customerId: customerEntity.id, // 关联到之前创建的 customer
+        name: `${learnerAccount.loginName}_learner_name`,
+        gender: Gender.SECRET,
+        birthDate: null,
+        avatarUrl: null,
+        specialNeeds: '测试用特殊需求',
+        countPerSession: 1,
+        deactivatedAt: null,
+        remark: `测试用 learner 身份记录 - ${learnerAccount.loginName}`,
+        createdBy: null,
+        updatedBy: null,
+      });
+      await learnerRepository.save(learnerEntity);
+
       console.log('✅ 身份记录创建成功:', {
         coachId: coachEntity.id,
         customerId: customerEntity.id,
         managerId: managerEntity.id,
+        learnerId: learnerEntity.id,
         coachAccountId: coachEntity.accountId,
         customerAccountId: customerEntity.accountId,
         managerAccountId: managerEntity.accountId,
+        learnerAccountId: learnerEntity.accountId,
       });
     } catch (error) {
       console.error('❌ 创建身份测试账户失败:', error);
@@ -333,6 +339,18 @@ describe('Auth Identity (e2e)', () => {
                   contactPhone
                   preferredContactTime
                   membershipLevel
+                  remark
+                }
+                ... on LearnerType {
+                  id
+                  accountId
+                  customerId
+                  name
+                  gender
+                  birthDate
+                  avatarUrl
+                  specialNeeds
+                  countPerSession
                   remark
                 }
               }
@@ -547,6 +565,74 @@ describe('Auth Identity (e2e)', () => {
     });
   });
 
+  describe('Learner 身份完整测试', () => {
+    it('应该支持 Learner 用户登录成功', async () => {
+      const response = await performLogin(
+        testAccountsPlaintext.learnerUser.loginName,
+        testAccountsPlaintext.learnerUser.loginPassword,
+      );
+
+      const { data } = response.body;
+      expect(data?.login.accountId).toBeDefined();
+      expect(data?.login.accessToken).toBeDefined();
+      expect(data?.login.refreshToken).toBeDefined();
+      expect(data?.login.role).toBe(IdentityTypeEnum.LEARNER);
+      expect(typeof data?.login.accessToken).toBe('string');
+      expect(typeof data?.login.refreshToken).toBe('string');
+    });
+
+    it('应该正确返回 Learner 身份信息', async () => {
+      const response = await performLogin(
+        testAccountsPlaintext.learnerUser.loginName,
+        testAccountsPlaintext.learnerUser.loginPassword,
+      );
+
+      const { data } = response.body;
+      expect(data?.login.identity).toBeDefined();
+      expect(data?.login.identity.id).toBeDefined();
+      expect(data?.login.identity.name).toContain('learner_name');
+      expect(data?.login.identity.customerId).toBeDefined();
+      expect(typeof data?.login.identity.countPerSession).toBe('number');
+      expect(data?.login.identity.specialNeeds).toContain('测试用特殊需求');
+      expect(data?.login.identity.remark).toContain('测试用 learner 身份记录');
+    });
+
+    it('应该正确返回 Learner 用户信息', async () => {
+      const response = await performLogin(
+        testAccountsPlaintext.learnerUser.loginName,
+        testAccountsPlaintext.learnerUser.loginPassword,
+      );
+
+      const { data } = response.body;
+      expect(data?.login.userInfo).toBeDefined();
+      expect(data?.login.userInfo.nickname).toContain('learneruser_nickname');
+      expect(data?.login.userInfo.email).toBe(testAccountsPlaintext.learnerUser.loginEmail);
+      expect(data?.login.userInfo.accessGroup).toContain(IdentityTypeEnum.LEARNER);
+      expect(data?.login.userInfo.userState).toBe(UserState.ACTIVE);
+    });
+
+    it('应该验证 Learner 身份记录与数据库一致', async () => {
+      const response = await performLogin(
+        testAccountsPlaintext.learnerUser.loginName,
+        testAccountsPlaintext.learnerUser.loginPassword,
+      );
+
+      const { data } = response.body;
+      const learnerRepository = dataSource.getRepository(LearnerEntity);
+      const learnerEntity = await learnerRepository.findOne({
+        where: { accountId: parseInt(data?.login.accountId) },
+      });
+
+      expect(learnerEntity).toBeDefined();
+      expect(data?.login.identity.id).toBe(learnerEntity?.id.toString());
+      expect(data?.login.identity.name).toBe(learnerEntity?.name);
+      expect(data?.login.identity.customerId).toBe(learnerEntity?.customerId);
+      expect(typeof data?.login.identity.countPerSession).toBe('number');
+      expect(data?.login.identity.specialNeeds).toBe(learnerEntity?.specialNeeds);
+      expect(data?.login.identity.remark).toBe(learnerEntity?.remark);
+    });
+  });
+
   describe('身份角色决策测试', () => {
     it('应该正确决策 Coach 角色', async () => {
       const response = await performLogin(
@@ -579,6 +665,17 @@ describe('Auth Identity (e2e)', () => {
       const { data } = response.body;
       expect(data?.login.role).toBe(IdentityTypeEnum.MANAGER);
       expect(data?.login.userInfo.accessGroup).toContain(IdentityTypeEnum.MANAGER);
+    });
+
+    it('应该正确决策 Learner 角色', async () => {
+      const response = await performLogin(
+        testAccountsPlaintext.learnerUser.loginName,
+        testAccountsPlaintext.learnerUser.loginPassword,
+      );
+
+      const { data } = response.body;
+      expect(data?.login.role).toBe(IdentityTypeEnum.LEARNER);
+      expect(data?.login.userInfo.accessGroup).toContain(IdentityTypeEnum.LEARNER);
     });
   });
 
@@ -623,6 +720,24 @@ describe('Auth Identity (e2e)', () => {
       const response = await performLogin(
         testAccountsPlaintext.managerUser.loginName,
         testAccountsPlaintext.managerUser.loginPassword,
+      );
+
+      const { data } = response.body;
+      const accessToken = data?.login.accessToken;
+      const refreshToken = data?.login.refreshToken;
+
+      expect(accessToken).toBeDefined();
+      expect(refreshToken).toBeDefined();
+      expect(typeof accessToken).toBe('string');
+      expect(typeof refreshToken).toBe('string');
+      expect(accessToken.split('.')).toHaveLength(3);
+      expect(refreshToken.split('.')).toHaveLength(3);
+    });
+
+    it('Learner 登录应该返回有效的 JWT Token', async () => {
+      const response = await performLogin(
+        testAccountsPlaintext.learnerUser.loginName,
+        testAccountsPlaintext.learnerUser.loginPassword,
       );
 
       const { data } = response.body;
