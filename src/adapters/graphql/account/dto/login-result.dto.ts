@@ -3,6 +3,7 @@
 import { IdentityTypeEnum } from '@app-types/models/account.types';
 import { Field, ID, ObjectType } from '@nestjs/graphql';
 import { IdentityUnion, IdentityUnionType } from './identity/identity-union.type';
+import { UserInfoDTO } from './user-info.dto';
 
 /**
  * 登录成功结果，失败由 Graphql 直接抛错
@@ -23,4 +24,7 @@ export class LoginResult {
 
   @Field(() => IdentityUnion, { nullable: true, description: '当前身份信息' })
   identity?: IdentityUnionType | null; // 明确支持 null
+
+  @Field(() => UserInfoDTO, { nullable: true, description: '用户信息' })
+  userInfo?: UserInfoDTO | null;
 }

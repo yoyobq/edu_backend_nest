@@ -12,6 +12,7 @@ import { TokenHelper } from '@core/common/token/token.helper';
 import { AccountService } from '@modules/account/base/services/account.service';
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { CompleteUserData, FetchUserInfoUsecase } from '@usecases/account/fetch-user-info.usecase';
 import { PinoLogger } from 'nestjs-pino';
 
 /**
@@ -54,6 +55,7 @@ export class ExecuteLoginFlowUsecase {
     private readonly tokenHelper: TokenHelper,
     private readonly configService: ConfigService,
     private readonly logger: PinoLogger,
+    private readonly fetchUserInfoUsecase: FetchUserInfoUsecase,
   ) {
     this.logger.setContext(ExecuteLoginFlowUsecase.name);
   }
@@ -111,17 +113,19 @@ export class ExecuteLoginFlowUsecase {
 
   /**
    * 获取用户相关数据
+   * 使用 FetchUserInfoUsecase 统一获取用户数据，包含安全验证
    * @param accountId 账户 ID
    * @returns 用户数据集合
    */
   private async fetchUserData(accountId: number): Promise<UserDataCollection> {
-    // 获取用户信息和访问组
-    const userWithAccessGroup = await this.accountService.getUserWithAccessGroup(accountId);
-    if (!userWithAccessGroup) {
-      throw new DomainError(ACCOUNT_ERROR.ACCOUNT_NOT_FOUND, '账户不存在');
-    }
+    // 使用 FetchUserInfoUsecase 获取完整用户数据（包含安全验证）
+    const completeUserData: CompleteUserData = await this.fetchUserInfoUsecase.executeForLoginFlow({
+      accountId,
+    });
 
-    // 获取账户信息
+    const { userInfoView, rawUserInfo } = completeUserData;
+
+    // 获取账户信息（用于构建返回结果）
     const account = await this.accountService.findOneById(accountId);
     if (!account) {
       throw new DomainError(ACCOUNT_ERROR.ACCOUNT_NOT_FOUND, '账户不存在');
@@ -132,11 +136,21 @@ export class ExecuteLoginFlowUsecase {
       throw new DomainError(AUTH_ERROR.ACCOUNT_INACTIVE, '账户未激活');
     }
 
-    // 获取用户详细信息
-    const userInfo = await this.accountService.findUserInfoByAccountId(accountId);
-    if (!userInfo) {
-      throw new DomainError(ACCOUNT_ERROR.USER_INFO_NOT_FOUND, '用户信息不存在');
-    }
+    // 构建兼容的数据结构
+    const userWithAccessGroup = {
+      id: account.id,
+      loginEmail: account.loginEmail,
+      accessGroup: userInfoView.accessGroup, // 使用经过安全验证的 accessGroup
+    };
+
+    const userInfo = {
+      id: rawUserInfo?.id || 0,
+      accountId: rawUserInfo?.accountId || accountId,
+      nickname: userInfoView.nickname || '',
+      avatarUrl: userInfoView.avatarUrl,
+      createdAt: rawUserInfo?.createdAt || new Date(),
+      updatedAt: rawUserInfo?.updatedAt || new Date(),
+    };
 
     return { userWithAccessGroup, account, userInfo };
   }

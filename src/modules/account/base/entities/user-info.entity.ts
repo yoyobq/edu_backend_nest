@@ -23,7 +23,7 @@ export class UserInfoEntity {
   @PrimaryGeneratedColumn({ type: 'int', comment: '主键' })
   id!: number;
 
-  @Column({ name: 'account_id', type: 'int', comment: 'user_accouts.id' })
+  @Column({ name: 'account_id', type: 'int', comment: 'user_accounts.id' })
   accountId!: number;
 
   @OneToOne(() => AccountEntity, { createForeignKeyConstraints: false })
@@ -53,7 +53,7 @@ export class UserInfoEntity {
   @Column({ type: 'varchar', length: 100, nullable: true, comment: '个性签名' })
   signature!: string | null;
 
-  @Column({ name: 'access_group', type: 'json', comment: '用户分组 ["registrant"]' })
+  @Column({ name: 'access_group', type: 'json', comment: '默认以用户分组 ["REGISTARNT"]' })
   accessGroup!: IdentityTypeEnum[];
 
   @Column({ type: 'varchar', length: 255, nullable: true, comment: '地址' })
@@ -71,7 +71,7 @@ export class UserInfoEntity {
   @Column({
     name: 'meta_digest',
     type: 'varchar',
-    length: 255,
+    length: 1024,
     nullable: true,
     comment: '私有数据加密字段',
   })

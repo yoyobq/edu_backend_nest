@@ -247,7 +247,7 @@ describe('RolesGuard (e2e)', () => {
             phone: null,
             tags: null,
             geographic: null,
-            metaDigest: '',
+            metaDigest: account.accessGroup, // 修改：使用对应的 accessGroup 数组
             notifyCount: 0,
             unreadCount: 0,
             state: UserState.ACTIVE,

@@ -30,8 +30,10 @@ import '@src/adapters/graphql/account/enums/login-history.types';
 
 // 可选用例
 import { FetchIdentityByRoleUsecase } from '@usecases/account/fetch-identity-by-role.usecase';
+import { FetchUserInfoUsecase } from '@usecases/account/fetch-user-info.usecase';
 
 // 身份包模块
+import { AccountSecurityService } from './base/services/account-security.service';
 import { StaffIdentityModule, StudentIdentityModule } from './identities/school';
 import {
   CoachIdentityModule,
@@ -39,7 +41,6 @@ import {
   LearnerIdentityModule,
   ManagerIdentityModule,
 } from './identities/training';
-import { AccountSecurityService } from './base/services/account-security.service';
 
 /** 预设：school / training / custom */
 export type IdentityPreset = 'school' | 'training' | 'custom';
@@ -135,14 +136,16 @@ export class AccountModule {
       ],
       providers: [
         AccountService,
-        AccountSecurityService, // 添加这一行
+        AccountSecurityService,
         FetchIdentityByRoleUsecase,
+        FetchUserInfoUsecase, // 添加这一行
         providerMapFactory, // 聚合 Map
       ],
       exports: [
         TypeOrmModule,
         AccountService,
         FetchIdentityByRoleUsecase,
+        FetchUserInfoUsecase, // 添加这一行
         PROFILE_PROVIDER_MAP_TOKEN, // 对外只暴露聚合后的 Map
       ],
     };
