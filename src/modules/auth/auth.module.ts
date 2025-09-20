@@ -9,7 +9,6 @@ import { AccountInstallerModule } from '@src/modules/account/account-installer.m
 import { AuthService } from './auth.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
 // 添加 usecase 导入
-import { ValidateLoginUsecase } from '@usecases/account/validate-login.usecase';
 import { DecideLoginRoleUsecase } from '@usecases/auth/decide-login-role.usecase';
 import { EnrichLoginWithIdentityUsecase } from '@usecases/auth/enrich-login-with-identity.usecase';
 import { ExecuteLoginFlowUsecase } from '@usecases/auth/execute-login-flow.usecase';
@@ -32,7 +31,7 @@ import { LoginWithThirdPartyUsecase } from '@usecases/auth/login-with-third-part
     TokenHelper,
     JwtStrategy,
     LoginWithPasswordUsecase,
-    ValidateLoginUsecase,
+    // ValidateLoginUsecase, // 删除这行
     ExecuteLoginFlowUsecase,
     LoginByAccountIdUsecase,
     LoginWithThirdPartyUsecase,
@@ -45,7 +44,7 @@ import { LoginWithThirdPartyUsecase } from '@usecases/auth/login-with-third-part
     JwtStrategy,
     // 导出 usecases 供 GraphQLAdapterModule 使用
     LoginWithPasswordUsecase,
-    ValidateLoginUsecase,
+    // ValidateLoginUsecase, // 删除这行
     ExecuteLoginFlowUsecase,
     LoginByAccountIdUsecase,
     LoginWithThirdPartyUsecase,

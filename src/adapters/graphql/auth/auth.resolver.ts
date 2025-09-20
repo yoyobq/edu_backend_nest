@@ -1,11 +1,11 @@
 // src/adapters/graphql/auth/auth.resolver.ts
 
 import { IdentityTypeEnum } from '@app-types/models/account.types';
-import { AuthLoginModel, LoginResultModel } from '@app-types/models/auth.types';
+import { AuthLoginModel, LoginResultModel, UserInfoView } from '@app-types/models/auth.types';
 import { AccountService } from '@modules/account/base/services/account.service';
 import { Args, Mutation, Resolver } from '@nestjs/graphql';
 import { FetchIdentityByRoleUsecase } from '@usecases/account/fetch-identity-by-role.usecase';
-import { FetchUserInfoUsecase, UserInfoView } from '@usecases/account/fetch-user-info.usecase';
+import { FetchUserInfoUsecase } from '@usecases/account/fetch-user-info.usecase';
 import { LoginWithPasswordUsecase } from '@usecases/auth/login-with-password.usecase';
 import { CoachType } from '../account/dto/identity/coach.dto';
 import { CustomerType } from '../account/dto/identity/customer.dto';

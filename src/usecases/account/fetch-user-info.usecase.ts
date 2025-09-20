@@ -1,37 +1,15 @@
 // src/usecases/account/fetch-user-info.usecase.ts
 
 import { EmploymentStatus, IdentityTypeEnum } from '@app-types/models/account.types';
-import { Gender, GeographicInfo, UserState } from '@app-types/models/user-info.types';
+import { UserInfoView } from '@app-types/models/auth.types'; // 导入统一的 UserInfoView
+import { Gender, UserState } from '@app-types/models/user-info.types';
 import { ACCOUNT_ERROR, DomainError } from '@core/common/errors';
 import { UserInfoEntity } from '@modules/account/base/entities/user-info.entity';
 import { AccountSecurityService } from '@modules/account/base/services/account-security.service';
 import { AccountService } from '@modules/account/base/services/account.service';
 import { Injectable } from '@nestjs/common';
 
-/**
- * 视图层的 UserInfo：完整用户资料 + 运行时 accessGroup
- * 注意：即使 user_info 表无记录，也要返回一个兜底对象（避免 GraphQL 字段消失）
- */
-export interface UserInfoView {
-  accountId: number;
-  nickname: string; // 改为非空
-  gender: Gender; // 改为非空
-  birthDate: string | null; // MySQL DATE 通常以 string 返回
-  avatarUrl: string | null;
-  email: string | null;
-  signature: string | null;
-  accessGroup: IdentityTypeEnum[];
-  address: string | null;
-  phone: string | null;
-  tags: string[] | null; // JSON 列
-  geographic: GeographicInfo | null; // JSON 列
-  metaDigest: IdentityTypeEnum[] | null; // 用于安全比对的加密字段
-  notifyCount: number; // 改为非空
-  unreadCount: number; // 改为非空
-  userState: UserState; // 改为非空
-  createdAt: Date; // 改为非空
-  updatedAt: Date; // 改为非空
-}
+// 移除本地的 UserInfoView 定义，使用统一的类型定义
 
 /**
  * 完整的用户数据（包含安全验证结果）
@@ -252,3 +230,4 @@ export class FetchUserInfoUsecase {
     return groups;
   }
 }
+export { UserInfoView };
