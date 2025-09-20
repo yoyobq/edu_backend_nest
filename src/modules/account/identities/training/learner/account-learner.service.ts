@@ -1,8 +1,9 @@
-// src/modules/account/identities/training/learner/learner.service.ts
+// src/modules/account/identities/training/learner/account-learner.service.ts
 
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { Gender } from '@app-types/models/user-info.types';
 import { LearnerEntity } from './account-learner.entity';
 
 /**
@@ -51,52 +52,79 @@ export class LearnerService {
   }
 
   /**
-   * 创建学员实体
-   * @param learnerData 学员数据
-   * @returns 学员实体
+   * 根据学员姓名和客户 ID 查找学员
+   * @param params 查询参数
+   * @returns 学员信息或 null
    */
-  createLearnerEntity(learnerData: Partial<LearnerEntity>): LearnerEntity {
-    return this.learnerRepository.create(learnerData);
+  async findByNameAndCustomerId(params: {
+    name: string;
+    customerId: number;
+  }): Promise<LearnerEntity | null> {
+    const { name, customerId } = params;
+    return await this.learnerRepository.findOne({
+      where: { name, customerId },
+    });
   }
 
   /**
-   * 保存学员信息
-   * @param learner 学员实体
-   * @returns 保存后的学员实体
+   * 创建学员记录
+   * @param params 创建参数
+   * @returns 创建的学员实体
    */
-  async saveLearner(learner: LearnerEntity): Promise<LearnerEntity> {
+  async create(params: {
+    accountId?: number | null;
+    customerId: number;
+    name: string;
+    gender?: Gender;
+    birthDate?: string | null;
+    avatarUrl?: string | null;
+    specialNeeds?: string | null;
+    remark?: string | null;
+    countPerSession?: number;
+    createdBy?: number | null;
+  }): Promise<LearnerEntity> {
+    const learner = this.learnerRepository.create({
+      accountId: params.accountId || null,
+      customerId: params.customerId,
+      name: params.name,
+      gender: params.gender || Gender.SECRET,
+      birthDate: params.birthDate || null,
+      avatarUrl: params.avatarUrl || null,
+      specialNeeds: params.specialNeeds || null,
+      remark: params.remark || null,
+      countPerSession: params.countPerSession || 1.0,
+      deactivatedAt: null,
+      createdBy: params.createdBy || null,
+      updatedBy: params.createdBy || null,
+    });
+
     return await this.learnerRepository.save(learner);
   }
 
   /**
    * 更新学员信息
-   * @param id 学员 ID
-   * @param updateData 更新数据
+   * @param params 更新参数
+   * @returns 更新后的学员实体或 null
    */
-  async updateLearner(id: number, updateData: Partial<LearnerEntity>): Promise<void> {
-    await this.learnerRepository.update(id, updateData);
-  }
+  async update(params: {
+    id: number;
+    name?: string;
+    gender?: Gender;
+    birthDate?: string | null;
+    avatarUrl?: string | null;
+    specialNeeds?: string | null;
+    remark?: string | null;
+    countPerSession?: number;
+    updatedBy?: number | null;
+  }): Promise<LearnerEntity | null> {
+    const { id, updatedBy, ...updateData } = params;
 
-  /**
-   * 检查学员是否存在
-   * @param accountId 账户 ID
-   * @returns 是否存在
-   */
-  async checkLearnerExists(accountId: number): Promise<boolean> {
-    const learner = await this.findByAccountId(accountId);
-    return !!learner;
-  }
-
-  /**
-   * 获取学员及其关联的客户信息
-   * @param learnerId 学员 ID
-   * @returns 学员信息（包含客户信息）
-   */
-  async getLearnerWithCustomer(learnerId: number): Promise<LearnerEntity | null> {
-    return await this.learnerRepository.findOne({
-      where: { id: learnerId },
-      relations: ['customer'],
+    await this.learnerRepository.update(id, {
+      ...updateData,
+      updatedBy,
     });
+
+    return await this.findById(id);
   }
 
   /**
@@ -110,5 +138,35 @@ export class LearnerService {
       .where('learner.name LIKE :name', { name: `%${name}%` })
       .orderBy('learner.createdAt', 'DESC')
       .getMany();
+  }
+
+  /**
+   * 软删除学员（设置 deactivatedAt）
+   * @param params 删除参数
+   * @returns 是否删除成功
+   */
+  async softDelete(params: { id: number; updatedBy?: number | null }): Promise<boolean> {
+    const { id, updatedBy } = params;
+    const result = await this.learnerRepository.update(id, {
+      deactivatedAt: new Date(),
+      updatedBy,
+    });
+
+    return result.affected !== undefined && result.affected > 0;
+  }
+
+  /**
+   * 恢复学员（清除 deactivatedAt）
+   * @param params 恢复参数
+   * @returns 是否恢复成功
+   */
+  async restore(params: { id: number; updatedBy?: number | null }): Promise<boolean> {
+    const { id, updatedBy } = params;
+    const result = await this.learnerRepository.update(id, {
+      deactivatedAt: null,
+      updatedBy,
+    });
+
+    return result.affected !== undefined && result.affected > 0;
   }
 }

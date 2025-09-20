@@ -1,10 +1,11 @@
-// src/modules/account/identities/training/learner/learner.entity.ts
+// src/modules/account/identities/training/learner/account-learner.entity.ts
 
 import { Gender } from '@app-types/models/user-info.types';
 import {
   Column,
   CreateDateColumn,
   Entity,
+  Index,
   JoinColumn,
   ManyToOne,
   OneToOne,
@@ -20,6 +21,9 @@ import { CustomerEntity } from '../customer/account-customer.entity';
  * 用于存储学员信息，隶属于客户（监护人）
  */
 @Entity('member_learners')
+@Index('idx_learner_account', ['accountId'])
+@Index('idx_learner_account_name', ['accountId', 'name'])
+@Index('idx_learner_customer', ['customerId'])
 export class LearnerEntity {
   /**
    * 学员 ID，主键
@@ -27,6 +31,20 @@ export class LearnerEntity {
    */
   @PrimaryGeneratedColumn({ type: 'int', comment: '学员主键 ID' })
   id!: number;
+
+  /**
+   * 统一计次比例
+   * 对该学员所有课程生效，默认为 1.00
+   */
+  @Column({
+    name: 'count_per_session',
+    type: 'decimal',
+    precision: 4,
+    scale: 2,
+    default: 1.0,
+    comment: '统一计次比例（对该学员所有课程生效）',
+  })
+  countPerSession!: number;
 
   /**
    * 关联的账户 ID
@@ -70,20 +88,6 @@ export class LearnerEntity {
   customer!: CustomerEntity;
 
   /**
-   * 统一计次比例
-   * 对该学员所有课程生效，默认为 1.00
-   */
-  @Column({
-    name: 'count_per_session',
-    type: 'decimal',
-    precision: 4,
-    scale: 2,
-    default: 1.0,
-    comment: '统一计次比例（对该学员所有课程生效）',
-  })
-  countPerSession!: number;
-
-  /**
    * 学员姓名
    * 必填字段，最大长度 64 个字符
    */
@@ -109,7 +113,7 @@ export class LearnerEntity {
 
   /**
    * 出生日期
-   * 可为空，仅保留年月日
+   * 仅保留年月日，可为空
    */
   @Column({
     name: 'birth_date',
@@ -120,8 +124,8 @@ export class LearnerEntity {
   birthDate!: string | null;
 
   /**
-   * 头像 URL
-   * 可为空，最大长度 255 个字符，存储头像或形象照的 URL
+   * 头像/形象照
+   * 可为空，最大长度 255 个字符
    */
   @Column({
     name: 'avatar_url',
@@ -133,8 +137,8 @@ export class LearnerEntity {
   avatarUrl!: string | null;
 
   /**
-   * 特殊需求
-   * 可为空，最大长度 255 个字符，记录特殊需求或注意事项
+   * 特殊需求/注意事项
+   * 可为空，最大长度 255 个字符
    */
   @Column({
     name: 'special_needs',
@@ -147,7 +151,7 @@ export class LearnerEntity {
 
   /**
    * 内部备注
-   * 可为空，最大长度 255 个字符，用于内部管理备注
+   * 可为空，最大长度 255 个字符
    */
   @Column({
     type: 'varchar',
@@ -158,8 +162,8 @@ export class LearnerEntity {
   remark!: string | null;
 
   /**
-   * 停用时间
-   * 可为空，NULL=有效；非 NULL=已下线
+   * 下线时间
+   * NULL=有效；非 NULL=下线
    */
   @Column({
     name: 'deactivated_at',
@@ -171,7 +175,6 @@ export class LearnerEntity {
 
   /**
    * 创建时间
-   * 自动设置为当前时间戳
    */
   @CreateDateColumn({
     name: 'created_at',
@@ -182,7 +185,6 @@ export class LearnerEntity {
 
   /**
    * 更新时间
-   * 自动更新为当前时间戳
    */
   @UpdateDateColumn({
     name: 'updated_at',
@@ -192,8 +194,8 @@ export class LearnerEntity {
   updatedAt!: Date;
 
   /**
-   * 创建者 ID
-   * 可为空，记录创建该学员记录的用户 ID
+   * 创建者用户 ID
+   * 可为空
    */
   @Column({
     name: 'created_by',
@@ -204,8 +206,8 @@ export class LearnerEntity {
   createdBy!: number | null;
 
   /**
-   * 更新者 ID
-   * 可为空，记录最后更新该学员记录的用户 ID
+   * 最后更新者用户 ID
+   * 可为空
    */
   @Column({
     name: 'updated_by',

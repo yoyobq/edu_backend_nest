@@ -311,6 +311,20 @@ export class AccountService {
     return await provider.getProfile(accountId);
   }
 
+  /** 根据账户 ID 查找学员（Learner）信息（未启用 learner 包时返回 null） */
+  async findLearnerByAccountId(accountId: number): Promise<LearnerEntity | null> {
+    const provider = this.getProviderByIdentity('LEARNER');
+    if (!provider) return null;
+    return await provider.getProfile(accountId);
+  }
+
+  /** 批量根据账户 ID 查找学员信息 */
+  async findLearnersByAccountIds(accountIds: number[]): Promise<Map<number, LearnerEntity>> {
+    const provider = this.getProviderByIdentity('LEARNER');
+    if (!provider || !provider.getProfiles) return new Map();
+    return await provider.getProfiles(accountIds);
+  }
+
   // =========================================================
   // 昵称挑选（原样保留）
   // =========================================================

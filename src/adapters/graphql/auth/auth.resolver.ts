@@ -6,6 +6,7 @@ import { GeographicInfo } from '@app-types/models/user-info.types';
 import { StaffEntity } from '@modules/account/identities/school/staff/account-staff.entity';
 import { CoachEntity } from '@modules/account/identities/training/coach/account-coach.entity';
 import { CustomerEntity } from '@modules/account/identities/training/customer/account-customer.entity';
+import { LearnerEntity } from '@modules/account/identities/training/learner/account-learner.entity';
 import { ManagerEntity } from '@modules/account/identities/training/manager/account-manager.entity';
 import { Args, Mutation, Resolver } from '@nestjs/graphql';
 import { FetchUserInfoUsecase } from '@usecases/account/fetch-user-info.usecase';
@@ -13,6 +14,7 @@ import { LoginWithPasswordUsecase } from '@usecases/auth/login-with-password.use
 import { CoachType } from '../account/dto/identity/coach.dto';
 import { CustomerType } from '../account/dto/identity/customer.dto';
 import { IdentityUnionType } from '../account/dto/identity/identity-union.type';
+import { LearnerType } from '../account/dto/identity/learner.dto';
 import { ManagerType } from '../account/dto/identity/manager.dto';
 import { StaffType } from '../account/dto/identity/staff.dto';
 import { LoginResult } from '../account/dto/login-result.dto';
@@ -66,22 +68,12 @@ export class AuthResolver {
   }
 
   /**
-   * 检查对象是否为有效的身份实体
-   * @param obj 待检查的对象
-   * @returns 是否为有效的身份实体
+   * 验证身份实体是否有效
    */
   private isValidIdentityEntity(
     obj: unknown,
-  ): obj is ManagerEntity | CoachEntity | StaffEntity | CustomerEntity {
-    return (
-      typeof obj === 'object' &&
-      obj !== null &&
-      'id' in obj &&
-      'accountId' in obj &&
-      'name' in obj &&
-      'createdAt' in obj &&
-      'updatedAt' in obj
-    );
+  ): obj is ManagerEntity | CoachEntity | StaffEntity | CustomerEntity | LearnerEntity {
+    return obj !== null && typeof obj === 'object' && 'id' in obj && 'accountId' in obj;
   }
 
   /**
@@ -157,7 +149,7 @@ export class AuthResolver {
    * @returns 转换后的身份信息
    */
   private convertIdentityForGraphQL(
-    identity: ManagerEntity | CoachEntity | StaffEntity | CustomerEntity,
+    identity: ManagerEntity | CoachEntity | StaffEntity | CustomerEntity | LearnerEntity,
     role: IdentityTypeEnum,
   ): IdentityUnionType {
     // 根据角色返回对应的 DTO 类型
@@ -231,6 +223,25 @@ export class AuthResolver {
           deactivatedAt: customer.deactivatedAt,
           customerId: customer.id, // Union 类型解析标识符
         } as CustomerType;
+      }
+
+      case IdentityTypeEnum.LEARNER: {
+        const learner = identity as LearnerEntity;
+        return {
+          id: learner.id,
+          accountId: learner.accountId,
+          customerId: learner.customerId,
+          name: learner.name,
+          gender: learner.gender,
+          birthDate: learner.birthDate,
+          avatarUrl: learner.avatarUrl,
+          specialNeeds: learner.specialNeeds,
+          countPerSession: learner.countPerSession,
+          remark: learner.remark,
+          createdAt: learner.createdAt,
+          updatedAt: learner.updatedAt,
+          deactivatedAt: learner.deactivatedAt,
+        } as LearnerType;
       }
 
       default:

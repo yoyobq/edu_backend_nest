@@ -1,10 +1,13 @@
 // src/usecases/account/fetch-identity-by-role.usecase.ts
+
 import { EmploymentStatus, IdentityTypeEnum } from '@app-types/models/account.types';
+import { Gender } from '@app-types/models/user-info.types';
 import { AUTH_ERROR, DomainError } from '@core/common/errors';
 import { Injectable } from '@nestjs/common';
 import { AccountService } from '@src/modules/account/base/services/account.service';
 import { CoachType } from '../../adapters/graphql/account/dto/identity/coach.dto';
 import { CustomerType } from '../../adapters/graphql/account/dto/identity/customer.dto';
+import { LearnerType } from '../../adapters/graphql/account/dto/identity/learner.dto';
 import { ManagerType } from '../../adapters/graphql/account/dto/identity/manager.dto';
 import { StaffType } from '../../adapters/graphql/account/dto/identity/staff.dto';
 
@@ -38,6 +41,23 @@ export type RawIdentity =
         | 'contactPhone'
         | 'preferredContactTime'
         | 'membershipLevel'
+        | 'remark'
+        | 'createdAt'
+        | 'updatedAt'
+      > & { id: number };
+    }
+  | {
+      kind: 'LEARNER';
+      data: Pick<
+        LearnerType,
+        | 'accountId'
+        | 'customerId'
+        | 'name'
+        | 'gender'
+        | 'birthDate'
+        | 'avatarUrl'
+        | 'specialNeeds'
+        | 'countPerSession'
         | 'remark'
         | 'createdAt'
         | 'updatedAt'
@@ -182,6 +202,55 @@ export class FetchIdentityByRoleUsecase {
     };
   }
 
+  /**
+   * 映射 Learner 数据
+   */
+  private mapLearnerData(entity: {
+    id: number;
+    accountId: number | null;
+    customerId: number;
+    name: string;
+    gender: Gender;
+    birthDate: string | null;
+    avatarUrl: string | null;
+    specialNeeds: string | null;
+    countPerSession: number;
+    remark: string | null;
+    createdAt: Date;
+    updatedAt: Date;
+  }): Pick<
+    LearnerType,
+    | 'accountId'
+    | 'customerId'
+    | 'name'
+    | 'gender'
+    | 'birthDate'
+    | 'avatarUrl'
+    | 'specialNeeds'
+    | 'countPerSession'
+    | 'remark'
+    | 'createdAt'
+    | 'updatedAt'
+  > & { id: number } {
+    return {
+      id: entity.id,
+      accountId: entity.accountId,
+      customerId: entity.customerId,
+      name: entity.name,
+      gender: entity.gender,
+      birthDate: entity.birthDate,
+      avatarUrl: entity.avatarUrl,
+      specialNeeds: entity.specialNeeds,
+      countPerSession: entity.countPerSession,
+      remark: entity.remark,
+      createdAt: entity.createdAt,
+      updatedAt: entity.updatedAt,
+    };
+  }
+
+  /**
+   * 根据账户 ID 和角色获取身份信息
+   */
   async execute({
     accountId,
     role,
@@ -223,6 +292,13 @@ export class FetchIdentityByRoleUsecase {
         this.checkEntityDeactivation(entity);
         const mappedData = this.mapCustomerData(entity);
         return { kind: 'CUSTOMER', data: mappedData };
+      }
+      case IdentityTypeEnum.LEARNER: {
+        const entity = await this.accountService.findLearnerByAccountId(accountId);
+        if (!entity) return { kind: 'NONE' };
+
+        const mappedData = this.mapLearnerData(entity);
+        return { kind: 'LEARNER', data: mappedData };
       }
       default:
         return { kind: 'NONE' };

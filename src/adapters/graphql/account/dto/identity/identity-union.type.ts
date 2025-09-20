@@ -3,6 +3,7 @@ import { StaffType } from './staff.dto';
 // import { StudentType } from './student.dto';
 import { CoachType } from './coach.dto';
 import { CustomerType } from './customer.dto';
+import { LearnerType } from './learner.dto';
 import { ManagerType } from './manager.dto';
 
 // 导入枚举注册文件以确保 GraphQL 类型系统正确识别所有枚举
@@ -11,7 +12,7 @@ import '@src/adapters/graphql/account/enums/identity-type.enum';
 /**
  * 身份联合类型的所有可能类型
  */
-type IdentityTypes = StaffType | CoachType | ManagerType | CustomerType;
+type IdentityTypes = StaffType | CoachType | ManagerType | CustomerType | LearnerType;
 
 /**
  * 身份联合类型
@@ -19,10 +20,16 @@ type IdentityTypes = StaffType | CoachType | ManagerType | CustomerType;
 // eslint-disable-next-line @typescript-eslint/naming-convention
 export const IdentityUnion = createUnionType({
   name: 'IdentityUnion',
-  types: () => [StaffType, CoachType, ManagerType, CustomerType] as const,
+  types: () => [StaffType, CoachType, ManagerType, CustomerType, LearnerType] as const,
   resolveType(
     value: IdentityTypes,
-  ): typeof StaffType | typeof CustomerType | typeof CoachType | typeof ManagerType | null {
+  ):
+    | typeof StaffType
+    | typeof CustomerType
+    | typeof CoachType
+    | typeof ManagerType
+    | typeof LearnerType
+    | null {
     // 根据身份数据的特征字段来判断类型
     if ('managerId' in value) {
       return ManagerType;
@@ -33,8 +40,11 @@ export const IdentityUnion = createUnionType({
     if ('jobId' in value) {
       return StaffType;
     }
-    if ('customerId' in value) {
+    if ('customerId' in value && 'membershipLevel' in value) {
       return CustomerType;
+    }
+    if ('customerId' in value && 'countPerSession' in value) {
+      return LearnerType;
     }
 
     return null;
