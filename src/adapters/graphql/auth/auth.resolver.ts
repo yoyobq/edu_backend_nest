@@ -9,7 +9,7 @@ import { CustomerEntity } from '@modules/account/identities/training/customer/ac
 import { LearnerEntity } from '@modules/account/identities/training/learner/account-learner.entity';
 import { ManagerEntity } from '@modules/account/identities/training/manager/account-manager.entity';
 import { Args, Mutation, Resolver } from '@nestjs/graphql';
-import { FetchUserInfoUsecase } from '@usecases/account/fetch-user-info.usecase';
+import { CompleteUserData, FetchUserInfoUsecase } from '@usecases/account/fetch-user-info.usecase';
 import { LoginWithPasswordUsecase } from '@usecases/auth/login-with-password.usecase';
 import { CoachType } from '../account/dto/identity/coach.dto';
 import { CustomerType } from '../account/dto/identity/customer.dto';
@@ -82,7 +82,7 @@ export class AuthResolver {
    */
   private async getUserInfoForGraphQL(accountId: number): Promise<UserInfoDTO> {
     // 使用现有的 executeForLoginFlow 方法，它已经包含了安全验证
-    const completeUserData = await this.fetchUserInfoUsecase.executeForLoginFlow({
+    const completeUserData: CompleteUserData = await this.fetchUserInfoUsecase.executeForLoginFlow({
       accountId,
     });
 

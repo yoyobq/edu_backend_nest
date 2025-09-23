@@ -1,4 +1,4 @@
-// /var/www/backend/src/core/common/password/password.pbkdf2.helper.spec.ts
+// src/core/common/password/password.pbkdf2.helper.spec.ts
 import { PasswordPbkdf2Helper } from './password.pbkdf2.helper';
 
 describe('PasswordPbkdf2Helper', () => {
