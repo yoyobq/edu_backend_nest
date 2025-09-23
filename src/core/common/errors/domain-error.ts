@@ -98,12 +98,30 @@ export const PERMISSION_ERROR = {
 } as const;
 Object.freeze(PERMISSION_ERROR);
 
+// 验证记录相关错误码
+export const VERIFICATION_RECORD_ERROR = {
+  CREATION_FAILED: 'VERIFICATION_RECORD_CREATION_FAILED',
+  QUERY_FAILED: 'VERIFICATION_RECORD_QUERY_FAILED',
+  RECORD_NOT_FOUND: 'VERIFICATION_RECORD_NOT_FOUND',
+  RECORD_NOT_ACTIVE: 'VERIFICATION_RECORD_NOT_ACTIVE',
+  RECORD_EXPIRED: 'VERIFICATION_RECORD_EXPIRED',
+  RECORD_NOT_ACTIVE_YET: 'VERIFICATION_RECORD_NOT_ACTIVE_YET',
+  INVALID_TOKEN: 'VERIFICATION_RECORD_INVALID_TOKEN',
+  TARGET_ACCOUNT_MISMATCH: 'VERIFICATION_RECORD_TARGET_ACCOUNT_MISMATCH',
+  TYPE_MISMATCH: 'VERIFICATION_RECORD_TYPE_MISMATCH',
+  CONSUMPTION_FAILED: 'VERIFICATION_RECORD_CONSUMPTION_FAILED',
+  REVOCATION_FAILED: 'VERIFICATION_RECORD_REVOCATION_FAILED',
+} as const;
+Object.freeze(VERIFICATION_RECORD_ERROR);
+
 // 类型辅助
 export type AuthErrorCode = (typeof AUTH_ERROR)[keyof typeof AUTH_ERROR];
 export type AccountErrorCode = (typeof ACCOUNT_ERROR)[keyof typeof ACCOUNT_ERROR];
 export type ThirdPartyErrorCode = (typeof THIRDPARTY_ERROR)[keyof typeof THIRDPARTY_ERROR];
 export type JwtErrorCode = (typeof JWT_ERROR)[keyof typeof JWT_ERROR];
-export type PermissionErrorCode = (typeof PERMISSION_ERROR)[keyof typeof PERMISSION_ERROR]; // 新增
+export type PermissionErrorCode = (typeof PERMISSION_ERROR)[keyof typeof PERMISSION_ERROR];
+export type VerificationRecordErrorCode =
+  (typeof VERIFICATION_RECORD_ERROR)[keyof typeof VERIFICATION_RECORD_ERROR];
 
 // 类型守卫：统一判断是否为领域错误（兼容多包/反序列化场景）
 export const isDomainError = (error: unknown): error is DomainError => {
