@@ -9,15 +9,14 @@ import { AppModule } from '@src/app.module';
 import { AccountEntity } from '@src/modules/account/base/entities/account.entity';
 import { UserInfoEntity } from '@src/modules/account/base/entities/user-info.entity';
 
-import { AccountStatus, IdentityTypeEnum, LoginTypeEnum } from '@src/types/models/account.types';
-import { Gender, UserState } from '@src/types/models/user-info.types';
+import { IdentityTypeEnum, LoginTypeEnum } from '@src/types/models/account.types';
 import { CreateAccountUsecase } from '@src/usecases/account/create-account.usecase';
 // 添加身份实体导入
-import { CoachEntity } from '@src/modules/account/identities/training/coach/account-coach.entity';
-import { ManagerEntity } from '@src/modules/account/identities/training/manager/account-manager.entity';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { DataSource } from 'typeorm';
+// 导入全局测试账户工具
+import { cleanupTestAccounts, seedTestAccounts, testAccountsConfig } from '../utils/test-accounts';
 
 /**
  * 测试用的 GraphQL Resolver
@@ -116,53 +115,6 @@ describe('RolesGuard (e2e)', () => {
   let emptyRolesToken: string;
   let createAccountUsecase: CreateAccountUsecase;
 
-  // 测试账户数据
-  const testAccounts = {
-    manager: {
-      loginName: 'testmanager',
-      loginEmail: 'manager@example.com',
-      loginPassword: 'password123',
-      status: AccountStatus.ACTIVE,
-      accessGroup: [IdentityTypeEnum.MANAGER],
-    },
-    coach: {
-      loginName: 'testcoach',
-      loginEmail: 'coach@example.com',
-      loginPassword: 'password123',
-      status: AccountStatus.ACTIVE,
-      accessGroup: [IdentityTypeEnum.COACH],
-    },
-    admin: {
-      loginName: 'testadmin',
-      loginEmail: 'admin@example.com',
-      loginPassword: 'password123',
-      status: AccountStatus.ACTIVE,
-      accessGroup: [IdentityTypeEnum.ADMIN],
-    },
-    customer: {
-      loginName: 'testcustomer',
-      loginEmail: 'customer@example.com',
-      loginPassword: 'password123',
-      status: AccountStatus.ACTIVE,
-      accessGroup: [IdentityTypeEnum.CUSTOMER],
-    },
-    guest: {
-      loginName: 'testguest',
-      loginEmail: 'guest@example.com',
-      loginPassword: 'password123',
-      status: AccountStatus.ACTIVE,
-      accessGroup: [IdentityTypeEnum.GUEST], // 修改为 GUEST，与测试配置保持一致
-      identityType: IdentityTypeEnum.REGISTRANT,
-    },
-    emptyRoles: {
-      loginName: 'testempty',
-      loginEmail: 'empty@example.com',
-      loginPassword: 'password123',
-      status: AccountStatus.ACTIVE,
-      accessGroup: [], // 空角色数组
-    },
-  };
-
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
@@ -183,8 +135,12 @@ describe('RolesGuard (e2e)', () => {
   });
 
   beforeEach(async () => {
-    await cleanupTestData(dataSource);
-    await createTestAccounts(dataSource, createAccountUsecase);
+    // 使用全局测试账户工具进行清理和创建
+    await cleanupTestAccounts(dataSource);
+    await seedTestAccounts({
+      dataSource,
+      createAccountUsecase,
+    });
 
     // 添加调试信息
     console.log('开始登录所有用户...');
@@ -198,145 +154,6 @@ describe('RolesGuard (e2e)', () => {
       emptyRolesToken: emptyRolesToken ? 'exists' : 'null',
     });
   });
-
-  /**
-   * 清理测试数据
-   */
-  const cleanupTestData = async (dataSource: DataSource): Promise<void> => {
-    // 删除身份记录
-    const managerRepository = dataSource.getRepository(ManagerEntity);
-    const coachRepository = dataSource.getRepository(CoachEntity);
-
-    await managerRepository.clear();
-    await coachRepository.clear();
-
-    // 删除基础账户数据
-    const accountRepository = dataSource.getRepository(AccountEntity);
-    const userInfoRepository = dataSource.getRepository(UserInfoEntity);
-
-    await userInfoRepository.clear();
-    await accountRepository.clear();
-  };
-
-  /**
-   * 创建测试账户
-   */
-  const createTestAccounts = async (
-    dataSource: DataSource,
-    createAccountUsecase: CreateAccountUsecase,
-  ): Promise<void> => {
-    const testAccounts = [
-      {
-        loginName: 'testmanager',
-        loginEmail: 'manager@example.com',
-        loginPassword: 'password123',
-        status: AccountStatus.ACTIVE,
-        accessGroup: [IdentityTypeEnum.MANAGER],
-        identityType: IdentityTypeEnum.MANAGER,
-      },
-      {
-        loginName: 'testcoach',
-        loginEmail: 'coach@example.com',
-        loginPassword: 'password123',
-        status: AccountStatus.ACTIVE,
-        accessGroup: [IdentityTypeEnum.COACH],
-        identityType: IdentityTypeEnum.COACH,
-      },
-      {
-        loginName: 'testadmin',
-        loginEmail: 'admin@example.com',
-        loginPassword: 'password123',
-        status: AccountStatus.ACTIVE,
-        accessGroup: [IdentityTypeEnum.ADMIN], // 使用枚举值
-        identityType: IdentityTypeEnum.REGISTRANT,
-      },
-      {
-        loginName: 'testcustomer',
-        loginEmail: 'customer@example.com',
-        loginPassword: 'password123',
-        status: AccountStatus.ACTIVE,
-        accessGroup: [IdentityTypeEnum.CUSTOMER],
-        identityType: IdentityTypeEnum.REGISTRANT,
-      },
-      {
-        loginName: 'testguest',
-        loginEmail: 'guest@example.com',
-        loginPassword: 'password123',
-        status: AccountStatus.ACTIVE,
-        accessGroup: [IdentityTypeEnum.GUEST], // 使用枚举值
-        identityType: IdentityTypeEnum.REGISTRANT,
-      },
-      {
-        loginName: 'testempty',
-        loginEmail: 'empty@example.com',
-        loginPassword: 'password123',
-        status: AccountStatus.ACTIVE,
-        accessGroup: [], // 空数组，符合测试期望
-        identityType: IdentityTypeEnum.REGISTRANT,
-      },
-    ];
-
-    for (const account of testAccounts) {
-      // 使用 CreateAccountUsecase 创建账户和用户信息
-      const createdAccount = await createAccountUsecase.execute({
-        accountData: {
-          loginName: account.loginName,
-          loginEmail: account.loginEmail,
-          loginPassword: account.loginPassword,
-          status: account.status,
-          identityHint: account.identityType,
-        },
-        userInfoData: {
-          nickname: `${account.loginName}_nickname`,
-          gender: Gender.SECRET,
-          birthDate: null,
-          avatarUrl: null,
-          email: account.loginEmail,
-          signature: null,
-          accessGroup: account.accessGroup,
-          address: null,
-          phone: null,
-          tags: null,
-          geographic: null,
-          // 设置 metaDigest 与 accessGroup 保持一致，避免安全检查失败
-          metaDigest: account.accessGroup,
-          notifyCount: 0,
-          unreadCount: 0,
-          userState: UserState.ACTIVE,
-        },
-      });
-
-      // 根据身份类型创建对应的身份记录
-      if (account.identityType === IdentityTypeEnum.MANAGER) {
-        const managerRepository = dataSource.getRepository(ManagerEntity);
-        const managerEntity = managerRepository.create({
-          accountId: createdAccount.id,
-          name: `${account.loginName}_manager_name`,
-          deactivatedAt: null,
-          remark: `测试用 manager 身份记录 - ${account.loginName}`,
-          createdBy: null,
-          updatedBy: null,
-        });
-        await managerRepository.save(managerEntity);
-      } else if (account.identityType === IdentityTypeEnum.COACH) {
-        const coachRepository = dataSource.getRepository(CoachEntity);
-        const coachEntity = coachRepository.create({
-          accountId: createdAccount.id,
-          name: `${account.loginName}_coach_name`,
-          level: 1,
-          description: `测试用 coach 描述 - ${account.loginName}`,
-          avatarUrl: null,
-          specialty: '篮球',
-          deactivatedAt: null,
-          remark: `测试用 coach 身份记录 - ${account.loginName}`,
-          createdBy: null,
-          updatedBy: null,
-        });
-        await coachRepository.save(coachEntity);
-      }
-      // 注意：STAFF、CUSTOMER、REGISTRANT 等身份类型可能不需要创建额外的身份记录
-    }
-  };
 
   /**
    * 登录所有测试用户获取 token
@@ -392,22 +209,31 @@ describe('RolesGuard (e2e)', () => {
       return accessToken;
     };
 
-    // 添加错误处理，确保每个用户都能成功登录
+    // 使用全局测试账户配置进行登录
     try {
       managerToken = await loginUser(
-        testAccounts.manager.loginName,
-        testAccounts.manager.loginPassword,
+        testAccountsConfig.manager.loginName,
+        testAccountsConfig.manager.loginPassword,
       );
-      coachToken = await loginUser(testAccounts.coach.loginName, testAccounts.coach.loginPassword);
-      adminToken = await loginUser(testAccounts.admin.loginName, testAccounts.admin.loginPassword);
+      coachToken = await loginUser(
+        testAccountsConfig.coach.loginName,
+        testAccountsConfig.coach.loginPassword,
+      );
+      adminToken = await loginUser(
+        testAccountsConfig.admin.loginName,
+        testAccountsConfig.admin.loginPassword,
+      );
       customerToken = await loginUser(
-        testAccounts.customer.loginName,
-        testAccounts.customer.loginPassword,
+        testAccountsConfig.customer.loginName,
+        testAccountsConfig.customer.loginPassword,
       );
-      guestToken = await loginUser(testAccounts.guest.loginName, testAccounts.guest.loginPassword);
+      guestToken = await loginUser(
+        testAccountsConfig.guest.loginName,
+        testAccountsConfig.guest.loginPassword,
+      );
       emptyRolesToken = await loginUser(
-        testAccounts.emptyRoles.loginName,
-        testAccounts.emptyRoles.loginPassword,
+        testAccountsConfig.emptyRoles.loginName,
+        testAccountsConfig.emptyRoles.loginPassword,
       );
     } catch (error) {
       console.error('登录用户失败:', error);
@@ -572,7 +398,7 @@ describe('RolesGuard (e2e)', () => {
       const accountRepository = dataSource.getRepository(AccountEntity);
 
       const account = await accountRepository.findOne({
-        where: { loginName: testAccounts.coach.loginName },
+        where: { loginName: testAccountsConfig.coach.loginName },
       });
 
       // 尝试更新为 null，预期会失败
