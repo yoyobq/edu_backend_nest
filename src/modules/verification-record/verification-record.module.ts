@@ -6,6 +6,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConsumeVerificationRecordUsecase } from '@src/usecases/verification-record/consume-verification-record.usecase';
 import { CreateVerificationRecordUsecase } from '@src/usecases/verification-record/create-verification-record.usecase';
 import { FindVerificationRecordUsecase } from '@src/usecases/verification-record/find-verification-record.usecase';
+import { IssueCertificateUsecase } from '@src/usecases/verification-record/issue-certificate.usecase';
 import { VerificationRecordEntity } from './verification-record.entity';
 import { VerificationRecordService } from './verification-record.service';
 
@@ -21,6 +22,7 @@ import { VerificationRecordService } from './verification-record.service';
     CreateVerificationRecordUsecase,
     ConsumeVerificationRecordUsecase,
     FindVerificationRecordUsecase,
+    IssueCertificateUsecase,
   ],
   exports: [
     TypeOrmModule,
@@ -29,6 +31,7 @@ import { VerificationRecordService } from './verification-record.service';
     CreateVerificationRecordUsecase,
     ConsumeVerificationRecordUsecase,
     FindVerificationRecordUsecase,
+    IssueCertificateUsecase,
   ],
 })
 export class VerificationRecordModule {}

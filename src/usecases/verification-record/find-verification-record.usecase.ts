@@ -1,6 +1,9 @@
 // src/usecases/verification-record/find-verification-record.usecase.ts
 
-import { VerificationRecordStatus } from '@app-types/models/verification-record.types';
+import {
+  VerificationRecordStatus,
+  VerificationRecordType,
+} from '@app-types/models/verification-record.types';
 import { DomainError, VERIFICATION_RECORD_ERROR } from '@core/common/errors/domain-error';
 import { Injectable } from '@nestjs/common';
 import { VerificationRecordEntity } from '@src/modules/verification-record/verification-record.entity';
@@ -12,8 +15,12 @@ import { VerificationRecordService } from '@src/modules/verification-record/veri
 export interface FindVerificationRecordUsecaseParams {
   /** 验证 token */
   token: string;
-  /** 消费者账号 ID，用于权限校验 */
-  forAccountId: number;
+  /** 消费者账号 ID，用于权限校验（可选，公开验证时可为 undefined） */
+  forAccountId?: number;
+  /** 期望的验证记录类型（可选） */
+  expectedType?: VerificationRecordType;
+  /** 是否忽略 target 限制（用于公开验证） */
+  ignoreTargetRestriction?: boolean;
 }
 
 /**
@@ -35,22 +42,35 @@ export class FindVerificationRecordUsecase {
   ): Promise<VerificationRecordEntity | null> {
     try {
       const now = new Date();
-      const { token, forAccountId } = params;
+      const { token, forAccountId, expectedType, ignoreTargetRestriction } = params;
       const tokenFp = this.verificationRecordService.generateTokenFingerprint(token);
 
       const repository = this.verificationRecordService.getRepository();
-      const record = await repository
+      const queryBuilder = repository
         .createQueryBuilder('record')
         .where('record.tokenFp = :tokenFp', { tokenFp })
         .andWhere('record.status = :activeStatus', {
           activeStatus: VerificationRecordStatus.ACTIVE,
         })
         .andWhere('record.expiresAt > :now', { now })
-        .andWhere('(record.notBefore IS NULL OR record.notBefore <= :now)', { now })
-        .andWhere('(record.targetAccountId IS NULL OR record.targetAccountId = :forAccountId)', {
-          forAccountId,
-        })
-        .getOne();
+        .andWhere('(record.notBefore IS NULL OR record.notBefore <= :now)', { now });
+
+      // 只有在不忽略 target 限制且 forAccountId 存在时才添加 targetAccountId 过滤
+      if (!ignoreTargetRestriction && forAccountId !== undefined) {
+        queryBuilder.andWhere(
+          '(record.targetAccountId IS NULL OR record.targetAccountId = :forAccountId)',
+          {
+            forAccountId,
+          },
+        );
+      }
+
+      // 如果指定了期望类型，添加类型过滤
+      if (expectedType) {
+        queryBuilder.andWhere('record.type = :expectedType', { expectedType });
+      }
+
+      const record = await queryBuilder.getOne();
 
       return record;
     } catch (error) {
@@ -59,6 +79,8 @@ export class FindVerificationRecordUsecase {
         '查询可消费验证记录失败',
         {
           forAccountId: params.forAccountId,
+          expectedType: params.expectedType,
+          ignoreTargetRestriction: params.ignoreTargetRestriction,
           error: error instanceof Error ? error.message : '未知错误',
         },
         error,

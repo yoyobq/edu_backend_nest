@@ -21,6 +21,7 @@ export class FormatResponseMiddleware implements NestMiddleware {
       // 拦截原始的 res.json 方法
       const originalJson = res.json.bind(res);
       res.json = (body: unknown): Response => {
+        console.log(req);
         console.log('📦 JSON 响应被中间件拦截');
         try {
           const formattedBody = this.formatToAntdProResponse(req, body);

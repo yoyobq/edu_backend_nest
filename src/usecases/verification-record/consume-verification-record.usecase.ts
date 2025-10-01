@@ -147,7 +147,7 @@ export class ConsumeVerificationRecordUsecase {
     return this.executeConsumption({
       repository: this.getRepository(manager),
       whereCondition: { tokenFp },
-      whereClause: (qb) => qb.where('tokenFp = :tokenFp', { tokenFp }),
+      whereClause: (qb) => qb.andWhere('tokenFp = :tokenFp', { tokenFp }),
       notFoundError: VERIFICATION_RECORD_ERROR.INVALID_TOKEN,
       notFoundMessage: '无效的验证 token',
       context: { consumedByAccountId, expectedType, now: new Date() },
@@ -166,7 +166,7 @@ export class ConsumeVerificationRecordUsecase {
     return this.executeConsumption({
       repository: this.getRepository(manager),
       whereCondition: { id: recordId },
-      whereClause: (qb) => qb.where('id = :recordId', { recordId }),
+      whereClause: (qb) => qb.andWhere('id = :recordId', { recordId }),
       notFoundError: VERIFICATION_RECORD_ERROR.RECORD_NOT_FOUND,
       notFoundMessage: '验证记录不存在',
       context: { consumedByAccountId, expectedType, now: new Date() },
@@ -178,14 +178,16 @@ export class ConsumeVerificationRecordUsecase {
    * 在事务中通过 token 消费验证记录
    * @param token 验证 token
    * @param consumedByAccountId 消费者账号 ID（可选）
+   * @param expectedType 期望的验证记录类型（可选但强烈建议提供）
    * @returns 更新后的验证记录实体
    */
   async consumeByTokenInTransaction(
     token: string,
     consumedByAccountId?: number,
+    expectedType?: VerificationRecordType,
   ): Promise<VerificationRecordEntity> {
     return this.verificationRecordService.runTransaction(async (manager) => {
-      return this.consumeByToken({ token, consumedByAccountId, manager });
+      return this.consumeByToken({ token, consumedByAccountId, expectedType, manager });
     });
   }
 
