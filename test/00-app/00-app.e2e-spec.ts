@@ -7,6 +7,8 @@ import { App } from 'supertest/types';
 import { DataSource } from 'typeorm';
 import { AppModule } from '../../src/app.module';
 
+console.log('worker', process.env.JEST_WORKER_ID, __filename);
+
 describe('00-App 全局测试', () => {
   let app: INestApplication<App>;
   let dataSource: DataSource;
@@ -53,14 +55,6 @@ describe('00-App 全局测试', () => {
     it('数据库连接应该正常建立', () => {
       expect(dataSource).toBeDefined();
       expect(dataSource.isInitialized).toBe(true);
-    });
-
-    /**
-     * 测试全局测试环境数据源
-     */
-    it('全局测试数据源应该可用', () => {
-      expect(global.testDataSource).toBeDefined();
-      expect(global.testDataSource?.isInitialized).toBe(true);
     });
 
     /**

@@ -18,7 +18,7 @@
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
-    "test": "clear && NODE_ENV=e2e jest --config ./test/jest-e2e.json",
+    "test": "clear && NODE_ENV=e2e jest -c ./test/jest-e2e.js --runInBand --detectOpenHandles",
     "test:e2e:watch": "NODE_ENV=e2e jest --config ./test/jest-e2e.json --watch",
     "test:e2e:debug": "NODE_ENV=e2e node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --config ./test/jest-e2e.json --runInBand"
   },

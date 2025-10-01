@@ -100,6 +100,8 @@ class TestRolesResolver {
   }
 }
 
+console.log('worker', process.env.JEST_WORKER_ID, __filename);
+
 /**
  * RolesGuard E2E 测试
  */
