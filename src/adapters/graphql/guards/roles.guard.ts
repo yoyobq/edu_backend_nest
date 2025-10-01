@@ -35,19 +35,44 @@ export class RolesGuard implements CanActivate {
       context.getClass(),
     ]);
 
-    if (!requiredRoles) {
-      return true; // 没有角色要求，允许通过
-    }
-
     const request = this.getRequest(context);
     const user = request.user as JwtPayload;
 
-    // 区分未登录和权限不足两种情况
+    // 首先检查用户是否登录，无论是否有角色要求
     if (!user) {
       // 用户未登录 - 401 语义
       throw new DomainError(JWT_ERROR.AUTHENTICATION_FAILED, '用户未登录', {
-        requiredRoles,
+        requiredRoles: requiredRoles || [],
       });
+    }
+
+    // 如果没有角色要求，允许已登录用户通过
+    if (!requiredRoles) {
+      return true;
+    }
+
+    // 如果角色要求为空数组，需要检查用户权限信息
+    if (requiredRoles.length === 0) {
+      // 检查 accessGroup 数据格式
+      if (!Array.isArray(user.accessGroup)) {
+        throw new DomainError(PERMISSION_ERROR.INSUFFICIENT_PERMISSIONS, '用户权限数据格式异常', {
+          requiredRoles,
+          accessGroupType: typeof user.accessGroup,
+          accessGroupValue: user.accessGroup,
+        });
+      }
+
+      const userAccessGroup = user.accessGroup;
+
+      if (userAccessGroup.length === 0) {
+        // 用户已登录但缺少角色信息 - 403 语义
+        throw new DomainError(PERMISSION_ERROR.INSUFFICIENT_PERMISSIONS, '用户权限信息缺失', {
+          requiredRoles,
+        });
+      }
+
+      // 有角色信息的用户可以访问空角色要求的端点
+      return true;
     }
 
     // 检查 accessGroup 数据格式，如果不是数组直接抛错
