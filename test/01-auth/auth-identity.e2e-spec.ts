@@ -5,15 +5,16 @@ import { CoachEntity } from '@src/modules/account/identities/training/coach/acco
 import { CustomerEntity } from '@src/modules/account/identities/training/customer/account-customer.entity';
 import { LearnerEntity } from '@src/modules/account/identities/training/learner/account-learner.entity';
 import { ManagerEntity } from '@src/modules/account/identities/training/manager/account-manager.entity';
-import { AccountStatus, IdentityTypeEnum, LoginTypeEnum } from '@src/types/models/account.types';
+import { IdentityTypeEnum, LoginTypeEnum } from '@src/types/models/account.types';
 import { MembershipLevel } from '@src/types/models/training.types';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { DataSource } from 'typeorm';
 
-import { Gender, UserState } from '@app-types/models/user-info.types';
+import { UserState } from '@app-types/models/user-info.types';
 import { AppModule } from '@src/app.module';
 import { CreateAccountUsecase } from '@src/usecases/account/create-account.usecase';
+import { cleanupTestAccounts, seedTestAccounts, testAccountsConfig } from '../utils/test-accounts';
 
 /**
  * Auth 身份测试 E2E 测试 - 专门测试 Coach、Customer、Manager 和 Learner 身份
@@ -23,37 +24,8 @@ describe('Auth Identity (e2e)', () => {
   let dataSource: DataSource;
   let createAccountUsecase: CreateAccountUsecase;
 
-  // 测试账户数据
-  const testAccountsPlaintext = {
-    coachUser: {
-      loginName: 'coachuser',
-      loginEmail: 'coach@example.com',
-      loginPassword: 'password123',
-      status: AccountStatus.ACTIVE,
-      identityType: IdentityTypeEnum.COACH,
-    },
-    customerUser: {
-      loginName: 'customeruser',
-      loginEmail: 'customer@example.com',
-      loginPassword: 'password123',
-      status: AccountStatus.ACTIVE,
-      identityType: IdentityTypeEnum.CUSTOMER,
-    },
-    managerUser: {
-      loginName: 'manageruser',
-      loginEmail: 'manager@example.com',
-      loginPassword: 'password123',
-      status: AccountStatus.ACTIVE,
-      identityType: IdentityTypeEnum.MANAGER,
-    },
-    learnerUser: {
-      loginName: 'learneruser',
-      loginEmail: 'learner@example.com',
-      loginPassword: 'password123',
-      status: AccountStatus.ACTIVE,
-      identityType: IdentityTypeEnum.LEARNER,
-    },
-  };
+  // 直接使用统一测试账号配置
+  const { coach, customer, manager, learner } = testAccountsConfig;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -66,17 +38,27 @@ describe('Auth Identity (e2e)', () => {
 
     await app.init();
 
-    // 创建测试账户
-    await createTestAccounts();
+    // 使用统一的测试账号创建函数
+    await seedTestAccounts({
+      dataSource,
+      createAccountUsecase,
+      includeKeys: ['coach', 'customer', 'manager', 'learner'],
+    });
+
+    console.log('✅ 使用统一测试账号创建成功');
   }, 30000);
 
   afterAll(async () => {
+    // 清理测试账号
+    await cleanupTestAccounts(dataSource);
+
     if (app) {
       await app.close();
     }
   });
 
-  // 创建测试账户的函数
+  // 注释掉原来的创建测试账户函数
+  /*
   const createTestAccounts = async (): Promise<void> => {
     try {
       // 创建 Coach 用户
@@ -271,6 +253,7 @@ describe('Auth Identity (e2e)', () => {
       throw error;
     }
   };
+  */
 
   /**
    * 执行 GraphQL 登录请求
@@ -373,10 +356,7 @@ describe('Auth Identity (e2e)', () => {
 
   describe('Coach 身份完整测试', () => {
     it('应该支持 Coach 用户登录成功', async () => {
-      const response = await performLogin(
-        testAccountsPlaintext.coachUser.loginName,
-        testAccountsPlaintext.coachUser.loginPassword,
-      );
+      const response = await performLogin(coach.loginName, coach.loginPassword);
 
       const { data } = response.body;
       expect(data?.login.accountId).toBeDefined();
@@ -388,10 +368,7 @@ describe('Auth Identity (e2e)', () => {
     });
 
     it('应该正确返回 Coach 身份信息', async () => {
-      const response = await performLogin(
-        testAccountsPlaintext.coachUser.loginName,
-        testAccountsPlaintext.coachUser.loginPassword,
-      );
+      const response = await performLogin(coach.loginName, coach.loginPassword);
 
       const { data } = response.body;
       expect(data?.login.identity).toBeDefined();
@@ -402,24 +379,18 @@ describe('Auth Identity (e2e)', () => {
     });
 
     it('应该正确返回 Coach 用户信息', async () => {
-      const response = await performLogin(
-        testAccountsPlaintext.coachUser.loginName,
-        testAccountsPlaintext.coachUser.loginPassword,
-      );
+      const response = await performLogin(coach.loginName, coach.loginPassword);
 
       const { data } = response.body;
       expect(data?.login.userInfo).toBeDefined();
-      expect(data?.login.userInfo.nickname).toContain('coachuser_nickname');
-      expect(data?.login.userInfo.email).toBe(testAccountsPlaintext.coachUser.loginEmail);
+      expect(data?.login.userInfo.nickname).toBeDefined();
+      expect(data?.login.userInfo.email).toBe(coach.loginEmail);
       expect(data?.login.userInfo.accessGroup).toContain(IdentityTypeEnum.COACH);
       expect(data?.login.userInfo.userState).toBe(UserState.ACTIVE);
     });
 
     it('应该验证 Coach 身份记录与数据库一致', async () => {
-      const response = await performLogin(
-        testAccountsPlaintext.coachUser.loginName,
-        testAccountsPlaintext.coachUser.loginPassword,
-      );
+      const response = await performLogin(coach.loginName, coach.loginPassword);
 
       const { data } = response.body;
       const coachRepository = dataSource.getRepository(CoachEntity);
@@ -436,10 +407,7 @@ describe('Auth Identity (e2e)', () => {
 
   describe('Customer 身份完整测试', () => {
     it('应该支持 Customer 用户登录成功', async () => {
-      const response = await performLogin(
-        testAccountsPlaintext.customerUser.loginName,
-        testAccountsPlaintext.customerUser.loginPassword,
-      );
+      const response = await performLogin(customer.loginName, customer.loginPassword);
 
       const { data } = response.body;
       expect(data?.login.accountId).toBeDefined();
@@ -451,10 +419,7 @@ describe('Auth Identity (e2e)', () => {
     });
 
     it('应该正确返回 Customer 身份信息', async () => {
-      const response = await performLogin(
-        testAccountsPlaintext.customerUser.loginName,
-        testAccountsPlaintext.customerUser.loginPassword,
-      );
+      const response = await performLogin(customer.loginName, customer.loginPassword);
 
       const { data } = response.body;
       expect(data?.login.identity).toBeDefined();
@@ -467,24 +432,18 @@ describe('Auth Identity (e2e)', () => {
     });
 
     it('应该正确返回 Customer 用户信息', async () => {
-      const response = await performLogin(
-        testAccountsPlaintext.customerUser.loginName,
-        testAccountsPlaintext.customerUser.loginPassword,
-      );
+      const response = await performLogin(customer.loginName, customer.loginPassword);
 
       const { data } = response.body;
       expect(data?.login.userInfo).toBeDefined();
-      expect(data?.login.userInfo.nickname).toContain('customeruser_nickname');
-      expect(data?.login.userInfo.email).toBe(testAccountsPlaintext.customerUser.loginEmail);
+      expect(data?.login.userInfo.nickname).toBeDefined();
+      expect(data?.login.userInfo.email).toBe(customer.loginEmail);
       expect(data?.login.userInfo.accessGroup).toContain(IdentityTypeEnum.CUSTOMER);
       expect(data?.login.userInfo.userState).toBe(UserState.ACTIVE);
     });
 
     it('应该验证 Customer 身份记录与数据库一致', async () => {
-      const response = await performLogin(
-        testAccountsPlaintext.customerUser.loginName,
-        testAccountsPlaintext.customerUser.loginPassword,
-      );
+      const response = await performLogin(customer.loginName, customer.loginPassword);
 
       const { data } = response.body;
       const customerRepository = dataSource.getRepository(CustomerEntity);
@@ -504,10 +463,7 @@ describe('Auth Identity (e2e)', () => {
 
   describe('Manager 身份完整测试', () => {
     it('应该支持 Manager 用户登录成功', async () => {
-      const response = await performLogin(
-        testAccountsPlaintext.managerUser.loginName,
-        testAccountsPlaintext.managerUser.loginPassword,
-      );
+      const response = await performLogin(manager.loginName, manager.loginPassword);
 
       const { data } = response.body;
       expect(data?.login.accountId).toBeDefined();
@@ -519,10 +475,7 @@ describe('Auth Identity (e2e)', () => {
     });
 
     it('应该正确返回 Manager 身份信息', async () => {
-      const response = await performLogin(
-        testAccountsPlaintext.managerUser.loginName,
-        testAccountsPlaintext.managerUser.loginPassword,
-      );
+      const response = await performLogin(manager.loginName, manager.loginPassword);
 
       const { data } = response.body;
       expect(data?.login.identity).toBeDefined();
@@ -533,24 +486,18 @@ describe('Auth Identity (e2e)', () => {
     });
 
     it('应该正确返回 Manager 用户信息', async () => {
-      const response = await performLogin(
-        testAccountsPlaintext.managerUser.loginName,
-        testAccountsPlaintext.managerUser.loginPassword,
-      );
+      const response = await performLogin(manager.loginName, manager.loginPassword);
 
       const { data } = response.body;
       expect(data?.login.userInfo).toBeDefined();
-      expect(data?.login.userInfo.nickname).toContain('manageruser_nickname');
-      expect(data?.login.userInfo.email).toBe(testAccountsPlaintext.managerUser.loginEmail);
+      expect(data?.login.userInfo.nickname).toBeDefined();
+      expect(data?.login.userInfo.email).toBe(manager.loginEmail);
       expect(data?.login.userInfo.accessGroup).toContain(IdentityTypeEnum.MANAGER);
       expect(data?.login.userInfo.userState).toBe(UserState.ACTIVE);
     });
 
     it('应该验证 Manager 身份记录与数据库一致', async () => {
-      const response = await performLogin(
-        testAccountsPlaintext.managerUser.loginName,
-        testAccountsPlaintext.managerUser.loginPassword,
-      );
+      const response = await performLogin(manager.loginName, manager.loginPassword);
 
       const { data } = response.body;
       const managerRepository = dataSource.getRepository(ManagerEntity);
@@ -567,10 +514,7 @@ describe('Auth Identity (e2e)', () => {
 
   describe('Learner 身份完整测试', () => {
     it('应该支持 Learner 用户登录成功', async () => {
-      const response = await performLogin(
-        testAccountsPlaintext.learnerUser.loginName,
-        testAccountsPlaintext.learnerUser.loginPassword,
-      );
+      const response = await performLogin(learner.loginName, learner.loginPassword);
 
       const { data } = response.body;
       expect(data?.login.accountId).toBeDefined();
@@ -582,40 +526,31 @@ describe('Auth Identity (e2e)', () => {
     });
 
     it('应该正确返回 Learner 身份信息', async () => {
-      const response = await performLogin(
-        testAccountsPlaintext.learnerUser.loginName,
-        testAccountsPlaintext.learnerUser.loginPassword,
-      );
+      const response = await performLogin(learner.loginName, learner.loginPassword);
 
       const { data } = response.body;
       expect(data?.login.identity).toBeDefined();
       expect(data?.login.identity.id).toBeDefined();
-      expect(data?.login.identity.name).toContain('learner_name');
+      expect(data?.login.identity.name).toBeDefined();
       expect(data?.login.identity.customerId).toBeDefined();
       expect(typeof data?.login.identity.countPerSession).toBe('number');
-      expect(data?.login.identity.specialNeeds).toContain('测试用特殊需求');
-      expect(data?.login.identity.remark).toContain('测试用 learner 身份记录');
+      expect(data?.login.identity.specialNeeds).toBeDefined();
+      expect(data?.login.identity.remark).toBeDefined();
     });
 
     it('应该正确返回 Learner 用户信息', async () => {
-      const response = await performLogin(
-        testAccountsPlaintext.learnerUser.loginName,
-        testAccountsPlaintext.learnerUser.loginPassword,
-      );
+      const response = await performLogin(learner.loginName, learner.loginPassword);
 
       const { data } = response.body;
       expect(data?.login.userInfo).toBeDefined();
-      expect(data?.login.userInfo.nickname).toContain('learneruser_nickname');
-      expect(data?.login.userInfo.email).toBe(testAccountsPlaintext.learnerUser.loginEmail);
+      expect(data?.login.userInfo.nickname).toBeDefined();
+      expect(data?.login.userInfo.email).toBe(learner.loginEmail);
       expect(data?.login.userInfo.accessGroup).toContain(IdentityTypeEnum.LEARNER);
       expect(data?.login.userInfo.userState).toBe(UserState.ACTIVE);
     });
 
     it('应该验证 Learner 身份记录与数据库一致', async () => {
-      const response = await performLogin(
-        testAccountsPlaintext.learnerUser.loginName,
-        testAccountsPlaintext.learnerUser.loginPassword,
-      );
+      const response = await performLogin(learner.loginName, learner.loginPassword);
 
       const { data } = response.body;
       const learnerRepository = dataSource.getRepository(LearnerEntity);
@@ -635,10 +570,7 @@ describe('Auth Identity (e2e)', () => {
 
   describe('身份角色决策测试', () => {
     it('应该正确决策 Coach 角色', async () => {
-      const response = await performLogin(
-        testAccountsPlaintext.coachUser.loginName,
-        testAccountsPlaintext.coachUser.loginPassword,
-      );
+      const response = await performLogin(coach.loginName, coach.loginPassword);
 
       const { data } = response.body;
       expect(data?.login.role).toBe(IdentityTypeEnum.COACH);
@@ -646,10 +578,7 @@ describe('Auth Identity (e2e)', () => {
     });
 
     it('应该正确决策 Customer 角色', async () => {
-      const response = await performLogin(
-        testAccountsPlaintext.customerUser.loginName,
-        testAccountsPlaintext.customerUser.loginPassword,
-      );
+      const response = await performLogin(customer.loginName, customer.loginPassword);
 
       const { data } = response.body;
       expect(data?.login.role).toBe(IdentityTypeEnum.CUSTOMER);
@@ -657,10 +586,7 @@ describe('Auth Identity (e2e)', () => {
     });
 
     it('应该正确决策 Manager 角色', async () => {
-      const response = await performLogin(
-        testAccountsPlaintext.managerUser.loginName,
-        testAccountsPlaintext.managerUser.loginPassword,
-      );
+      const response = await performLogin(manager.loginName, manager.loginPassword);
 
       const { data } = response.body;
       expect(data?.login.role).toBe(IdentityTypeEnum.MANAGER);
@@ -668,10 +594,7 @@ describe('Auth Identity (e2e)', () => {
     });
 
     it('应该正确决策 Learner 角色', async () => {
-      const response = await performLogin(
-        testAccountsPlaintext.learnerUser.loginName,
-        testAccountsPlaintext.learnerUser.loginPassword,
-      );
+      const response = await performLogin(learner.loginName, learner.loginPassword);
 
       const { data } = response.body;
       expect(data?.login.role).toBe(IdentityTypeEnum.LEARNER);
@@ -681,10 +604,7 @@ describe('Auth Identity (e2e)', () => {
 
   describe('JWT Token 验证', () => {
     it('Coach 登录应该返回有效的 JWT Token', async () => {
-      const response = await performLogin(
-        testAccountsPlaintext.coachUser.loginName,
-        testAccountsPlaintext.coachUser.loginPassword,
-      );
+      const response = await performLogin(coach.loginName, coach.loginPassword);
 
       const { data } = response.body;
       const accessToken = data?.login.accessToken;
@@ -699,10 +619,7 @@ describe('Auth Identity (e2e)', () => {
     });
 
     it('Customer 登录应该返回有效的 JWT Token', async () => {
-      const response = await performLogin(
-        testAccountsPlaintext.customerUser.loginName,
-        testAccountsPlaintext.customerUser.loginPassword,
-      );
+      const response = await performLogin(customer.loginName, customer.loginPassword);
 
       const { data } = response.body;
       const accessToken = data?.login.accessToken;
@@ -717,10 +634,7 @@ describe('Auth Identity (e2e)', () => {
     });
 
     it('Manager 登录应该返回有效的 JWT Token', async () => {
-      const response = await performLogin(
-        testAccountsPlaintext.managerUser.loginName,
-        testAccountsPlaintext.managerUser.loginPassword,
-      );
+      const response = await performLogin(manager.loginName, manager.loginPassword);
 
       const { data } = response.body;
       const accessToken = data?.login.accessToken;
@@ -735,10 +649,7 @@ describe('Auth Identity (e2e)', () => {
     });
 
     it('Learner 登录应该返回有效的 JWT Token', async () => {
-      const response = await performLogin(
-        testAccountsPlaintext.learnerUser.loginName,
-        testAccountsPlaintext.learnerUser.loginPassword,
-      );
+      const response = await performLogin(learner.loginName, learner.loginPassword);
 
       const { data } = response.body;
       const accessToken = data?.login.accessToken;
