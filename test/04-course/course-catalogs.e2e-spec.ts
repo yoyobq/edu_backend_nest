@@ -4,17 +4,15 @@ import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { AppModule } from '@src/app.module';
 import { CourseCatalogEntity } from '@src/modules/course-catalogs/course-catalog.entity';
-import { AccountStatus, AudienceTypeEnum, LoginTypeEnum } from '@src/types/models/account.types';
+import { AudienceTypeEnum, LoginTypeEnum } from '@src/types/models/account.types';
 import request from 'supertest';
 import { DataSource } from 'typeorm';
 // 添加 GraphQL 枚举注册导入
-import { Gender, UserState } from '@app-types/models/user-info.types';
 import '@src/adapters/graphql/auth/enums/audience-type.enum';
 import '@src/adapters/graphql/auth/enums/login-type.enum';
 import '@src/adapters/graphql/course-catalogs/enums/course-level.enum';
-import { AccountEntity } from '@src/modules/account/base/entities/account.entity';
-import { UserInfoEntity } from '@src/modules/account/base/entities/user-info.entity';
-import { AccountService } from '@src/modules/account/base/services/account.service';
+// 导入统一账号配置
+import { cleanupTestAccounts, seedTestAccounts, testAccountsConfig } from '../utils/test-accounts';
 
 describe('课程目录模块 (e2e)', () => {
   let app: INestApplication;
@@ -23,26 +21,11 @@ describe('课程目录模块 (e2e)', () => {
   let coachToken: string;
   // 删除未使用的 guestToken 变量
 
-  // 测试数据
+  // 使用统一账号配置
   const testAccounts = {
-    manager: {
-      loginName: 'test-manager',
-      loginPassword: 'password123',
-      accessGroup: ['MANAGER'],
-      status: AccountStatus.ACTIVE,
-    },
-    coach: {
-      loginName: 'test-coach',
-      loginPassword: 'password123',
-      accessGroup: ['COACH'],
-      status: AccountStatus.ACTIVE,
-    },
-    guest: {
-      loginName: 'test-guest',
-      loginPassword: 'password123',
-      accessGroup: ['GUEST'],
-      status: AccountStatus.ACTIVE,
-    },
+    manager: testAccountsConfig.manager,
+    coach: testAccountsConfig.coach,
+    guest: testAccountsConfig.guest,
   };
 
   // 测试课程目录数据
@@ -138,21 +121,8 @@ describe('课程目录模块 (e2e)', () => {
         CourseLevel.STRIKING,
       ]);
 
-      // 清理测试用户数据
-      const testLoginNames = Object.values(testAccounts).map((account) => account.loginName);
-      if (testLoginNames.length > 0) {
-        const placeholders = testLoginNames.map(() => '?').join(',');
-        await dataSource.query(
-          `DELETE FROM base_user_info WHERE account_id IN (
-          SELECT id FROM base_user_accounts WHERE login_name IN (${placeholders})
-        )`,
-          testLoginNames,
-        );
-        await dataSource.query(
-          `DELETE FROM base_user_accounts WHERE login_name IN (${placeholders})`,
-          testLoginNames,
-        );
-      }
+      // 使用统一的账号清理函数
+      await cleanupTestAccounts(dataSource);
     } catch (error) {
       console.error('清理测试数据失败:', error);
       // 不抛出错误，允许测试继续
@@ -160,60 +130,15 @@ describe('课程目录模块 (e2e)', () => {
   };
 
   /**
-   * 创建测试账号
+   * 创建测试账户
    */
   const createTestAccounts = async (): Promise<void> => {
     try {
-      const accountRepository = dataSource.getRepository(AccountEntity);
-      const userInfoRepository = dataSource.getRepository(UserInfoEntity);
-
-      const createdAccounts = await Promise.all(
-        Object.values(testAccounts).map(async (account) => {
-          const savedAccount = await accountRepository.save({
-            loginName: account.loginName,
-            loginEmail: null,
-            loginPassword: 'temp',
-            status: account.status,
-            recentLoginHistory: null,
-            identityHint: null,
-          });
-
-          const hashedPassword = AccountService.hashPasswordWithTimestamp(
-            account.loginPassword,
-            savedAccount.createdAt,
-          );
-
-          await accountRepository.update(savedAccount.id, {
-            loginPassword: hashedPassword,
-          });
-
-          return { ...savedAccount, accessGroup: account.accessGroup };
-        }),
-      );
-
-      // 创建用户信息记录
-      await Promise.all(
-        createdAccounts.map(async (account) => {
-          await userInfoRepository.save({
-            accountId: account.id,
-            nickname: `${account.loginName}_nickname`,
-            gender: Gender.SECRET,
-            birthDate: null,
-            avatar: null,
-            email: null,
-            signature: null,
-            accessGroup: account.accessGroup,
-            address: null,
-            phone: null,
-            tags: null,
-            geographic: null,
-            metaDigest: account.accessGroup, // 修改：使用对应的 accessGroup 数组
-            notifyCount: 0,
-            unreadCount: 0,
-            state: UserState.ACTIVE,
-          });
-        }),
-      );
+      // 使用统一的账号创建函数
+      await seedTestAccounts({
+        dataSource,
+        includeKeys: ['manager', 'coach', 'guest'],
+      });
     } catch (error) {
       console.error('创建测试账户失败:', error);
       throw error;
