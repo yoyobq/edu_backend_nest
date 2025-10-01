@@ -31,12 +31,15 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
     const jwtExtractor: JwtFromRequestFunction = ExtractJwt.fromAuthHeaderAsBearerToken();
 
+    // 将 audience 字符串转换为数组
+    const audienceArray = audience ? audience.split(',').map((aud) => aud.trim()) : undefined;
+
     super({
       jwtFromRequest: jwtExtractor,
       ignoreExpiration: false,
       secretOrKey: secret,
       issuer: issuer || undefined,
-      audience: audience || undefined,
+      audience: audienceArray || undefined, // 使用数组而不是字符串
     });
 
     // 设置 logger 的上下文
@@ -50,6 +53,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
    */
   async validate(payload: JwtPayload): Promise<JwtPayload> {
     const userId = payload?.sub;
+
     try {
       // 验证 token 类型
       if (payload.type !== 'access') {

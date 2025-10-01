@@ -4,7 +4,7 @@ import { JwtPayload } from '@app-types/jwt.types';
 import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
 import { GqlExecutionContext } from '@nestjs/graphql';
 import { AuthGuard } from '@nestjs/passport';
-import { DomainError, JWT_ERROR } from '../../../core/common/errors/domain-error'; // 新增导入
+import { DomainError, JWT_ERROR } from '../../../core/common/errors/domain-error';
 
 /**
  * JWT 认证守卫
@@ -62,6 +62,7 @@ export class JwtAuthGuard extends AuthGuard('jwt') implements CanActivate {
         err,
       );
     }
+
     return user;
   }
 }
