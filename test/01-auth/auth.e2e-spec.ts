@@ -10,6 +10,7 @@ import { DataSource, In } from 'typeorm';
 
 import { Gender, UserState } from '@app-types/models/user-info.types';
 import { CreateAccountUsecase } from '@src/usecases/account/create-account.usecase';
+import { cleanupTestAccounts, seedTestAccounts, testAccountsConfig } from '../utils/test-accounts';
 
 /**
  * Auth 模块基础 E2E 测试
@@ -19,26 +20,26 @@ describe('Auth (e2e)', () => {
   let dataSource: DataSource;
   let createAccountUsecase: CreateAccountUsecase;
 
-  // 测试账户数据（明文密码，用于登录测试）
-  const testAccountsPlaintext = {
-    activeUser: {
-      loginName: 'testuser',
-      loginEmail: 'test@example.com',
-      loginPassword: 'password123',
-      status: AccountStatus.ACTIVE,
-    },
-    bannedUser: {
-      loginName: 'banneduser',
-      loginEmail: 'banned@example.com',
-      loginPassword: 'password123',
-      status: AccountStatus.BANNED,
-    },
-    pendingUser: {
-      loginName: 'pendinguser',
-      loginEmail: 'pending@example.com',
-      loginPassword: 'password123',
-      status: AccountStatus.PENDING,
-    },
+  // 使用统一的测试账号配置
+  const { guest: activeUser } = testAccountsConfig;
+
+  // 额外的测试账号（仅用于特殊状态测试）
+  const bannedUser = {
+    loginName: 'banneduser',
+    loginEmail: 'banned@example.com',
+    loginPassword: 'password123',
+    status: AccountStatus.BANNED,
+    accessGroup: [IdentityTypeEnum.REGISTRANT],
+    identityType: IdentityTypeEnum.REGISTRANT,
+  };
+
+  const pendingUser = {
+    loginName: 'pendinguser',
+    loginEmail: 'pending@example.com',
+    loginPassword: 'password123',
+    status: AccountStatus.PENDING,
+    accessGroup: [IdentityTypeEnum.REGISTRANT],
+    identityType: IdentityTypeEnum.REGISTRANT,
   };
 
   beforeAll(async () => {
@@ -68,8 +69,13 @@ describe('Auth (e2e)', () => {
    */
   const cleanupTestData = async (): Promise<void> => {
     try {
+      // 清理统一测试账号
+      await cleanupTestAccounts(dataSource);
+
+      // 清理额外的特殊状态测试账号
       const accountRepository = dataSource.getRepository(AccountEntity);
-      const loginNames = Object.values(testAccountsPlaintext).map((account) => account.loginName);
+      const specialAccounts = [bannedUser, pendingUser];
+      const loginNames = specialAccounts.map((account) => account.loginName);
 
       if (loginNames.length > 0) {
         await accountRepository.delete({
@@ -86,15 +92,24 @@ describe('Auth (e2e)', () => {
    */
   const createTestAccounts = async (): Promise<void> => {
     try {
+      // 创建统一测试账号
+      await seedTestAccounts({
+        dataSource,
+        createAccountUsecase,
+        includeKeys: ['guest'], // 只创建 guest 账号作为 activeUser
+      });
+
+      // 创建额外的特殊状态测试账号
+      const specialAccounts = [bannedUser, pendingUser];
       await Promise.all(
-        Object.entries(testAccountsPlaintext).map(async ([, account]) => {
+        specialAccounts.map(async (account) => {
           await createAccountUsecase.execute({
             accountData: {
               loginName: account.loginName,
               loginEmail: account.loginEmail,
               loginPassword: account.loginPassword,
               status: account.status,
-              identityHint: IdentityTypeEnum.REGISTRANT,
+              identityHint: account.identityType,
             },
             userInfoData: {
               nickname: `${account.loginName}_nickname`,
@@ -103,12 +118,12 @@ describe('Auth (e2e)', () => {
               avatarUrl: null,
               email: account.loginEmail,
               signature: null,
-              accessGroup: [IdentityTypeEnum.REGISTRANT],
+              accessGroup: account.accessGroup,
               address: null,
               phone: null,
               tags: null,
               geographic: null,
-              metaDigest: [IdentityTypeEnum.REGISTRANT],
+              metaDigest: account.accessGroup,
               notifyCount: 0,
               unreadCount: 0,
               userState: UserState.ACTIVE,
@@ -212,8 +227,8 @@ describe('Auth (e2e)', () => {
   describe('登录成功场景', () => {
     it('应该支持用户名登录成功', async () => {
       const response = await performLogin(
-        testAccountsPlaintext.activeUser.loginName,
-        testAccountsPlaintext.activeUser.loginPassword,
+        activeUser.loginName,
+        activeUser.loginPassword,
         LoginTypeEnum.PASSWORD,
         'DESKTOP',
       );
@@ -229,10 +244,7 @@ describe('Auth (e2e)', () => {
     });
 
     it('应该支持邮箱登录成功', async () => {
-      const response = await performLogin(
-        testAccountsPlaintext.activeUser.loginEmail,
-        testAccountsPlaintext.activeUser.loginPassword,
-      );
+      const response = await performLogin(activeUser.loginEmail, activeUser.loginPassword);
 
       const { data } = response.body;
       expect(data?.login.accountId).toBeDefined();
@@ -246,8 +258,8 @@ describe('Auth (e2e)', () => {
 
     it('应该支持有效的 audience 登录成功', async () => {
       const response = await performLogin(
-        testAccountsPlaintext.activeUser.loginName,
-        testAccountsPlaintext.activeUser.loginPassword,
+        activeUser.loginName,
+        activeUser.loginPassword,
         LoginTypeEnum.PASSWORD,
         'SSTSTEST',
       );
@@ -265,33 +277,27 @@ describe('Auth (e2e)', () => {
     it('登录成功后应该返回正确的用户 ID', async () => {
       const accountRepository = dataSource.getRepository(AccountEntity);
       const account = await accountRepository.findOne({
-        where: { loginName: testAccountsPlaintext.activeUser.loginName },
+        where: { loginName: activeUser.loginName },
       });
 
-      const response = await performLogin(
-        testAccountsPlaintext.activeUser.loginName,
-        testAccountsPlaintext.activeUser.loginPassword,
-      );
+      const response = await performLogin(activeUser.loginName, activeUser.loginPassword);
 
       const { data } = response.body;
       expect(data?.login.accountId).toBe(account?.id.toString());
     });
 
     it('应该正确决策用户角色', async () => {
-      const response = await performLogin(
-        testAccountsPlaintext.activeUser.loginName,
-        testAccountsPlaintext.activeUser.loginPassword,
-      );
+      const response = await performLogin(activeUser.loginName, activeUser.loginPassword);
 
       const { data } = response.body;
       expect(Object.values(IdentityTypeEnum)).toContain(data?.login.role);
-      expect(data?.login.role).toBe(IdentityTypeEnum.REGISTRANT);
+      expect(data?.login.role).toBe(activeUser.identityType);
     });
 
     it('应该拒绝无效的 audience', async () => {
       const response = await performLogin(
-        testAccountsPlaintext.activeUser.loginName,
-        testAccountsPlaintext.activeUser.loginPassword,
+        activeUser.loginName,
+        activeUser.loginPassword,
         LoginTypeEnum.PASSWORD,
         'invalid-audience' as never,
       );
@@ -314,10 +320,7 @@ describe('Auth (e2e)', () => {
     });
 
     it('应该正确处理账户被禁用的情况', async () => {
-      const response = await performLogin(
-        testAccountsPlaintext.bannedUser.loginName,
-        testAccountsPlaintext.bannedUser.loginPassword,
-      );
+      const response = await performLogin(bannedUser.loginName, bannedUser.loginPassword);
 
       const { errors } = response.body;
       expect(errors).toBeDefined();
@@ -325,10 +328,7 @@ describe('Auth (e2e)', () => {
     });
 
     it('应该正确处理待激活账户的情况', async () => {
-      const response = await performLogin(
-        testAccountsPlaintext.pendingUser.loginName,
-        testAccountsPlaintext.pendingUser.loginPassword,
-      );
+      const response = await performLogin(pendingUser.loginName, pendingUser.loginPassword);
 
       const { errors } = response.body;
       expect(errors).toBeDefined();
@@ -338,10 +338,7 @@ describe('Auth (e2e)', () => {
 
   describe('密码验证场景', () => {
     it('应该正确处理密码错误的情况', async () => {
-      const response = await performLogin(
-        testAccountsPlaintext.activeUser.loginName,
-        'wrongpassword',
-      );
+      const response = await performLogin(activeUser.loginName, 'wrongpassword');
 
       const { errors } = response.body;
       expect(errors).toBeDefined();
@@ -349,7 +346,7 @@ describe('Auth (e2e)', () => {
     });
 
     it('应该正确处理空密码的情况', async () => {
-      const response = await performLogin(testAccountsPlaintext.activeUser.loginName, '');
+      const response = await performLogin(activeUser.loginName, '');
 
       const { errors } = response.body;
       expect(errors).toBeDefined();
@@ -389,10 +386,7 @@ describe('Auth (e2e)', () => {
     });
 
     it('登录成功后应该返回有效的 JWT Token', async () => {
-      const response = await performLogin(
-        testAccountsPlaintext.activeUser.loginName,
-        testAccountsPlaintext.activeUser.loginPassword,
-      );
+      const response = await performLogin(activeUser.loginName, activeUser.loginPassword);
 
       const { data } = response.body;
       const accessToken = data?.login.accessToken;

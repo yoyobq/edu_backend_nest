@@ -6,8 +6,8 @@ const ENABLED_SPECS = [
   // '00-app/00-app.e2e-spec.ts',
   // '01-auth/auth-identity.e2e-spec.ts',
   // '01-auth/auth.e2e-spec.ts',
-  // '02-register/register.e2e-spec.ts',
-  '03-roles-guard/roles-guard.e2e-spec.ts',
+  '02-register/register.e2e-spec.ts',
+  // '03-roles-guard/roles-guard.e2e-spec.ts',
   // '04-course/course-catalogs.e2e-spec.ts',
   // '05-certificate-issue/certificate-issue.e2e-spec.ts',
 ];
