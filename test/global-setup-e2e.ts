@@ -2,23 +2,17 @@
 import 'reflect-metadata';
 import 'tsconfig-paths/register';
 
-// 将路径别名改为相对路径
 import * as dotenv from 'dotenv';
 import * as path from 'path';
 import { DataSource, DataSourceOptions } from 'typeorm';
 import databaseConfig from '../src/core/config/database.config';
 
 /**
- * 全局类型定义
- * 为 E2E 测试环境扩展 global 对象类型
+ * ⚠️ 注意：Jest 的 globalSetup 运行在独立上下文，
+ * 这里设置的 global 变量无法直接被测试文件复用为"同一个对象"。
+ * 因此这里不暴露 DataSource，不预插用户数据。
+ * 仅做环境加载与一次性的全库清理。
  */
-declare global {
-  /**
-   * 全局测试数据源
-   * 在 global-setup-e2e.ts 中初始化，在测试文件中使用
-   */
-  var testDataSource: DataSource | undefined;
-}
 
 /**
  * 清理测试数据库
@@ -28,34 +22,28 @@ const cleanupTestDatabase = async (dataSource: DataSource): Promise<void> => {
   try {
     console.log('🧹 开始清理测试数据库...');
 
-    // 获取所有表名
-    const queryRunner = dataSource.createQueryRunner();
-    const tables = await queryRunner.query(
+    // 统一清库（保留结构）
+    const qr = dataSource.createQueryRunner();
+    const tables = await qr.query(
       "SELECT table_name FROM information_schema.tables WHERE table_schema = DATABASE() AND table_type = 'BASE TABLE'",
     );
 
     if (tables.length > 0) {
-      // 禁用外键检查
-      await queryRunner.query('SET FOREIGN_KEY_CHECKS = 0');
-
-      // 清空所有表数据（保留表结构）
-      for (const table of tables) {
-        const tableName = table.table_name || table.TABLE_NAME;
-        await queryRunner.query(`TRUNCATE TABLE \`${tableName}\``);
+      await qr.query('SET FOREIGN_KEY_CHECKS = 0');
+      for (const t of tables) {
+        const name = t.table_name || t.TABLE_NAME;
+        await qr.query(`TRUNCATE TABLE \`${name}\``);
       }
-
-      // 重新启用外键检查
-      await queryRunner.query('SET FOREIGN_KEY_CHECKS = 1');
-
+      await qr.query('SET FOREIGN_KEY_CHECKS = 1');
       console.log(`✅ 已清理 ${tables.length} 个表的数据`);
     } else {
       console.log('📝 未发现需要清理的表');
     }
 
-    await queryRunner.release();
-  } catch (error) {
-    console.error('❌ 清理测试数据库失败:', error);
-    // 不抛出错误，允许测试继续进行
+    await qr.release();
+  } catch (e) {
+    // 清库失败不阻塞后续（打印即可）
+    console.error('❌ 清理测试数据库失败:', e);
   }
 };
 
@@ -74,12 +62,9 @@ export default async (): Promise<void> => {
     console.log('🔑 JWT_SECRET 已设置:', process.env.JWT_SECRET ? '✅' : '❌');
 
     const dbConfig = databaseConfig() as { mysql: DataSourceOptions };
-
     const config: DataSourceOptions = {
       ...dbConfig.mysql,
-      // 使用 TypeORM 原生的 entities 配置，而不是 NestJS 的 autoLoadEntities
       entities: ['src/**/*.entity{.ts,.js}'],
-      // logging: ['query', 'error'],
     };
 
     console.log('📊 数据库配置:', config);
@@ -98,10 +83,11 @@ export default async (): Promise<void> => {
       entities.map((e) => e.name),
     );
 
-    // 在测试开始前清理数据库
+    // 仅清库，不预插用户
     await cleanupTestDatabase(ds);
 
-    global.testDataSource = ds;
+    // 用完即关，避免长连接 & 共享对象误用
+    await ds.destroy();
 
     console.log('🚀 E2E 测试环境初始化完成');
   } catch (error) {
