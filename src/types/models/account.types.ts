@@ -25,6 +25,9 @@ export enum IdentityTypeEnum {
   CUSTOMER = 'CUSTOMER',
   LEARNER = 'LEARNER',
   REGISTRANT = 'REGISTRANT',
+  // 添加测试和权限控制需要的角色
+  ADMIN = 'ADMIN',
+  GUEST = 'GUEST',
 }
 
 export enum LoginTypeEnum {

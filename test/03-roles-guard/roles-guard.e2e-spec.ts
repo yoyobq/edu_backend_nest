@@ -1,6 +1,5 @@
 // test/03-roles-guard/roles-guard.e2e-spec.ts
 import { INestApplication, UseGuards } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { Query, Resolver } from '@nestjs/graphql';
 import { Test, TestingModule } from '@nestjs/testing';
 import { JwtAuthGuard } from '@src/adapters/graphql/guards/jwt-auth.guard';
@@ -107,12 +106,6 @@ class TestRolesResolver {
 describe('RolesGuard (e2e)', () => {
   let app: INestApplication<App>;
   let dataSource: DataSource;
-  let managerToken: string;
-  let coachToken: string;
-  let adminToken: string;
-  let customerToken: string;
-  let guestToken: string;
-  let emptyRolesToken: string;
   let createAccountUsecase: CreateAccountUsecase;
 
   beforeAll(async () => {
@@ -134,111 +127,41 @@ describe('RolesGuard (e2e)', () => {
     }
   });
 
+  // 全局清库
   beforeEach(async () => {
-    // 使用全局测试账户工具进行清理和创建
     await cleanupTestAccounts(dataSource);
-    await seedTestAccounts({
-      dataSource,
-      createAccountUsecase,
-    });
-
-    // 添加调试信息
-    console.log('开始登录所有用户...');
-    await loginAllUsers();
-    console.log('所有用户登录完成');
-    console.log('Token 状态:', {
-      managerToken: managerToken ? 'exists' : 'null',
-      coachToken: coachToken ? 'exists' : 'null',
-      adminToken: adminToken ? 'exists' : 'null',
-      guestToken: guestToken ? 'exists' : 'null',
-      emptyRolesToken: emptyRolesToken ? 'exists' : 'null',
-    });
   });
 
   /**
-   * 登录所有测试用户获取 token
+   * 登录用户获取 token
    */
-  const loginAllUsers = async (): Promise<void> => {
-    const loginUser = async (loginName: string, loginPassword: string): Promise<string> => {
-      console.log(`尝试登录用户: ${loginName}`);
-
-      const response = await request(app.getHttpServer())
-        .post('/graphql')
-        .send({
-          query: `
-            mutation Login($input: AuthLoginInput!) {
-              login(input: $input) {
-                accessToken
-              }
+  const loginUser = async (loginName: string, loginPassword: string): Promise<string> => {
+    const response = await request(app.getHttpServer())
+      .post('/graphql')
+      .send({
+        query: `
+          mutation Login($input: AuthLoginInput!) {
+            login(input: $input) {
+              accessToken
             }
-          `,
-          variables: {
-            input: {
-              loginName,
-              loginPassword,
-              type: LoginTypeEnum.PASSWORD,
-              audience: 'DESKTOP', // 使用 DESKTOP 作为测试环境的 audience
-            },
+          }
+        `,
+        variables: {
+          input: {
+            loginName,
+            loginPassword,
+            type: LoginTypeEnum.PASSWORD,
+            audience: 'DESKTOP',
           },
-        })
-        .expect(200);
+        },
+      })
+      .expect(200);
 
-      console.log(`用户 ${loginName} 登录响应:`, JSON.stringify(response.body, null, 2));
-
-      // 检查登录是否成功
-      if (!response.body.data || !response.body.data.login) {
-        const errorMessage = response.body.errors?.[0]?.message || '登录失败';
-        console.error(`用户 ${loginName} 登录失败:`, errorMessage);
-        throw new Error(`用户 ${loginName} 登录失败: ${errorMessage}`);
-      }
-
-      const accessToken = response.body.data.login.accessToken as string;
-      if (!accessToken) {
-        console.error(`用户 ${loginName} 登录成功但未获取到 accessToken`);
-        throw new Error(`用户 ${loginName} 登录成功但未获取到 accessToken`);
-      }
-
-      // 验证 token 格式
-      const tokenParts = accessToken.split('.');
-      if (tokenParts.length !== 3) {
-        console.error(`用户 ${loginName} 获取的 token 格式不正确，部分数量: ${tokenParts.length}`);
-        throw new Error(`用户 ${loginName} 获取的 token 格式不正确`);
-      }
-
-      console.log(`用户 ${loginName} 登录成功，获取到有效 token (长度: ${accessToken.length})`);
-      return accessToken;
-    };
-
-    // 使用全局测试账户配置进行登录
-    try {
-      managerToken = await loginUser(
-        testAccountsConfig.manager.loginName,
-        testAccountsConfig.manager.loginPassword,
-      );
-      coachToken = await loginUser(
-        testAccountsConfig.coach.loginName,
-        testAccountsConfig.coach.loginPassword,
-      );
-      adminToken = await loginUser(
-        testAccountsConfig.admin.loginName,
-        testAccountsConfig.admin.loginPassword,
-      );
-      customerToken = await loginUser(
-        testAccountsConfig.customer.loginName,
-        testAccountsConfig.customer.loginPassword,
-      );
-      guestToken = await loginUser(
-        testAccountsConfig.guest.loginName,
-        testAccountsConfig.guest.loginPassword,
-      );
-      emptyRolesToken = await loginUser(
-        testAccountsConfig.emptyRoles.loginName,
-        testAccountsConfig.emptyRoles.loginPassword,
-      );
-    } catch (error) {
-      console.error('登录用户失败:', error);
-      throw error;
+    if (!response.body.data?.login?.accessToken) {
+      throw new Error(`用户 ${loginName} 登录失败`);
     }
+
+    return response.body.data.login.accessToken as string;
   };
 
   /**
@@ -254,75 +177,92 @@ describe('RolesGuard (e2e)', () => {
     return req;
   };
 
+  // 只用到 manager 的用例组
   describe('无 @Roles 装饰器场景', () => {
+    let managerToken: string;
+
+    beforeEach(async () => {
+      await seedTestAccounts({ dataSource, createAccountUsecase, includeKeys: ['manager'] });
+      managerToken = await loginUser(
+        testAccountsConfig.manager.loginName,
+        testAccountsConfig.manager.loginPassword,
+      );
+    });
+
     it('应该允许无角色要求的查询通过（有认证）', async () => {
-      // 添加环境变量调试信息
-      console.log('JWT_AUDIENCE 环境变量:', process.env.JWT_AUDIENCE);
-      console.log('JWT 配置中的 audience:', app.get(ConfigService).get('jwt.audience'));
-
-      // 添加更详细的 token 调试信息
-      console.log('managerToken:', managerToken ? 'exists' : 'null');
-      console.log('managerToken 长度:', managerToken?.length);
-      console.log('managerToken 前50个字符:', managerToken?.substring(0, 50));
-
-      // 检查 token 格式和内容
-      if (managerToken) {
-        const tokenParts = managerToken.split('.');
-        console.log('Token 部分数量:', tokenParts.length);
-        if (tokenParts.length === 3) {
-          try {
-            const payload = JSON.parse(Buffer.from(tokenParts[1], 'base64').toString());
-            console.log('Token payload:', payload);
-          } catch (e) {
-            console.error('无法解析 token payload:', e);
-          }
-        }
-      }
-
       const response = await executeQuery('query { publicQuery }', managerToken).expect(200);
-
-      // 添加详细的响应调试
-      console.log('publicQuery 完整响应:', JSON.stringify(response.body, null, 2));
-      console.log('response.body.data:', response.body.data);
-      console.log('response.body.errors:', response.body.errors);
-
       expect(response.body.data.publicQuery).toBe('public access');
     });
 
     it('应该允许无任何守卫的查询通过（无认证）', async () => {
       const response = await executeQuery('query { noGuardQuery }').expect(200);
-
       expect(response.body.data.noGuardQuery).toBe('no guard access');
     });
 
     it('应该允许仅认证守卫的查询通过', async () => {
       const response = await executeQuery('query { authOnlyQuery }', managerToken).expect(200);
-
       expect(response.body.data.authOnlyQuery).toBe('auth only access');
     });
   });
 
+  // 需要 manager + admin 的用例组
   describe("@Roles('MANAGER') + accessGroup 匹配场景", () => {
+    let managerToken: string;
+    let adminToken: string;
+
+    beforeEach(async () => {
+      await seedTestAccounts({
+        dataSource,
+        createAccountUsecase,
+        includeKeys: ['manager', 'admin'],
+      });
+      managerToken = await loginUser(
+        testAccountsConfig.manager.loginName,
+        testAccountsConfig.manager.loginPassword,
+      );
+      adminToken = await loginUser(
+        testAccountsConfig.admin.loginName,
+        testAccountsConfig.admin.loginPassword,
+      );
+    });
+
     it('应该允许 MANAGER 角色访问 managerQuery', async () => {
       const response = await executeQuery('query { managerQuery }', managerToken).expect(200);
-
       expect(response.body.data.managerQuery).toBe('manager access');
     });
 
     it('应该允许 ADMIN 角色访问需要 MANAGER 或 ADMIN 的查询', async () => {
       const response = await executeQuery('query { multiRoleQuery }', adminToken).expect(200);
-
       expect(response.body.data.multiRoleQuery).toBe('multi role access');
     });
 
     it('应该允许 MANAGER 角色访问需要 MANAGER 或 ADMIN 的查询', async () => {
       const response = await executeQuery('query { multiRoleQuery }', managerToken).expect(200);
-
       expect(response.body.data.multiRoleQuery).toBe('multi role access');
     });
   });
 
+  // 需要 coach + customer 的不匹配场景
   describe("@Roles('MANAGER') + accessGroup 不匹配场景", () => {
+    let coachToken: string;
+    let customerToken: string;
+
+    beforeEach(async () => {
+      await seedTestAccounts({
+        dataSource,
+        createAccountUsecase,
+        includeKeys: ['coach', 'customer'],
+      });
+      coachToken = await loginUser(
+        testAccountsConfig.coach.loginName,
+        testAccountsConfig.coach.loginPassword,
+      );
+      customerToken = await loginUser(
+        testAccountsConfig.customer.loginName,
+        testAccountsConfig.customer.loginPassword,
+      );
+    });
+
     it('应该拒绝 COACH 角色访问 managerQuery 并返回 403', async () => {
       const response = await executeQuery('query { managerQuery }', coachToken).expect(200);
 
@@ -350,7 +290,7 @@ describe('RolesGuard (e2e)', () => {
       expect(response.body.errors[0].message).toContain('缺少所需角色');
       expect(response.body.errors[0].extensions.errorCode).toBe('INSUFFICIENT_PERMISSIONS');
       expect(response.body.errors[0].extensions.details.requiredRoles).toEqual(['ADMIN']);
-      expect(response.body.errors[0].extensions.details.userRoles).toEqual(['COACH']); // 使用 COACH 角色
+      expect(response.body.errors[0].extensions.details.userRoles).toEqual(['COACH']);
     });
 
     it('应该拒绝 COACH 角色访问需要 MANAGER 或 ADMIN 的查询', async () => {
@@ -367,6 +307,7 @@ describe('RolesGuard (e2e)', () => {
     });
   });
 
+  // 不需要任何账号的场景
   describe('未登录场景（移除 JwtAuthGuard）', () => {
     it('应该拒绝未登录用户访问并返回 401', async () => {
       const response = await executeQuery('query { roleOnlyQuery }').expect(200);
@@ -378,7 +319,18 @@ describe('RolesGuard (e2e)', () => {
     });
   });
 
+  // 只需要 emptyRoles 的场景
   describe('@Roles() 空数组场景', () => {
+    let emptyRolesToken: string;
+
+    beforeEach(async () => {
+      await seedTestAccounts({ dataSource, createAccountUsecase, includeKeys: ['emptyRoles'] });
+      emptyRolesToken = await loginUser(
+        testAccountsConfig.emptyRoles.loginName,
+        testAccountsConfig.emptyRoles.loginPassword,
+      );
+    });
+
     it('应该拒绝空 accessGroup 用户访问并返回 403', async () => {
       const response = await executeQuery('query { emptyRolesQuery }', emptyRolesToken).expect(200);
 
@@ -387,11 +339,24 @@ describe('RolesGuard (e2e)', () => {
       expect(response.body.errors[0].extensions.errorCode).toBe('INSUFFICIENT_PERMISSIONS');
       expect(response.body.errors[0].extensions.details.requiredRoles).toEqual([]);
     });
-
-    // 删除了无意义的测试用例："应该允许有角色的用户访问空角色要求的查询"
   });
 
+  // 需要 coach + emptyRoles 的脏数据场景
   describe('脏数据处理测试', () => {
+    let emptyRolesToken: string;
+
+    beforeEach(async () => {
+      await seedTestAccounts({
+        dataSource,
+        createAccountUsecase,
+        includeKeys: ['coach', 'emptyRoles'],
+      });
+      emptyRolesToken = await loginUser(
+        testAccountsConfig.emptyRoles.loginName,
+        testAccountsConfig.emptyRoles.loginPassword,
+      );
+    });
+
     it('应该正确处理数据库 accessGroup 为 null 的约束', async () => {
       // 直接修改数据库中的 accessGroup 为 null
       const userInfoRepository = dataSource.getRepository(UserInfoEntity);
