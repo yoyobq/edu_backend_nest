@@ -42,6 +42,9 @@ export class VerificationRecordResolver {
       const result = await this.createVerificationRecordUsecase.execute({
         type: input.type,
         customToken: input.token,
+        tokenLength: input.tokenLength,
+        generateNumericCode: input.generateNumericCode,
+        numericCodeLength: input.numericCodeLength,
         targetAccountId: input.targetAccountId,
         subjectType: input.subjectType,
         subjectId: input.subjectId,
@@ -69,6 +72,7 @@ export class VerificationRecordResolver {
           createdAt: result.record.createdAt,
           updatedAt: result.record.updatedAt,
         },
+        token: input.returnToken === true ? result.token : null,
         message: null,
       };
     } catch (error) {

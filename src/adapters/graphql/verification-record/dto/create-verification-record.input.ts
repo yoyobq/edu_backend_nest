@@ -2,7 +2,7 @@
 
 import { SubjectType, VerificationRecordType } from '@app-types/models/verification-record.types';
 import { Field, InputType, Int } from '@nestjs/graphql';
-import { IsEnum, IsInt, IsOptional, IsString } from 'class-validator';
+import { IsBoolean, IsEnum, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
 
 /**
  * 创建验证记录输入参数
@@ -13,9 +13,10 @@ export class CreateVerificationRecordInput {
   @IsEnum(VerificationRecordType, { message: '记录类型无效' })
   type!: VerificationRecordType;
 
-  @Field(() => String, { description: '令牌' })
+  @Field(() => String, { description: '令牌（可选，不提供则由后端生成）', nullable: true })
+  @IsOptional()
   @IsString({ message: '令牌必须是字符串' })
-  token!: string;
+  token?: string;
 
   @Field(() => Date, { description: '过期时间' })
   expiresAt!: Date;
@@ -48,4 +49,34 @@ export class CreateVerificationRecordInput {
   @IsOptional()
   @IsInt({ message: '签发者账号 ID 必须是整数' })
   issuedByAccountId?: number;
+
+  @Field(() => Int, { description: 'Token 长度（仅在自动生成时有效，默认 32）', nullable: true })
+  @IsOptional()
+  @IsInt({ message: 'Token 长度必须是整数' })
+  @Min(4, { message: 'Token 长度不能少于 4 位' })
+  @Max(255, { message: 'Token 长度不能超过 255 位' })
+  tokenLength?: number;
+
+  @Field(() => Boolean, {
+    description: '是否生成数字验证码（默认 false，生成随机字符串）',
+    nullable: true,
+  })
+  @IsOptional()
+  @IsBoolean({ message: '数字验证码选项必须是布尔值' })
+  generateNumericCode?: boolean;
+
+  @Field(() => Int, {
+    description: '数字验证码长度（仅在 generateNumericCode 为 true 时有效，默认 6）',
+    nullable: true,
+  })
+  @IsOptional()
+  @IsInt({ message: '数字验证码长度必须是整数' })
+  @Min(4, { message: '数字验证码长度不能少于 4 位' })
+  @Max(12, { message: '数字验证码长度不能超过 12 位' })
+  numericCodeLength?: number;
+
+  @Field(() => Boolean, { description: '是否在返回体中回明文 token（默认 false）', nullable: true })
+  @IsOptional()
+  @IsBoolean({ message: '返回 token 选项必须是布尔值' })
+  returnToken?: boolean;
 }

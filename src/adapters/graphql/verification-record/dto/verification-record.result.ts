@@ -14,6 +14,9 @@ export class CreateVerificationRecordResult {
   @Field(() => VerificationRecordDTO, { nullable: true, description: '创建的验证记录数据' })
   data?: VerificationRecordDTO | null;
 
+  @Field(() => String, { nullable: true, description: '生成的明文 token（仅创建时返回）' })
+  token?: string | null;
+
   @Field(() => String, { nullable: true, description: '错误信息' })
   message?: string | null;
 }
