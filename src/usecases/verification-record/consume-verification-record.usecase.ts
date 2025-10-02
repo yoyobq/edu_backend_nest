@@ -83,7 +83,7 @@ export class ConsumeVerificationRecordUsecase {
       priority: 1,
       check: (record, context) =>
         context.expectedType && record.type !== context.expectedType
-          ? new DomainError(VERIFICATION_RECORD_ERROR.VERIFICATION_INVALID, '验证无效')
+          ? new DomainError(VERIFICATION_RECORD_ERROR.VERIFICATION_INVALID, '验证码类型不匹配')
           : null,
     },
     {
@@ -91,7 +91,7 @@ export class ConsumeVerificationRecordUsecase {
       check: (record, context) => {
         // 如果记录有 targetAccountId 限制，但消费者未提供账号 ID，则拒绝
         if (record.targetAccountId && !context.consumedByAccountId) {
-          return new DomainError(PERMISSION_ERROR.ACCESS_DENIED, '此验证记录需要指定消费者账号');
+          return new DomainError(PERMISSION_ERROR.ACCESS_DENIED, '此验证码需要登录后使用');
         }
         // 如果记录有 targetAccountId 限制，且消费者账号不匹配，则拒绝
         if (
@@ -99,7 +99,7 @@ export class ConsumeVerificationRecordUsecase {
           context.consumedByAccountId &&
           record.targetAccountId !== context.consumedByAccountId
         ) {
-          return new DomainError(PERMISSION_ERROR.ACCESS_DENIED, '无权限消费此验证记录', {
+          return new DomainError(PERMISSION_ERROR.ACCESS_DENIED, '您无权使用此验证码', {
             targetAccountId: record.targetAccountId,
             consumedByAccountId: context.consumedByAccountId,
           });
@@ -113,7 +113,7 @@ export class ConsumeVerificationRecordUsecase {
         record.status !== VerificationRecordStatus.ACTIVE
           ? new DomainError(
               VERIFICATION_RECORD_ERROR.RECORD_ALREADY_CONSUMED,
-              '验证记录已被消费或撤销',
+              '验证码已被使用或已失效',
             )
           : null,
     },
@@ -121,14 +121,14 @@ export class ConsumeVerificationRecordUsecase {
       priority: 4,
       check: (record, context) =>
         record.expiresAt <= context.now
-          ? new DomainError(VERIFICATION_RECORD_ERROR.RECORD_EXPIRED, '验证记录已过期')
+          ? new DomainError(VERIFICATION_RECORD_ERROR.RECORD_EXPIRED, '验证码已过期，请重新获取')
           : null,
     },
     {
       priority: 5,
       check: (record, context) =>
         record.notBefore && record.notBefore > context.now
-          ? new DomainError(VERIFICATION_RECORD_ERROR.RECORD_NOT_YET_VALID, '验证记录尚未生效')
+          ? new DomainError(VERIFICATION_RECORD_ERROR.RECORD_NOT_ACTIVE_YET, '验证码尚未到使用时间')
           : null,
     },
   ];

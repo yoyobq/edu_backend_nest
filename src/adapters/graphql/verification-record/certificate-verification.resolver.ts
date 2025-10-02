@@ -135,33 +135,7 @@ export class CertificateVerificationResolver {
     } catch (error: unknown) {
       // 处理常见错误
       if (error instanceof DomainError) {
-        // 根据错误代码返回友好的错误消息
-        switch (error.code) {
-          case PERMISSION_ERROR.ACCESS_DENIED:
-            return { success: false, message: '需要登录或无权限消费此验证码' };
-          case VERIFICATION_RECORD_ERROR.RECORD_ALREADY_CONSUMED:
-            return {
-              success: false,
-              message: '验证码已被消费',
-            };
-          case VERIFICATION_RECORD_ERROR.RECORD_EXPIRED:
-            return {
-              success: false,
-              message: '验证码已过期',
-            };
-          case VERIFICATION_RECORD_ERROR.VERIFICATION_INVALID:
-          case VERIFICATION_RECORD_ERROR.TYPE_MISMATCH:
-          case VERIFICATION_RECORD_ERROR.TARGET_ACCOUNT_MISMATCH:
-            return {
-              success: false,
-              message: '无效的验证码',
-            };
-          default:
-            return {
-              success: false,
-              message: '验证码消费失败',
-            };
-        }
+        return this.handleConsumeCertificateError(error);
       }
 
       // 处理非 DomainError 的其他错误
@@ -169,6 +143,41 @@ export class CertificateVerificationResolver {
         success: false,
         message: '验证码消费失败',
       };
+    }
+  }
+
+  /**
+   * 处理消费证书时的错误
+   * @param error 领域错误
+   * @returns 错误响应
+   */
+  private handleConsumeCertificateError(error: DomainError): ConsumeCertificateResult {
+    // 权限相关错误
+    if (error.code === PERMISSION_ERROR.ACCESS_DENIED) {
+      return { success: false, message: '请先登录，或您无权使用此验证码' };
+    }
+
+    // 验证记录相关错误
+    switch (error.code) {
+      case VERIFICATION_RECORD_ERROR.RECORD_NOT_FOUND:
+        return { success: false, message: '验证码不存在或已失效' };
+      case VERIFICATION_RECORD_ERROR.RECORD_ALREADY_CONSUMED:
+        return { success: false, message: '验证码已被使用，无法重复使用' };
+      case VERIFICATION_RECORD_ERROR.RECORD_EXPIRED:
+        return { success: false, message: '验证码已过期，请重新获取' };
+      case VERIFICATION_RECORD_ERROR.RECORD_NOT_ACTIVE_YET:
+        return { success: false, message: '验证码尚未到使用时间' };
+      case VERIFICATION_RECORD_ERROR.INVALID_TOKEN:
+        return { success: false, message: '验证码格式错误' };
+      case VERIFICATION_RECORD_ERROR.VERIFICATION_INVALID:
+      case VERIFICATION_RECORD_ERROR.TYPE_MISMATCH:
+      case VERIFICATION_RECORD_ERROR.TARGET_ACCOUNT_MISMATCH:
+        return { success: false, message: '验证码无效或格式错误' };
+      case VERIFICATION_RECORD_ERROR.UPDATE_FAILED:
+      case VERIFICATION_RECORD_ERROR.CONSUMPTION_FAILED:
+        return { success: false, message: '验证码使用失败，请稍后重试' };
+      default:
+        return { success: false, message: '验证码使用失败，请稍后重试' };
     }
   }
 }
