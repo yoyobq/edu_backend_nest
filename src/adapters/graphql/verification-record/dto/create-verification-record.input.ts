@@ -3,6 +3,7 @@
 import { SubjectType, VerificationRecordType } from '@app-types/models/verification-record.types';
 import { Field, InputType, Int } from '@nestjs/graphql';
 import { IsBoolean, IsEnum, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
+import GraphQLJSON from 'graphql-type-json';
 
 /**
  * 创建验证记录输入参数
@@ -40,10 +41,9 @@ export class CreateVerificationRecordInput {
   @IsInt({ message: '主体 ID 必须是整数' })
   subjectId?: number;
 
-  @Field(() => String, { description: '载荷数据（JSON 字符串）', nullable: true })
+  @Field(() => GraphQLJSON, { description: '载荷数据', nullable: true })
   @IsOptional()
-  @IsString({ message: '载荷数据必须是字符串' })
-  payload?: string;
+  payload?: Record<string, unknown>;
 
   @Field(() => Int, { description: '签发者账号 ID', nullable: true })
   @IsOptional()

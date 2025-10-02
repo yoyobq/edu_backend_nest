@@ -6,6 +6,7 @@ import {
   VerificationRecordType,
 } from '@app-types/models/verification-record.types';
 import { Field, Int, ObjectType } from '@nestjs/graphql';
+import GraphQLJSON from 'graphql-type-json';
 
 // 导入枚举注册文件以确保 GraphQL 类型系统正确识别所有枚举
 import '@src/adapters/graphql/verification-record/enums/verification-record-type.enum';
@@ -40,8 +41,8 @@ export class VerificationRecordDTO {
   @Field(() => Int, { description: '主体 ID', nullable: true })
   subjectId!: number | null;
 
-  @Field(() => String, { description: '载荷数据（JSON 字符串）', nullable: true })
-  payload!: string | null;
+  @Field(() => GraphQLJSON, { description: '载荷数据', nullable: true })
+  payload!: Record<string, unknown> | null;
 
   @Field(() => Int, { description: '签发者账号 ID', nullable: true })
   issuedByAccountId!: number | null;
