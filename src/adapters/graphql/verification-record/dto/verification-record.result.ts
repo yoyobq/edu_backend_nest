@@ -1,6 +1,6 @@
 // src/adapters/graphql/verification-record/dto/verification-record.result.ts
 
-import { Field, ObjectType } from '@nestjs/graphql';
+import { Field, Int, ObjectType } from '@nestjs/graphql';
 import { VerificationRecordDTO } from './verification-record.dto';
 
 /**
@@ -41,6 +41,6 @@ export class VerificationRecordListResult {
   @Field(() => [VerificationRecordDTO], { description: '验证记录列表' })
   items!: VerificationRecordDTO[];
 
-  @Field(() => Number, { description: '总数量' })
+  @Field(() => Int, { description: '总数量' })
   total!: number;
 }

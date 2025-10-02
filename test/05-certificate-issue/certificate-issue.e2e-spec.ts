@@ -645,7 +645,7 @@ describe('验证记录签发 E2E 测试', () => {
       if (response.body.data?.findVerificationRecord) {
         const recordData = response.body.data.findVerificationRecord;
         expect(recordData).toBeDefined();
-        expect(recordData.id).toBe(testRecordId.toString());
+        expect(recordData.id).toBe(testRecordId);
         expect(recordData.status).toBe('ACTIVE');
       } else {
         // 如果查找操作不存在，跳过此测试
@@ -706,7 +706,9 @@ describe('验证记录签发 E2E 测试', () => {
         expect(response.status).toBe(200);
 
         expect(response.body.data.consumeVerificationRecord.success).toBe(false);
-        expect(response.body.data.consumeVerificationRecord.message).toContain('已被消费');
+        expect(response.body.data.consumeVerificationRecord.message).toContain(
+          '验证码已被使用或已失效',
+        );
       } else {
         // 如果消费操作不存在，跳过此测试
         console.log('consumeVerificationRecord 操作不存在，跳过测试');

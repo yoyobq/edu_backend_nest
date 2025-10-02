@@ -5,15 +5,40 @@ import {
   VerificationRecordStatus,
   VerificationRecordType,
 } from '@app-types/models/verification-record.types';
-import { Field, ID, InputType, Int } from '@nestjs/graphql';
-import { IsEnum, IsInt, IsOptional, IsString } from 'class-validator';
+import { Field, InputType, Int } from '@nestjs/graphql';
+import { IsEnum, IsInt, IsOptional, IsString, Validate } from 'class-validator';
+
+/**
+ * 至少一个过滤条件验证器
+ * 防止全表扫描，确保至少提供一个查询条件
+ */
+class AtLeastOneFilter {
+  validate(_: unknown, ctx: { object: FindVerificationRecordInput }): boolean {
+    const o = ctx.object;
+    return !!(
+      o.id ||
+      o.token ||
+      o.type ||
+      o.status ||
+      o.targetAccountId ||
+      o.subjectType ||
+      o.subjectId ||
+      o.issuedByAccountId ||
+      o.consumedByAccountId
+    );
+  }
+
+  defaultMessage(): string {
+    return '至少提供一个查询条件';
+  }
+}
 
 /**
  * 验证记录查询输入参数
  */
 @InputType({ description: '验证记录查询参数' })
 export class FindVerificationRecordInput {
-  @Field(() => ID, { description: '验证记录 ID', nullable: true })
+  @Field(() => Int, { description: '验证记录 ID', nullable: true })
   @IsOptional()
   @IsInt({ message: 'ID 必须是整数' })
   id?: number;
@@ -57,4 +82,16 @@ export class FindVerificationRecordInput {
   @IsOptional()
   @IsInt({ message: '消费者账号 ID 必须是整数' })
   consumedByAccountId?: number;
+
+  @Field(() => VerificationRecordType, { description: '期望的验证记录类型', nullable: true })
+  @IsOptional()
+  @IsEnum(VerificationRecordType, { message: '期望类型无效' })
+  expectedType?: VerificationRecordType;
+
+  @Field(() => Boolean, { description: '忽略目标账号限制（用于公开验证）', nullable: true })
+  @IsOptional()
+  ignoreTargetRestriction?: boolean;
+
+  @Validate(AtLeastOneFilter)
+  atLeastOneValidation!: string;
 }

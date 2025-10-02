@@ -1,7 +1,7 @@
 // src/adapters/graphql/verification-record/dto/update-verification-record.input.ts
 
 import { SubjectType, VerificationRecordStatus } from '@app-types/models/verification-record.types';
-import { Field, ID, InputType, Int } from '@nestjs/graphql';
+import { Field, InputType, Int } from '@nestjs/graphql';
 import { IsEnum, IsInt, IsOptional, IsString } from 'class-validator';
 
 /**
@@ -9,7 +9,7 @@ import { IsEnum, IsInt, IsOptional, IsString } from 'class-validator';
  */
 @InputType({ description: '更新验证记录输入参数' })
 export class UpdateVerificationRecordInput {
-  @Field(() => ID, { description: '验证记录 ID' })
+  @Field(() => Int, { description: '验证记录 ID' })
   @IsInt({ message: 'ID 必须是整数' })
   id!: number;
 

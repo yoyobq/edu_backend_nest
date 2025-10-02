@@ -94,6 +94,8 @@ export class VerificationRecordResolver {
     try {
       const result = await this.findVerificationRecordUsecase.findActiveConsumableByToken({
         token: input.token,
+        expectedType: input.expectedType,
+        ignoreTargetRestriction: input.ignoreTargetRestriction,
       });
 
       if (!result) {
@@ -131,10 +133,28 @@ export class VerificationRecordResolver {
     @currentUser() user: JwtPayload,
   ): Promise<UpdateVerificationRecordResult> {
     try {
-      const result = await this.consumeVerificationRecordUsecase.consumeByToken({
-        token: input.token || '',
-        consumedByAccountId: user.sub,
-      });
+      // 优先使用当前登录用户，仅在明确支持"代消费/内部运维"时才允许传参覆盖
+      const consumedByAccountId = input.consumedByAccountId ?? user.sub;
+
+      let result;
+      if (input.id) {
+        // 通过 ID 消费
+        result = await this.consumeVerificationRecordUsecase.consumeById({
+          recordId: input.id,
+          consumedByAccountId,
+          expectedType: input.expectedType,
+        });
+      } else if (input.token) {
+        // 通过 token 消费
+        result = await this.consumeVerificationRecordUsecase.consumeByToken({
+          token: input.token,
+          consumedByAccountId,
+          expectedType: input.expectedType,
+        });
+      } else {
+        // 这种情况不应该发生，因为有 OneOf 校验
+        throw new Error('必须提供 id 或 token 其中之一');
+      }
 
       return {
         success: true,

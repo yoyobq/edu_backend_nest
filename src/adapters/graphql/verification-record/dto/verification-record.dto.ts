@@ -5,7 +5,7 @@ import {
   VerificationRecordStatus,
   VerificationRecordType,
 } from '@app-types/models/verification-record.types';
-import { Field, ID, Int, ObjectType } from '@nestjs/graphql';
+import { Field, Int, ObjectType } from '@nestjs/graphql';
 
 // 导入枚举注册文件以确保 GraphQL 类型系统正确识别所有枚举
 import '@src/adapters/graphql/verification-record/enums/verification-record-type.enum';
@@ -16,7 +16,7 @@ import '@src/adapters/graphql/verification-record/enums/verification-record-type
  */
 @ObjectType({ description: '验证记录' })
 export class VerificationRecordDTO {
-  @Field(() => ID, { description: '验证记录 ID' })
+  @Field(() => Int, { description: '验证记录 ID' })
   id!: number;
 
   @Field(() => VerificationRecordType, { description: '记录类型' })
