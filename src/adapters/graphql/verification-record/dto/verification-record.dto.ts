@@ -1,0 +1,60 @@
+// src/adapters/graphql/verification-record/dto/verification-record.dto.ts
+
+import {
+  SubjectType,
+  VerificationRecordStatus,
+  VerificationRecordType,
+} from '@app-types/models/verification-record.types';
+import { Field, ID, Int, ObjectType } from '@nestjs/graphql';
+
+// 导入枚举注册文件以确保 GraphQL 类型系统正确识别所有枚举
+import '@src/adapters/graphql/verification-record/enums/verification-record-type.enum';
+
+/**
+ * 验证记录数据传输对象
+ * 与 VerificationRecordEntity 保持结构一致，用于 GraphQL 查询返回
+ */
+@ObjectType({ description: '验证记录' })
+export class VerificationRecordDTO {
+  @Field(() => ID, { description: '验证记录 ID' })
+  id!: number;
+
+  @Field(() => VerificationRecordType, { description: '记录类型' })
+  type!: VerificationRecordType;
+
+  @Field(() => VerificationRecordStatus, { description: '记录状态' })
+  status!: VerificationRecordStatus;
+
+  @Field(() => Date, { description: '过期时间' })
+  expiresAt!: Date;
+
+  @Field(() => Date, { description: '生效时间', nullable: true })
+  notBefore!: Date | null;
+
+  @Field(() => Int, { description: '目标账号 ID', nullable: true })
+  targetAccountId!: number | null;
+
+  @Field(() => SubjectType, { description: '主体类型', nullable: true })
+  subjectType!: SubjectType | null;
+
+  @Field(() => Int, { description: '主体 ID', nullable: true })
+  subjectId!: number | null;
+
+  @Field(() => String, { description: '载荷数据（JSON 字符串）', nullable: true })
+  payload!: string | null;
+
+  @Field(() => Int, { description: '签发者账号 ID', nullable: true })
+  issuedByAccountId!: number | null;
+
+  @Field(() => Int, { description: '消费者账号 ID', nullable: true })
+  consumedByAccountId!: number | null;
+
+  @Field(() => Date, { description: '消费时间', nullable: true })
+  consumedAt!: Date | null;
+
+  @Field(() => Date, { description: '创建时间' })
+  createdAt!: Date;
+
+  @Field(() => Date, { description: '更新时间' })
+  updatedAt!: Date;
+}

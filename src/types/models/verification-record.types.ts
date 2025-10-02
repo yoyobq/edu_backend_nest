@@ -23,18 +23,6 @@ export enum VerificationRecordType {
   WEAPP_BIND = 'WEAPP_BIND',
   /** 短信验证码 */
   SMS_VERIFY_CODE = 'SMS_VERIFY_CODE',
-
-  // 证书相关类型
-  /** 课程完成证书 */
-  COURSE_COMPLETION_CERTIFICATE = 'COURSE_COMPLETION_CERTIFICATE',
-  /** 技能认证证书 */
-  SKILL_CERTIFICATION = 'SKILL_CERTIFICATION',
-  /** 培训证书 */
-  TRAINING_CERTIFICATE = 'TRAINING_CERTIFICATE',
-  /** 成就徽章 */
-  ACHIEVEMENT_BADGE = 'ACHIEVEMENT_BADGE',
-  /** 参与证明 */
-  PARTICIPATION_PROOF = 'PARTICIPATION_PROOF',
 }
 
 /**
@@ -158,28 +146,4 @@ export interface VerificationRecordDTO {
   createdAt: Date;
   /** 更新时间 */
   updatedAt: Date;
-}
-
-/**
- * 证书载荷数据接口
- */
-export interface CertificatePayload {
-  /** 证书标题 */
-  title: string;
-  /** 证书描述 */
-  description?: string;
-  /** 颁发机构 */
-  issuer: string;
-  /** 课程 ID */
-  courseId?: number;
-  /** 技能 ID */
-  skillId?: number;
-  /** 成绩/评分 */
-  score?: number;
-  /** 等级 */
-  grade?: string;
-  /** 证书模板 ID */
-  templateId?: string;
-  /** 额外元数据 */
-  metadata?: Record<string, unknown>;
 }

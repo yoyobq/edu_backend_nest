@@ -41,21 +41,6 @@ registerEnumType(VerificationRecordType, {
     SMS_VERIFY_CODE: {
       description: '短信验证码',
     },
-    COURSE_COMPLETION_CERTIFICATE: {
-      description: '课程完成证书',
-    },
-    SKILL_CERTIFICATION: {
-      description: '技能认证证书',
-    },
-    TRAINING_CERTIFICATE: {
-      description: '培训证书',
-    },
-    ACHIEVEMENT_BADGE: {
-      description: '成就徽章',
-    },
-    PARTICIPATION_PROOF: {
-      description: '参与证明',
-    },
   },
 });
 

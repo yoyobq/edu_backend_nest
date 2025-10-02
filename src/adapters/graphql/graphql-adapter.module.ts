@@ -15,7 +15,6 @@ import { CourseCatalogResolver } from './course-catalogs/course-catalog.resolver
 import { RegistrationResolver } from './registration/registration.resolver';
 import { ThirdPartyAuthResolver } from './third-party-auth/third-party-auth.resolver';
 import { VerificationRecordResolver } from './verification-record/verification-record.resolver';
-import { CertificateVerificationResolver } from './verification-record/certificate-verification.resolver';
 
 // Guards
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
@@ -35,26 +34,24 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
     VerificationRecordModule, // 导入验证记录模块
   ],
   providers: [
-    // 注册所有 GraphQL Resolvers
+    // Resolvers
     AccountResolver,
     AuthResolver,
     RegistrationResolver,
     ThirdPartyAuthResolver,
     CourseCatalogResolver, // 注册课程目录 resolver
-    VerificationRecordResolver, // 注册验证记录 resolver
-    CertificateVerificationResolver, // 注册证书验证 resolver
-    // 注册 GraphQL 相关的 Guards
+    VerificationRecordResolver,
+    // Guards
     JwtAuthGuard,
   ],
   exports: [
-    // 导出 resolvers 和 guards 供 AppModule 使用
+    // Resolvers
     AccountResolver,
     AuthResolver,
     RegistrationResolver,
     ThirdPartyAuthResolver,
     CourseCatalogResolver, // 导出课程目录 resolver
-    VerificationRecordResolver, // 导出验证记录 resolver
-    CertificateVerificationResolver, // 导出证书验证 resolver
+    VerificationRecordResolver,
     JwtAuthGuard,
   ],
 })
