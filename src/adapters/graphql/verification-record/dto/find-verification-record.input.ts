@@ -5,16 +5,26 @@ import {
   VerificationRecordStatus,
   VerificationRecordType,
 } from '@app-types/models/verification-record.types';
-import { Field, InputType, Int } from '@nestjs/graphql';
-import { IsEnum, IsInt, IsOptional, IsString, Validate } from 'class-validator';
+import { Field, HideField, InputType, Int } from '@nestjs/graphql';
+import {
+  IsEnum,
+  IsInt,
+  IsOptional,
+  IsString,
+  Validate,
+  ValidatorConstraint,
+  ValidatorConstraintInterface,
+  ValidationArguments,
+} from 'class-validator';
 
 /**
  * 至少一个过滤条件验证器
  * 防止全表扫描，确保至少提供一个查询条件
  */
-class AtLeastOneFilter {
-  validate(_: unknown, ctx: { object: FindVerificationRecordInput }): boolean {
-    const o = ctx.object;
+@ValidatorConstraint({ name: 'AtLeastOneFilter', async: false })
+class AtLeastOneFilter implements ValidatorConstraintInterface {
+  validate(_: unknown, args: ValidationArguments): boolean {
+    const o = args.object as FindVerificationRecordInput;
     return !!(
       o.id ||
       o.token ||
@@ -92,6 +102,8 @@ export class FindVerificationRecordInput {
   @IsOptional()
   ignoreTargetRestriction?: boolean;
 
+  // 使用隐藏字段承载类级校验（不会出现在 GraphQL schema）
+  @HideField()
   @Validate(AtLeastOneFilter)
-  atLeastOneValidation!: string;
+  private readonly atLeastOneValidation!: true;
 }

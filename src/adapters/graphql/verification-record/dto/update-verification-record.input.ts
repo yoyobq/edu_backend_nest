@@ -2,7 +2,8 @@
 
 import { SubjectType, VerificationRecordStatus } from '@app-types/models/verification-record.types';
 import { Field, InputType, Int } from '@nestjs/graphql';
-import { IsEnum, IsInt, IsOptional, IsString } from 'class-validator';
+import { GraphQLJSON } from 'graphql-type-json';
+import { IsEnum, IsInt, IsOptional } from 'class-validator';
 
 /**
  * 更新验证记录输入参数
@@ -41,17 +42,18 @@ export class UpdateVerificationRecordInput {
   @IsInt({ message: '主体 ID 必须是整数' })
   subjectId?: number;
 
-  @Field(() => String, { description: '载荷数据（JSON 字符串）', nullable: true })
+  @Field(() => GraphQLJSON, { description: '载荷数据', nullable: true })
   @IsOptional()
-  @IsString({ message: '载荷数据必须是字符串' })
-  payload?: string;
+  payload?: Record<string, unknown>;
 
-  @Field(() => Int, { description: '消费者账号 ID', nullable: true })
+  // 以下字段仅供后端内部使用，不暴露给 GraphQL
+
+  /** 消费者账号 ID（仅后端内部使用） */
   @IsOptional()
   @IsInt({ message: '消费者账号 ID 必须是整数' })
   consumedByAccountId?: number;
 
-  @Field(() => Date, { description: '消费时间', nullable: true })
+  /** 消费时间（仅后端内部使用） */
   @IsOptional()
   consumedAt?: Date;
 }

@@ -5,9 +5,9 @@ import { UseGuards } from '@nestjs/common';
 import { Args, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { currentUser } from '@src/adapters/graphql/decorators/current-user.decorator';
 import { JwtAuthGuard } from '@src/adapters/graphql/guards/jwt-auth.guard';
+import { ConsumeVerificationRecordUsecase } from '@usecases/verification-record/consume-verification-record.usecase';
 import { CreateVerificationRecordUsecase } from '@usecases/verification-record/create-verification-record.usecase';
 import { FindVerificationRecordUsecase } from '@usecases/verification-record/find-verification-record.usecase';
-import { ConsumeVerificationRecordUsecase } from '@usecases/verification-record/consume-verification-record.usecase';
 import { ConsumeVerificationRecordInput } from './dto/consume-verification-record.input';
 import { CreateVerificationRecordInput } from './dto/create-verification-record.input';
 import { FindVerificationRecordInput } from './dto/find-verification-record.input';
@@ -48,7 +48,6 @@ export class VerificationRecordResolver {
         targetAccountId: input.targetAccountId,
         subjectType: input.subjectType,
         subjectId: input.subjectId,
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         payload: input.payload,
         expiresAt: input.expiresAt,
         notBefore: input.notBefore,
@@ -138,8 +137,8 @@ export class VerificationRecordResolver {
     @currentUser() user: JwtPayload,
   ): Promise<UpdateVerificationRecordResult> {
     try {
-      // 优先使用当前登录用户，仅在明确支持"代消费/内部运维"时才允许传参覆盖
-      const consumedByAccountId = input.consumedByAccountId ?? user.sub;
+      // 使用当前登录用户作为消费者
+      const consumedByAccountId = user.sub;
 
       let result;
       if (input.id) {
