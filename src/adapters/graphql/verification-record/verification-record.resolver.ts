@@ -14,6 +14,7 @@ import { ConsumeVerificationRecordInput } from './dto/consume-verification-recor
 import { CreateVerificationRecordInput } from './dto/create-verification-record.input';
 import { FindVerificationRecordInput } from './dto/find-verification-record.input';
 import { PublicVerificationRecordDTO } from './dto/public-verification-record.dto';
+import { RevokeVerificationRecordInput } from './dto/revoke-verification-record.input';
 import { VerificationRecordDTO } from './dto/verification-record.dto';
 import {
   CreateVerificationRecordResult,
@@ -182,6 +183,49 @@ export class VerificationRecordResolver {
         success: false,
         data: null,
         message: error instanceof Error ? error.message : '消费验证记录失败',
+      };
+    }
+  }
+
+  /**
+   * 撤销验证记录
+   */
+  @Mutation(() => UpdateVerificationRecordResult, { description: '撤销验证记录' })
+  @UseGuards(JwtAuthGuard)
+  async revokeVerificationRecord(
+    @Args('input') input: RevokeVerificationRecordInput,
+    @currentUser() _user: JwtPayload,
+  ): Promise<UpdateVerificationRecordResult> {
+    try {
+      const result = await this.consumeVerificationRecordUsecase.revokeRecord({
+        recordId: input.recordId,
+      });
+
+      return {
+        success: true,
+        data: {
+          id: result.id,
+          type: result.type,
+          status: result.status,
+          expiresAt: result.expiresAt,
+          notBefore: result.notBefore,
+          targetAccountId: result.targetAccountId,
+          subjectType: result.subjectType,
+          subjectId: result.subjectId,
+          payload: result.payload,
+          issuedByAccountId: result.issuedByAccountId,
+          consumedByAccountId: result.consumedByAccountId,
+          consumedAt: result.consumedAt,
+          createdAt: result.createdAt,
+          updatedAt: result.updatedAt,
+        },
+        message: null,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        data: null,
+        message: error instanceof Error ? error.message : '撤销验证记录失败',
       };
     }
   }
