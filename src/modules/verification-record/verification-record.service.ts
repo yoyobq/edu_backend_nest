@@ -6,9 +6,9 @@ import {
   VerificationRecordStatus,
 } from '@app-types/models/verification-record.types';
 import { DomainError, VERIFICATION_RECORD_ERROR } from '@core/common/errors/domain-error';
+import { TokenFingerprintHelper } from '@core/security/token-fingerprint.helper';
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { createHash } from 'crypto';
 import { EntityManager, Repository } from 'typeorm';
 import { VerificationRecordEntity } from './verification-record.entity';
 
@@ -36,16 +36,14 @@ export class VerificationRecordService {
 
   /**
    * 生成 token 指纹
-   * 使用 SHA-256 算法对明文 token 进行哈希
    * @param token 明文 token
    * @returns Buffer 格式的指纹
    */
   generateTokenFingerprint(token: string): Buffer {
-    return createHash('sha256').update(token, 'utf8').digest();
+    return TokenFingerprintHelper.generateTokenFingerprint({ token });
   }
 
-  /**
-   * 检查 token 是否已存在
+  /** 检查 token 是否已存在
    * 用于创建前的重复性检查
    * @param token 明文 token
    * @returns 是否存在
