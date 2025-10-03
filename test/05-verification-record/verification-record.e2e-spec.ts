@@ -1,4 +1,4 @@
-// test/05-certificate-issue/certificate-issue.e2e-spec.ts
+// test/05-verification-record/verification-record.e2e-spec.ts
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
@@ -22,16 +22,15 @@ async function postGql(app: INestApplication, query: string, variables: any, bea
 }
 
 /**
- * 查找验证记录 - 自动尝试不同签名
- * 先尝试 query + token 标量，失败则回退到 query + input 对象
+ * 查找验证记录
+ * 使用 input 对象格式的 GraphQL 查询
  */
 async function tryFindVerificationRecord(app: INestApplication, token: string, bearer?: string) {
-  // 尝试 query + token 标量
-  let res = await postGql(
+  const res = await postGql(
     app,
     `
-      query FindVerificationRecord($token: String!) {
-        findVerificationRecord(token: $token) {
+      query FindVerificationRecord($input: FindVerificationRecordInput!) {
+        findVerificationRecord(input: $input) {
           id
           type
           status
@@ -42,46 +41,23 @@ async function tryFindVerificationRecord(app: INestApplication, token: string, b
         }
       }
     `,
-    { token },
+    { input: { token } },
     bearer,
   );
-
-  // 如果失败，尝试 query + input 对象
-  if (res.status !== 200 || res.body.errors) {
-    res = await postGql(
-      app,
-      `
-        query FindVerificationRecord($input: FindVerificationRecordInput!) {
-          findVerificationRecord(input: $input) {
-            id
-            type
-            status
-            expiresAt
-            notBefore
-            subjectType
-            subjectId
-          }
-        }
-      `,
-      { input: { token } },
-      bearer,
-    );
-  }
 
   return res;
 }
 
 /**
- * 消费验证记录 - 自动尝试不同签名
- * 先尝试 mutation + token 标量，失败则回退到 mutation + input 对象
+ * 消费验证记录
+ * 使用 input 对象格式的 GraphQL 变更
  */
 async function tryConsumeVerificationRecord(app: INestApplication, token: string, bearer: string) {
-  // 尝试 mutation + token 标量
-  let res = await postGql(
+  const res = await postGql(
     app,
     `
-      mutation ConsumeVerificationRecord($token: String!) {
-        consumeVerificationRecord(token: $token) {
+      mutation ConsumeVerificationRecord($input: ConsumeVerificationRecordInput!) {
+        consumeVerificationRecord(input: $input) {
           success
           data {
             id
@@ -92,31 +68,9 @@ async function tryConsumeVerificationRecord(app: INestApplication, token: string
         }
       }
     `,
-    { token },
+    { input: { token } },
     bearer,
   );
-
-  // 如果失败，尝试 mutation + input 对象
-  if (res.status !== 200 || res.body.errors) {
-    res = await postGql(
-      app,
-      `
-        mutation ConsumeVerificationRecord($input: ConsumeVerificationRecordInput!) {
-          consumeVerificationRecord(input: $input) {
-            success
-            data {
-              id
-              status
-              consumedAt
-            }
-            message
-          }
-        }
-      `,
-      { input: { token } },
-      bearer,
-    );
-  }
 
   return res;
 }
