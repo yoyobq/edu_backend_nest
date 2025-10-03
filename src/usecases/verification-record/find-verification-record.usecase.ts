@@ -55,14 +55,20 @@ export class FindVerificationRecordUsecase {
         .andWhere('record.expiresAt > :now', { now })
         .andWhere('(record.notBefore IS NULL OR record.notBefore <= :now)', { now });
 
-      // 只有在不忽略 target 限制且 forAccountId 存在时才添加 targetAccountId 过滤
-      if (!ignoreTargetRestriction && forAccountId !== undefined) {
+      // Target 约束逻辑：默认严格，避免"缺省放宽"的安全风险
+      if (ignoreTargetRestriction === true) {
+        // 显式忽略 target 限制，不添加任何过滤
+      } else if (forAccountId !== undefined) {
+        // 有具体的账号 ID，允许查询无限制记录或该账号的记录
         queryBuilder.andWhere(
           '(record.targetAccountId IS NULL OR record.targetAccountId = :forAccountId)',
           {
             forAccountId,
           },
         );
+      } else {
+        // 公开验证但未显式忽略 target 限制，仅允许无目标限制的记录
+        queryBuilder.andWhere('record.targetAccountId IS NULL');
       }
 
       // 如果指定了期望类型，添加类型过滤

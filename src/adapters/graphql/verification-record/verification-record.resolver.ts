@@ -13,6 +13,7 @@ import { FindVerificationRecordUsecase } from '@src/usecases/verification-record
 import { ConsumeVerificationRecordInput } from './dto/consume-verification-record.input';
 import { CreateVerificationRecordInput } from './dto/create-verification-record.input';
 import { FindVerificationRecordInput } from './dto/find-verification-record.input';
+import { PublicVerificationRecordDTO } from './dto/public-verification-record.dto';
 import { VerificationRecordDTO } from './dto/verification-record.dto';
 import {
   CreateVerificationRecordResult,
@@ -103,10 +104,10 @@ export class VerificationRecordResolver {
    * 公开接口，但需要提供有效的 token 才能查询
    */
   @Public()
-  @Query(() => VerificationRecordDTO, { nullable: true, description: '查找验证记录' })
+  @Query(() => PublicVerificationRecordDTO, { nullable: true, description: '查找验证记录' })
   async findVerificationRecord(
     @Args('input') input: FindVerificationRecordInput,
-  ): Promise<VerificationRecordDTO | null> {
+  ): Promise<PublicVerificationRecordDTO | null> {
     if (!input.token) {
       return null;
     }
@@ -128,15 +129,8 @@ export class VerificationRecordResolver {
         status: result.status,
         expiresAt: result.expiresAt,
         notBefore: result.notBefore,
-        targetAccountId: result.targetAccountId,
         subjectType: result.subjectType,
         subjectId: result.subjectId,
-        payload: result.payload,
-        issuedByAccountId: result.issuedByAccountId,
-        consumedByAccountId: result.consumedByAccountId,
-        consumedAt: result.consumedAt,
-        createdAt: result.createdAt,
-        updatedAt: result.updatedAt,
       };
     } catch {
       return null;

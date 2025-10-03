@@ -1,0 +1,39 @@
+// src/adapters/graphql/verification-record/dto/public-verification-record.dto.ts
+
+import {
+  SubjectType,
+  VerificationRecordStatus,
+  VerificationRecordType,
+} from '@app-types/models/verification-record.types';
+import { Field, Int, ObjectType } from '@nestjs/graphql';
+
+// 导入枚举注册文件以确保 GraphQL 类型系统正确识别所有枚举
+import '@src/adapters/graphql/verification-record/enums/verification-record-type.enum';
+
+/**
+ * 公开验证记录数据传输对象
+ * 仅包含公开验证所需的必要字段，不包含敏感信息
+ */
+@ObjectType({ description: '公开验证记录' })
+export class PublicVerificationRecordDTO {
+  @Field(() => Int, { description: '验证记录 ID' })
+  id!: number;
+
+  @Field(() => VerificationRecordType, { description: '记录类型' })
+  type!: VerificationRecordType;
+
+  @Field(() => VerificationRecordStatus, { description: '记录状态' })
+  status!: VerificationRecordStatus;
+
+  @Field(() => Date, { description: '过期时间' })
+  expiresAt!: Date;
+
+  @Field(() => Date, { description: '生效时间', nullable: true })
+  notBefore!: Date | null;
+
+  @Field(() => SubjectType, { description: '主体类型', nullable: true })
+  subjectType!: SubjectType | null;
+
+  @Field(() => Int, { description: '主体 ID', nullable: true })
+  subjectId!: number | null;
+}

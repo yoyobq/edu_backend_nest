@@ -36,10 +36,9 @@ async function tryFindVerificationRecord(app: INestApplication, token: string, b
           type
           status
           expiresAt
-          targetAccountId
+          notBefore
           subjectType
           subjectId
-          payload
         }
       }
     `,
@@ -58,10 +57,9 @@ async function tryFindVerificationRecord(app: INestApplication, token: string, b
             type
             status
             expiresAt
-            targetAccountId
+            notBefore
             subjectType
             subjectId
-            payload
           }
         }
       `,
