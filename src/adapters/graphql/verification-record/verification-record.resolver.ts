@@ -1,13 +1,14 @@
 // src/adapters/graphql/verification-record/verification-record.resolver.ts
 
-import { JwtPayload } from '@app-types/jwt.types';
 import { UseGuards } from '@nestjs/common';
 import { Args, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { currentUser } from '@src/adapters/graphql/decorators/current-user.decorator';
 import { JwtAuthGuard } from '@src/adapters/graphql/guards/jwt-auth.guard';
-import { ConsumeVerificationRecordUsecase } from '@usecases/verification-record/consume-verification-record.usecase';
-import { CreateVerificationRecordUsecase } from '@usecases/verification-record/create-verification-record.usecase';
-import { FindVerificationRecordUsecase } from '@usecases/verification-record/find-verification-record.usecase';
+import { JwtPayload } from '@src/types/jwt.types';
+import { IdentityTypeEnum } from '@src/types/models/account.types';
+import { ConsumeVerificationRecordUsecase } from '@src/usecases/verification-record/consume-verification-record.usecase';
+import { CreateVerificationRecordUsecase } from '@src/usecases/verification-record/create-verification-record.usecase';
+import { FindVerificationRecordUsecase } from '@src/usecases/verification-record/find-verification-record.usecase';
 import { ConsumeVerificationRecordInput } from './dto/consume-verification-record.input';
 import { CreateVerificationRecordInput } from './dto/create-verification-record.input';
 import { FindVerificationRecordInput } from './dto/find-verification-record.input';
@@ -54,6 +55,18 @@ export class VerificationRecordResolver {
         issuedByAccountId: user.sub,
       });
 
+      // 服务端权限判断：只有 ADMIN 和 MANAGER 角色在服务端生成 token 时才能获取明文 token
+      // 统一转换为小写进行比较，与 RolesGuard 保持一致
+      const normalizedUserRoles =
+        user.accessGroup?.map((role) =>
+          typeof role === 'string' ? role.toLowerCase() : String(role).toLowerCase(),
+        ) || [];
+
+      const canReturnToken =
+        (normalizedUserRoles.includes(IdentityTypeEnum.ADMIN.toLowerCase()) ||
+          normalizedUserRoles.includes(IdentityTypeEnum.MANAGER.toLowerCase())) &&
+        result.generatedByServer === true;
+
       return {
         success: true,
         data: {
@@ -72,7 +85,7 @@ export class VerificationRecordResolver {
           createdAt: result.record.createdAt,
           updatedAt: result.record.updatedAt,
         },
-        token: input.returnToken === true ? result.token : null,
+        token: input.returnToken && canReturnToken ? result.token : null,
         message: null,
       };
     } catch (error) {

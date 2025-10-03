@@ -33,6 +33,8 @@ export interface CreateVerificationRecordUsecaseResult {
   record: VerificationRecordEntity;
   /** 生成的明文 token */
   token: string;
+  /** 是否由服务端生成 token（true: 自动生成, false: 使用自定义 token） */
+  generatedByServer: boolean;
 }
 
 /**
@@ -59,6 +61,7 @@ export class CreateVerificationRecordUsecase {
 
     // 生成或使用自定义 token
     let token = params.customToken || this.generateToken(params);
+    const generatedByServer = !params.customToken;
 
     // 检查是否已存在相同的 token（防重复）
     const tokenExists = await this.verificationRecordService.isTokenExists(token);
@@ -110,7 +113,7 @@ export class CreateVerificationRecordUsecase {
       token,
     });
 
-    return { record, token };
+    return { record, token, generatedByServer };
   }
 
   /**
