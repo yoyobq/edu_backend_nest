@@ -2,8 +2,8 @@
 
 import { SubjectType, VerificationRecordStatus } from '@app-types/models/verification-record.types';
 import { Field, InputType, Int } from '@nestjs/graphql';
-import { GraphQLJSON } from 'graphql-type-json';
 import { IsEnum, IsInt, IsOptional } from 'class-validator';
+import GraphQLJSON from 'graphql-type-json';
 
 /**
  * 更新验证记录输入参数

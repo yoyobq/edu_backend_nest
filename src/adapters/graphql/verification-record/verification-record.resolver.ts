@@ -140,25 +140,12 @@ export class VerificationRecordResolver {
       // 使用当前登录用户作为消费者
       const consumedByAccountId = user.sub;
 
-      let result;
-      if (input.id) {
-        // 通过 ID 消费
-        result = await this.consumeVerificationRecordUsecase.consumeById({
-          recordId: input.id,
-          consumedByAccountId,
-          expectedType: input.expectedType,
-        });
-      } else if (input.token) {
-        // 通过 token 消费
-        result = await this.consumeVerificationRecordUsecase.consumeByToken({
-          token: input.token,
-          consumedByAccountId,
-          expectedType: input.expectedType,
-        });
-      } else {
-        // 这种情况不应该发生，因为有 OneOf 校验
-        throw new Error('必须提供 id 或 token 其中之一');
-      }
+      // 通过 token 消费
+      const result = await this.consumeVerificationRecordUsecase.consumeByToken({
+        token: input.token,
+        consumedByAccountId,
+        expectedType: input.expectedType,
+      });
 
       return {
         success: true,

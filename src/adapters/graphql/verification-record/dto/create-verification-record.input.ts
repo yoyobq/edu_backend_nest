@@ -45,11 +45,6 @@ export class CreateVerificationRecordInput {
   @IsOptional()
   payload?: Record<string, unknown>;
 
-  @Field(() => Int, { description: '签发者账号 ID', nullable: true })
-  @IsOptional()
-  @IsInt({ message: '签发者账号 ID 必须是整数' })
-  issuedByAccountId?: number;
-
   @Field(() => Int, { description: 'Token 长度（仅在自动生成时有效，默认 32）', nullable: true })
   @IsOptional()
   @IsInt({ message: 'Token 长度必须是整数' })
