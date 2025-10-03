@@ -3,6 +3,7 @@
 import { UseGuards } from '@nestjs/common';
 import { Args, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { currentUser } from '@src/adapters/graphql/decorators/current-user.decorator';
+import { Public } from '@src/adapters/graphql/decorators/public.decorator';
 import { JwtAuthGuard } from '@src/adapters/graphql/guards/jwt-auth.guard';
 import { JwtPayload } from '@src/types/jwt.types';
 import { IdentityTypeEnum } from '@src/types/models/account.types';
@@ -99,7 +100,9 @@ export class VerificationRecordResolver {
 
   /**
    * 查找验证记录
+   * 公开接口，但需要提供有效的 token 才能查询
    */
+  @Public()
   @Query(() => VerificationRecordDTO, { nullable: true, description: '查找验证记录' })
   async findVerificationRecord(
     @Args('input') input: FindVerificationRecordInput,
