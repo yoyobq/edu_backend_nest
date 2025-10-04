@@ -120,11 +120,11 @@ export class ConsumeVerificationRecordUsecase {
     {
       priority: 4,
       check: (record, context) => {
-        // 为消费操作添加 180 秒的时间偏移容忍度，支持预读功能
-        const toleranceMs = 180 * 1000; // 180 秒
-        const effectiveExpiryTime = new Date(record.expiresAt.getTime() + toleranceMs);
+        // 检查是否已过期（包含 180 秒宽限期）
+        const gracePeriodMs = 180 * 1000; // 180 秒宽限期
+        const expiresAtWithGracePeriod = new Date(record.expiresAt.getTime() + gracePeriodMs);
 
-        return effectiveExpiryTime <= context.now
+        return expiresAtWithGracePeriod <= context.now
           ? new DomainError(VERIFICATION_RECORD_ERROR.RECORD_EXPIRED, '验证码已过期，请重新获取')
           : null;
       },
@@ -366,16 +366,16 @@ export class ConsumeVerificationRecordUsecase {
       updateFields.consumedByAccountId = consumedByAccountId;
     }
 
-    // 为消费操作添加 180 秒的时间偏移容忍度，支持预读功能
-    const toleranceMs = 180 * 1000; // 180 秒
-    const effectiveExpiryTime = new Date(now.getTime() - toleranceMs);
+    // 计算包含 180 秒宽限期的过期时间
+    const gracePeriodMs = 180 * 1000; // 180 秒宽限期
+    const gracePeriodAgo = new Date(now.getTime() - gracePeriodMs);
 
     const queryBuilder = repository
       .createQueryBuilder()
       .update(VerificationRecordEntity)
       .set(updateFields)
       .andWhere('status = :activeStatus', { activeStatus: VerificationRecordStatus.ACTIVE })
-      .andWhere('expiresAt > :effectiveExpiryTime', { effectiveExpiryTime })
+      .andWhere('expiresAt > :gracePeriodAgo', { gracePeriodAgo })
       .andWhere('(notBefore IS NULL OR notBefore <= :now)', { now });
 
     // 权限检查：如果记录有 targetAccountId 限制

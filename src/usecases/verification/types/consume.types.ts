@@ -2,9 +2,17 @@
 
 import { VerificationRecordType } from '@app-types/models/verification-record.types';
 import { AudienceTypeEnum } from '@app-types/models/account.types';
-import { VerificationRecordEntity } from '@src/modules/verification-record/verification-record.entity';
 import { VerificationRecordView } from '@src/modules/verification-record/services/verification-read.service';
+import { PasswordResetHandlerResult } from '@src/usecases/verification/password/reset-password-result.types';
 import { EntityManager } from 'typeorm';
+
+/**
+ * 密码重置载荷
+ */
+export interface ResetPasswordPayload {
+  /** 新密码 */
+  newPassword: string;
+}
 
 /**
  * 验证流程输入参数
@@ -24,6 +32,8 @@ export interface ConsumeVerificationFlowParams {
   phone?: string;
   /** 可选的事务管理器 */
   manager?: EntityManager;
+  /** 密码重置载荷（仅用于密码重置类型） */
+  resetPassword?: ResetPasswordPayload;
 }
 
 /**
@@ -36,6 +46,8 @@ export interface VerificationFlowContext {
   consumedByAccountId?: number;
   /** 事务管理器 */
   manager: EntityManager;
+  /** 密码重置载荷（仅用于密码重置类型） */
+  resetPassword?: ResetPasswordPayload;
 }
 
 // TODO: 临时注释其他验证类型，专注于密码重置功能
@@ -50,18 +62,6 @@ export interface VerificationFlowContext {
 //   /** 关联的账号 ID（如果有） */
 //   accountId?: number;
 // }
-
-/**
- * 密码重置结果
- */
-export interface PasswordResetResult {
-  /** 验证记录 */
-  record: VerificationRecordEntity;
-  /** 重置密码的账号 ID */
-  accountId: number;
-  /** 新密码哈希 */
-  newPasswordHash: string;
-}
 
 // TODO: 临时注释其他验证类型，专注于密码重置功能
 // /**
@@ -120,9 +120,9 @@ export interface PasswordResetResult {
 
 /**
  * 验证流程结果联合类型
- * TODO: 临时只保留密码重置结果，专注于密码重置功能
+ * 统一使用 PasswordResetHandlerResult 作为返回类型
  */
-export type VerificationFlowResult = PasswordResetResult;
+export type VerificationFlowResult = PasswordResetHandlerResult;
 // export type VerificationFlowResult =
 //   | EmailVerificationResult
 //   | PasswordResetResult

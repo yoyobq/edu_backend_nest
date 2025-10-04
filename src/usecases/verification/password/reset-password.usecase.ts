@@ -1,10 +1,12 @@
 // src/usecases/verification/password/reset-password.usecase.ts
 
-// TODO: 临时注释掉整个文件内容以避免 ESLint 错误
-// 这个文件包含密码重置的业务逻辑，需要在后续开发中重新实现
-
 import { Injectable } from '@nestjs/common';
-import { PasswordResetResult } from '../types/consume.types';
+import { AccountService } from '@src/modules/account/base/services/account.service';
+import {
+  ACCOUNT_ERROR,
+  DomainError,
+  VERIFICATION_RECORD_ERROR,
+} from '@core/common/errors/domain-error';
 
 /**
  * 密码重置用例参数
@@ -12,10 +14,20 @@ import { PasswordResetResult } from '../types/consume.types';
 export interface ResetPasswordUsecaseParams {
   /** 验证记录 ID */
   recordId: number;
-  /** 消费者账号 ID（可选，密码重置可以匿名进行） */
-  consumedByAccountId?: number;
-  /** 验证记录实体 */
-  record: unknown;
+  /** 目标账户 ID */
+  targetAccountId: number;
+  /** 新密码 */
+  newPassword: string;
+}
+
+/**
+ * 密码重置用例结果
+ */
+export interface ResetPasswordUsecaseResult {
+  /** 重置密码的账户 ID */
+  accountId: number;
+  /** 验证记录 ID */
+  recordId: number;
 }
 
 /**
@@ -24,14 +36,49 @@ export interface ResetPasswordUsecaseParams {
  */
 @Injectable()
 export class ResetPasswordUsecase {
+  constructor(private readonly accountService: AccountService) {}
+
   /**
    * 执行密码重置
    *
-   * @param _params 重置参数
+   * @param params 重置参数
    * @returns 重置结果
    */
-  execute(_params: ResetPasswordUsecaseParams): Promise<PasswordResetResult> {
-    // TODO: 实现密码重置逻辑
-    throw new Error('密码重置功能暂未实现');
+  async execute(params: ResetPasswordUsecaseParams): Promise<ResetPasswordUsecaseResult> {
+    const { recordId, targetAccountId, newPassword } = params;
+
+    try {
+      // 查找目标账户
+      const account = await this.accountService.findOneById(targetAccountId);
+      if (!account) {
+        throw new DomainError(ACCOUNT_ERROR.ACCOUNT_NOT_FOUND, '目标账户不存在');
+      }
+
+      // 使用账户创建时间作为盐值生成新密码哈希
+      const hashedPassword = AccountService.hashPasswordWithTimestamp(
+        newPassword,
+        account.createdAt,
+      );
+
+      // 更新账户密码
+      await this.accountService.updateAccount(targetAccountId, {
+        loginPassword: hashedPassword,
+        updatedAt: new Date(),
+      });
+
+      return {
+        accountId: targetAccountId,
+        recordId: recordId,
+      };
+    } catch (error) {
+      if (error instanceof DomainError) {
+        throw error;
+      }
+
+      throw new DomainError(
+        VERIFICATION_RECORD_ERROR.CONSUMPTION_FAILED,
+        `密码重置失败: ${error instanceof Error ? error.message : '未知错误'}`,
+      );
+    }
   }
 }

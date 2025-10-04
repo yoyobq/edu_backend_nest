@@ -5,7 +5,7 @@ import { AuthLoginModel } from '@app-types/models/auth.types';
 import { AccountStatus } from '@app-types/models/account.types';
 import { AUTH_ERROR, DomainError, isDomainError } from '@core/common/errors';
 import { Injectable } from '@nestjs/common';
-import { AccountService } from '@modules/account/base/services/account.service';
+import { AccountService } from '@src/modules/account/base/services/account.service';
 import { PinoLogger } from 'nestjs-pino';
 import { DecideLoginRoleUsecase } from './decide-login-role.usecase';
 import { EnrichLoginWithIdentityUsecase } from './enrich-login-with-identity.usecase';

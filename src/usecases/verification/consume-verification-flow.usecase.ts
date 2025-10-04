@@ -62,7 +62,16 @@ export class ConsumeVerificationFlowUsecase {
    * @returns 验证流程结果
    */
   async execute(params: ConsumeVerificationFlowParams): Promise<VerificationFlowResult> {
-    const { token, consumedByAccountId, expectedType, audience, email, phone, manager } = params;
+    const {
+      token,
+      consumedByAccountId,
+      expectedType,
+      audience,
+      email,
+      phone,
+      manager,
+      resetPassword,
+    } = params;
 
     return this.verificationRecordService.runTransaction(async (transactionManager) => {
       const activeManager = manager || transactionManager;
@@ -85,6 +94,7 @@ export class ConsumeVerificationFlowUsecase {
         recordView,
         consumedByAccountId,
         manager: activeManager,
+        resetPassword, // 传递密码重置载荷
       };
 
       // 第四步：执行业务逻辑

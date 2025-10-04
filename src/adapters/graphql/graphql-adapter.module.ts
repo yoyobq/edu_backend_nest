@@ -31,7 +31,7 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
     RegisterModule,
     ThirdPartyAuthModule,
     CourseCatalogsModule, // 导入课程目录模块
-    VerificationRecordModule, // 导入验证记录模块
+    VerificationRecordModule, // 导入验证记录模块（包含验证流程相关组件）
   ],
   providers: [
     // Resolvers

@@ -98,12 +98,16 @@ export class VerificationReadService {
   private validateRecordTiming(record: VerificationRecordEntity): void {
     const now = new Date();
 
-    // 检查是否已过期
-    if (record.expiresAt <= now) {
+    // 检查是否已过期（包含 180 秒宽限期）
+    const gracePeriodMs = 180 * 1000; // 180 秒宽限期
+    const expiresAtWithGracePeriod = new Date(record.expiresAt.getTime() + gracePeriodMs);
+
+    if (expiresAtWithGracePeriod <= now) {
       throw new DomainError(VERIFICATION_RECORD_ERROR.RECORD_EXPIRED, '验证记录已过期', {
         recordId: record.id,
         expiresAt: record.expiresAt.toISOString(),
         currentTime: now.toISOString(),
+        gracePeriodSeconds: 180,
       });
     }
 

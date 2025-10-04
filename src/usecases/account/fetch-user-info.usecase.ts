@@ -6,7 +6,7 @@ import { Gender, UserState } from '@app-types/models/user-info.types';
 import { ACCOUNT_ERROR, DomainError } from '@core/common/errors';
 import { UserInfoEntity } from '@modules/account/base/entities/user-info.entity';
 import { AccountSecurityService } from '@modules/account/base/services/account-security.service';
-import { AccountService } from '@modules/account/base/services/account.service';
+import { AccountService } from '@src/modules/account/base/services/account.service';
 import { Injectable } from '@nestjs/common';
 
 // 移除本地的 UserInfoView 定义，使用统一的类型定义
