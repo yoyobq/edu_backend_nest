@@ -1,7 +1,10 @@
 // src/modules/verification-record/services/verification-read.service.ts
 
 import { AudienceTypeEnum } from '@app-types/models/account.types';
-import { VerificationRecordStatus } from '@app-types/models/verification-record.types';
+import {
+  VerificationRecordStatus,
+  VerificationRecordType,
+} from '@app-types/models/verification-record.types';
 import { DomainError, VERIFICATION_RECORD_ERROR } from '@core/common/errors/domain-error';
 import { TokenFingerprintHelper } from '@core/security/token-fingerprint.helper';
 import { Injectable } from '@nestjs/common';
@@ -115,6 +118,139 @@ export class VerificationReadService {
   }
 
   /**
+   * 从原始 payload 中提取公开的非敏感字段
+   *
+   * @param payload 原始载荷数据
+   * @returns 公开载荷数据
+   */
+  private extractPublicPayload(
+    payload: Record<string, unknown> | null,
+  ): VerificationRecordPublicPayload | null {
+    if (!payload) {
+      return null;
+    }
+
+    const publicPayload: VerificationRecordPublicPayload = {};
+
+    // 白名单：只提取非敏感的公开字段
+    const allowedFields = [
+      'audience',
+      'flowId',
+      'title',
+      'description',
+      'issuer',
+      'verifyUrl',
+      'inviteUrl',
+      'roleName',
+    ];
+
+    for (const field of allowedFields) {
+      if (payload[field] !== undefined) {
+        let value = payload[field];
+
+        // 对 URL 字段进行安全净化，移除敏感查询参数和 hash
+        if ((field === 'verifyUrl' || field === 'inviteUrl') && typeof value === 'string') {
+          const sanitizedValue = this.sanitizeUrl(value);
+          // 如果净化失败（返回 null），则不包含该字段
+          if (sanitizedValue !== null) {
+            value = sanitizedValue;
+          } else {
+            // 跳过该字段，不添加到 publicPayload 中
+            continue;
+          }
+        }
+
+        publicPayload[field] = value;
+      }
+    }
+
+    return Object.keys(publicPayload).length > 0 ? publicPayload : null;
+  }
+
+  /**
+   * 净化 URL，移除敏感查询参数和 hash 片段
+   *
+   * 安全策略：
+   * - 保留 origin + pathname
+   * - 只保留白名单查询参数（如 utm_ 系列）
+   * - 明确排除敏感参数（token、code、signature 等）
+   * - 移除 hash 片段
+   *
+   * @param url 原始 URL
+   * @returns 净化后的安全 URL，解析失败时返回 null
+   */
+  private sanitizeUrl(url: string): string | null {
+    try {
+      const urlObj = new URL(url);
+
+      // 敏感参数黑名单（精确匹配）
+      const sensitiveParams = new Set([
+        'token',
+        'code',
+        'signature',
+        'secret',
+        'key',
+        'auth',
+        'access_token',
+        'refresh_token',
+        'session',
+        'sid',
+        'csrf',
+        'nonce',
+        'state',
+        'ticket',
+      ]);
+
+      // 安全参数前缀白名单
+      const safeParamPrefixes = ['utm_', 'fb_', 'gclid', 'fbclid'];
+
+      // 安全参数精确匹配白名单
+      const safeParamExact = new Set([
+        'ref',
+        'source',
+        'from',
+        'lang',
+        'locale',
+        'theme',
+        'version',
+        'page',
+        'tab',
+        'view',
+      ]);
+
+      // 创建新的 URLSearchParams，只保留安全参数
+      const newSearchParams = new URLSearchParams();
+
+      for (const [key, value] of urlObj.searchParams.entries()) {
+        const lowerKey = key.toLowerCase();
+
+        // 检查是否为敏感参数（精确匹配）
+        const isSensitive = sensitiveParams.has(lowerKey);
+
+        // 检查是否为安全参数（前缀匹配或精确匹配）
+        const isSafePrefix = safeParamPrefixes.some((prefix) => lowerKey.startsWith(prefix));
+        const isSafeExact = safeParamExact.has(lowerKey);
+        const isSafe = isSafePrefix || isSafeExact;
+
+        // 只保留安全参数，排除敏感参数
+        if (isSafe && !isSensitive) {
+          newSearchParams.append(key, value);
+        }
+      }
+
+      // 构建净化后的 URL：origin + pathname + 安全查询参数
+      const sanitizedUrl = new URL(urlObj.origin + urlObj.pathname);
+      sanitizedUrl.search = newSearchParams.toString();
+
+      return sanitizedUrl.toString();
+    } catch {
+      // 如果 URL 解析失败，返回 null 而不是空字符串
+      // console.warn(`URL 净化失败: ${url}`, error);
+      return null;
+    }
+  }
+
+  /**
    * 转换为清洁的记录视图
    * 隐藏敏感信息，只返回必要的字段
    *
@@ -131,23 +267,54 @@ export class VerificationReadService {
       targetAccountId: record.targetAccountId,
       subjectType: record.subjectType,
       subjectId: record.subjectId,
-      payload: record.payload,
+      publicPayload: this.extractPublicPayload(record.payload),
       issuedByAccountId: record.issuedByAccountId,
       createdAt: record.createdAt,
       // 注意：不包含 tokenFp、consumedByAccountId、consumedAt、updatedAt 等敏感信息
+      // 注意：不包含原始 payload，避免泄露 email/phone 等 PII 信息
     };
   }
 }
 
 /**
+ * 验证记录公开载荷数据
+ * 只包含对上层有用且非敏感的字段
+ */
+export interface VerificationRecordPublicPayload {
+  /** 客户端类型 */
+  audience?: AudienceTypeEnum;
+  /** 流程 ID */
+  flowId?: string;
+  /** 标题 */
+  title?: string;
+  /** 描述 */
+  description?: string;
+  /** 签发机构 */
+  issuer?: string;
+  /** 验证链接（不含敏感参数） */
+  verifyUrl?: string;
+  /** 邀请链接（不含敏感参数） */
+  inviteUrl?: string;
+  /** 角色名称（非敏感） */
+  roleName?: string;
+  /** 其他非敏感的业务字段 */
+  [key: string]: unknown;
+}
+
+/**
  * 验证记录清洁视图
  * 用于返回给调用方的安全数据结构
+ *
+ * 安全设计原则：
+ * - 移除原始 payload，避免泄露 email/phone 等 PII 信息
+ * - 使用 publicPayload 白名单，只导出对上层有用且非敏感的字段
+ * - 即使被上层/日志/埋点无意中打印，也不会泄露敏感信息
  */
 export interface VerificationRecordView {
   /** 记录 ID */
   id: number;
   /** 记录类型 */
-  type: string;
+  type: VerificationRecordType;
   /** 记录状态 */
   status: VerificationRecordStatus;
   /** 过期时间 */
@@ -160,8 +327,8 @@ export interface VerificationRecordView {
   subjectType: string | null;
   /** 主体 ID */
   subjectId: number | null;
-  /** 载荷数据 */
-  payload: Record<string, unknown> | null;
+  /** 公开载荷数据（仅包含非敏感字段） */
+  publicPayload: VerificationRecordPublicPayload | null;
   /** 签发者账号 ID */
   issuedByAccountId: number | null;
   /** 创建时间 */
