@@ -45,20 +45,38 @@ export class VerificationRecordService {
       return false;
     }
 
-    // MySQL: 优先检查 MySQL 的重复键错误
     const errorObj = error as unknown as Record<string, unknown>;
+
+    // TypeORM v0.3: 优先从 driverError 字段读取稳定的错误信息
+    const driverError = errorObj.driverError as Record<string, unknown> | undefined;
+
+    // MySQL: 检查 MySQL 的重复键错误
+    // 读取顺序：driverError.code / driverError.errno / driverError.sqlState
+    if (driverError) {
+      if (
+        driverError.code === 'ER_DUP_ENTRY' ||
+        driverError.errno === 1062 ||
+        driverError.sqlState === '23000'
+      ) {
+        return true;
+      }
+
+      // PostgreSQL: 唯一约束冲突错误码 23505
+      if (driverError.code === '23505') {
+        return true;
+      }
+    }
+
+    // 兼容性处理：如果 driverError 不存在，回退到直接读取 error 对象
+    // 这是为了向后兼容旧版本 TypeORM 或特殊情况
     if (
       errorObj.code === 'ER_DUP_ENTRY' ||
       errorObj.errno === 1062 ||
-      errorObj.sqlState === '23000'
+      errorObj.sqlState === '23000' ||
+      errorObj.code === '23505'
     ) {
       return true;
     }
-
-    // PostgreSQL: 唯一约束冲突错误码 23505
-    // if (errorObj.code === '23505') {
-    //   return true;
-    // }
 
     return false;
   }
