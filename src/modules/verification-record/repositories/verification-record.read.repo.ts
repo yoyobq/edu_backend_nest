@@ -54,10 +54,11 @@ export class VerificationRecordReadRepository {
   /**
    * 确保验证记录与上下文匹配
    *
-   * 校验规则：
-   * - audience：如果提供，必须与记录中的 payload.audience 匹配
-   * - email：如果提供，必须与记录中的 payload.email 匹配
-   * - phone：如果提供，必须与记录中的 payload.phone 匹配
+   * 校验规则（严格匹配）：
+   * - audience：如果调用方提供，记录必须有对应字段且值匹配
+   * - email：如果调用方提供，记录必须有对应字段且值匹配（标准化后比较）
+   * - phone：如果调用方提供，记录必须有对应字段且值匹配（标准化后比较）
+   * - 记录缺字段或值不匹配均视为校验失败
    *
    * @param record 验证记录实体
    * @param audience 客户端类型（可选）
@@ -73,31 +74,95 @@ export class VerificationRecordReadRepository {
   ): void {
     const payload = record.payload;
 
-    // 校验 audience
-    if (audience && payload?.audience && payload.audience !== audience) {
-      throw new DomainError(VERIFICATION_RECORD_ERROR.CONTEXT_MISMATCH, '客户端类型不匹配', {
-        expected: audience,
-        actual: payload.audience as string,
-        recordId: record.id,
-      });
+    // 校验 audience（严格匹配）
+    if (audience) {
+      const recordAudience = payload?.audience;
+      if (!recordAudience || recordAudience !== audience) {
+        throw new DomainError(VERIFICATION_RECORD_ERROR.CONTEXT_MISMATCH, '客户端类型不匹配', {
+          expected: audience,
+          actual: recordAudience || null,
+          recordId: record.id,
+          field: 'audience',
+        });
+      }
     }
 
-    // 校验 email
-    if (email && payload?.email && payload.email !== email) {
-      throw new DomainError(VERIFICATION_RECORD_ERROR.CONTEXT_MISMATCH, '邮箱地址不匹配', {
-        expected: email,
-        actual: payload.email as string,
-        recordId: record.id,
-      });
+    // 校验 email（严格匹配 + 标准化）
+    if (email) {
+      const recordEmail = payload?.email;
+      if (!recordEmail) {
+        throw new DomainError(
+          VERIFICATION_RECORD_ERROR.CONTEXT_MISMATCH,
+          '邮箱地址不匹配：记录缺少邮箱字段',
+          {
+            expected: email,
+            actual: null,
+            recordId: record.id,
+            field: 'email',
+          },
+        );
+      }
+
+      // 轻量标准化：转小写 + 去空格
+      const normalizedExpected = this.normalizeEmail(email);
+      const normalizedActual = this.normalizeEmail(recordEmail as string);
+
+      if (normalizedActual !== normalizedExpected) {
+        throw new DomainError(VERIFICATION_RECORD_ERROR.CONTEXT_MISMATCH, '邮箱地址不匹配', {
+          expected: normalizedExpected,
+          actual: normalizedActual,
+          recordId: record.id,
+          field: 'email',
+        });
+      }
     }
 
-    // 校验 phone
-    if (phone && payload?.phone && payload.phone !== phone) {
-      throw new DomainError(VERIFICATION_RECORD_ERROR.CONTEXT_MISMATCH, '手机号码不匹配', {
-        expected: phone,
-        actual: payload.phone as string,
-        recordId: record.id,
-      });
+    // 校验 phone（严格匹配 + 标准化）
+    if (phone) {
+      const recordPhone = payload?.phone;
+      if (!recordPhone) {
+        throw new DomainError(
+          VERIFICATION_RECORD_ERROR.CONTEXT_MISMATCH,
+          '手机号码不匹配：记录缺少手机号字段',
+          {
+            expected: phone,
+            actual: null,
+            recordId: record.id,
+            field: 'phone',
+          },
+        );
+      }
+
+      // 轻量标准化：去除非数字字符
+      const normalizedExpected = this.normalizePhone(phone);
+      const normalizedActual = this.normalizePhone(recordPhone as string);
+
+      if (normalizedActual !== normalizedExpected) {
+        throw new DomainError(VERIFICATION_RECORD_ERROR.CONTEXT_MISMATCH, '手机号码不匹配', {
+          expected: normalizedExpected,
+          actual: normalizedActual,
+          recordId: record.id,
+          field: 'phone',
+        });
+      }
     }
+  }
+
+  /**
+   * 邮箱轻量标准化
+   * @param email 原始邮箱
+   * @returns 标准化后的邮箱
+   */
+  private normalizeEmail(email: string): string {
+    return email.trim().toLowerCase();
+  }
+
+  /**
+   * 手机号轻量标准化
+   * @param phone 原始手机号
+   * @returns 标准化后的手机号（仅保留数字）
+   */
+  private normalizePhone(phone: string): string {
+    return phone.replace(/\D/g, '');
   }
 }

@@ -5,8 +5,8 @@ import { VerificationRecordStatus } from '@app-types/models/verification-record.
 import { DomainError, VERIFICATION_RECORD_ERROR } from '@core/common/errors/domain-error';
 import { TokenFingerprintHelper } from '@core/security/token-fingerprint.helper';
 import { Injectable } from '@nestjs/common';
-import { VerificationRecordEntity } from '../verification-record.entity';
 import { VerificationRecordReadRepository } from '../repositories/verification-record.read.repo';
+import { VerificationRecordEntity } from '../verification-record.entity';
 
 /**
  * 验证记录聚合读取服务
