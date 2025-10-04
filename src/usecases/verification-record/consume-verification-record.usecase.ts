@@ -119,10 +119,15 @@ export class ConsumeVerificationRecordUsecase {
     },
     {
       priority: 4,
-      check: (record, context) =>
-        record.expiresAt <= context.now
+      check: (record, context) => {
+        // 为消费操作添加 180 秒的时间偏移容忍度，支持预读功能
+        const toleranceMs = 180 * 1000; // 180 秒
+        const effectiveExpiryTime = new Date(record.expiresAt.getTime() + toleranceMs);
+
+        return effectiveExpiryTime <= context.now
           ? new DomainError(VERIFICATION_RECORD_ERROR.RECORD_EXPIRED, '验证码已过期，请重新获取')
-          : null,
+          : null;
+      },
     },
     {
       priority: 5,
@@ -361,12 +366,16 @@ export class ConsumeVerificationRecordUsecase {
       updateFields.consumedByAccountId = consumedByAccountId;
     }
 
+    // 为消费操作添加 180 秒的时间偏移容忍度，支持预读功能
+    const toleranceMs = 180 * 1000; // 180 秒
+    const effectiveExpiryTime = new Date(now.getTime() - toleranceMs);
+
     const queryBuilder = repository
       .createQueryBuilder()
       .update(VerificationRecordEntity)
       .set(updateFields)
       .andWhere('status = :activeStatus', { activeStatus: VerificationRecordStatus.ACTIVE })
-      .andWhere('expiresAt > :now', { now })
+      .andWhere('expiresAt > :effectiveExpiryTime', { effectiveExpiryTime })
       .andWhere('(notBefore IS NULL OR notBefore <= :now)', { now });
 
     // 权限检查：如果记录有 targetAccountId 限制

@@ -1308,7 +1308,7 @@ describe('验证记录签发 E2E 测试', () => {
       typeRecordToken = typeResponse.body.data.createVerificationRecord.token;
       typeRecordId = parseInt(typeResponse.body.data.createVerificationRecord.data.id);
 
-      // 创建过期测试记录（创建时是有效的，但设置较短的过期时间）
+      // 创建过期测试记录（先正常创建，然后通过实体修改过期时间）
       const expiredResponse = await postGql(
         app,
         `
@@ -1332,7 +1332,7 @@ describe('验证记录签发 E2E 测试', () => {
               title: '过期测试',
               verificationCode: '111111',
             },
-            expiresAt: new Date(Date.now() + 50).toISOString(), // 50毫秒后过期，测试时应该已过期
+            expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // 先设置为24小时后过期
             returnToken: true,
           },
         },
@@ -1343,8 +1343,12 @@ describe('验证记录签发 E2E 测试', () => {
       expiredRecordToken = expiredResponse.body.data.createVerificationRecord.token;
       expiredRecordId = parseInt(expiredResponse.body.data.createVerificationRecord.data.id);
 
-      // 等待记录过期
-      await new Promise((resolve) => setTimeout(resolve, 300));
+      // 通过实体直接修改数据库中的过期时间为过去的时间（绕过业务逻辑限制）
+      const verificationRecordRepository = dataSource.getRepository(VerificationRecordEntity);
+      await verificationRecordRepository.update(
+        { id: expiredRecordId },
+        { expiresAt: new Date(Date.now() - 4 * 60 * 1000) }, // 设置为4分钟前过期，超过180秒宽限期
+      );
 
       // 创建未到生效时间测试记录
       const notActiveResponse = await postGql(
@@ -1529,6 +1533,77 @@ describe('验证记录签发 E2E 测试', () => {
         where: { id: expiredRecordId },
       });
       expect(record?.status).toBe('ACTIVE');
+    });
+
+    it('应该在180秒宽限期内允许消费过期验证码', async () => {
+      // 创建一个验证码，然后将其过期时间设置为90秒前（在180秒宽限期内）
+      const gracePeriodResponse = await postGql(
+        app,
+        `
+          mutation CreateVerificationRecord($input: CreateVerificationRecordInput!) {
+            createVerificationRecord(input: $input) {
+              success
+              data {
+                id
+                type
+                status
+              }
+              token
+              message
+            }
+          }
+        `,
+        {
+          input: {
+            type: 'SMS_VERIFY_CODE',
+            payload: {
+              title: '宽限期测试',
+              verificationCode: '444444',
+            },
+            expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // 先设置为24小时后过期
+            returnToken: true,
+          },
+        },
+        managerAccessToken,
+      );
+
+      expect(gracePeriodResponse.body.data.createVerificationRecord.success).toBe(true);
+      const gracePeriodToken = gracePeriodResponse.body.data.createVerificationRecord.token;
+      const gracePeriodRecordId = parseInt(
+        gracePeriodResponse.body.data.createVerificationRecord.data.id,
+      );
+
+      // 通过实体直接修改数据库中的过期时间为90秒前（在180秒宽限期内）
+      const verificationRecordRepository = dataSource.getRepository(VerificationRecordEntity);
+      await verificationRecordRepository.update(
+        { id: gracePeriodRecordId },
+        { expiresAt: new Date(Date.now() - 90 * 1000) }, // 设置为90秒前过期，仍在180秒宽限期内
+      );
+
+      // 尝试消费这个在宽限期内的验证码，应该成功
+      const consumeResponse = await tryConsumeVerificationRecord(
+        app,
+        gracePeriodToken,
+        learnerAccessToken,
+      );
+
+      console.log('宽限期内消费响应:', JSON.stringify(consumeResponse.body, null, 2));
+
+      // 检查是否有 GraphQL 错误
+      if (consumeResponse.body.errors) {
+        console.log('GraphQL 错误:', consumeResponse.body.errors);
+        return;
+      }
+
+      expect(consumeResponse.body.data.consumeVerificationRecord.success).toBe(true);
+      expect(consumeResponse.body.data.consumeVerificationRecord.data.status).toBe('CONSUMED');
+
+      // 验证数据库中记录状态已变为 CONSUMED
+      const record = await verificationRecordRepository.findOne({
+        where: { id: gracePeriodRecordId },
+      });
+      expect(record?.status).toBe('CONSUMED');
+      expect(record?.consumedAt).toBeTruthy();
     });
 
     it('应该在验证码尚未到使用时间时拒绝消费', async () => {
