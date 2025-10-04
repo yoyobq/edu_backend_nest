@@ -43,7 +43,7 @@ export class VerificationReadService {
     email?: string | null,
     phone?: string | null,
   ): Promise<VerificationRecordView> {
-    // 生成 token 指纹
+    // 生成 token 指纹（不掺入 audience）
     const tokenFp = TokenFingerprintHelper.generateTokenFingerprint({ token });
 
     // 查找活跃记录
@@ -58,7 +58,7 @@ export class VerificationReadService {
     // 校验时效性
     this.validateRecordTiming(record);
 
-    // 校验上下文匹配
+    // 校验上下文匹配（通过 payload 字段）
     if (audience || email || phone) {
       this.readRepository.ensureContextMatch(record, audience, email, phone);
     }
