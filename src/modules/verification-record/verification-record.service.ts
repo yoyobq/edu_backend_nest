@@ -9,7 +9,7 @@ import { DomainError, VERIFICATION_RECORD_ERROR } from '@core/common/errors/doma
 import { TokenFingerprintHelper } from '@core/security/token-fingerprint.helper';
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { EntityManager, Repository } from 'typeorm';
+import { EntityManager, QueryFailedError, Repository } from 'typeorm';
 import { VerificationRecordEntity } from './verification-record.entity';
 
 /**
@@ -33,6 +33,35 @@ export class VerificationRecordService {
     @InjectRepository(VerificationRecordEntity)
     private readonly verificationRecordRepository: Repository<VerificationRecordEntity>,
   ) {}
+
+  /**
+   * 检测是否为唯一约束冲突错误
+   *
+   * @param error 捕获的错误对象
+   * @returns 是否为唯一约束冲突
+   */
+  private isUniqueConstraintViolation(error: unknown): boolean {
+    if (!(error instanceof QueryFailedError)) {
+      return false;
+    }
+
+    // MySQL: 优先检查 MySQL 的重复键错误
+    const errorObj = error as unknown as Record<string, unknown>;
+    if (
+      errorObj.code === 'ER_DUP_ENTRY' ||
+      errorObj.errno === 1062 ||
+      errorObj.sqlState === '23000'
+    ) {
+      return true;
+    }
+
+    // PostgreSQL: 唯一约束冲突错误码 23505
+    // if (errorObj.code === '23505') {
+    //   return true;
+    // }
+
+    return false;
+  }
 
   /**
    * 生成 token 指纹
@@ -214,7 +243,7 @@ export class VerificationRecordService {
       return await repository.save(record);
     } catch (error) {
       // 处理唯一约束冲突（token 指纹重复）
-      if (error instanceof Error && error.message.includes('uk_token_fp')) {
+      if (this.isUniqueConstraintViolation(error)) {
         throw new DomainError(
           VERIFICATION_RECORD_ERROR.CREATION_FAILED,
           '验证记录创建失败：token 已存在',
@@ -279,73 +308,6 @@ export class VerificationRecordService {
         VERIFICATION_RECORD_ERROR.UPDATE_FAILED,
         '更新验证记录状态失败',
         { recordId, status, error: error instanceof Error ? error.message : '未知错误' },
-        error,
-      );
-    }
-  }
-
-  /**
-   * 原子性更新验证记录状态（带条件检查）
-   *
-   * ⚠️ 此方法提供原子性的条件更新操作
-   * 适用于需要并发安全的场景（如消费操作）
-   *
-   * @param conditions 更新条件
-   * @param updates 更新内容
-   * @param manager 可选的事务管理器
-   * @returns 受影响的行数
-   */
-  async atomicUpdateRecord(
-    conditions: {
-      id?: number;
-      tokenFp?: Buffer;
-      status?: VerificationRecordStatus;
-      targetAccountId?: number | null;
-    },
-    updates: {
-      status?: VerificationRecordStatus;
-      consumedByAccountId?: number;
-      consumedAt?: Date;
-    },
-    manager?: EntityManager,
-  ): Promise<number> {
-    const repository = manager
-      ? manager.getRepository(VerificationRecordEntity)
-      : this.verificationRecordRepository;
-
-    try {
-      const queryBuilder = repository
-        .createQueryBuilder()
-        .update(VerificationRecordEntity)
-        .set(updates);
-
-      // 添加条件
-      if (conditions.id !== undefined) {
-        queryBuilder.andWhere('id = :id', { id: conditions.id });
-      }
-      if (conditions.tokenFp !== undefined) {
-        queryBuilder.andWhere('tokenFp = :tokenFp', { tokenFp: conditions.tokenFp });
-      }
-      if (conditions.status !== undefined) {
-        queryBuilder.andWhere('status = :status', { status: conditions.status });
-      }
-      if (conditions.targetAccountId !== undefined) {
-        if (conditions.targetAccountId === null) {
-          queryBuilder.andWhere('targetAccountId IS NULL');
-        } else {
-          queryBuilder.andWhere('targetAccountId = :targetAccountId', {
-            targetAccountId: conditions.targetAccountId,
-          });
-        }
-      }
-
-      const result = await queryBuilder.execute();
-      return result.affected || 0;
-    } catch (error) {
-      throw new DomainError(
-        VERIFICATION_RECORD_ERROR.UPDATE_FAILED,
-        '原子性更新验证记录失败',
-        { conditions, updates, error: error instanceof Error ? error.message : '未知错误' },
         error,
       );
     }
