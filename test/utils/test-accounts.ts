@@ -6,10 +6,10 @@ import { CoachEntity } from '@src/modules/account/identities/training/coach/acco
 import { CustomerEntity } from '@src/modules/account/identities/training/customer/account-customer.entity';
 import { LearnerEntity } from '@src/modules/account/identities/training/learner/account-learner.entity';
 import { ManagerEntity } from '@src/modules/account/identities/training/manager/account-manager.entity';
-import { AccountStatus, IdentityTypeEnum } from '@src/types/models/account.types';
-import { MembershipLevel } from '@src/types/models/training.types';
-import { Gender, UserState } from '@src/types/models/user-info.types';
-import { CreateAccountUsecase } from '@src/usecases/account/create-account.usecase';
+import { AccountStatus, IdentityTypeEnum } from '@app-types/models/account.types';
+import { MembershipLevel } from '@app-types/models/training.types';
+import { Gender, UserState } from '@app-types/models/user-info.types';
+import { CreateAccountUsecase } from '@usecases/account/create-account.usecase';
 import { DataSource } from 'typeorm';
 
 export interface TestAccountConfig {
