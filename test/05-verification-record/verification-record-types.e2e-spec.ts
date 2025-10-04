@@ -9,6 +9,7 @@ import { AppModule } from '@src/app.module';
 import { LearnerEntity } from '@src/modules/account/identities/training/learner/account-learner.entity';
 import { VerificationRecordEntity } from '@src/modules/verification-record/verification-record.entity';
 import { CreateAccountUsecase } from '@usecases/account/create-account.usecase';
+import { TokenHelper } from '@core/common/token/token.helper';
 import { cleanupTestAccounts, seedTestAccounts, testAccountsConfig } from '../utils/test-accounts';
 
 /**
@@ -127,6 +128,28 @@ async function createVerificationRecord(
 }
 
 /**
+ * 为指定 bearer 创建验证记录的便捷函数
+ * 自动解析 targetBearer 对应的 accountId，避免手动传错 ID
+ * @param app - NestJS 应用实例
+ * @param type - 验证记录类型
+ * @param payload - 验证记录载荷
+ * @param issuerBearer - 创建者的 bearer token
+ * @param targetBearer - 目标用户的 bearer token，为 null 时表示公开可消费
+ * @param opts - 其他选项（不包含 targetAccountId）
+ */
+async function createForBearer(
+  app: INestApplication,
+  type: string,
+  payload: Record<string, unknown>,
+  issuerBearer: string,
+  targetBearer: string | null,
+  opts?: Omit<Parameters<typeof createVerificationRecord>[4], 'targetAccountId'>,
+) {
+  const targetAccountId = targetBearer ? getMyAccountId(app, targetBearer) : undefined;
+  return createVerificationRecord(app, type, payload, issuerBearer, { ...opts, targetAccountId });
+}
+
+/**
  * 消费验证记录
  */
 async function consumeVerificationRecord(app: INestApplication, token: string, bearer: string) {
@@ -153,15 +176,40 @@ async function consumeVerificationRecord(app: INestApplication, token: string, b
 }
 
 /**
+ * 获取当前 bearer token 对应的 accountId
+ */
+function getMyAccountId(app: INestApplication, bearer: string): number {
+  // 从 app 中获取 TokenHelper 实例
+  const tokenHelper = app.get(TokenHelper);
+
+  // 解码 JWT token 获取 payload
+  const payload = tokenHelper.decodeToken({ token: bearer });
+
+  if (!payload || !payload.sub) {
+    throw new Error(`无法从 JWT token 中获取 accountId: ${bearer.substring(0, 20)}...`);
+  }
+
+  return payload.sub;
+}
+
+/**
  * 查找验证记录
  */
-async function findVerificationRecord(app: INestApplication, token: string, expectedType?: string) {
+async function findVerificationRecord(
+  app: INestApplication,
+  token: string,
+  bearer: string,
+  expectedType?: string,
+  ignoreTargetRestriction?: boolean,
+) {
   const input: any = {
     token,
-    ignoreTargetRestriction: true, // 忽略目标账号限制，允许查询有目标账号的记录
   };
   if (expectedType) {
     input.expectedType = expectedType;
+  }
+  if (ignoreTargetRestriction !== undefined) {
+    input.ignoreTargetRestriction = ignoreTargetRestriction;
   }
 
   return await postGql(
@@ -180,6 +228,7 @@ async function findVerificationRecord(app: INestApplication, token: string, expe
       }
     `,
     { input },
+    bearer,
   );
 }
 
@@ -191,8 +240,10 @@ describe('验证记录类型测试 E2E', () => {
   // 测试账户相关变量
   let managerAccessToken: string;
   let learnerAccessToken: string;
-  let learnerAccountIds: number[];
+  let managerAccountId: number;
+  let learnerAccountId: number;
   let learnerEntities: LearnerEntity[];
+  let learnerSubject: LearnerEntity;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -221,18 +272,26 @@ describe('验证记录类型测试 E2E', () => {
       testAccountsConfig.learner.loginPassword,
     );
 
-    // 获取学员实体
+    // 通过 JWT 解码获取精确的 accountId，避免依赖实体查询顺序
+    managerAccountId = getMyAccountId(app, managerAccessToken);
+    learnerAccountId = getMyAccountId(app, learnerAccessToken);
+
+    // 获取学员实体（仍需要用于 subjectId）
     const learnerRepository = dataSource.getRepository(LearnerEntity);
     learnerEntities = await learnerRepository.find({
       where: { accountId: Not(IsNull()) },
     });
 
-    learnerAccountIds = learnerEntities
-      .filter((entity) => entity.accountId !== null)
-      .map((entity) => entity.accountId!);
+    // 获取与 learnerAccountId 对应的学员实体，确保 subject 和 bearer 一一对应
+    learnerSubject = learnerEntities.find((e) => e.accountId === learnerAccountId)!;
+    if (!learnerSubject) {
+      throw new Error(`无法找到与 learnerAccountId ${learnerAccountId} 对应的学员实体`);
+    }
 
-    console.log('学员账户 IDs:', learnerAccountIds);
+    console.log('Manager 账户 ID:', managerAccountId);
+    console.log('Learner 账户 ID:', learnerAccountId);
     console.log('学员实体数量:', learnerEntities.length);
+    console.log('对应的学员 Subject ID:', learnerSubject.id);
   });
 
   afterAll(async () => {
@@ -254,9 +313,9 @@ describe('验证记录类型测试 E2E', () => {
         payload,
         managerAccessToken,
         {
-          targetAccountId: learnerAccountIds[0],
+          targetAccountId: learnerAccountId,
           subjectType: 'LEARNER',
-          subjectId: learnerEntities[0].id,
+          subjectId: learnerSubject.id,
         },
       );
 
@@ -275,6 +334,11 @@ describe('验证记录类型测试 E2E', () => {
       expect(response.body.data.createVerificationRecord.data.payload).toEqual(payload);
       expect(response.body.data.createVerificationRecord.token).toBeDefined();
       expect(response.body.data.createVerificationRecord.token).not.toBeNull();
+
+      // 绑定性自检：确保 targetAccountId 与 learnerAccessToken 对应的账号一致
+      expect(response.body.data.createVerificationRecord.data.targetAccountId).toBe(
+        learnerAccountId,
+      );
     });
 
     it('应该能够消费邮箱验证码', async () => {
@@ -290,9 +354,9 @@ describe('验证记录类型测试 E2E', () => {
         payload,
         managerAccessToken,
         {
-          targetAccountId: learnerAccountIds[0],
+          targetAccountId: learnerAccountId,
           subjectType: 'LEARNER',
-          subjectId: learnerEntities[0].id,
+          subjectId: learnerSubject.id,
         },
       );
 
@@ -329,9 +393,9 @@ describe('验证记录类型测试 E2E', () => {
         payload,
         managerAccessToken,
         {
-          targetAccountId: learnerAccountIds[0],
+          targetAccountId: learnerAccountId,
           subjectType: 'LEARNER',
-          subjectId: learnerEntities[0].id,
+          subjectId: learnerSubject.id,
         },
       );
 
@@ -365,9 +429,9 @@ describe('验证记录类型测试 E2E', () => {
         payload,
         managerAccessToken,
         {
-          targetAccountId: learnerAccountIds[0],
+          targetAccountId: learnerAccountId,
           subjectType: 'LEARNER',
-          subjectId: learnerEntities[0].id,
+          subjectId: learnerSubject.id,
         },
       );
 
@@ -404,9 +468,9 @@ describe('验证记录类型测试 E2E', () => {
         payload,
         managerAccessToken,
         {
-          targetAccountId: learnerAccountIds[0],
+          targetAccountId: learnerAccountId,
           subjectType: 'LEARNER',
-          subjectId: learnerEntities[0].id,
+          subjectId: learnerSubject.id,
         },
       );
 
@@ -440,9 +504,9 @@ describe('验证记录类型测试 E2E', () => {
         payload,
         managerAccessToken,
         {
-          targetAccountId: learnerAccountIds[0],
+          targetAccountId: learnerAccountId,
           subjectType: 'LEARNER',
-          subjectId: learnerEntities[0].id,
+          subjectId: learnerSubject.id,
         },
       );
 
@@ -476,9 +540,9 @@ describe('验证记录类型测试 E2E', () => {
         payload,
         managerAccessToken,
         {
-          targetAccountId: learnerAccountIds[0],
+          targetAccountId: learnerAccountId,
           subjectType: 'LEARNER',
-          subjectId: learnerEntities[0].id,
+          subjectId: learnerSubject.id,
         },
       );
 
@@ -512,9 +576,9 @@ describe('验证记录类型测试 E2E', () => {
         payload,
         managerAccessToken,
         {
-          targetAccountId: learnerAccountIds[0],
+          targetAccountId: learnerAccountId,
           subjectType: 'LEARNER',
-          subjectId: learnerEntities[0].id,
+          subjectId: learnerSubject.id,
         },
       );
 
@@ -548,7 +612,7 @@ describe('验证记录类型测试 E2E', () => {
         payload,
         managerAccessToken,
         {
-          targetAccountId: learnerAccountIds[0],
+          targetAccountId: learnerAccountId,
         },
       );
 
@@ -570,7 +634,7 @@ describe('验证记录类型测试 E2E', () => {
         payload,
         managerAccessToken,
         {
-          targetAccountId: learnerAccountIds[0],
+          targetAccountId: learnerAccountId,
         },
       );
 
@@ -597,7 +661,7 @@ describe('验证记录类型测试 E2E', () => {
         payload,
         managerAccessToken,
         {
-          targetAccountId: learnerAccountIds[0],
+          targetAccountId: learnerAccountId,
           subjectType: 'COACH',
           subjectId: 1,
         },
@@ -634,7 +698,7 @@ describe('验证记录类型测试 E2E', () => {
         payload,
         managerAccessToken,
         {
-          targetAccountId: learnerAccountIds[0],
+          targetAccountId: learnerAccountId,
           subjectType: 'COACH',
           subjectId: 1,
         },
@@ -671,7 +735,7 @@ describe('验证记录类型测试 E2E', () => {
         payload,
         managerAccessToken,
         {
-          targetAccountId: learnerAccountIds[0],
+          targetAccountId: learnerAccountId,
           subjectType: 'MANAGER',
           subjectId: 1,
         },
@@ -708,7 +772,7 @@ describe('验证记录类型测试 E2E', () => {
         payload,
         managerAccessToken,
         {
-          targetAccountId: learnerAccountIds[0],
+          targetAccountId: learnerAccountId,
           subjectType: 'MANAGER',
           subjectId: 1,
         },
@@ -745,9 +809,9 @@ describe('验证记录类型测试 E2E', () => {
         payload,
         managerAccessToken,
         {
-          targetAccountId: learnerAccountIds[0],
+          targetAccountId: learnerAccountId,
           subjectType: 'LEARNER',
-          subjectId: learnerEntities[0].id,
+          subjectId: learnerSubject.id,
         },
       );
 
@@ -782,9 +846,9 @@ describe('验证记录类型测试 E2E', () => {
         payload,
         managerAccessToken,
         {
-          targetAccountId: learnerAccountIds[0],
+          targetAccountId: learnerAccountId,
           subjectType: 'LEARNER',
-          subjectId: learnerEntities[0].id,
+          subjectId: learnerSubject.id,
         },
       );
 
@@ -818,9 +882,9 @@ describe('验证记录类型测试 E2E', () => {
         payload,
         managerAccessToken,
         {
-          targetAccountId: learnerAccountIds[0],
+          targetAccountId: learnerAccountId,
           subjectType: 'LEARNER',
-          subjectId: learnerEntities[0].id,
+          subjectId: learnerSubject.id,
         },
       );
 
@@ -854,9 +918,9 @@ describe('验证记录类型测试 E2E', () => {
         payload,
         managerAccessToken,
         {
-          targetAccountId: learnerAccountIds[0],
+          targetAccountId: learnerAccountId,
           subjectType: 'LEARNER',
-          subjectId: learnerEntities[0].id,
+          subjectId: learnerSubject.id,
         },
       );
 
@@ -894,19 +958,42 @@ describe('验证记录类型测试 E2E', () => {
         payload,
         managerAccessToken,
         {
-          targetAccountId: learnerAccountIds[0],
+          targetAccountId: learnerAccountId,
         },
       );
+
+      // 检查创建是否成功
+      if (createResponse.body.errors) {
+        console.error('创建验证记录时的 GraphQL 错误:', createResponse.body.errors);
+        throw new Error(`创建验证记录失败: ${JSON.stringify(createResponse.body.errors)}`);
+      }
+
+      if (!createResponse.body.data.createVerificationRecord) {
+        throw new Error('创建验证记录失败：返回数据为空');
+      }
 
       const token = createResponse.body.data.createVerificationRecord.token;
 
       // 用正确的类型查询，应该能找到
-      const correctTypeResponse = await findVerificationRecord(app, token, 'EMAIL_VERIFY_CODE');
+      const correctTypeResponse = await findVerificationRecord(
+        app,
+        token,
+        learnerAccessToken,
+        'EMAIL_VERIFY_CODE',
+        true, // 忽略 target 限制，因为这是测试用例
+      );
+
       expect(correctTypeResponse.body.data.findVerificationRecord).not.toBeNull();
       expect(correctTypeResponse.body.data.findVerificationRecord.type).toBe('EMAIL_VERIFY_CODE');
 
       // 用错误的类型查询，应该返回 null
-      const wrongTypeResponse = await findVerificationRecord(app, token, 'SMS_VERIFY_CODE');
+      const wrongTypeResponse = await findVerificationRecord(
+        app,
+        token,
+        learnerAccessToken,
+        'SMS_VERIFY_CODE',
+        true, // 忽略 target 限制，但类型不匹配仍应返回 null
+      );
       expect(wrongTypeResponse.body.data.findVerificationRecord).toBeNull();
     });
   });
@@ -940,7 +1027,7 @@ describe('验证记录类型测试 E2E', () => {
           testCase.payload,
           managerAccessToken,
           {
-            targetAccountId: learnerAccountIds[0],
+            targetAccountId: learnerAccountId,
           },
         );
 
@@ -962,8 +1049,163 @@ describe('验证记录类型测试 E2E', () => {
         expect(dbRecord!.type).toBe(record.type);
         expect(dbRecord!.status).toBe('ACTIVE');
         expect(dbRecord!.payload).toEqual(record.payload);
-        expect(dbRecord!.targetAccountId).toBe(learnerAccountIds[0]);
+        expect(dbRecord!.targetAccountId).toBe(learnerAccountId);
       }
+    });
+  });
+
+  describe('跨账号访问控制测试', () => {
+    it('应该阻止跨账号消费验证记录', async () => {
+      const payload = {
+        title: '跨账号消费测试',
+        email: 'cross-account@example.com',
+        verificationCode: '999999',
+      };
+
+      // 使用 createForBearer 为 manager 创建验证记录
+      const createResponse = await createForBearer(
+        app,
+        'EMAIL_VERIFY_CODE',
+        payload,
+        managerAccessToken,
+        managerAccessToken, // 目标是 manager 自己
+        {
+          subjectType: 'LEARNER',
+          subjectId: learnerSubject.id,
+        },
+      );
+
+      expect(createResponse.body.data.createVerificationRecord.success).toBe(true);
+
+      // 绑定性自检：确保创建的记录 targetAccountId 是 manager 的账号
+      expect(createResponse.body.data.createVerificationRecord.data.targetAccountId).toBe(
+        managerAccountId,
+      );
+
+      const token = createResponse.body.data.createVerificationRecord.token;
+
+      // 尝试用 learner 的 token 消费 manager 的验证记录，应该失败
+      const consumeResponse = await consumeVerificationRecord(app, token, learnerAccessToken);
+
+      // 增强的容错性断言：兼容两种错误处理路径
+      if (consumeResponse.body.errors) {
+        // 路径1：GraphQL 错误
+        console.log('GraphQL 错误:', consumeResponse.body.errors);
+        expect(consumeResponse.body.errors.length).toBeGreaterThan(0);
+        const errorMessage = consumeResponse.body.errors[0].message;
+        expect(errorMessage).toContain('您无权使用此验证码');
+      } else if (consumeResponse.body.data?.consumeVerificationRecord) {
+        // 路径2：业务逻辑错误 (success=false)
+        expect(consumeResponse.body.data.consumeVerificationRecord.success).toBe(false);
+        expect(consumeResponse.body.data.consumeVerificationRecord.message).toContain(
+          '您无权使用此验证码',
+        );
+      } else {
+        // 意外情况：既没有 GraphQL 错误也没有正常的响应数据
+        throw new Error(`意外的响应结构: ${JSON.stringify(consumeResponse.body, null, 2)}`);
+      }
+    });
+  });
+
+  describe('公开票据测试', () => {
+    let publicToken: string;
+
+    it('应该能够创建公开票据（任意登录用户可消费）', async () => {
+      const payload = {
+        title: '公开验证码',
+        description: '任意登录用户都可以消费的验证码',
+        code: 'PUBLIC123',
+      };
+
+      // 使用 createForBearer 创建公开票据，targetBearer 为 null
+      const createResponse = await createForBearer(
+        app,
+        'EMAIL_VERIFY_CODE',
+        payload,
+        managerAccessToken,
+        null, // targetBearer 为 null 表示公开票据
+        {
+          subjectType: 'LEARNER',
+          subjectId: learnerSubject.id,
+        },
+      );
+
+      console.log('公开票据创建响应:', JSON.stringify(createResponse.body, null, 2));
+
+      expect(createResponse.body.data.createVerificationRecord.success).toBe(true);
+      expect(createResponse.body.data.createVerificationRecord.data.targetAccountId).toBeNull();
+      expect(createResponse.body.data.createVerificationRecord.token).toBeDefined();
+
+      publicToken = createResponse.body.data.createVerificationRecord.token;
+    });
+
+    it('应该允许任意登录用户消费公开票据', async () => {
+      // 使用 learner 的 token 消费公开票据，应该成功
+      const consumeResponse = await consumeVerificationRecord(app, publicToken, learnerAccessToken);
+
+      console.log('公开票据消费响应:', JSON.stringify(consumeResponse.body, null, 2));
+
+      expect(consumeResponse.body.data.consumeVerificationRecord.success).toBe(true);
+      expect(consumeResponse.body.data.consumeVerificationRecord.data.status).toBe('CONSUMED');
+      expect(consumeResponse.body.data.consumeVerificationRecord.data.consumedAt).toBeDefined();
+    });
+
+    it('应该拒绝重复消费已使用的公开票据', async () => {
+      // 尝试再次消费同一个 token，应该失败
+      const secondConsumeResponse = await consumeVerificationRecord(
+        app,
+        publicToken,
+        learnerAccessToken,
+      );
+
+      console.log('重复消费公开票据响应:', JSON.stringify(secondConsumeResponse.body, null, 2));
+
+      expect(secondConsumeResponse.body.data.consumeVerificationRecord.success).toBe(false);
+
+      // 检查错误消息包含已使用相关的提示
+      const message = secondConsumeResponse.body.data.consumeVerificationRecord.message;
+      expect(
+        message.includes('已被使用') ||
+          message.includes('已失效') ||
+          message.includes('CONSUMED') ||
+          message.includes('不可重复使用'),
+      ).toBe(true);
+    });
+
+    it('应该允许其他用户消费不同的公开票据', async () => {
+      const payload = {
+        title: '另一个公开验证码',
+        description: '测试其他用户也能消费公开票据',
+        code: 'PUBLIC456',
+      };
+
+      // 创建另一个公开票据
+      const createResponse = await createForBearer(
+        app,
+        'SMS_VERIFY_CODE',
+        payload,
+        managerAccessToken,
+        null, // 公开票据
+        {
+          subjectType: 'LEARNER',
+          subjectId: learnerSubject.id,
+        },
+      );
+
+      expect(createResponse.body.data.createVerificationRecord.success).toBe(true);
+      const anotherPublicToken = createResponse.body.data.createVerificationRecord.token;
+
+      // 使用 manager 的 token 消费公开票据，应该也能成功
+      const consumeResponse = await consumeVerificationRecord(
+        app,
+        anotherPublicToken,
+        managerAccessToken,
+      );
+
+      console.log('Manager 消费公开票据响应:', JSON.stringify(consumeResponse.body, null, 2));
+
+      expect(consumeResponse.body.data.consumeVerificationRecord.success).toBe(true);
+      expect(consumeResponse.body.data.consumeVerificationRecord.data.status).toBe('CONSUMED');
     });
   });
 });
