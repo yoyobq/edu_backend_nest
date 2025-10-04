@@ -8,6 +8,7 @@ import {
   ThirdPartyProviderEnum,
 } from '@app-types/models/account.types';
 import { ACCOUNT_ERROR, DomainError } from '@core/common/errors/domain-error';
+import { normalizeEmail } from '@core/common/normalize/normalize.helper';
 import { PasswordPbkdf2Helper } from '@core/common/password/password.pbkdf2.helper';
 import { Inject, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -115,16 +116,18 @@ export class AccountService {
 
   /** 根据登录名或邮箱查询账户 */
   async findByLoginName(loginName: string): Promise<AccountEntity | null> {
+    const normalizedLoginName = normalizeEmail(loginName);
     return await this.accountRepository
       .createQueryBuilder('account')
       .where('account.loginName = :loginName', { loginName })
-      .orWhere('account.loginEmail = :loginEmail', { loginEmail: loginName })
+      .orWhere('account.loginEmail = :loginEmail', { loginEmail: normalizedLoginName })
       .getOne();
   }
 
   /** 根据邮箱查找账户 */
   async findByEmail(loginEmail: string): Promise<AccountEntity | null> {
-    return await this.accountRepository.findOne({ where: { loginEmail } });
+    const normalizedEmail = normalizeEmail(loginEmail);
+    return await this.accountRepository.findOne({ where: { loginEmail: normalizedEmail } });
   }
 
   /** 精确匹配登录名 */
