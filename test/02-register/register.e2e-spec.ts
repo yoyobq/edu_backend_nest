@@ -1,6 +1,7 @@
 // test/02-register/register.e2e-spec.ts
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
+import { useContainer } from 'class-validator';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { DataSource, In } from 'typeorm';
@@ -126,6 +127,10 @@ describe('Register (e2e)', () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
+
+    // ✅ 让 class-validator 使用 Nest 容器解析 IsValidPasswordConstraint 的依赖
+    useContainer(app.select(AppModule), { fallbackOnErrors: true });
+
     dataSource = moduleFixture.get<DataSource>(DataSource);
 
     await app.init();
@@ -374,7 +379,7 @@ describe('Register (e2e)', () => {
 
       const { errors } = response.body;
       expect(errors).toBeDefined();
-      expect(errors?.[0]?.message).toContain('密码必须包含字母、数字和符号三种字符类型');
+      expect(errors?.[0]?.message).toContain('密码不符合安全要求');
     });
 
     /**

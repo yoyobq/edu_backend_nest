@@ -30,7 +30,7 @@ export const testAccountsConfig: Record<string, TestAccountConfig> = {
   manager: {
     loginName: 'testmanager',
     loginEmail: 'manager@example.com',
-    loginPassword: 'password123',
+    loginPassword: 'testManager@2024',
     status: AccountStatus.ACTIVE,
     accessGroup: [IdentityTypeEnum.MANAGER],
     identityType: IdentityTypeEnum.MANAGER,
@@ -38,7 +38,7 @@ export const testAccountsConfig: Record<string, TestAccountConfig> = {
   coach: {
     loginName: 'testcoach',
     loginEmail: 'coach@example.com',
-    loginPassword: 'password123',
+    loginPassword: 'testCoach@2024',
     status: AccountStatus.ACTIVE,
     accessGroup: [IdentityTypeEnum.COACH],
     identityType: IdentityTypeEnum.COACH,
@@ -46,7 +46,7 @@ export const testAccountsConfig: Record<string, TestAccountConfig> = {
   admin: {
     loginName: 'testadmin',
     loginEmail: 'admin@example.com',
-    loginPassword: 'password123',
+    loginPassword: 'testAdmin@2024',
     status: AccountStatus.ACTIVE,
     accessGroup: [IdentityTypeEnum.ADMIN],
     // ✅ 修正：与 roles-guard.e2e-spec.ts 保持一致，使用 REGISTRANT
@@ -55,7 +55,7 @@ export const testAccountsConfig: Record<string, TestAccountConfig> = {
   customer: {
     loginName: 'testcustomer',
     loginEmail: 'customer@example.com',
-    loginPassword: 'password123',
+    loginPassword: 'testCustomer@2024',
     status: AccountStatus.ACTIVE,
     accessGroup: [IdentityTypeEnum.CUSTOMER],
     identityType: IdentityTypeEnum.CUSTOMER,
@@ -63,7 +63,7 @@ export const testAccountsConfig: Record<string, TestAccountConfig> = {
   learner: {
     loginName: 'testlearner',
     loginEmail: 'learner@example.com',
-    loginPassword: 'password123',
+    loginPassword: 'testLearner@2024',
     status: AccountStatus.ACTIVE,
     accessGroup: [IdentityTypeEnum.LEARNER],
     identityType: IdentityTypeEnum.LEARNER,
@@ -71,7 +71,7 @@ export const testAccountsConfig: Record<string, TestAccountConfig> = {
   guest: {
     loginName: 'testguest',
     loginEmail: 'guest@example.com',
-    loginPassword: 'password123',
+    loginPassword: 'testGuest@2024',
     status: AccountStatus.ACTIVE,
     accessGroup: [IdentityTypeEnum.GUEST],
     identityType: IdentityTypeEnum.REGISTRANT,
@@ -79,7 +79,7 @@ export const testAccountsConfig: Record<string, TestAccountConfig> = {
   emptyRoles: {
     loginName: 'testempty',
     loginEmail: 'empty@example.com',
-    loginPassword: 'password123',
+    loginPassword: 'testEmpty@2024',
     status: AccountStatus.ACTIVE,
     accessGroup: [], // 空数组，符合测试期望
     identityType: IdentityTypeEnum.REGISTRANT,

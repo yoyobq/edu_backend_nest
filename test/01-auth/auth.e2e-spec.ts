@@ -27,7 +27,7 @@ describe('Auth (e2e)', () => {
   const bannedUser = {
     loginName: 'banneduser',
     loginEmail: 'banned@example.com',
-    loginPassword: 'password123',
+    loginPassword: 'testBanned@2024',
     status: AccountStatus.BANNED,
     accessGroup: [IdentityTypeEnum.REGISTRANT],
     identityType: IdentityTypeEnum.REGISTRANT,
@@ -36,7 +36,7 @@ describe('Auth (e2e)', () => {
   const pendingUser = {
     loginName: 'pendinguser',
     loginEmail: 'pending@example.com',
-    loginPassword: 'password123',
+    loginPassword: 'testPending@2024',
     status: AccountStatus.PENDING,
     accessGroup: [IdentityTypeEnum.REGISTRANT],
     identityType: IdentityTypeEnum.REGISTRANT,
@@ -350,7 +350,7 @@ describe('Auth (e2e)', () => {
 
       const { errors } = response.body;
       expect(errors).toBeDefined();
-      expect(errors?.[0]?.message).toContain('密码错误');
+      expect(errors?.[0]?.message).toContain('密码不能为空或纯空白字符');
     });
   });
 
