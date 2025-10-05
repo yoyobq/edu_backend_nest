@@ -524,6 +524,227 @@ describe('验证记录类型测试 E2E', () => {
       expect(consumeResponse.body.data.consumeVerificationRecord.success).toBe(true);
       expect(consumeResponse.body.data.consumeVerificationRecord.data.status).toBe('CONSUMED');
     });
+
+    it('应该能够通过 findVerificationRecord 预读 PASSWORD_RESET 记录', async () => {
+      const payload = {
+        title: '密码重置预读测试',
+        resetUrl: 'https://example.com/reset-password-preread',
+        email: 'preread@example.com',
+      };
+
+      // 创建 PASSWORD_RESET 验证记录
+      const createResponse = await createVerificationRecord(
+        app,
+        'PASSWORD_RESET',
+        payload,
+        managerAccessToken,
+        {
+          targetAccountId: learnerAccountId,
+          subjectType: 'LEARNER',
+          subjectId: learnerSubject.id,
+        },
+      );
+
+      console.log('PASSWORD_RESET 预读测试创建响应:', JSON.stringify(createResponse.body, null, 2));
+
+      expect(createResponse.body.data.createVerificationRecord.success).toBe(true);
+      expect(createResponse.body.data.createVerificationRecord.token).toBeDefined();
+
+      const token = createResponse.body.data.createVerificationRecord.token;
+
+      // 使用 findVerificationRecord 预读验证记录（匿名调用，模拟前端密码重置页面）
+      const findResponse = await postGql(
+        app,
+        `
+          query FindVerificationRecord($input: FindVerificationRecordInput!) {
+            findVerificationRecord(input: $input) {
+              id
+              type
+              status
+              expiresAt
+              notBefore
+              subjectType
+              subjectId
+            }
+          }
+        `,
+        {
+          input: {
+            token: token,
+            expectedType: 'PASSWORD_RESET',
+          },
+        },
+        // 不传 bearer token，进行匿名调用
+      );
+
+      console.log('PASSWORD_RESET 预读响应:', JSON.stringify(findResponse.body, null, 2));
+
+      // 验证预读结果
+      console.log('预读响应:', JSON.stringify(findResponse.body, null, 2));
+
+      expect(findResponse.body.data).toBeDefined();
+      expect(findResponse.body.data.findVerificationRecord).toBeDefined();
+      expect(findResponse.body.data.findVerificationRecord.type).toBe('PASSWORD_RESET');
+      expect(findResponse.body.data.findVerificationRecord.status).toBe('ACTIVE');
+      expect(findResponse.body.data.findVerificationRecord.subjectType).toBe('LEARNER');
+      expect(findResponse.body.data.findVerificationRecord.subjectId).toBe(learnerSubject.id);
+    });
+
+    it('应该能够完成完整的密码重置流程：预读 + 重置密码', async () => {
+      const payload = {
+        title: '完整密码重置流程测试',
+        resetUrl: 'https://example.com/reset-password-full',
+        email: 'fullreset@example.com',
+      };
+
+      // 1. 创建 PASSWORD_RESET 验证记录
+      const createResponse = await createVerificationRecord(
+        app,
+        'PASSWORD_RESET',
+        payload,
+        managerAccessToken,
+        {
+          targetAccountId: learnerAccountId,
+          subjectType: 'LEARNER',
+          subjectId: learnerSubject.id,
+        },
+      );
+
+      console.log('完整流程创建响应:', JSON.stringify(createResponse.body, null, 2));
+
+      expect(createResponse.body.data.createVerificationRecord.success).toBe(true);
+      expect(createResponse.body.data.createVerificationRecord.token).toBeDefined();
+
+      const token = createResponse.body.data.createVerificationRecord.token;
+
+      // 2. 预读验证记录（匿名调用，模拟前端密码重置页面）
+      const findResponse = await postGql(
+        app,
+        `
+          query FindVerificationRecord($input: FindVerificationRecordInput!) {
+            findVerificationRecord(input: $input) {
+              id
+              type
+              status
+              expiresAt
+              notBefore
+              subjectType
+              subjectId
+            }
+          }
+        `,
+        {
+          input: {
+            token: token,
+            expectedType: 'PASSWORD_RESET',
+          },
+        },
+        // 不传 bearer token，进行匿名调用
+      );
+
+      console.log('完整流程预读响应:', JSON.stringify(findResponse.body, null, 2));
+
+      expect(findResponse.body.data.findVerificationRecord.type).toBe('PASSWORD_RESET');
+      expect(findResponse.body.data.findVerificationRecord.status).toBe('ACTIVE');
+
+      // 3. 执行密码重置
+      const newPassword = 'MyStrong2024!@#';
+      const resetResponse = await postGql(
+        app,
+        `
+          mutation ResetPassword($input: ResetPasswordInput!) {
+            resetPassword(input: $input) {
+              success
+              message
+              accountId
+            }
+          }
+        `,
+        {
+          input: {
+            token: token,
+            newPassword: newPassword,
+          },
+        },
+        // 密码重置现在是匿名操作，不需要认证令牌
+      );
+
+      console.log('密码重置响应:', JSON.stringify(resetResponse.body, null, 2));
+
+      // 验证密码重置结果
+      expect(resetResponse.body.data).toBeDefined();
+      expect(resetResponse.body.data.resetPassword).toBeDefined();
+
+      // 如果重置失败，输出错误信息
+      if (!resetResponse.body.data.resetPassword.success) {
+        console.log('密码重置失败原因:', resetResponse.body.data.resetPassword.message);
+        console.log('完整的错误响应:', JSON.stringify(resetResponse.body, null, 2));
+      }
+
+      // 如果有 GraphQL 错误，也输出
+      if (resetResponse.body.errors) {
+        console.log('GraphQL 错误:', JSON.stringify(resetResponse.body.errors, null, 2));
+      }
+
+      expect(resetResponse.body.data.resetPassword.success).toBe(true);
+      expect(resetResponse.body.data.resetPassword.accountId).toBe(learnerAccountId);
+
+      // 4. 验证用户能够使用新密码登录
+      const loginResponse = await postGql(
+        app,
+        `
+          mutation Login($input: AuthLoginInput!) {
+            login(input: $input) {
+              accessToken
+              accountId
+            }
+          }
+        `,
+        {
+          input: {
+            loginName: testAccountsConfig.learner.loginName,
+            loginPassword: newPassword,
+            type: 'PASSWORD',
+            audience: 'DESKTOP',
+          },
+        },
+      );
+
+      console.log('新密码登录响应:', JSON.stringify(loginResponse.body, null, 2));
+
+      // 验证新密码登录成功
+      expect(loginResponse.body.data).toBeDefined();
+      expect(loginResponse.body.data.login).toBeDefined();
+      expect(loginResponse.body.data.login.accessToken).toBeDefined();
+      expect(loginResponse.body.data.login.accountId).toBe(learnerAccountId);
+
+      // 5. 验证旧密码不能再使用
+      const oldPasswordLoginResponse = await postGql(
+        app,
+        `
+          mutation Login($input: AuthLoginInput!) {
+            login(input: $input) {
+              accessToken
+              accountId
+            }
+          }
+        `,
+        {
+          input: {
+            loginName: testAccountsConfig.learner.loginName,
+            loginPassword: testAccountsConfig.learner.loginPassword, // 旧密码
+            type: 'PASSWORD',
+            audience: 'DESKTOP',
+          },
+        },
+      );
+
+      console.log('旧密码登录响应:', JSON.stringify(oldPasswordLoginResponse.body, null, 2));
+
+      // 验证旧密码登录失败
+      expect(oldPasswordLoginResponse.body.errors).toBeDefined();
+      expect(oldPasswordLoginResponse.body.errors.length).toBeGreaterThan(0);
+    });
   });
 
   describe('MAGIC_LINK 类型', () => {
