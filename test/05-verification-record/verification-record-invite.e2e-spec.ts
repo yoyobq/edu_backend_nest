@@ -7,6 +7,7 @@ import { DataSource } from 'typeorm';
 
 import { TokenHelper } from '@core/common/token/token.helper';
 import { AppModule } from '@src/app.module';
+import { CoachEntity } from '@src/modules/account/identities/training/coach/account-coach.entity';
 import { LearnerEntity } from '@src/modules/account/identities/training/learner/account-learner.entity';
 import { CreateAccountUsecase } from '@usecases/account/create-account.usecase';
 import { cleanupTestAccounts, seedTestAccounts, testAccountsConfig } from '../utils/test-accounts';
@@ -129,7 +130,12 @@ async function createVerificationRecord(
 /**
  * 消费验证记录
  */
-async function consumeVerificationRecord(app: INestApplication, token: string, bearer: string) {
+async function consumeVerificationRecord(
+  app: INestApplication,
+  token: string,
+  bearer: string,
+  expectedType?: string,
+) {
   const response = await postGql(
     app,
     `
@@ -146,7 +152,7 @@ async function consumeVerificationRecord(app: INestApplication, token: string, b
         }
       }
     `,
-    { input: { token } },
+    { input: { token, expectedType } },
     bearer,
   );
 
@@ -222,6 +228,17 @@ describe('验证记录邀请类型测试 E2E', () => {
   });
 
   describe('INVITE_COACH 类型', () => {
+    beforeEach(async () => {
+      // 每个测试开始前清理 Coach 数据
+      const coachRepository = dataSource.getRepository(CoachEntity);
+      const existingCoach = await coachRepository.findOne({
+        where: { accountId: learnerAccountId },
+      });
+      if (existingCoach) {
+        await coachRepository.remove(existingCoach);
+      }
+    });
+
     it('应该成功创建邀请教练类型的验证记录', async () => {
       const payload = {
         title: '邀请教练',
@@ -286,12 +303,254 @@ describe('验证记录邀请类型测试 E2E', () => {
       expect(createResponse.body.data.createVerificationRecord.token).not.toBeNull();
 
       const token = createResponse.body.data.createVerificationRecord.token;
-      const consumeResponse = await consumeVerificationRecord(app, token, learnerAccessToken);
+      const consumeResponse = await consumeVerificationRecord(
+        app,
+        token,
+        learnerAccessToken,
+        'INVITE_COACH',
+      );
 
-      console.log('INVITE_COACH 消费响应:', JSON.stringify(consumeResponse.body, null, 2));
+      console.log(
+        'INVITE_COACH 消费响应 success:',
+        consumeResponse.body.data?.consumeVerificationRecord?.success,
+      );
+      console.log('INVITE_COACH 消费响应 errors:', consumeResponse.body.errors);
+      console.log('INVITE_COACH 完整消费响应:', JSON.stringify(consumeResponse.body, null, 2));
+
+      // 检查是否有 GraphQL 错误
+      if (consumeResponse.body.errors) {
+        console.error('GraphQL 错误:', consumeResponse.body.errors);
+        throw new Error(`GraphQL 错误: ${JSON.stringify(consumeResponse.body.errors)}`);
+      }
 
       expect(consumeResponse.body.data.consumeVerificationRecord.success).toBe(true);
       expect(consumeResponse.body.data.consumeVerificationRecord.data.status).toBe('CONSUMED');
+
+      // 验证事务一致性：所有操作都应该成功完成
+
+      // 获取消费前的状态
+      const coachRepository = dataSource.getRepository(CoachEntity);
+
+      // 验证 Coach 身份已创建
+      const coachAfterConsume = await coachRepository.findOne({
+        where: { accountId: learnerAccountId },
+      });
+      console.log('消费后 Coach 状态:', coachAfterConsume);
+      console.log('查询的 learnerAccountId:', learnerAccountId);
+      console.log(
+        '消费响应中的 success:',
+        consumeResponse.body.data.consumeVerificationRecord.success,
+      );
+      console.log('消费响应中的 errors:', consumeResponse.body.errors);
+
+      expect(coachAfterConsume).toBeDefined();
+      expect(coachAfterConsume).not.toBeNull();
+      expect(coachAfterConsume?.deactivatedAt).toBeNull();
+
+      console.log('消费后 Coach 状态:', coachAfterConsume);
+
+      // 清理测试数据
+      if (coachAfterConsume) {
+        await coachRepository.remove(coachAfterConsume);
+      }
+    });
+
+    it('应该验证幂等性：重复消费同一个 token 应该失败', async () => {
+      const payload = {
+        title: '幂等性测试',
+        inviteUrl: 'https://example.com/invite-coach-idempotent',
+        email: 'coach-idempotent@example.com',
+        coachName: '幂等性测试教练',
+      };
+
+      // 1. 创建验证记录
+      const createResponse = await createVerificationRecord(
+        app,
+        'INVITE_COACH',
+        payload,
+        managerAccessToken,
+        {
+          targetAccountId: learnerAccountId,
+          subjectType: 'COACH',
+          subjectId: 1,
+        },
+      );
+
+      expect(createResponse.body.data.createVerificationRecord.success).toBe(true);
+      const token = createResponse.body.data.createVerificationRecord.token;
+
+      // 2. 第一次消费应该成功
+      const firstConsumeResponse = await consumeVerificationRecord(
+        app,
+        token,
+        learnerAccessToken,
+        'INVITE_COACH',
+      );
+      expect(firstConsumeResponse.body.data.consumeVerificationRecord.success).toBe(true);
+
+      // 3. 第二次消费同一个 token 应该失败
+      const secondConsumeResponse = await consumeVerificationRecord(
+        app,
+        token,
+        learnerAccessToken,
+        'INVITE_COACH',
+      );
+      expect(secondConsumeResponse.body.data.consumeVerificationRecord.success).toBe(false);
+
+      // 检查错误信息是否存在
+      if (secondConsumeResponse.body.data.consumeVerificationRecord.message) {
+        expect(secondConsumeResponse.body.data.consumeVerificationRecord.message).toContain(
+          '已被使用或已失效',
+        );
+      }
+
+      console.log(
+        '重复消费错误信息:',
+        secondConsumeResponse.body.data.consumeVerificationRecord.message,
+      );
+
+      // 清理测试数据
+      const coachRepository = dataSource.getRepository(CoachEntity);
+      const coachAfterTest = await coachRepository.findOne({
+        where: { accountId: learnerAccountId },
+      });
+      if (coachAfterTest) {
+        await coachRepository.remove(coachAfterTest);
+      }
+    });
+
+    it('应该验证已存在 Coach 身份的处理：重新激活而不是重复创建', async () => {
+      const coachRepository = dataSource.getRepository(CoachEntity);
+
+      // 1. 先创建一个已停用的 Coach 身份
+      const existingCoach = coachRepository.create({
+        accountId: learnerAccountId,
+        name: '已存在的教练',
+        level: 1,
+        description: '已停用的教练',
+        specialty: '篮球',
+        deactivatedAt: new Date(), // 设置为已停用
+        remark: '测试用已停用教练',
+        createdBy: null,
+        updatedBy: null,
+      });
+      await coachRepository.save(existingCoach);
+
+      const payload = {
+        title: '重新激活测试',
+        inviteUrl: 'https://example.com/invite-coach-reactivate',
+        email: 'coach-reactivate@example.com',
+        coachName: '重新激活的教练',
+        coachLevel: 3,
+        description: '重新激活的教练描述',
+      };
+
+      // 2. 创建验证记录
+      const createResponse = await createVerificationRecord(
+        app,
+        'INVITE_COACH',
+        payload,
+        managerAccessToken,
+        {
+          targetAccountId: learnerAccountId,
+          subjectType: 'COACH',
+          subjectId: 1,
+        },
+      );
+
+      expect(createResponse.body.data.createVerificationRecord.success).toBe(true);
+      const token = createResponse.body.data.createVerificationRecord.token;
+
+      // 3. 消费验证记录
+      const consumeResponse = await consumeVerificationRecord(
+        app,
+        token,
+        learnerAccessToken,
+        'INVITE_COACH',
+      );
+      expect(consumeResponse.body.data.consumeVerificationRecord.success).toBe(true);
+
+      // 4. 验证 Coach 身份被重新激活而不是重复创建
+      const coachAfterReactivate = await coachRepository.findOne({
+        where: { accountId: learnerAccountId },
+      });
+
+      expect(coachAfterReactivate).toBeDefined();
+      expect(coachAfterReactivate?.id).toBe(existingCoach.id); // 应该是同一个实体
+      expect(coachAfterReactivate?.deactivatedAt).toBeNull(); // 应该被重新激活
+      expect(coachAfterReactivate?.name).toBe('已存在的教练'); // 名称不应该被更新
+
+      console.log('重新激活前 Coach ID:', existingCoach.id);
+      console.log('重新激活后 Coach ID:', coachAfterReactivate?.id);
+      console.log('重新激活后状态:', coachAfterReactivate?.deactivatedAt);
+
+      // 5. 清理测试数据
+      await coachRepository.remove(coachAfterReactivate!);
+    });
+
+    it('应该验证并发消费的原子性：多个并发请求只有一个成功', async () => {
+      const payload = {
+        title: '并发消费测试',
+        inviteUrl: 'https://example.com/invite-coach-concurrent',
+        email: 'coach-concurrent@example.com',
+        coachName: '并发测试教练',
+      };
+
+      // 1. 创建验证记录
+      const createResponse = await createVerificationRecord(
+        app,
+        'INVITE_COACH',
+        payload,
+        managerAccessToken,
+        {
+          targetAccountId: learnerAccountId,
+          subjectType: 'COACH',
+          subjectId: 1,
+        },
+      );
+
+      expect(createResponse.body.data.createVerificationRecord.success).toBe(true);
+      const token = createResponse.body.data.createVerificationRecord.token;
+
+      // 2. 并发发起多个消费请求
+      const concurrentPromises = Array.from({ length: 3 }, () =>
+        consumeVerificationRecord(app, token, learnerAccessToken, 'INVITE_COACH'),
+      );
+
+      const results = await Promise.allSettled(concurrentPromises);
+
+      // 3. 验证只有一个请求成功
+      const successfulResults = results.filter(
+        (result) =>
+          result.status === 'fulfilled' &&
+          result.value.body.data.consumeVerificationRecord.success === true,
+      );
+
+      const failedResults = results.filter(
+        (result) =>
+          result.status === 'fulfilled' &&
+          result.value.body.data.consumeVerificationRecord.success === false,
+      );
+
+      expect(successfulResults).toHaveLength(1);
+      expect(failedResults.length).toBeGreaterThanOrEqual(2);
+
+      console.log('并发测试结果 - 成功:', successfulResults.length, '失败:', failedResults.length);
+
+      // 4. 验证数据库中只创建了一个 Coach 记录
+      const coachRepository = dataSource.getRepository(CoachEntity);
+      const coachCount = await coachRepository.count({
+        where: { accountId: learnerAccountId },
+      });
+      expect(coachCount).toBe(1);
+
+      // 5. 清理测试数据
+      const coach = await coachRepository.findOne({
+        where: { accountId: learnerAccountId },
+      });
+      if (coach) {
+        await coachRepository.remove(coach);
+      }
     });
   });
 
@@ -360,7 +619,12 @@ describe('验证记录邀请类型测试 E2E', () => {
       expect(createResponse.body.data.createVerificationRecord.token).not.toBeNull();
 
       const token = createResponse.body.data.createVerificationRecord.token;
-      const consumeResponse = await consumeVerificationRecord(app, token, learnerAccessToken);
+      const consumeResponse = await consumeVerificationRecord(
+        app,
+        token,
+        learnerAccessToken,
+        'INVITE_MANAGER',
+      );
 
       console.log('INVITE_MANAGER 消费响应:', JSON.stringify(consumeResponse.body, null, 2));
 
@@ -434,7 +698,12 @@ describe('验证记录邀请类型测试 E2E', () => {
       expect(createResponse.body.data.createVerificationRecord.token).not.toBeNull();
 
       const token = createResponse.body.data.createVerificationRecord.token;
-      const consumeResponse = await consumeVerificationRecord(app, token, learnerAccessToken);
+      const consumeResponse = await consumeVerificationRecord(
+        app,
+        token,
+        learnerAccessToken,
+        'INVITE_LEARNER',
+      );
 
       console.log('INVITE_LEARNER 消费响应:', JSON.stringify(consumeResponse.body, null, 2));
 

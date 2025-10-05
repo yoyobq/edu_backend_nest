@@ -7,9 +7,15 @@ import { Public } from '@src/adapters/graphql/decorators/public.decorator';
 import { JwtAuthGuard } from '@src/adapters/graphql/guards/jwt-auth.guard';
 import { JwtPayload } from '@src/types/jwt.types';
 import { IdentityTypeEnum } from '@src/types/models/account.types';
+import {
+  SubjectType,
+  VerificationRecordStatus,
+  VerificationRecordType,
+} from '@src/types/models/verification-record.types';
 import { ConsumeVerificationRecordUsecase } from '@src/usecases/verification-record/consume-verification-record.usecase';
 import { CreateVerificationRecordUsecase } from '@src/usecases/verification-record/create-verification-record.usecase';
 import { FindVerificationRecordUsecase } from '@src/usecases/verification-record/find-verification-record.usecase';
+import { ConsumeVerificationFlowUsecase } from '@src/usecases/verification/consume-verification-flow.usecase';
 import { ConsumeVerificationRecordInput } from './dto/consume-verification-record.input';
 import { CreateVerificationRecordInput } from './dto/create-verification-record.input';
 import { FindVerificationRecordInput } from './dto/find-verification-record.input';
@@ -31,6 +37,7 @@ export class VerificationRecordResolver {
     private readonly createVerificationRecordUsecase: CreateVerificationRecordUsecase,
     private readonly findVerificationRecordUsecase: FindVerificationRecordUsecase,
     private readonly consumeVerificationRecordUsecase: ConsumeVerificationRecordUsecase,
+    private readonly consumeVerificationFlowUsecase: ConsumeVerificationFlowUsecase,
   ) {}
 
   /**
@@ -148,37 +155,45 @@ export class VerificationRecordResolver {
     @currentUser() user: JwtPayload,
   ): Promise<UpdateVerificationRecordResult> {
     try {
-      // 使用当前登录用户作为消费者
-      const consumedByAccountId = user.sub;
-
-      // 通过 token 消费
-      const result = await this.consumeVerificationRecordUsecase.consumeByToken({
+      // 使用 ConsumeVerificationFlowUsecase 处理验证记录消费
+      const result = await this.consumeVerificationFlowUsecase.execute({
         token: input.token,
-        consumedByAccountId,
+        consumedByAccountId: user.sub,
         expectedType: input.expectedType,
       });
 
+      // 对于 INVITE_COACH 类型，返回 Coach 相关信息
+      if (result && typeof result === 'object' && 'coachId' in result) {
+        return {
+          success: true,
+          data: {
+            id: result.recordId,
+            type: VerificationRecordType.INVITE_COACH,
+            status: VerificationRecordStatus.CONSUMED,
+            expiresAt: new Date(),
+            notBefore: null,
+            targetAccountId: result.accountId,
+            subjectType: SubjectType.COACH,
+            subjectId: result.coachId,
+            payload: null,
+            issuedByAccountId: null,
+            consumedByAccountId: result.accountId,
+            consumedAt: new Date(),
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          },
+          message: null,
+        };
+      }
+
+      // 对于其他类型，返回通用成功消息
       return {
         success: true,
-        data: {
-          id: result.id,
-          type: result.type,
-          status: result.status,
-          expiresAt: result.expiresAt,
-          notBefore: result.notBefore,
-          targetAccountId: result.targetAccountId,
-          subjectType: result.subjectType,
-          subjectId: result.subjectId,
-          payload: result.payload,
-          issuedByAccountId: result.issuedByAccountId,
-          consumedByAccountId: result.consumedByAccountId,
-          consumedAt: result.consumedAt,
-          createdAt: result.createdAt,
-          updatedAt: result.updatedAt,
-        },
-        message: null,
+        data: null,
+        message: '验证记录消费成功',
       };
     } catch (error) {
+      console.error('ConsumeVerificationFlowUsecase 执行失败:', error);
       return {
         success: false,
         data: null,

@@ -1,6 +1,6 @@
 // src/adapters/graphql/account/account.resolver.ts
-import { VerificationRecordType } from '@app-types/models/verification-record.types';
 import { JwtPayload } from '@app-types/jwt.types';
+import { VerificationRecordType } from '@app-types/models/verification-record.types';
 import { UseGuards } from '@nestjs/common';
 import { Args, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { AccountArgs } from '@src/adapters/graphql/account/dto/account.args';

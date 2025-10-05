@@ -1,19 +1,22 @@
 // src/modules/verification-record/verification-record.module.ts
 
-import { VerificationCodeHelper } from '@core/common/token/verification-code.helper';
 import { PasswordModule } from '@core/common/password/password.module';
+import { VerificationCodeHelper } from '@core/common/token/verification-code.helper';
+import { AccountInstallerModule } from '@modules/account/account-installer.module';
+import { CoachServiceModule } from '@modules/account/identities/training/coach/coach-service.module';
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { AccountInstallerModule } from '@modules/account/account-installer.module';
-import { ConsumeVerificationFlowUsecase } from '@src/usecases/verification/consume-verification-flow.usecase';
-import { ResetPasswordUsecase } from '@src/usecases/verification/password/reset-password.usecase';
-import { ResetPasswordHandler } from '@src/usecases/verification/password/reset-password.handler';
 import { ConsumeVerificationRecordUsecase } from '@src/usecases/verification-record/consume-verification-record.usecase';
 import { CreateVerificationRecordUsecase } from '@src/usecases/verification-record/create-verification-record.usecase';
 import { FindVerificationRecordUsecase } from '@src/usecases/verification-record/find-verification-record.usecase';
+import { InviteCoachHandler } from '@src/usecases/verification/coach/invite-coach.handler';
+import { ConsumeVerificationFlowUsecase } from '@src/usecases/verification/consume-verification-flow.usecase';
+import { AcceptInviteCoachUsecase } from '@src/usecases/verification/invite/accept-invite-coach.usecase';
+import { ResetPasswordHandler } from '@src/usecases/verification/password/reset-password.handler';
+import { ResetPasswordUsecase } from '@src/usecases/verification/password/reset-password.usecase';
 import { VerificationRecordReadRepository } from './repositories/verification-record.read.repo';
-import { VerificationReadService } from './services/verification-read.service';
 import { VerificationFlowInitializerService } from './services/verification-flow-initializer.service';
+import { VerificationReadService } from './services/verification-read.service';
 import { VerificationRecordEntity } from './verification-record.entity';
 import { VerificationRecordService } from './verification-record.service';
 
@@ -26,6 +29,7 @@ import { VerificationRecordService } from './verification-record.service';
     TypeOrmModule.forFeature([VerificationRecordEntity]),
     AccountInstallerModule, // 导入 AccountInstallerModule 以提供 AccountService
     PasswordModule, // 导入 PasswordModule 以提供 PasswordPolicyService
+    CoachServiceModule, // 导入 CoachServiceModule 以提供 CoachService
   ],
   providers: [
     VerificationRecordService,
@@ -39,6 +43,8 @@ import { VerificationRecordService } from './verification-record.service';
     ConsumeVerificationFlowUsecase,
     ResetPasswordUsecase,
     ResetPasswordHandler,
+    InviteCoachHandler,
+    AcceptInviteCoachUsecase,
     VerificationFlowInitializerService,
   ],
   exports: [

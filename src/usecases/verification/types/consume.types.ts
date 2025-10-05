@@ -1,8 +1,9 @@
 // src/usecases/verification/types/consume.types.ts
 
-import { VerificationRecordType } from '@app-types/models/verification-record.types';
 import { AudienceTypeEnum } from '@app-types/models/account.types';
+import { VerificationRecordType } from '@app-types/models/verification-record.types';
 import { VerificationRecordView } from '@src/modules/verification-record/services/verification-read.service';
+import { InviteCoachHandlerResult } from '@src/usecases/verification/coach/invite-coach-result.types';
 import { PasswordResetHandlerResult } from '@src/usecases/verification/password/reset-password-result.types';
 import { EntityManager } from 'typeorm';
 
@@ -120,9 +121,10 @@ export interface VerificationFlowContext {
 
 /**
  * 验证流程结果联合类型
- * 统一使用 PasswordResetHandlerResult 作为返回类型
+ * 支持多种验证流程的结果类型
  */
-export type VerificationFlowResult = PasswordResetHandlerResult;
+export type VerificationFlowResult = PasswordResetHandlerResult | InviteCoachHandlerResult;
+// TODO: 后续可扩展更多类型
 // export type VerificationFlowResult =
 //   | EmailVerificationResult
 //   | PasswordResetResult
