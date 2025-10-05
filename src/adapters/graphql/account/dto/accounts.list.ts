@@ -1,13 +1,13 @@
 // src/adapters/graphql/account/dto/accounts.list.ts
 import { AccountStatus } from '@app-types/models/account.types';
-import { Field, ID, Int, ObjectType } from '@nestjs/graphql';
+import { Field, Int, ObjectType } from '@nestjs/graphql';
 
 /**
  * 账户信息响应对象
  */
 @ObjectType()
 export class AccountResponse {
-  @Field(() => ID, { description: '账户 ID' })
+  @Field(() => Int, { description: '账户 ID' })
   id!: number;
 
   @Field(() => String, { description: '登录名', nullable: true })

@@ -1,5 +1,5 @@
 // src/adapters/graphql/account/dto/delete-account.input.ts
-import { Field, ID, InputType } from '@nestjs/graphql';
+import { Field, InputType, Int } from '@nestjs/graphql';
 import { IsInt, IsOptional, IsString } from 'class-validator';
 
 /**
@@ -7,7 +7,7 @@ import { IsInt, IsOptional, IsString } from 'class-validator';
  */
 @InputType()
 export class DeleteAccountInput {
-  @Field(() => ID, { description: '账户 ID' })
+  @Field(() => Int, { description: '账户 ID' })
   @IsInt({ message: 'ID 必须是整数' })
   id!: number;
 
