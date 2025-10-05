@@ -5,8 +5,8 @@ import { PasswordPolicyService } from './password-policy.service';
 import { IsValidPasswordConstraint } from './password-validation.decorator';
 
 /**
- * 密码模块
- * 提供密码策略验证服务和相关约束
+ * 密码策略模块
+ * 提供统一的密码复杂度校验和安全策略
  */
 @Module({
   providers: [PasswordPolicyService, IsValidPasswordConstraint],
