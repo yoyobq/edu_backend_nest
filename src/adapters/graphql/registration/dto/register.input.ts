@@ -14,6 +14,7 @@ import {
   MaxLength,
   MinLength,
 } from 'class-validator';
+import { IsValidPassword } from '@core/common/password/password-validation.decorator';
 
 /**
  * 用户注册输入参数
@@ -40,10 +41,8 @@ export class RegisterInput {
   @Field(() => String, { description: '登录密码' })
   @IsString({ message: '密码必须是字符串' })
   @IsNotEmpty({ message: '密码不能为空' })
-  @MinLength(8, { message: '密码至少 8 个字符' })
-  @Matches(/^(?=.*[A-Za-z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?])\S{8,}$/, {
-    message: '密码必须包含字母、数字和符号三种字符类型',
-  })
+  @MinLength(6, { message: '密码至少 6 个字符' })
+  @IsValidPassword({ message: '密码不符合安全要求' })
   loginPassword!: string;
 
   @Field(() => String, { description: '昵称', nullable: true })

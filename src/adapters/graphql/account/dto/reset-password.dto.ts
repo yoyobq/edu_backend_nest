@@ -2,6 +2,7 @@
 
 import { Field, InputType, ObjectType } from '@nestjs/graphql';
 import { IsNotEmpty, IsString, MinLength } from 'class-validator';
+import { IsValidPassword } from '@core/common/password/password-validation.decorator';
 
 /**
  * 重置密码输入参数
@@ -16,7 +17,8 @@ export class ResetPasswordInput {
   @Field(() => String, { description: '新密码' })
   @IsNotEmpty({ message: '新密码不能为空' })
   @IsString({ message: '新密码必须是字符串' })
-  @MinLength(6, { message: '密码长度至少为 6 位' })
+  @MinLength(6, { message: '密码至少 6 个字符' })
+  @IsValidPassword({ message: '密码不符合安全要求' })
   newPassword!: string;
 }
 

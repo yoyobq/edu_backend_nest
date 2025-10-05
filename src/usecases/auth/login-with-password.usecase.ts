@@ -1,8 +1,8 @@
 // src/usecases/auth/login-with-password.usecase.ts
 
 import { EnrichedLoginResult, LoginWarningType } from '@app-types/auth/login-flow.types';
-import { AuthLoginModel } from '@app-types/models/auth.types';
 import { AccountStatus } from '@app-types/models/account.types';
+import { AuthLoginModel } from '@app-types/models/auth.types';
 import { AUTH_ERROR, DomainError, isDomainError } from '@core/common/errors';
 import { Injectable } from '@nestjs/common';
 import { AccountService } from '@src/modules/account/base/services/account.service';

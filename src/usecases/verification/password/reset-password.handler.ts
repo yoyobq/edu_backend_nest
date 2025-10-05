@@ -55,11 +55,12 @@ export class ResetPasswordHandler implements VerificationFlowHandler<PasswordRes
       targetAccountId = record.targetAccountId;
     }
 
-    // 调用密码重置用例，只传递必要的参数
+    // 调用密码重置用例，传递事务管理器
     const usecaseResult: ResetPasswordUsecaseResult = await this.resetPasswordUsecase.execute({
       recordId: recordView.id,
       targetAccountId,
       newPassword,
+      manager, // 传递事务管理器
     });
 
     // 返回明确的结果结构，使用 usecase 返回的 recordId

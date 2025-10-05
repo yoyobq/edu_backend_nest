@@ -1,6 +1,7 @@
 // src/modules/verification-record/verification-record.module.ts
 
 import { VerificationCodeHelper } from '@core/common/token/verification-code.helper';
+import { PasswordModule } from '@core/common/password/password.module';
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AccountInstallerModule } from '@modules/account/account-installer.module';
@@ -24,6 +25,7 @@ import { VerificationRecordService } from './verification-record.service';
   imports: [
     TypeOrmModule.forFeature([VerificationRecordEntity]),
     AccountInstallerModule, // 导入 AccountInstallerModule 以提供 AccountService
+    PasswordModule, // 导入 PasswordModule 以提供 PasswordPolicyService
   ],
   providers: [
     VerificationRecordService,

@@ -9,9 +9,9 @@ import {
 } from '@app-types/models/account.types';
 import { ACCOUNT_ERROR, AUTH_ERROR, DomainError } from '@core/common/errors/domain-error';
 import { TokenHelper } from '@core/common/token/token.helper';
-import { AccountService } from '@src/modules/account/base/services/account.service';
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { AccountService } from '@src/modules/account/base/services/account.service';
 import { CompleteUserData, FetchUserInfoUsecase } from '@usecases/account/fetch-user-info.usecase';
 import { PinoLogger } from 'nestjs-pino';
 

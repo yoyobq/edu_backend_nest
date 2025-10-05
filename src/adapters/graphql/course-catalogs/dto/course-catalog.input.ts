@@ -1,4 +1,4 @@
-// /var/www/backend/src/adapters/graphql/course-catalogs/dto/course-catalog.input.ts
+// src/adapters/graphql/course-catalogs/dto/course-catalog.input.ts
 import { CourseLevel } from '@app-types/models/course.types';
 import { Field, ID, InputType } from '@nestjs/graphql';
 import { Type } from 'class-transformer';

@@ -5,6 +5,8 @@ import { AccountEntity } from '@src/modules/account/base/entities/account.entity
 import { UserInfoEntity } from '@src/modules/account/base/entities/user-info.entity';
 import { AccountService } from '@src/modules/account/base/services/account.service';
 import { EntityManager } from 'typeorm';
+import { PasswordPolicyService } from '@core/common/password/password-policy.service';
+import { DomainError, AUTH_ERROR } from '../../core/common/errors/domain-error';
 
 /**
  * 创建账户用例
@@ -12,7 +14,10 @@ import { EntityManager } from 'typeorm';
  */
 @Injectable()
 export class CreateAccountUsecase {
-  constructor(private readonly accountService: AccountService) {}
+  constructor(
+    private readonly accountService: AccountService,
+    private readonly passwordPolicyService: PasswordPolicyService,
+  ) {}
 
   /**
    * 创建新账户
@@ -46,6 +51,19 @@ export class CreateAccountUsecase {
     accountData: Partial<AccountEntity>,
     userInfoData: Partial<UserInfoEntity>,
   ): Promise<AccountEntity> {
+    // 验证密码是否符合安全策略
+    if (accountData.loginPassword) {
+      const passwordValidation = this.passwordPolicyService.validatePassword(
+        String(accountData.loginPassword),
+      );
+      if (!passwordValidation.isValid) {
+        throw new DomainError(
+          AUTH_ERROR.INVALID_PASSWORD,
+          `密码不符合安全要求: ${passwordValidation.errors.join(', ')}`,
+        );
+      }
+    }
+
     // 1) 创建账户（先写临时密码拿到 createdAt）
     const account = manager.create(AccountEntity, {
       ...accountData,

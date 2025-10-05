@@ -7,6 +7,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { CatsModule } from './cats/cats.module';
 import { GqlAllExceptionsFilter } from './core/common/filters/graphql-exception.filter';
+import { PasswordModule } from './core/common/password/password.module';
 import { AppConfigModule } from './core/config/config.module';
 import { DatabaseModule } from './core/database/database.module';
 import { FieldEncryptionModule } from './core/field-encryption/field-encryption.module';
@@ -25,6 +26,7 @@ import { RegisterModule } from './modules/register/register.module';
     DatabaseModule,
     AppGraphQLModule,
     FieldEncryptionModule,
+    PasswordModule, // 全局导入 PasswordModule 确保 PasswordPolicyService 在 E2E 测试中可用
     CatsModule,
     AccountModule,
     AuthModule,

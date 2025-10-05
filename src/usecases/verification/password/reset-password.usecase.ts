@@ -7,6 +7,8 @@ import {
   DomainError,
   VERIFICATION_RECORD_ERROR,
 } from '@core/common/errors/domain-error';
+import { EntityManager } from 'typeorm';
+import { PasswordPolicyService } from '@core/common/password/password-policy.service';
 
 /**
  * 密码重置用例参数
@@ -18,6 +20,8 @@ export interface ResetPasswordUsecaseParams {
   targetAccountId: number;
   /** 新密码 */
   newPassword: string;
+  /** 可选的事务管理器 */
+  manager?: EntityManager;
 }
 
 /**
@@ -36,7 +40,10 @@ export interface ResetPasswordUsecaseResult {
  */
 @Injectable()
 export class ResetPasswordUsecase {
-  constructor(private readonly accountService: AccountService) {}
+  constructor(
+    private readonly accountService: AccountService,
+    private readonly passwordPolicyService: PasswordPolicyService,
+  ) {}
 
   /**
    * 执行密码重置
@@ -45,9 +52,18 @@ export class ResetPasswordUsecase {
    * @returns 重置结果
    */
   async execute(params: ResetPasswordUsecaseParams): Promise<ResetPasswordUsecaseResult> {
-    const { recordId, targetAccountId, newPassword } = params;
+    const { recordId, targetAccountId, newPassword, manager } = params;
 
     try {
+      // 验证新密码是否符合安全策略
+      const passwordValidation = this.passwordPolicyService.validatePassword(newPassword);
+      if (!passwordValidation.isValid) {
+        throw new DomainError(
+          VERIFICATION_RECORD_ERROR.VERIFICATION_INVALID,
+          `密码不符合安全要求: ${passwordValidation.errors.join(', ')}`,
+        );
+      }
+
       // 查找目标账户
       const account = await this.accountService.findOneById(targetAccountId);
       if (!account) {
@@ -60,11 +76,15 @@ export class ResetPasswordUsecase {
         account.createdAt,
       );
 
-      // 更新账户密码
-      await this.accountService.updateAccount(targetAccountId, {
-        loginPassword: hashedPassword,
-        updatedAt: new Date(),
-      });
+      // 更新账户密码，使用传入的 manager（如果有）
+      await this.accountService.updateAccount(
+        targetAccountId,
+        {
+          loginPassword: hashedPassword,
+          updatedAt: new Date(),
+        },
+        manager,
+      );
 
       return {
         accountId: targetAccountId,

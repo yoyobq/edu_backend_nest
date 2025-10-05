@@ -7,7 +7,7 @@ import {
   IdentityTypeEnum,
   ThirdPartyProviderEnum,
 } from '@app-types/models/account.types';
-import { ACCOUNT_ERROR, DomainError } from '@core/common/errors/domain-error';
+import { ACCOUNT_ERROR, AUTH_ERROR, DomainError } from '@core/common/errors/domain-error';
 import { normalizeEmail } from '@core/common/normalize/normalize.helper';
 import { PasswordPbkdf2Helper } from '@core/common/password/password.pbkdf2.helper';
 import { Inject, Injectable } from '@nestjs/common';
@@ -159,8 +159,13 @@ export class AccountService {
   }
 
   /** 更新账户 */
-  async updateAccount(id: number, updateData: Partial<AccountEntity>): Promise<void> {
-    await this.accountRepository.update(id, updateData);
+  async updateAccount(
+    id: number,
+    updateData: Partial<AccountEntity>,
+    manager?: EntityManager,
+  ): Promise<void> {
+    const repository = manager ? manager.getRepository(AccountEntity) : this.accountRepository;
+    await repository.update(id, updateData);
   }
 
   /** 创建用户信息实体（不落库） */
@@ -184,14 +189,40 @@ export class AccountService {
 
   /** 使用创建时间作为盐值进行 PBKDF2 加密 */
   static hashPasswordWithTimestamp(password: string, createdAt: Date): string {
+    // 应用与 PasswordPolicyService 相同的预处理
+    const processedPassword = AccountService.preprocessPassword(password);
     const salt = createdAt.toString();
-    return PasswordPbkdf2Helper.hashPasswordWithCrypto(password, salt); // 直接使用静态方法
+    return PasswordPbkdf2Helper.hashPasswordWithCrypto(processedPassword, salt);
   }
 
   /** 验证密码 */
   static verifyPassword(password: string, hashedPassword: string, createdAt: Date): boolean {
+    // 应用与 PasswordPolicyService 相同的预处理
+    const processedPassword = AccountService.preprocessPassword(password);
     const salt = createdAt.toString();
-    return PasswordPbkdf2Helper.verifyPasswordWithCrypto(password, salt, hashedPassword); // 直接使用静态方法
+    return PasswordPbkdf2Helper.verifyPasswordWithCrypto(processedPassword, salt, hashedPassword);
+  }
+
+  /**
+   * 密码预处理 - 与 PasswordPolicyService 保持一致
+   * @param password 原始密码
+   * @returns 预处理后的密码
+   */
+  private static preprocessPassword(password: string): string {
+    // 检查空白密码
+    if (!password || !password.trim()) {
+      throw new DomainError(AUTH_ERROR.INVALID_PASSWORD, '密码不能为空或纯空白字符');
+    }
+
+    // NFKC 规范化处理
+    const normalizedPassword = password.normalize('NFKC');
+
+    // 检查首尾空格
+    if (normalizedPassword !== normalizedPassword.trim()) {
+      throw new DomainError(AUTH_ERROR.INVALID_PASSWORD, '密码首尾不能包含空格');
+    }
+
+    return normalizedPassword;
   }
 
   // =========================================================

@@ -2,6 +2,7 @@
 import { AccountStatus } from '@app-types/models/account.types';
 import { Field, ID, InputType } from '@nestjs/graphql';
 import { IsEmail, IsEnum, IsInt, IsOptional, IsString, MinLength } from 'class-validator';
+import { IsValidPassword } from '@core/common/password/password-validation.decorator';
 
 /**
  * 更新账户输入参数
@@ -26,7 +27,7 @@ export class UpdateAccountInput {
   @Field(() => String, { description: '新密码', nullable: true })
   @IsOptional()
   @IsString({ message: '密码必须是字符串' })
-  @MinLength(6, { message: '密码至少 6 个字符' })
+  @IsValidPassword({ message: '密码不符合安全要求' })
   newPassword?: string;
 
   @Field(() => AccountStatus, { description: '账户状态', nullable: true })
