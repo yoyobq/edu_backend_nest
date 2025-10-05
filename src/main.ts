@@ -3,6 +3,7 @@ import 'reflect-metadata';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { Logger } from 'nestjs-pino';
+import { useContainer } from 'class-validator';
 import { AppModule } from './app.module';
 
 /**
@@ -11,6 +12,9 @@ import { AppModule } from './app.module';
  */
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+
+  // 启用 class-validator 的依赖注入支持
+  useContainer(app.select(AppModule), { fallbackOnErrors: true });
 
   // 获取 ConfigService 实例
   const configService = app.get<ConfigService>(ConfigService);
