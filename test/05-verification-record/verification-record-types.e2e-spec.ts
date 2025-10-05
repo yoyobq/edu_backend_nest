@@ -517,12 +517,33 @@ describe('验证记录类型测试 E2E', () => {
       expect(createResponse.body.data.createVerificationRecord.token).not.toBeNull();
 
       const token = createResponse.body.data.createVerificationRecord.token;
-      const consumeResponse = await consumeVerificationRecord(app, token, learnerAccessToken);
 
-      console.log('PASSWORD_RESET 消费响应:', JSON.stringify(consumeResponse.body, null, 2));
+      // 使用 resetPassword mutation 而不是通用的 consumeVerificationRecord
+      const newPassword = 'MyStrong2024!@#';
+      const resetResponse = await postGql(
+        app,
+        `
+          mutation ResetPassword($input: ResetPasswordInput!) {
+            resetPassword(input: $input) {
+              success
+              message
+              accountId
+            }
+          }
+        `,
+        {
+          input: {
+            token: token,
+            newPassword: newPassword,
+          },
+        },
+        // 密码重置是匿名操作，不需要认证令牌
+      );
 
-      expect(consumeResponse.body.data.consumeVerificationRecord.success).toBe(true);
-      expect(consumeResponse.body.data.consumeVerificationRecord.data.status).toBe('CONSUMED');
+      console.log('PASSWORD_RESET 消费响应:', JSON.stringify(resetResponse.body, null, 2));
+
+      expect(resetResponse.body.data.resetPassword.success).toBe(true);
+      expect(resetResponse.body.data.resetPassword.accountId).toBe(learnerAccountId);
     });
 
     it('应该能够通过 findVerificationRecord 预读 PASSWORD_RESET 记录', async () => {

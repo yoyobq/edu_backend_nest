@@ -45,29 +45,26 @@ export class AccountResolver {
 
   /**
    * 重置密码
-   * 消费密码重置验证记录并更新账号密码
+   * 使用通用的验证流程消费用例，在事务中完成验证记录消费和密码重置
+   * 注意：前端应该先通过 findVerificationRecord 查询预读验证记录
    */
   @Mutation(() => ResetPasswordResult)
   async resetPassword(@Args('input') input: ResetPasswordInput): Promise<ResetPasswordResult> {
     try {
+      // 直接使用通用的验证流程消费用例
+      // 预读步骤应该由前端通过 findVerificationRecord 查询完成
       const result = await this.consumeVerificationFlowUsecase.execute({
         token: input.token,
         expectedType: VerificationRecordType.PASSWORD_RESET,
-        resetPassword: { newPassword: input.newPassword }, // ← 新增透传新密码
+        resetPassword: {
+          newPassword: input.newPassword,
+        },
       });
 
-      // 检查是否为密码重置成功结果
-      if ('success' in result && result.success) {
-        return {
-          success: true,
-          message: '密码重置成功',
-          accountId: result.accountId,
-        };
-      }
-
       return {
-        success: false,
-        message: '密码重置失败：未知错误',
+        success: true,
+        message: '密码重置成功',
+        accountId: result.accountId,
       };
     } catch (error) {
       return {
