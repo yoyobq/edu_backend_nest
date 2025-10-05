@@ -146,19 +146,22 @@ export class ConsumeVerificationFlowUsecase {
       }
 
       // 验证权限
-      if (recordView.targetAccountId && !consumedByAccountId) {
-        throw new DomainError(PERMISSION_ERROR.ACCESS_DENIED, '此验证码需要登录后使用');
-      }
+      // PASSWORD_RESET 类型允许匿名消费，即使有 targetAccountId 限制
+      if (recordView.type !== VerificationRecordType.PASSWORD_RESET) {
+        if (recordView.targetAccountId && !consumedByAccountId) {
+          throw new DomainError(PERMISSION_ERROR.ACCESS_DENIED, '此验证码需要登录后使用');
+        }
 
-      if (
-        recordView.targetAccountId &&
-        consumedByAccountId &&
-        recordView.targetAccountId !== consumedByAccountId
-      ) {
-        throw new DomainError(PERMISSION_ERROR.ACCESS_DENIED, '您无权使用此验证码', {
-          targetAccountId: recordView.targetAccountId,
-          consumedByAccountId,
-        });
+        if (
+          recordView.targetAccountId &&
+          consumedByAccountId &&
+          recordView.targetAccountId !== consumedByAccountId
+        ) {
+          throw new DomainError(PERMISSION_ERROR.ACCESS_DENIED, '您无权使用此验证码', {
+            targetAccountId: recordView.targetAccountId,
+            consumedByAccountId,
+          });
+        }
       }
 
       // 直接返回记录视图，避免二次查询

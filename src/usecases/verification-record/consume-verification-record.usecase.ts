@@ -89,6 +89,11 @@ export class ConsumeVerificationRecordUsecase {
     {
       priority: 2,
       check: (record, context) => {
+        // PASSWORD_RESET 类型允许匿名消费，即使有 targetAccountId 限制
+        if (record.type === VerificationRecordType.PASSWORD_RESET) {
+          return null;
+        }
+
         // 如果记录有 targetAccountId 限制，但消费者未提供账号 ID，则拒绝
         if (record.targetAccountId && !context.consumedByAccountId) {
           return new DomainError(PERMISSION_ERROR.ACCESS_DENIED, '此验证码需要登录后使用');
@@ -386,7 +391,12 @@ export class ConsumeVerificationRecordUsecase {
       });
     } else {
       // 如果未提供消费者账号，只允许消费没有 targetAccountId 限制的记录
-      queryBuilder.andWhere('targetAccountId IS NULL');
+      // 特殊情况：PASSWORD_RESET 类型允许匿名消费，即使有 targetAccountId
+      if (expectedType === VerificationRecordType.PASSWORD_RESET) {
+        // PASSWORD_RESET 类型允许匿名消费，不需要额外的权限检查
+      } else {
+        queryBuilder.andWhere('targetAccountId IS NULL');
+      }
     }
 
     // 类型检查

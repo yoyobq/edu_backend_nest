@@ -67,8 +67,15 @@ export class FindVerificationRecordUsecase {
           },
         );
       } else {
-        // 公开验证但未显式忽略 target 限制，仅允许无目标限制的记录
-        queryBuilder.andWhere('record.targetAccountId IS NULL');
+        // 公开验证但未显式忽略 target 限制
+        // 对于 PASSWORD_RESET 类型，允许匿名访问（因为用户通过邮件链接访问，此时通常未登录）
+        // 对于其他类型，仅允许无目标限制的记录
+        if (expectedType === VerificationRecordType.PASSWORD_RESET) {
+          // PASSWORD_RESET 类型允许匿名访问，不添加 targetAccountId 限制
+        } else {
+          // 其他类型仅允许无目标限制的记录
+          queryBuilder.andWhere('record.targetAccountId IS NULL');
+        }
       }
 
       // 如果指定了期望类型，添加类型过滤

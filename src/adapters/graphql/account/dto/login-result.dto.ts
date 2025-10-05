@@ -1,7 +1,7 @@
 // src/adapters/graphql/account/dto/login-result.dto.ts
 
 import { IdentityTypeEnum } from '@app-types/models/account.types';
-import { Field, ID, ObjectType } from '@nestjs/graphql';
+import { Field, Int, ObjectType } from '@nestjs/graphql';
 import { IdentityUnion, IdentityUnionType } from './identity/identity-union.type';
 import { UserInfoDTO } from './user-info.dto';
 
@@ -16,7 +16,7 @@ export class LoginResult {
   @Field(() => String, { description: '刷新令牌' })
   refreshToken!: string;
 
-  @Field(() => ID, { description: '用户 ID' })
+  @Field(() => Int, { description: '用户 ID' })
   accountId!: number;
 
   @Field(() => IdentityTypeEnum, { description: '用户默认角色' })

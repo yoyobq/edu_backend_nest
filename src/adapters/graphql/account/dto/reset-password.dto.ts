@@ -1,6 +1,6 @@
 // src/adapters/graphql/account/dto/reset-password.dto.ts
 
-import { Field, InputType, ObjectType } from '@nestjs/graphql';
+import { Field, InputType, Int, ObjectType } from '@nestjs/graphql';
 import { IsNotEmpty, IsString, MinLength } from 'class-validator';
 import { IsValidPassword } from '@core/common/password/password-validation.decorator';
 
@@ -33,6 +33,6 @@ export class ResetPasswordResult {
   @Field(() => String, { nullable: true, description: '消息' })
   message?: string;
 
-  @Field(() => Number, { nullable: true, description: '重置密码的账户 ID' })
+  @Field(() => Int, { nullable: true, description: '重置密码的账户 ID' })
   accountId?: number;
 }
