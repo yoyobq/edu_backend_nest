@@ -1,6 +1,7 @@
 // src/usecases/verification-record/consume-verification-record.usecase.ts
 
 import {
+  SubjectType,
   VerificationRecordStatus,
   VerificationRecordType,
 } from '@app-types/models/verification-record.types';
@@ -24,6 +25,10 @@ export interface ConsumeByTokenUsecaseParams {
   consumedByAccountId?: number;
   /** 期望的验证记录类型（可选但强烈建议提供） */
   expectedType?: VerificationRecordType;
+  /** 主体类型（可选，用于记录消费后的主体信息） */
+  subjectType?: SubjectType;
+  /** 主体 ID（可选，用于记录消费后的主体信息） */
+  subjectId?: number;
   /** 可选的事务管理器 */
   manager?: EntityManager;
 }
@@ -38,6 +43,10 @@ export interface ConsumeByIdUsecaseParams {
   consumedByAccountId?: number;
   /** 期望的验证记录类型（可选但强烈建议提供） */
   expectedType?: VerificationRecordType;
+  /** 主体类型（可选，用于记录消费后的主体信息） */
+  subjectType?: SubjectType;
+  /** 主体 ID（可选，用于记录消费后的主体信息） */
+  subjectId?: number;
   /** 可选的事务管理器 */
   manager?: EntityManager;
 }
@@ -66,6 +75,8 @@ interface FailureChecker {
 interface ValidationContext {
   expectedType?: VerificationRecordType;
   consumedByAccountId?: number;
+  subjectType?: SubjectType;
+  subjectId?: number;
   now: Date;
 }
 
@@ -151,7 +162,7 @@ export class ConsumeVerificationRecordUsecase {
    * @returns 更新后的验证记录实体
    */
   async consumeByToken(params: ConsumeByTokenUsecaseParams): Promise<VerificationRecordEntity> {
-    const { token, consumedByAccountId, expectedType, manager } = params;
+    const { token, consumedByAccountId, expectedType, subjectType, subjectId, manager } = params;
     const tokenFp = this.verificationRecordService.generateTokenFingerprint(token);
 
     return this.executeConsumption({
@@ -160,7 +171,7 @@ export class ConsumeVerificationRecordUsecase {
       whereClause: (qb) => qb.andWhere('tokenFp = :tokenFp', { tokenFp }),
       notFoundError: VERIFICATION_RECORD_ERROR.INVALID_TOKEN,
       notFoundMessage: '无效的验证 token',
-      context: { consumedByAccountId, expectedType, now: new Date() },
+      context: { consumedByAccountId, expectedType, subjectType, subjectId, now: new Date() },
       errorDetails: { consumedByAccountId, expectedType },
     });
   }
@@ -171,7 +182,7 @@ export class ConsumeVerificationRecordUsecase {
    * @returns 更新后的验证记录实体
    */
   async consumeById(params: ConsumeByIdUsecaseParams): Promise<VerificationRecordEntity> {
-    const { recordId, consumedByAccountId, expectedType, manager } = params;
+    const { recordId, consumedByAccountId, expectedType, subjectType, subjectId, manager } = params;
 
     return this.executeConsumption({
       repository: this.getRepository(manager),
@@ -179,7 +190,7 @@ export class ConsumeVerificationRecordUsecase {
       whereClause: (qb) => qb.andWhere('id = :recordId', { recordId }),
       notFoundError: VERIFICATION_RECORD_ERROR.RECORD_NOT_FOUND,
       notFoundMessage: '验证记录不存在或已失效',
-      context: { consumedByAccountId, expectedType, now: new Date() },
+      context: { consumedByAccountId, expectedType, subjectType, subjectId, now: new Date() },
       errorDetails: { recordId, consumedByAccountId, expectedType },
     });
   }
@@ -358,7 +369,7 @@ export class ConsumeVerificationRecordUsecase {
     repository: Repository<VerificationRecordEntity>,
     context: ValidationContext,
   ): UpdateQueryBuilder<VerificationRecordEntity> {
-    const { consumedByAccountId, expectedType, now } = context;
+    const { consumedByAccountId, expectedType, subjectType, subjectId, now } = context;
 
     // 基础更新字段
     const updateFields: Record<string, unknown> = {
@@ -369,6 +380,14 @@ export class ConsumeVerificationRecordUsecase {
     // 仅在提供 consumedByAccountId 时才设置该字段
     if (consumedByAccountId !== undefined) {
       updateFields.consumedByAccountId = consumedByAccountId;
+    }
+
+    // 设置主体信息字段
+    if (subjectType !== undefined) {
+      updateFields.subjectType = subjectType;
+    }
+    if (subjectId !== undefined) {
+      updateFields.subjectId = subjectId;
     }
 
     // 计算包含 180 秒宽限期的过期时间
@@ -394,6 +413,12 @@ export class ConsumeVerificationRecordUsecase {
       // 特殊情况：PASSWORD_RESET 类型允许匿名消费，即使有 targetAccountId
       if (expectedType === VerificationRecordType.PASSWORD_RESET) {
         // PASSWORD_RESET 类型允许匿名消费，不需要额外的权限检查
+      } else if (expectedType === VerificationRecordType.INVITE_COACH) {
+        // INVITE_COACH 类型不允许匿名消费
+        throw new DomainError(
+          VERIFICATION_RECORD_ERROR.VERIFICATION_INVALID,
+          'Coach 邀请需要指定消费者账户 ID',
+        );
       } else {
         queryBuilder.andWhere('targetAccountId IS NULL');
       }

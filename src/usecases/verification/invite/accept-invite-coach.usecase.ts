@@ -10,7 +10,7 @@ import { Injectable } from '@nestjs/common';
 import { UserInfoEntity } from '@src/modules/account/base/entities/user-info.entity';
 import { AccountService } from '@src/modules/account/base/services/account.service';
 import { CoachService } from '@src/modules/account/identities/training/coach/coach.service';
-import { VerificationRecordService } from '@src/modules/verification-record/verification-record.service';
+import { PinoLogger } from 'nestjs-pino';
 import { EntityManager } from 'typeorm';
 import { InviteCoachHandlerResult } from '../coach/invite-coach-result.types';
 
@@ -47,8 +47,10 @@ export class AcceptInviteCoachUsecase {
   constructor(
     private readonly accountService: AccountService,
     private readonly coachService: CoachService,
-    private readonly verificationRecordService: VerificationRecordService,
-  ) {}
+    private readonly logger: PinoLogger,
+  ) {
+    this.logger.setContext(AcceptInviteCoachUsecase.name);
+  }
 
   /**
    * 执行接受教练邀请的业务流程
@@ -56,38 +58,19 @@ export class AcceptInviteCoachUsecase {
    * @returns 验证流程结果
    */
   async execute(params: AcceptInviteCoachUsecaseParams): Promise<InviteCoachHandlerResult> {
-    const { recordId, consumedByAccountId, manager: externalManager } = params;
+    const { recordId, consumedByAccountId, invitePayload, manager: externalManager } = params;
 
     // 优先使用外层传入的 manager，避免双重事务
     // 只有当外层没传 manager 时才兜底开事务
     const executeLogic = async (manager: EntityManager): Promise<InviteCoachHandlerResult> => {
-      console.log('AcceptInviteCoachUsecase 开始执行:', { recordId, consumedByAccountId });
-
       try {
-        // 1. 获取并验证邀请记录
-        const record = await this.verificationRecordService.findById(recordId);
-        if (!record) {
-          throw new DomainError(VERIFICATION_RECORD_ERROR.RECORD_NOT_FOUND, '邀请记录不存在');
+        // 1. 验证邀请载荷
+        if (!invitePayload) {
+          throw new DomainError(VERIFICATION_RECORD_ERROR.VERIFICATION_INVALID, '邀请载荷不能为空');
         }
-        console.log('找到邀请记录:', record.id);
-
-        // 2. 解析邀请载荷
-        const payload = record.payload as {
-          coachName?: string;
-          coachLevel?: string;
-          description?: string;
-          avatarUrl?: string;
-          specialty?: string;
-          remark?: string;
-          orgId?: number;
-          projectId?: number;
-          trainingCenterId?: number;
-        };
-        console.log('解析载荷:', payload);
 
         // 3. 检查是否已经是教练（幂等性处理）
         const existingCoach = await this.coachService.findByAccountId(consumedByAccountId, manager);
-        console.log('检查现有 Coach:', existingCoach?.id || 'null');
 
         let coachId: number;
         let isNewlyCreated: boolean;
@@ -97,38 +80,31 @@ export class AcceptInviteCoachUsecase {
           if (!(await this.coachService.isActiveCoach(consumedByAccountId, manager))) {
             // 重新激活教练身份
             await this.coachService.reactivateCoach(existingCoach.id, consumedByAccountId, manager);
-            console.log('重新激活 Coach:', existingCoach.id);
           }
           coachId = existingCoach.id;
           isNewlyCreated = false;
         } else {
           // 创建新的教练身份
-          console.log('开始创建新 Coach...');
           const createResult = await this.coachService.createCoach(
             {
               accountId: consumedByAccountId,
-              name: payload.coachName || '新教练',
-              level: payload.coachLevel ? parseInt(payload.coachLevel, 10) : 1,
-              description: payload.description || null,
-              avatarUrl: payload.avatarUrl || null,
-              specialty: payload.specialty || null,
-              remark: payload.remark || null,
+              name: invitePayload.coachName || '新教练',
+              level: invitePayload.coachLevel || 1,
+              description: invitePayload.description || null,
+              avatarUrl: invitePayload.avatarUrl || null,
+              specialty: invitePayload.specialty || null,
+              remark: invitePayload.remark || null,
               createdBy: consumedByAccountId,
             },
             manager,
           );
-          console.log('创建 Coach 结果:', {
-            coachId: createResult.coach.id,
-            isNewlyCreated: createResult.isNewlyCreated,
-          });
+
           coachId = createResult.coach.id;
           isNewlyCreated = createResult.isNewlyCreated;
         }
 
         // 4. 更新用户的 accessGroup 权限和 metaDigest 同步
-        console.log('开始更新用户权限...');
         await this.updateUserPermissions(consumedByAccountId, manager);
-        console.log('用户权限更新完成');
 
         // 5. 返回验证流程结果
         const result = {
@@ -138,20 +114,18 @@ export class AcceptInviteCoachUsecase {
           isNewlyCreated,
           success: true,
         };
-        console.log('AcceptInviteCoachUsecase 执行完成:', result);
+
         return result;
       } catch (error) {
-        console.error('AcceptInviteCoachUsecase 执行失败:', error);
+        this.logger.error('AcceptInviteCoachUsecase 执行失败:', error);
         throw error;
       }
     };
 
     // 如果外层传入了 manager，直接使用；否则开启新事务
     if (externalManager) {
-      console.log('使用外部事务管理器');
       return await executeLogic(externalManager);
     } else {
-      console.log('开启新事务');
       return await this.accountService.runTransaction(executeLogic);
     }
   }

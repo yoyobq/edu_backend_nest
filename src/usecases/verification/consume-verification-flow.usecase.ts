@@ -1,11 +1,12 @@
 // src/usecases/verification/consume-verification-flow.usecase.ts
 
-import { VerificationRecordType } from '@app-types/models/verification-record.types';
+import { VerificationRecordType, SubjectType } from '@app-types/models/verification-record.types';
 import { DomainError, VERIFICATION_RECORD_ERROR } from '@core/common/errors/domain-error';
 import { Injectable } from '@nestjs/common';
 import { VerificationReadService } from '@src/modules/verification-record/services/verification-read.service';
 import { VerificationRecordService } from '@src/modules/verification-record/verification-record.service';
 import { ConsumeVerificationRecordUsecase } from '@src/usecases/verification-record/consume-verification-record.usecase';
+import { InviteCoachHandlerResult } from './coach/invite-coach-result.types';
 import {
   ConsumeVerificationFlowParams,
   VerificationFlowContext,
@@ -100,12 +101,28 @@ export class ConsumeVerificationFlowUsecase {
       // 第五步：执行业务逻辑
       const businessResult = await handler.handle(context);
 
-      // 第六步：消费验证记录（在同一事务中）
+      // 第六步：从业务结果中提取主体信息
+      let subjectType: SubjectType | undefined;
+      let subjectId: number | undefined;
+
+      // 根据验证记录类型和业务结果提取主体信息
+      if (recordView.type === VerificationRecordType.INVITE_COACH && businessResult) {
+        // 对于 INVITE_COACH 类型，从 InviteCoachHandlerResult 中提取 coachId
+        const coachResult = businessResult as InviteCoachHandlerResult;
+        if (coachResult.coachId) {
+          subjectType = SubjectType.COACH;
+          subjectId = coachResult.coachId;
+        }
+      }
+
+      // 第七步：消费验证记录（在同一事务中）
       await this.consumeVerificationRecordUsecase.consumeByToken({
         token,
         consumedByAccountId,
         expectedType: recordView.type,
         manager: activeManager,
+        subjectType,
+        subjectId,
       });
 
       return businessResult;

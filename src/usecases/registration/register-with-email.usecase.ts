@@ -8,6 +8,7 @@ import {
   isPrivateIp,
   isServerIp,
 } from '@core/common/network/network-access.helper';
+import { TokenFingerprintHelper } from '@core/security/token-fingerprint.helper';
 import { Injectable } from '@nestjs/common';
 import { AccountEntity } from '@src/modules/account/base/entities/account.entity';
 import { AccountService } from '@src/modules/account/base/services/account.service';
@@ -74,7 +75,11 @@ export class RegisterWithEmailUsecase {
             expectedType: VerificationRecordType.INVITE_COACH,
             consumedByAccountId: account.id,
           });
-          this.logger.info(`用户 ${account.id} 注册成功并消费邀请码: ${inviteToken}`);
+          const tokenFp = TokenFingerprintHelper.generateTokenFingerprint({ token: inviteToken });
+          this.logger.info(
+            { accountId: account.id, tokenFp: tokenFp.toString('hex') },
+            '注册成功并尝试消费邀请码',
+          );
         } catch (error) {
           // 邀请码消费失败不影响注册成功，只记录日志
           this.logger.warn(

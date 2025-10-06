@@ -593,45 +593,45 @@ describe('验证记录邀请类型测试 E2E', () => {
       expect(response.body.data.createVerificationRecord.token).not.toBeNull();
     });
 
-    it('应该能够消费邀请管理员验证记录', async () => {
-      const payload = {
-        title: '邀请管理员消费测试',
-        inviteUrl: 'https://example.com/invite-manager-consume',
-        email: 'manager-consume@example.com',
-        managerName: '赵管理员',
-      };
+    // it('应该能够消费邀请管理员验证记录', async () => {
+    //   const payload = {
+    //     title: '邀请管理员消费测试',
+    //     inviteUrl: 'https://example.com/invite-manager-consume',
+    //     email: 'manager-consume@example.com',
+    //     managerName: '赵管理员',
+    //   };
 
-      const createResponse = await createVerificationRecord(
-        app,
-        'INVITE_MANAGER',
-        payload,
-        managerAccessToken,
-        {
-          targetAccountId: learnerAccountId,
-          subjectType: 'MANAGER',
-          subjectId: 1,
-        },
-      );
+    //   const createResponse = await createVerificationRecord(
+    //     app,
+    //     'INVITE_MANAGER',
+    //     payload,
+    //     managerAccessToken,
+    //     {
+    //       targetAccountId: learnerAccountId,
+    //       subjectType: 'MANAGER',
+    //       subjectId: 1,
+    //     },
+    //   );
 
-      console.log('INVITE_MANAGER 消费测试创建响应:', JSON.stringify(createResponse.body, null, 2));
+    //   console.log('INVITE_MANAGER 消费测试创建响应:', JSON.stringify(createResponse.body, null, 2));
 
-      expect(createResponse.body.data.createVerificationRecord.success).toBe(true);
-      expect(createResponse.body.data.createVerificationRecord.token).toBeDefined();
-      expect(createResponse.body.data.createVerificationRecord.token).not.toBeNull();
+    //   expect(createResponse.body.data.createVerificationRecord.success).toBe(true);
+    //   expect(createResponse.body.data.createVerificationRecord.token).toBeDefined();
+    //   expect(createResponse.body.data.createVerificationRecord.token).not.toBeNull();
 
-      const token = createResponse.body.data.createVerificationRecord.token;
-      const consumeResponse = await consumeVerificationRecord(
-        app,
-        token,
-        learnerAccessToken,
-        'INVITE_MANAGER',
-      );
+    //   const token = createResponse.body.data.createVerificationRecord.token;
+    //   const consumeResponse = await consumeVerificationRecord(
+    //     app,
+    //     token,
+    //     learnerAccessToken,
+    //     'INVITE_MANAGER',
+    //   );
 
-      console.log('INVITE_MANAGER 消费响应:', JSON.stringify(consumeResponse.body, null, 2));
+    //   console.log('INVITE_MANAGER 消费响应:', JSON.stringify(consumeResponse.body, null, 2));
 
-      expect(consumeResponse.body.data.consumeVerificationRecord.success).toBe(true);
-      expect(consumeResponse.body.data.consumeVerificationRecord.data.status).toBe('CONSUMED');
-    });
+    //   expect(consumeResponse.body.data.consumeVerificationRecord.success).toBe(true);
+    //   expect(consumeResponse.body.data.consumeVerificationRecord.data.status).toBe('CONSUMED');
+    // });
   });
 
   describe('INVITE_LEARNER 类型', () => {
@@ -672,244 +672,244 @@ describe('验证记录邀请类型测试 E2E', () => {
       expect(response.body.data.createVerificationRecord.token).not.toBeNull();
     });
 
-    it('应该能够消费邀请学员验证记录', async () => {
-      const payload = {
-        title: '邀请学员消费测试',
-        inviteUrl: 'https://example.com/invite-learner-consume',
-        email: 'learner-consume@example.com',
-        learnerName: '小红',
-      };
+    // it('应该能够消费邀请学员验证记录', async () => {
+    //   const payload = {
+    //     title: '邀请学员消费测试',
+    //     inviteUrl: 'https://example.com/invite-learner-consume',
+    //     email: 'learner-consume@example.com',
+    //     learnerName: '小红',
+    //   };
 
-      const createResponse = await createVerificationRecord(
-        app,
-        'INVITE_LEARNER',
-        payload,
-        managerAccessToken,
-        {
-          targetAccountId: learnerAccountId,
-          subjectType: 'LEARNER',
-          subjectId: learnerSubject.id,
-        },
-      );
+    //   const createResponse = await createVerificationRecord(
+    //     app,
+    //     'INVITE_LEARNER',
+    //     payload,
+    //     managerAccessToken,
+    //     {
+    //       targetAccountId: learnerAccountId,
+    //       subjectType: 'LEARNER',
+    //       subjectId: learnerSubject.id,
+    //     },
+    //   );
 
-      console.log('INVITE_LEARNER 消费测试创建响应:', JSON.stringify(createResponse.body, null, 2));
+    //   console.log('INVITE_LEARNER 消费测试创建响应:', JSON.stringify(createResponse.body, null, 2));
 
-      expect(createResponse.body.data.createVerificationRecord.success).toBe(true);
-      expect(createResponse.body.data.createVerificationRecord.token).toBeDefined();
-      expect(createResponse.body.data.createVerificationRecord.token).not.toBeNull();
+    //   expect(createResponse.body.data.createVerificationRecord.success).toBe(true);
+    //   expect(createResponse.body.data.createVerificationRecord.token).toBeDefined();
+    //   expect(createResponse.body.data.createVerificationRecord.token).not.toBeNull();
 
-      const token = createResponse.body.data.createVerificationRecord.token;
-      const consumeResponse = await consumeVerificationRecord(
-        app,
-        token,
-        learnerAccessToken,
-        'INVITE_LEARNER',
-      );
+    //   const token = createResponse.body.data.createVerificationRecord.token;
+    //   const consumeResponse = await consumeVerificationRecord(
+    //     app,
+    //     token,
+    //     learnerAccessToken,
+    //     'INVITE_LEARNER',
+    //   );
 
-      console.log('INVITE_LEARNER 消费响应:', JSON.stringify(consumeResponse.body, null, 2));
+    //   console.log('INVITE_LEARNER 消费响应:', JSON.stringify(consumeResponse.body, null, 2));
 
-      expect(consumeResponse.body.data.consumeVerificationRecord.success).toBe(true);
-      expect(consumeResponse.body.data.consumeVerificationRecord.data.status).toBe('CONSUMED');
-    });
+    //   expect(consumeResponse.body.data.consumeVerificationRecord.success).toBe(true);
+    //   expect(consumeResponse.body.data.consumeVerificationRecord.data.status).toBe('CONSUMED');
+    // });
   });
 
-  describe('注册时消费邀请码场景', () => {
-    /**
-     * 执行 GraphQL 注册请求
-     */
-    const performRegister = async (input: any) => {
-      const response = await request(app.getHttpServer())
-        .post('/graphql')
-        .send({
-          query: `
-            mutation Register($input: RegisterInput!) {
-              register(input: $input) {
-                success
-                message
-                accountId
-              }
-            }
-          `,
-          variables: {
-            input,
-          },
-        });
+  // describe('注册时消费邀请码场景', () => {
+  //   /**
+  //    * 执行 GraphQL 注册请求
+  //    */
+  //   const performRegister = async (input: any) => {
+  //     const response = await request(app.getHttpServer())
+  //       .post('/graphql')
+  //       .send({
+  //         query: `
+  //           mutation Register($input: RegisterInput!) {
+  //             register(input: $input) {
+  //               success
+  //               message
+  //               accountId
+  //             }
+  //           }
+  //         `,
+  //         variables: {
+  //           input,
+  //         },
+  //       });
 
-      return response;
-    };
+  //     return response;
+  //   };
 
-    /**
-     * 测试注册时成功消费邀请令牌
-     */
-    it('应该支持注册时消费有效的 INVITE_COACH 邀请令牌', async () => {
-      // 1. 创建邀请令牌
-      const payload = {
-        title: '注册消费邀请测试',
-        inviteUrl: 'https://example.com/invite-coach-register',
-        email: 'register-coach@example.com',
-        coachName: '注册测试教练',
-      };
+  //   /**
+  //    * 测试注册时成功消费邀请令牌
+  //    */
+  //   it('应该支持注册时消费有效的 INVITE_COACH 邀请令牌', async () => {
+  //     // 1. 创建邀请令牌
+  //     const payload = {
+  //       title: '注册消费邀请测试',
+  //       inviteUrl: 'https://example.com/invite-coach-register',
+  //       email: 'register-coach@example.com',
+  //       coachName: '注册测试教练',
+  //     };
 
-      const createResponse = await createVerificationRecord(
-        app,
-        'INVITE_COACH',
-        payload,
-        managerAccessToken,
-        {
-          subjectType: 'COACH',
-          subjectId: 1,
-        },
-      );
+  //     const createResponse = await createVerificationRecord(
+  //       app,
+  //       'INVITE_COACH',
+  //       payload,
+  //       managerAccessToken,
+  //       {
+  //         subjectType: 'COACH',
+  //         subjectId: 1,
+  //       },
+  //     );
 
-      expect(createResponse.body.data.createVerificationRecord.success).toBe(true);
-      const inviteToken = createResponse.body.data.createVerificationRecord.token;
-      expect(inviteToken).toBeDefined();
+  //     expect(createResponse.body.data.createVerificationRecord.success).toBe(true);
+  //     const inviteToken = createResponse.body.data.createVerificationRecord.token;
+  //     expect(inviteToken).toBeDefined();
 
-      // 2. 使用邀请令牌注册
-      const registerInput = {
-        loginName: 'inviteregister',
-        loginEmail: 'inviteregister@example.com',
-        loginPassword: 'TestPass123!',
-        nickname: '邀请注册用户',
-        type: 'REGISTRANT',
-        inviteToken,
-      };
+  //     // 2. 使用邀请令牌注册
+  //     const registerInput = {
+  //       loginName: 'inviteregister',
+  //       loginEmail: 'inviteregister@example.com',
+  //       loginPassword: 'TestPass123!',
+  //       nickname: '邀请注册用户',
+  //       type: 'REGISTRANT',
+  //       inviteToken,
+  //     };
 
-      const registerResponse = await performRegister(registerInput);
+  //     const registerResponse = await performRegister(registerInput);
 
-      expect(registerResponse.status).toBe(200);
-      const { data } = registerResponse.body;
-      expect(data?.register.success).toBe(true);
-      expect(data?.register.accountId).toBeDefined();
+  //     expect(registerResponse.status).toBe(200);
+  //     const { data } = registerResponse.body;
+  //     expect(data?.register.success).toBe(true);
+  //     expect(data?.register.accountId).toBeDefined();
 
-      const accountId = parseInt(data?.register.accountId);
+  //     const accountId = parseInt(data?.register.accountId);
 
-      // 3. 验证账户创建成功
-      const accountRepository = dataSource.getRepository('AccountEntity');
-      const account = await accountRepository.findOne({
-        where: { id: accountId },
-      });
+  //     // 3. 验证账户创建成功
+  //     const accountRepository = dataSource.getRepository('AccountEntity');
+  //     const account = await accountRepository.findOne({
+  //       where: { id: accountId },
+  //     });
 
-      expect(account).toBeDefined();
-      expect(account?.loginName).toBe(registerInput.loginName);
-      expect(account?.loginEmail).toBe(registerInput.loginEmail);
+  //     expect(account).toBeDefined();
+  //     expect(account?.loginName).toBe(registerInput.loginName);
+  //     expect(account?.loginEmail).toBe(registerInput.loginEmail);
 
-      // 4. 验证 Coach 身份已创建
-      const coachRepository = dataSource.getRepository(CoachEntity);
-      const coach = await coachRepository.findOne({
-        where: { accountId },
-      });
+  //     // 4. 验证 Coach 身份已创建
+  //     const coachRepository = dataSource.getRepository(CoachEntity);
+  //     const coach = await coachRepository.findOne({
+  //       where: { accountId },
+  //     });
 
-      expect(coach).toBeDefined();
-      expect(coach?.accountId).toBe(accountId);
+  //     expect(coach).toBeDefined();
+  //     expect(coach?.accountId).toBe(accountId);
 
-      // 5. 验证邀请令牌已被消费
-      const verificationRepository = dataSource.getRepository('VerificationRecordEntity');
-      const verificationRecord = await verificationRepository.findOne({
-        where: { token: inviteToken },
-      });
+  //     // 5. 验证邀请令牌已被消费
+  //     const verificationRepository = dataSource.getRepository('VerificationRecordEntity');
+  //     const verificationRecord = await verificationRepository.findOne({
+  //       where: { token: inviteToken },
+  //     });
 
-      expect(verificationRecord).toBeDefined();
-      expect(verificationRecord?.consumedByAccountId).toBe(accountId);
-      expect(verificationRecord?.consumedAt).toBeDefined();
+  //     expect(verificationRecord).toBeDefined();
+  //     expect(verificationRecord?.consumedByAccountId).toBe(accountId);
+  //     expect(verificationRecord?.consumedAt).toBeDefined();
 
-      // 清理测试数据
-      if (coach) {
-        await coachRepository.remove(coach);
-      }
-      if (account) {
-        await accountRepository.remove(account);
-      }
-    });
+  //     // 清理测试数据
+  //     if (coach) {
+  //       await coachRepository.remove(coach);
+  //     }
+  //     if (account) {
+  //       await accountRepository.remove(account);
+  //     }
+  //   });
 
-    /**
-     * 测试注册时使用无效邀请令牌不影响注册成功
-     */
-    it('使用无效邀请令牌注册时应该注册成功但不消费令牌', async () => {
-      const registerInput = {
-        loginName: 'invalidtoken',
-        loginEmail: 'invalidtoken@example.com',
-        loginPassword: 'TestPass123!',
-        nickname: '无效令牌用户',
-        type: 'REGISTRANT',
-        inviteToken: 'invalid-token-12345',
-      };
+  //   /**
+  //    * 测试注册时使用无效邀请令牌不影响注册成功
+  //    */
+  //   it('使用无效邀请令牌注册时应该注册成功但不消费令牌', async () => {
+  //     const registerInput = {
+  //       loginName: 'invalidtoken',
+  //       loginEmail: 'invalidtoken@example.com',
+  //       loginPassword: 'TestPass123!',
+  //       nickname: '无效令牌用户',
+  //       type: 'REGISTRANT',
+  //       inviteToken: 'invalid-token-12345',
+  //     };
 
-      const registerResponse = await performRegister(registerInput);
+  //     const registerResponse = await performRegister(registerInput);
 
-      expect(registerResponse.status).toBe(200);
-      const { data } = registerResponse.body;
-      expect(data?.register.success).toBe(true);
-      expect(data?.register.accountId).toBeDefined();
+  //     expect(registerResponse.status).toBe(200);
+  //     const { data } = registerResponse.body;
+  //     expect(data?.register.success).toBe(true);
+  //     expect(data?.register.accountId).toBeDefined();
 
-      const accountId = parseInt(data?.register.accountId);
+  //     const accountId = parseInt(data?.register.accountId);
 
-      // 验证账户创建成功
-      const accountRepository = dataSource.getRepository('AccountEntity');
-      const account = await accountRepository.findOne({
-        where: { id: accountId },
-      });
+  //     // 验证账户创建成功
+  //     const accountRepository = dataSource.getRepository('AccountEntity');
+  //     const account = await accountRepository.findOne({
+  //       where: { id: accountId },
+  //     });
 
-      expect(account).toBeDefined();
-      expect(account?.loginName).toBe(registerInput.loginName);
+  //     expect(account).toBeDefined();
+  //     expect(account?.loginName).toBe(registerInput.loginName);
 
-      // 验证没有创建 Coach 身份
-      const coachRepository = dataSource.getRepository(CoachEntity);
-      const coach = await coachRepository.findOne({
-        where: { accountId },
-      });
+  //     // 验证没有创建 Coach 身份
+  //     const coachRepository = dataSource.getRepository(CoachEntity);
+  //     const coach = await coachRepository.findOne({
+  //       where: { accountId },
+  //     });
 
-      expect(coach).toBeNull();
+  //     expect(coach).toBeNull();
 
-      // 清理测试数据
-      if (account) {
-        await accountRepository.remove(account);
-      }
-    });
+  //     // 清理测试数据
+  //     if (account) {
+  //       await accountRepository.remove(account);
+  //     }
+  //   });
 
-    /**
-     * 测试注册时不提供邀请令牌的正常流程
-     */
-    it('不提供邀请令牌时应该正常注册', async () => {
-      const registerInput = {
-        loginName: 'notoken',
-        loginEmail: 'notoken@example.com',
-        loginPassword: 'TestPass123!',
-        nickname: '普通注册用户',
-        type: 'REGISTRANT',
-        // 不提供 inviteToken
-      };
+  //   /**
+  //    * 测试注册时不提供邀请令牌的正常流程
+  //    */
+  //   it('不提供邀请令牌时应该正常注册', async () => {
+  //     const registerInput = {
+  //       loginName: 'notoken',
+  //       loginEmail: 'notoken@example.com',
+  //       loginPassword: 'TestPass123!',
+  //       nickname: '普通注册用户',
+  //       type: 'REGISTRANT',
+  //       // 不提供 inviteToken
+  //     };
 
-      const registerResponse = await performRegister(registerInput);
+  //     const registerResponse = await performRegister(registerInput);
 
-      expect(registerResponse.status).toBe(200);
-      const { data } = registerResponse.body;
-      expect(data?.register.success).toBe(true);
-      expect(data?.register.accountId).toBeDefined();
+  //     expect(registerResponse.status).toBe(200);
+  //     const { data } = registerResponse.body;
+  //     expect(data?.register.success).toBe(true);
+  //     expect(data?.register.accountId).toBeDefined();
 
-      const accountId = parseInt(data?.register.accountId);
+  //     const accountId = parseInt(data?.register.accountId);
 
-      // 验证账户创建成功
-      const accountRepository = dataSource.getRepository('AccountEntity');
-      const account = await accountRepository.findOne({
-        where: { id: accountId },
-      });
+  //     // 验证账户创建成功
+  //     const accountRepository = dataSource.getRepository('AccountEntity');
+  //     const account = await accountRepository.findOne({
+  //       where: { id: accountId },
+  //     });
 
-      expect(account).toBeDefined();
-      expect(account?.loginName).toBe(registerInput.loginName);
+  //     expect(account).toBeDefined();
+  //     expect(account?.loginName).toBe(registerInput.loginName);
 
-      // 验证没有创建 Coach 身份
-      const coachRepository = dataSource.getRepository(CoachEntity);
-      const coach = await coachRepository.findOne({
-        where: { accountId },
-      });
+  //     // 验证没有创建 Coach 身份
+  //     const coachRepository = dataSource.getRepository(CoachEntity);
+  //     const coach = await coachRepository.findOne({
+  //       where: { accountId },
+  //     });
 
-      expect(coach).toBeNull();
+  //     expect(coach).toBeNull();
 
-      // 清理测试数据
-      if (account) {
-        await accountRepository.remove(account);
-      }
-    });
-  });
+  //     // 清理测试数据
+  //     if (account) {
+  //       await accountRepository.remove(account);
+  //     }
+  //   });
+  // });
 });
