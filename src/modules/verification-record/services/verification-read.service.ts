@@ -147,6 +147,7 @@ export class VerificationReadService {
       'inviteUrl',
       'roleName',
       'coachName', // 教练姓名字段，用于 INVITE_COACH 类型
+      'managerName', // 管理员姓名字段，用于 INVITE_MANAGER 类型
     ];
 
     for (const field of allowedFields) {

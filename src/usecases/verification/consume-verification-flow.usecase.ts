@@ -7,6 +7,7 @@ import { VerificationReadService } from '@src/modules/verification-record/servic
 import { VerificationRecordService } from '@src/modules/verification-record/verification-record.service';
 import { ConsumeVerificationRecordUsecase } from '@src/usecases/verification-record/consume-verification-record.usecase';
 import { InviteCoachHandlerResult } from './coach/invite-coach-result.types';
+import { InviteManagerHandlerResult } from './manager/invite-manager-result.types';
 import {
   ConsumeVerificationFlowParams,
   VerificationFlowContext,
@@ -112,6 +113,13 @@ export class ConsumeVerificationFlowUsecase {
         if (coachResult.coachId) {
           subjectType = SubjectType.COACH;
           subjectId = coachResult.coachId;
+        }
+      } else if (recordView.type === VerificationRecordType.INVITE_MANAGER && businessResult) {
+        // 对于 INVITE_MANAGER 类型，从 InviteManagerHandlerResult 中提取 managerId
+        const managerResult = businessResult as InviteManagerHandlerResult;
+        if (managerResult.managerId) {
+          subjectType = SubjectType.MANAGER;
+          subjectId = managerResult.managerId;
         }
       }
 

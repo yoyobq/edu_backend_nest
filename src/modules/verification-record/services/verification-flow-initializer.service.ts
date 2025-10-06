@@ -2,6 +2,7 @@
 
 import { Injectable, OnModuleInit } from '@nestjs/common';
 import { InviteCoachHandler } from '@src/usecases/verification/coach/invite-coach.handler';
+import { InviteManagerHandler } from '@src/usecases/verification/manager/invite-manager.handler';
 import { ConsumeVerificationFlowUsecase } from '@src/usecases/verification/consume-verification-flow.usecase';
 import { ResetPasswordHandler } from '@src/usecases/verification/password/reset-password.handler';
 
@@ -17,6 +18,7 @@ export class VerificationFlowInitializerService implements OnModuleInit {
     private readonly consumeVerificationFlowUsecase: ConsumeVerificationFlowUsecase,
     private readonly resetPasswordHandler: ResetPasswordHandler,
     private readonly inviteCoachHandler: InviteCoachHandler,
+    private readonly inviteManagerHandler: InviteManagerHandler,
   ) {}
 
   /**
@@ -24,7 +26,7 @@ export class VerificationFlowInitializerService implements OnModuleInit {
    * 使用方法返回数组，避免在构造函数前使用属性
    */
   private getHandlers() {
-    return [this.resetPasswordHandler, this.inviteCoachHandler];
+    return [this.resetPasswordHandler, this.inviteCoachHandler, this.inviteManagerHandler];
   }
 
   /**

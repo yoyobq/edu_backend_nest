@@ -9,6 +9,7 @@ import { TokenHelper } from '@core/common/token/token.helper';
 import { AppModule } from '@src/app.module';
 import { CoachEntity } from '@src/modules/account/identities/training/coach/account-coach.entity';
 import { LearnerEntity } from '@src/modules/account/identities/training/learner/account-learner.entity';
+import { ManagerEntity } from '@src/modules/account/identities/training/manager/account-manager.entity';
 import { CreateAccountUsecase } from '@usecases/account/create-account.usecase';
 import { cleanupTestAccounts, seedTestAccounts, testAccountsConfig } from '../utils/test-accounts';
 
@@ -593,45 +594,130 @@ describe('验证记录邀请类型测试 E2E', () => {
       expect(response.body.data.createVerificationRecord.token).not.toBeNull();
     });
 
-    // it('应该能够消费邀请管理员验证记录', async () => {
-    //   const payload = {
-    //     title: '邀请管理员消费测试',
-    //     inviteUrl: 'https://example.com/invite-manager-consume',
-    //     email: 'manager-consume@example.com',
-    //     managerName: '赵管理员',
-    //   };
+    it('应该能够消费邀请管理员验证记录', async () => {
+      const payload = {
+        title: '邀请管理员消费测试',
+        inviteUrl: 'https://example.com/invite-manager-consume',
+        email: 'manager-consume@example.com',
+        managerName: '赵管理员',
+      };
 
-    //   const createResponse = await createVerificationRecord(
-    //     app,
-    //     'INVITE_MANAGER',
-    //     payload,
-    //     managerAccessToken,
-    //     {
-    //       targetAccountId: learnerAccountId,
-    //       subjectType: 'MANAGER',
-    //       subjectId: 1,
-    //     },
-    //   );
+      const createResponse = await createVerificationRecord(
+        app,
+        'INVITE_MANAGER',
+        payload,
+        managerAccessToken,
+        {
+          targetAccountId: learnerAccountId,
+          subjectType: 'MANAGER',
+          subjectId: 1,
+        },
+      );
 
-    //   console.log('INVITE_MANAGER 消费测试创建响应:', JSON.stringify(createResponse.body, null, 2));
+      console.log('INVITE_MANAGER 消费测试创建响应:', JSON.stringify(createResponse.body, null, 2));
 
-    //   expect(createResponse.body.data.createVerificationRecord.success).toBe(true);
-    //   expect(createResponse.body.data.createVerificationRecord.token).toBeDefined();
-    //   expect(createResponse.body.data.createVerificationRecord.token).not.toBeNull();
+      expect(createResponse.body.data.createVerificationRecord.success).toBe(true);
+      expect(createResponse.body.data.createVerificationRecord.token).toBeDefined();
+      expect(createResponse.body.data.createVerificationRecord.token).not.toBeNull();
 
-    //   const token = createResponse.body.data.createVerificationRecord.token;
-    //   const consumeResponse = await consumeVerificationRecord(
-    //     app,
-    //     token,
-    //     learnerAccessToken,
-    //     'INVITE_MANAGER',
-    //   );
+      const token = createResponse.body.data.createVerificationRecord.token;
+      const consumeResponse = await consumeVerificationRecord(
+        app,
+        token,
+        learnerAccessToken,
+        'INVITE_MANAGER',
+      );
 
-    //   console.log('INVITE_MANAGER 消费响应:', JSON.stringify(consumeResponse.body, null, 2));
+      console.log('INVITE_MANAGER 消费响应:', JSON.stringify(consumeResponse.body, null, 2));
 
-    //   expect(consumeResponse.body.data.consumeVerificationRecord.success).toBe(true);
-    //   expect(consumeResponse.body.data.consumeVerificationRecord.data.status).toBe('CONSUMED');
-    // });
+      // 检查是否有 GraphQL 错误
+      if (consumeResponse.body.errors) {
+        console.error('GraphQL errors:', consumeResponse.body.errors);
+        throw new Error(`GraphQL 错误: ${JSON.stringify(consumeResponse.body.errors)}`);
+      }
+
+      expect(consumeResponse.body.data.consumeVerificationRecord.success).toBe(true);
+      expect(consumeResponse.body.data.consumeVerificationRecord.data.status).toBe('CONSUMED');
+
+      // 清理测试数据
+      const managerRepository = dataSource.getRepository(ManagerEntity);
+      const managerAfterTest = await managerRepository.findOne({
+        where: { accountId: learnerAccountId },
+      });
+      if (managerAfterTest) {
+        await managerRepository.remove(managerAfterTest);
+      }
+    });
+
+    it('应该验证并发消费的原子性：多个并发请求只有一个成功', async () => {
+      const payload = {
+        title: '并发消费测试',
+        inviteUrl: 'https://example.com/invite-manager-concurrent',
+        email: 'manager-concurrent@example.com',
+        managerName: '并发测试管理员',
+      };
+
+      // 1. 创建验证记录
+      const createResponse = await createVerificationRecord(
+        app,
+        'INVITE_MANAGER',
+        payload,
+        managerAccessToken,
+        {
+          targetAccountId: learnerAccountId,
+          subjectType: 'MANAGER',
+          subjectId: 1,
+        },
+      );
+
+      expect(createResponse.body.data.createVerificationRecord.success).toBe(true);
+      const token = createResponse.body.data.createVerificationRecord.token;
+
+      // 2. 并发发起多个消费请求
+      const concurrentPromises = Array.from({ length: 3 }, () =>
+        consumeVerificationRecord(app, token, learnerAccessToken, 'INVITE_MANAGER'),
+      );
+
+      const results = await Promise.allSettled(concurrentPromises);
+
+      // 3. 验证只有一个请求成功
+      const successfulResults = results.filter(
+        (result) =>
+          result.status === 'fulfilled' &&
+          result.value.body.data.consumeVerificationRecord.success === true,
+      );
+
+      const failedResults = results.filter(
+        (result) =>
+          result.status === 'fulfilled' &&
+          result.value.body.data.consumeVerificationRecord.success === false,
+      );
+
+      expect(successfulResults).toHaveLength(1);
+      expect(failedResults.length).toBeGreaterThanOrEqual(2);
+
+      console.log(
+        'Manager 并发测试结果 - 成功:',
+        successfulResults.length,
+        '失败:',
+        failedResults.length,
+      );
+
+      // 4. 验证数据库中只创建了一个 Manager 记录
+      const managerRepository = dataSource.getRepository(ManagerEntity);
+      const managerCount = await managerRepository.count({
+        where: { accountId: learnerAccountId },
+      });
+      expect(managerCount).toBe(1);
+
+      // 5. 清理测试数据
+      const manager = await managerRepository.findOne({
+        where: { accountId: learnerAccountId },
+      });
+      if (manager) {
+        await managerRepository.remove(manager);
+      }
+    });
   });
 
   describe('INVITE_LEARNER 类型', () => {

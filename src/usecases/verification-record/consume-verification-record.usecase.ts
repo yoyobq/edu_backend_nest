@@ -419,7 +419,14 @@ export class ConsumeVerificationRecordUsecase {
           VERIFICATION_RECORD_ERROR.VERIFICATION_INVALID,
           'Coach 邀请需要指定消费者账户 ID',
         );
+      } else if (expectedType === VerificationRecordType.INVITE_MANAGER) {
+        // INVITE_MANAGER 类型不允许匿名消费
+        throw new DomainError(
+          VERIFICATION_RECORD_ERROR.VERIFICATION_INVALID,
+          'Manager 邀请需要指定消费者账户 ID',
+        );
       } else {
+        // 对于其他类型，仅允许消费无 targetAccountId 限制的记录
         queryBuilder.andWhere('targetAccountId IS NULL');
       }
     }

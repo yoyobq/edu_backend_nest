@@ -186,6 +186,30 @@ export class VerificationRecordResolver {
         };
       }
 
+      // 对于 INVITE_MANAGER 类型，返回 Manager 相关信息
+      if (result && typeof result === 'object' && 'managerId' in result) {
+        return {
+          success: true,
+          data: {
+            id: result.recordId,
+            type: VerificationRecordType.INVITE_MANAGER,
+            status: VerificationRecordStatus.CONSUMED,
+            expiresAt: new Date(),
+            notBefore: null,
+            targetAccountId: result.accountId,
+            subjectType: SubjectType.MANAGER,
+            subjectId: result.managerId,
+            payload: null,
+            issuedByAccountId: null,
+            consumedByAccountId: result.accountId,
+            consumedAt: new Date(),
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          },
+          message: null,
+        };
+      }
+
       // 对于其他类型，返回通用成功消息
       return {
         success: true,
