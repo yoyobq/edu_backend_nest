@@ -1,5 +1,5 @@
 // src/cats/dto/cat.dto.ts
-import { Field, ID, ObjectType } from '@nestjs/graphql';
+import { Field, ObjectType } from '@nestjs/graphql';
 import { CatStatus } from '../entities/cat.entity';
 
 /**
@@ -8,7 +8,7 @@ import { CatStatus } from '../entities/cat.entity';
  */
 @ObjectType()
 export class CatObject {
-  @Field(() => ID, { description: 'Cat 的唯一标识符' })
+  @Field(() => Number, { description: 'Cat 的唯一标识符' })
   id!: number;
 
   @Field(() => String, { nullable: true, description: 'Cat 的名称' })

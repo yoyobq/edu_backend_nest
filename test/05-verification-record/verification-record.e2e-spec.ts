@@ -111,7 +111,7 @@ import { VerificationRecordEntity } from '@src/modules/verification-record/verif
 import { CreateAccountUsecase } from '@src/usecases/account/create-account.usecase';
 import { FindVerificationRecordUsecase } from '@src/usecases/verification-record/find-verification-record.usecase';
 // 引入统一账号系统
-import { cleanupTestAccounts, seedTestAccounts, testAccountsConfig } from '../utils/test-accounts';
+import { seedTestAccounts, testAccountsConfig } from '../utils/test-accounts';
 
 /**
  * 验证记录签发 E2E 测试
@@ -175,22 +175,10 @@ describe('验证记录签发 E2E 测试', () => {
   }, 60000);
 
   afterAll(async () => {
-    // 清理验证记录
-    await cleanupVerificationRecords();
-    // 使用统一账号系统清理测试数据
-    await cleanupTestAccounts(dataSource);
-    await app.close();
+    if (app) {
+      await app.close();
+    }
   });
-
-  /**
-   * 清理验证记录
-   */
-  async function cleanupVerificationRecords(): Promise<void> {
-    // 清理验证记录
-    const verificationRecordRepository = dataSource.getRepository(VerificationRecordEntity);
-    // 使用createQueryBuilder来删除所有记录，避免空条件错误
-    await verificationRecordRepository.createQueryBuilder().delete().execute();
-  }
 
   /**
    * 获取访问令牌

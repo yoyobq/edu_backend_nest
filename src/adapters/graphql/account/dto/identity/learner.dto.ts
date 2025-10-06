@@ -1,14 +1,14 @@
 // src/adapters/graphql/account/dto/identity/learner.dto.ts
 
 import { Gender } from '@app-types/models/user-info.types';
-import { Field, ID, ObjectType } from '@nestjs/graphql';
+import { Field, Int, ObjectType } from '@nestjs/graphql';
 
 /**
  * 学员身份信息 DTO
  */
 @ObjectType({ description: '学员身份信息' })
 export class LearnerType {
-  @Field(() => ID, { description: '学员 ID' })
+  @Field(() => Int, { description: '学员 ID' })
   id!: number;
 
   @Field(() => Number, { description: '关联的账户 ID', nullable: true })

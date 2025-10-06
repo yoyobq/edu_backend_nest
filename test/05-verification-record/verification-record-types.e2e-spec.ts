@@ -295,8 +295,9 @@ describe('验证记录类型测试 E2E', () => {
   });
 
   afterAll(async () => {
-    await cleanupTestAccounts(dataSource);
-    await app.close();
+    if (app) {
+      await app.close();
+    }
   });
 
   describe('EMAIL_VERIFY_CODE 类型', () => {

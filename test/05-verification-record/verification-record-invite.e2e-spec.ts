@@ -223,8 +223,9 @@ describe('验证记录邀请类型测试 E2E', () => {
   });
 
   afterAll(async () => {
-    await cleanupTestAccounts(dataSource);
-    await app.close();
+    if (app) {
+      await app.close();
+    }
   });
 
   describe('INVITE_COACH 类型', () => {

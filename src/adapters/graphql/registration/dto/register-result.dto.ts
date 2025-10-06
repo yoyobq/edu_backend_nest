@@ -1,6 +1,6 @@
 // src/adapters/graphql/registration/dto/register-result.dto.ts
 
-import { Field, ID, ObjectType } from '@nestjs/graphql';
+import { Field, Int, ObjectType } from '@nestjs/graphql';
 
 /**
  * 用户注册结果
@@ -13,6 +13,6 @@ export class RegisterResult {
   @Field(() => String, { description: '注册结果消息' })
   message!: string;
 
-  @Field(() => ID, { description: '创建的账户 ID', nullable: true })
+  @Field(() => Int, { description: '创建的账户 ID', nullable: true })
   accountId?: number;
 }

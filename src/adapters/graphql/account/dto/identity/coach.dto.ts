@@ -1,14 +1,14 @@
 // src/adapters/graphql/account/dto/identity/coach.dto.ts
 
 import { EmploymentStatus } from '@app-types/models/account.types';
-import { Field, ID, ObjectType } from '@nestjs/graphql';
+import { Field, Int, ObjectType } from '@nestjs/graphql';
 
 /**
  * 教练身份信息 DTO
  */
 @ObjectType({ description: '教练身份信息' })
 export class CoachType {
-  @Field(() => ID, { description: '教练 ID' })
+  @Field(() => Int, { description: '教练 ID' })
   id!: number;
 
   @Field(() => Number, { description: '关联的账户 ID' })

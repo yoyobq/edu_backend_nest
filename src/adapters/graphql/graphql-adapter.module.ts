@@ -5,6 +5,7 @@ import { CourseCatalogsModule } from '@modules/course-catalogs/course-catalogs.m
 import { RegisterModule } from '@modules/register/register.module';
 import { ThirdPartyAuthModule } from '@modules/third-party-auth/third-party-auth.module';
 import { VerificationRecordModule } from '@modules/verification-record/verification-record.module';
+
 import { Module } from '@nestjs/common';
 import { AccountInstallerModule } from '@src/modules/account/account-installer.module';
 

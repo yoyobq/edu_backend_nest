@@ -1,14 +1,14 @@
 // src/adapters/graphql/account/dto/identity/manager.dto.ts
 
 import { EmploymentStatus } from '@app-types/models/account.types';
-import { Field, ID, ObjectType } from '@nestjs/graphql';
+import { Field, Int, ObjectType } from '@nestjs/graphql';
 
 /**
  * 经理身份信息 DTO
  */
 @ObjectType({ description: '经理身份信息' })
 export class ManagerType {
-  @Field(() => ID, { description: '经理 ID' })
+  @Field(() => Int, { description: '经理 ID' })
   id!: number;
 
   @Field(() => Number, { description: '关联的账户 ID' })

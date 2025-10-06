@@ -1,6 +1,6 @@
 // src/adapters/graphql/third-party-auth/dto/third-party-auth.dto.ts
 import { ThirdPartyProviderEnum } from '@app-types/models/account.types';
-import { Field, ID, ObjectType } from '@nestjs/graphql';
+import { Field, Int, ObjectType } from '@nestjs/graphql';
 import '@src/adapters/graphql/third-party-auth/enums/third-party-provider.enum';
 
 /**
@@ -8,7 +8,7 @@ import '@src/adapters/graphql/third-party-auth/enums/third-party-provider.enum';
  */
 @ObjectType({ description: '第三方登录绑定信息输出类型' })
 export class ThirdPartyAuthDTO {
-  @Field(() => ID, { description: '主键' })
+  @Field(() => Int, { description: '主键' })
   id!: number;
 
   @Field({ description: '关联账号 ID' })

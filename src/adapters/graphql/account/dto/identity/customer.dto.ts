@@ -1,13 +1,13 @@
 // src/adapters/graphql/account/dto/identity/customer.dto.ts
 
-import { Field, ID, ObjectType } from '@nestjs/graphql';
+import { Field, Int, ObjectType } from '@nestjs/graphql';
 
 /**
  * 客户身份信息 DTO
  */
 @ObjectType({ description: '客户身份信息' })
 export class CustomerType {
-  @Field(() => ID, { description: '客户 ID' })
+  @Field(() => Int, { description: '客户 ID' })
   id!: number;
 
   @Field(() => Number, { description: '关联的账户 ID', nullable: true })

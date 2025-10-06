@@ -1,6 +1,6 @@
 // src/adapters/graphql/third-party-auth/dto/unbind-third-party.input.ts
 import { ThirdPartyProviderEnum } from '@app-types/models/account.types';
-import { Field, ID, InputType } from '@nestjs/graphql';
+import { Field, Int, InputType } from '@nestjs/graphql';
 import '@src/adapters/graphql/third-party-auth/enums/third-party-provider.enum';
 import { IsEnum, IsOptional, IsPositive } from 'class-validator';
 
@@ -9,7 +9,7 @@ import { IsEnum, IsOptional, IsPositive } from 'class-validator';
  */
 @InputType()
 export class UnbindThirdPartyInput {
-  @Field(() => ID, { nullable: true, description: '第三方登录绑定记录 ID' })
+  @Field(() => Int, { nullable: true, description: '第三方登录绑定记录 ID' })
   @IsOptional()
   @IsPositive()
   id?: number;
