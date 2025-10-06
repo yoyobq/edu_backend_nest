@@ -9,9 +9,9 @@ const ENABLED_SPECS = [
   // '02-register/register.e2e-spec.ts',
   // '03-roles-guard/roles-guard.e2e-spec.ts',
   // '04-course/course-catalogs.e2e-spec.ts',
-  '05-verification-record/verification-record.e2e-spec.ts',
+  // '05-verification-record/verification-record.e2e-spec.ts',
   // '05-verification-record/verification-record-types.e2e-spec.ts',
-  // '05-verification-record/verification-record-invite.e2e-spec.ts',
+  '05-verification-record/verification-record-invite.e2e-spec.ts',
 ];
 
 /** 可选：命令行临时指定（逗号分隔）

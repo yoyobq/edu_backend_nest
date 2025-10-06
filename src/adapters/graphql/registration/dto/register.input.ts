@@ -63,4 +63,9 @@ export class RegisterInput {
   })
   @IsEnum(RegisterTypeEnum, { message: '注册类型无效' })
   type: RegisterTypeEnum = RegisterTypeEnum.REGISTRANT;
+
+  @Field(() => String, { description: '邀请令牌', nullable: true })
+  @IsOptional()
+  @IsString({ message: '邀请令牌必须是字符串' })
+  inviteToken?: string;
 }

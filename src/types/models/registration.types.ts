@@ -8,6 +8,7 @@ export interface RegisterWithEmailParams {
   loginEmail: string;
   loginPassword: string;
   nickname?: string;
+  inviteToken?: string;
   request?: {
     headers: Record<string, string | string[] | undefined>;
     ip?: string;

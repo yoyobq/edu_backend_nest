@@ -45,6 +45,7 @@ export class RegistrationResolver {
       loginEmail: input.loginEmail,
       loginPassword: input.loginPassword,
       nickname: input.nickname,
+      inviteToken: input.inviteToken,
       request: safeRequest,
     });
 

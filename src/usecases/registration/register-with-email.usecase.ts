@@ -1,6 +1,7 @@
 // src/usecases/registration/register-with-email.usecase.ts
 
 import { AccountStatus, IdentityTypeEnum } from '@app-types/models/account.types';
+import { VerificationRecordType } from '@app-types/models/verification-record.types';
 import { ACCOUNT_ERROR, DomainError } from '@core/common/errors';
 import {
   getRealClientIp,
@@ -15,6 +16,7 @@ import {
   RegisterWithEmailResult,
 } from '@src/types/models/registration.types';
 import { CreateAccountUsecase } from '@usecases/account/create-account.usecase';
+import { ConsumeVerificationFlowUsecase } from '@usecases/verification/consume-verification-flow.usecase';
 import { PinoLogger } from 'nestjs-pino';
 
 /**
@@ -26,6 +28,7 @@ export class RegisterWithEmailUsecase {
   constructor(
     private readonly accountService: AccountService,
     private readonly createAccountUsecase: CreateAccountUsecase,
+    private readonly consumeVerificationFlowUsecase: ConsumeVerificationFlowUsecase,
     private readonly logger: PinoLogger,
   ) {
     this.logger.setContext(RegisterWithEmailUsecase.name);
@@ -37,7 +40,7 @@ export class RegisterWithEmailUsecase {
    * @returns 注册结果
    */
   async execute(params: RegisterWithEmailParams): Promise<RegisterWithEmailResult> {
-    const { loginName, loginEmail, loginPassword, nickname, request } = params;
+    const { loginName, loginEmail, loginPassword, nickname, inviteToken, request } = params;
 
     try {
       // 获取真实客户端 IP
@@ -62,6 +65,23 @@ export class RegisterWithEmailUsecase {
 
       // 创建账户
       const account = await this.createAccount(preparedData);
+
+      // 如果提供了邀请令牌，尝试消费邀请码
+      if (inviteToken) {
+        try {
+          await this.consumeVerificationFlowUsecase.execute({
+            token: inviteToken,
+            expectedType: VerificationRecordType.INVITE_COACH,
+            consumedByAccountId: account.id,
+          });
+          this.logger.info(`用户 ${account.id} 注册成功并消费邀请码: ${inviteToken}`);
+        } catch (error) {
+          // 邀请码消费失败不影响注册成功，只记录日志
+          this.logger.warn(
+            `用户 ${account.id} 注册成功，但邀请码消费失败: ${error instanceof Error ? error.message : '未知错误'}`,
+          );
+        }
+      }
 
       this.logger.info(
         `用户注册成功: ${account.id}，注册时 IP 为：${clientIp.replace(/^::ffff:/, '').trim()}`,
