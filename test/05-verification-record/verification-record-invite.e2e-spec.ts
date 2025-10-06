@@ -554,9 +554,142 @@ describe('验证记录邀请类型测试 E2E', () => {
         await coachRepository.remove(coach);
       }
     });
+
+    it('应该验证匿名用户消费安全性：未登录用户不能消费验证记录', async () => {
+      const payload = {
+        title: '匿名消费安全测试',
+        inviteUrl: 'https://example.com/invite-coach-anonymous',
+        email: 'coach-anonymous@example.com',
+        coachName: '匿名测试教练',
+      };
+
+      // 1. 创建验证记录
+      const createResponse = await createVerificationRecord(
+        app,
+        'INVITE_COACH',
+        payload,
+        managerAccessToken,
+        {
+          targetAccountId: learnerAccountId,
+          subjectType: 'COACH',
+          subjectId: 1,
+        },
+      );
+
+      expect(createResponse.body.data.createVerificationRecord.success).toBe(true);
+      const token = createResponse.body.data.createVerificationRecord.token;
+
+      // 2. 尝试匿名消费（不提供 Bearer token）
+      const anonymousConsumeResponse = await request(app.getHttpServer() as App)
+        .post('/graphql')
+        .send({
+          query: `
+            mutation ConsumeVerificationRecord($input: ConsumeVerificationRecordInput!) {
+              consumeVerificationRecord(input: $input) {
+                success
+                message
+                data {
+                  id
+                  status
+                }
+              }
+            }
+          `,
+          variables: {
+            input: {
+              token,
+              expectedType: 'INVITE_COACH',
+            },
+          },
+        });
+
+      console.log('匿名消费响应:', JSON.stringify(anonymousConsumeResponse.body, null, 2));
+
+      // 3. 验证匿名消费应该失败
+      expect(anonymousConsumeResponse.status).toBe(200);
+      if (anonymousConsumeResponse.body.errors) {
+        // 如果有 GraphQL 错误，应该是认证相关的错误
+        expect(anonymousConsumeResponse.body.errors[0].extensions.errorCode).toMatch(
+          /UNAUTHENTICATED|UNAUTHORIZED|AUTHENTICATION_REQUIRED|JWT_AUTHENTICATION_FAILED/,
+        );
+      } else {
+        // 如果没有 GraphQL 错误，业务逻辑应该返回失败
+        expect(anonymousConsumeResponse.body.data.consumeVerificationRecord.success).toBe(false);
+      }
+
+      // 4. 验证数据库中没有创建 Coach 记录
+      const coachRepository = dataSource.getRepository(CoachEntity);
+      const coachAfterAnonymousConsume = await coachRepository.findOne({
+        where: { accountId: learnerAccountId },
+      });
+      expect(coachAfterAnonymousConsume).toBeNull();
+    });
+
+    it('应该验证错误用户消费安全性：非目标用户不能消费验证记录', async () => {
+      const payload = {
+        title: '错误用户消费安全测试',
+        inviteUrl: 'https://example.com/invite-coach-wrong-user',
+        email: 'coach-wrong-user@example.com',
+        coachName: '错误用户测试教练',
+      };
+
+      // 1. 创建针对 learnerAccountId 的验证记录
+      const createResponse = await createVerificationRecord(
+        app,
+        'INVITE_COACH',
+        payload,
+        managerAccessToken,
+        {
+          targetAccountId: learnerAccountId,
+          subjectType: 'COACH',
+          subjectId: 1,
+        },
+      );
+
+      expect(createResponse.body.data.createVerificationRecord.success).toBe(true);
+      const token = createResponse.body.data.createVerificationRecord.token;
+
+      // 2. 尝试用 Manager 账号消费（而不是目标 Learner 账号）
+      const wrongUserConsumeResponse = await consumeVerificationRecord(
+        app,
+        token,
+        managerAccessToken, // 使用错误的用户 token
+        'INVITE_COACH',
+      );
+
+      console.log('错误用户消费响应:', JSON.stringify(wrongUserConsumeResponse.body, null, 2));
+
+      // 3. 验证错误用户消费应该失败
+      expect(wrongUserConsumeResponse.body.data.consumeVerificationRecord.success).toBe(false);
+
+      // 检查错误信息
+      if (wrongUserConsumeResponse.body.data.consumeVerificationRecord.message) {
+        expect(wrongUserConsumeResponse.body.data.consumeVerificationRecord.message).toMatch(
+          /权限|授权|目标|用户/,
+        );
+      }
+
+      // 4. 验证数据库中没有创建 Coach 记录
+      const coachRepository = dataSource.getRepository(CoachEntity);
+      const coachAfterWrongUserConsume = await coachRepository.findOne({
+        where: { accountId: learnerAccountId },
+      });
+      expect(coachAfterWrongUserConsume).toBeNull();
+    });
   });
 
   describe('INVITE_MANAGER 类型', () => {
+    beforeEach(async () => {
+      // 每个测试开始前清理 Manager 数据
+      const managerRepository = dataSource.getRepository(ManagerEntity);
+      const existingManager = await managerRepository.findOne({
+        where: { accountId: learnerAccountId },
+      });
+      if (existingManager) {
+        await managerRepository.remove(existingManager);
+      }
+    });
+
     it('应该成功创建邀请管理员类型的验证记录', async () => {
       const payload = {
         title: '邀请管理员',
@@ -639,6 +772,87 @@ describe('验证记录邀请类型测试 E2E', () => {
       expect(consumeResponse.body.data.consumeVerificationRecord.success).toBe(true);
       expect(consumeResponse.body.data.consumeVerificationRecord.data.status).toBe('CONSUMED');
 
+      // 验证事务一致性：所有操作都应该成功完成
+      const managerRepository = dataSource.getRepository(ManagerEntity);
+
+      // 验证 Manager 身份已创建
+      const managerAfterConsume = await managerRepository.findOne({
+        where: { accountId: learnerAccountId },
+      });
+      console.log('消费后 Manager 状态:', managerAfterConsume);
+      console.log('查询的 learnerAccountId:', learnerAccountId);
+      console.log(
+        '消费响应中的 success:',
+        consumeResponse.body.data.consumeVerificationRecord.success,
+      );
+      console.log('消费响应中的 errors:', consumeResponse.body.errors);
+
+      expect(managerAfterConsume).toBeDefined();
+      expect(managerAfterConsume).not.toBeNull();
+      expect(managerAfterConsume?.deactivatedAt).toBeNull();
+
+      console.log('消费后 Manager 状态:', managerAfterConsume);
+
+      // 清理测试数据
+      if (managerAfterConsume) {
+        await managerRepository.remove(managerAfterConsume);
+      }
+    });
+
+    it('应该验证幂等性：重复消费同一个 token 应该失败', async () => {
+      const payload = {
+        title: '幂等性测试',
+        inviteUrl: 'https://example.com/invite-manager-idempotent',
+        email: 'manager-idempotent@example.com',
+        managerName: '幂等性测试管理员',
+      };
+
+      // 1. 创建验证记录
+      const createResponse = await createVerificationRecord(
+        app,
+        'INVITE_MANAGER',
+        payload,
+        managerAccessToken,
+        {
+          targetAccountId: learnerAccountId,
+          subjectType: 'MANAGER',
+          subjectId: 1,
+        },
+      );
+
+      expect(createResponse.body.data.createVerificationRecord.success).toBe(true);
+      const token = createResponse.body.data.createVerificationRecord.token;
+
+      // 2. 第一次消费应该成功
+      const firstConsumeResponse = await consumeVerificationRecord(
+        app,
+        token,
+        learnerAccessToken,
+        'INVITE_MANAGER',
+      );
+      expect(firstConsumeResponse.body.data.consumeVerificationRecord.success).toBe(true);
+
+      // 3. 第二次消费同一个 token 应该失败
+      const secondConsumeResponse = await consumeVerificationRecord(
+        app,
+        token,
+        learnerAccessToken,
+        'INVITE_MANAGER',
+      );
+      expect(secondConsumeResponse.body.data.consumeVerificationRecord.success).toBe(false);
+
+      // 检查错误信息是否存在
+      if (secondConsumeResponse.body.data.consumeVerificationRecord.message) {
+        expect(secondConsumeResponse.body.data.consumeVerificationRecord.message).toContain(
+          '已被使用或已失效',
+        );
+      }
+
+      console.log(
+        '重复消费错误信息:',
+        secondConsumeResponse.body.data.consumeVerificationRecord.message,
+      );
+
       // 清理测试数据
       const managerRepository = dataSource.getRepository(ManagerEntity);
       const managerAfterTest = await managerRepository.findOne({
@@ -647,6 +861,71 @@ describe('验证记录邀请类型测试 E2E', () => {
       if (managerAfterTest) {
         await managerRepository.remove(managerAfterTest);
       }
+    });
+
+    it('应该验证已存在 Manager 身份的处理：重新激活而不是重复创建', async () => {
+      const managerRepository = dataSource.getRepository(ManagerEntity);
+
+      // 1. 先创建一个已停用的 Manager 身份
+      const existingManager = managerRepository.create({
+        accountId: learnerAccountId,
+        name: '已存在的管理员',
+        deactivatedAt: new Date(), // 设置为已停用
+        remark: '测试用已停用管理员',
+        createdBy: null,
+        updatedBy: null,
+      });
+      await managerRepository.save(existingManager);
+
+      const payload = {
+        title: '重新激活测试',
+        inviteUrl: 'https://example.com/invite-manager-reactivate',
+        email: 'manager-reactivate@example.com',
+        managerName: '重新激活的管理员',
+        description: '重新激活的管理员描述',
+      };
+
+      // 2. 创建验证记录
+      const createResponse = await createVerificationRecord(
+        app,
+        'INVITE_MANAGER',
+        payload,
+        managerAccessToken,
+        {
+          targetAccountId: learnerAccountId,
+          subjectType: 'MANAGER',
+          subjectId: 1,
+        },
+      );
+
+      expect(createResponse.body.data.createVerificationRecord.success).toBe(true);
+      const token = createResponse.body.data.createVerificationRecord.token;
+
+      // 3. 消费验证记录
+      const consumeResponse = await consumeVerificationRecord(
+        app,
+        token,
+        learnerAccessToken,
+        'INVITE_MANAGER',
+      );
+      expect(consumeResponse.body.data.consumeVerificationRecord.success).toBe(true);
+
+      // 4. 验证 Manager 身份被重新激活而不是重复创建
+      const managerAfterReactivate = await managerRepository.findOne({
+        where: { accountId: learnerAccountId },
+      });
+
+      expect(managerAfterReactivate).toBeDefined();
+      expect(managerAfterReactivate?.id).toBe(existingManager.id); // 应该是同一个实体
+      expect(managerAfterReactivate?.deactivatedAt).toBeNull(); // 应该被重新激活
+      expect(managerAfterReactivate?.name).toBe('已存在的管理员'); // 名称不应该被更新
+
+      console.log('重新激活前 Manager ID:', existingManager.id);
+      console.log('重新激活后 Manager ID:', managerAfterReactivate?.id);
+      console.log('重新激活后状态:', managerAfterReactivate?.deactivatedAt);
+
+      // 5. 清理测试数据
+      await managerRepository.remove(managerAfterReactivate!);
     });
 
     it('应该验证并发消费的原子性：多个并发请求只有一个成功', async () => {
@@ -717,6 +996,128 @@ describe('验证记录邀请类型测试 E2E', () => {
       if (manager) {
         await managerRepository.remove(manager);
       }
+    });
+
+    it('应该验证匿名用户消费安全性：未登录用户不能消费验证记录', async () => {
+      const payload = {
+        title: '匿名消费安全测试',
+        inviteUrl: 'https://example.com/invite-manager-anonymous',
+        email: 'manager-anonymous@example.com',
+        managerName: '匿名测试管理员',
+      };
+
+      // 1. 创建验证记录
+      const createResponse = await createVerificationRecord(
+        app,
+        'INVITE_MANAGER',
+        payload,
+        managerAccessToken,
+        {
+          targetAccountId: learnerAccountId,
+          subjectType: 'MANAGER',
+          subjectId: 1,
+        },
+      );
+
+      expect(createResponse.body.data.createVerificationRecord.success).toBe(true);
+      const token = createResponse.body.data.createVerificationRecord.token;
+
+      // 2. 尝试匿名消费（不提供 Bearer token）
+      const anonymousConsumeResponse = await request(app.getHttpServer() as App)
+        .post('/graphql')
+        .send({
+          query: `
+            mutation ConsumeVerificationRecord($input: ConsumeVerificationRecordInput!) {
+              consumeVerificationRecord(input: $input) {
+                success
+                message
+                data {
+                  id
+                  status
+                }
+              }
+            }
+          `,
+          variables: {
+            input: {
+              token,
+              expectedType: 'INVITE_MANAGER',
+            },
+          },
+        });
+
+      console.log('匿名消费响应:', JSON.stringify(anonymousConsumeResponse.body, null, 2));
+
+      // 3. 验证匿名消费应该失败
+      expect(anonymousConsumeResponse.status).toBe(200);
+      if (anonymousConsumeResponse.body.errors) {
+        // 如果有 GraphQL 错误，应该是认证相关的错误
+        expect(anonymousConsumeResponse.body.errors[0].extensions.errorCode).toMatch(
+          /UNAUTHENTICATED|UNAUTHORIZED|AUTHENTICATION_REQUIRED|JWT_AUTHENTICATION_FAILED/,
+        );
+      } else {
+        // 如果没有 GraphQL 错误，业务逻辑应该返回失败
+        expect(anonymousConsumeResponse.body.data.consumeVerificationRecord.success).toBe(false);
+      }
+
+      // 4. 验证数据库中没有创建 Manager 记录
+      const managerRepository = dataSource.getRepository(ManagerEntity);
+      const managerAfterAnonymousConsume = await managerRepository.findOne({
+        where: { accountId: learnerAccountId },
+      });
+      expect(managerAfterAnonymousConsume).toBeNull();
+    });
+
+    it('应该验证错误用户消费安全性：非目标用户不能消费验证记录', async () => {
+      const payload = {
+        title: '错误用户消费安全测试',
+        inviteUrl: 'https://example.com/invite-manager-wrong-user',
+        email: 'manager-wrong-user@example.com',
+        managerName: '错误用户测试管理员',
+      };
+
+      // 1. 创建针对 learnerAccountId 的验证记录
+      const createResponse = await createVerificationRecord(
+        app,
+        'INVITE_MANAGER',
+        payload,
+        managerAccessToken,
+        {
+          targetAccountId: learnerAccountId,
+          subjectType: 'MANAGER',
+          subjectId: 1,
+        },
+      );
+
+      expect(createResponse.body.data.createVerificationRecord.success).toBe(true);
+      const token = createResponse.body.data.createVerificationRecord.token;
+
+      // 2. 尝试用 Manager 账号消费（而不是目标 Learner 账号）
+      const wrongUserConsumeResponse = await consumeVerificationRecord(
+        app,
+        token,
+        managerAccessToken, // 使用错误的用户 token
+        'INVITE_MANAGER',
+      );
+
+      console.log('错误用户消费响应:', JSON.stringify(wrongUserConsumeResponse.body, null, 2));
+
+      // 3. 验证错误用户消费应该失败
+      expect(wrongUserConsumeResponse.body.data.consumeVerificationRecord.success).toBe(false);
+
+      // 检查错误信息
+      if (wrongUserConsumeResponse.body.data.consumeVerificationRecord.message) {
+        expect(wrongUserConsumeResponse.body.data.consumeVerificationRecord.message).toMatch(
+          /权限|授权|目标|用户/,
+        );
+      }
+
+      // 4. 验证数据库中没有创建 Manager 记录
+      const managerRepository = dataSource.getRepository(ManagerEntity);
+      const managerAfterWrongUserConsume = await managerRepository.findOne({
+        where: { accountId: learnerAccountId },
+      });
+      expect(managerAfterWrongUserConsume).toBeNull();
     });
   });
 
