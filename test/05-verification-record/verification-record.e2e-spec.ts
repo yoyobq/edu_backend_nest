@@ -262,15 +262,17 @@ describe('验证记录签发 E2E 测试', () => {
           `,
           variables: {
             input: {
-              type: 'EMAIL_VERIFY_CODE', // 使用正确的枚举值
+              type: 'INVITE_COACH', // 使用 INVITE_COACH 类型
               token: `test-token-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`, // 生成唯一 token
               targetAccountId: learnerEntities[0].accountId,
               subjectType: 'LEARNER',
               subjectId: learnerEntities[0].id,
               payload: {
-                title: '邮箱验证码',
-                issuer: '测试培训机构',
-                description: '用于验证邮箱地址的验证码',
+                coachName: '测试教练',
+                coachLevel: 1,
+                description: '测试用教练邀请',
+                specialty: '篮球',
+                remark: '通过 E2E 测试创建的教练邀请',
               },
               expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // 24小时后过期
             },
@@ -298,7 +300,7 @@ describe('验证记录签发 E2E 测试', () => {
       expect(result.data).toBeDefined();
       expect(result.data.id).toBeDefined();
       expect(result.data.targetAccountId).toBe(learnerEntities[0].accountId);
-      expect(result.data.type).toBe('EMAIL_VERIFY_CODE');
+      expect(result.data.type).toBe('INVITE_COACH');
       expect(result.data.status).toBe('ACTIVE');
 
       // 验证数据库中的验证记录
@@ -338,12 +340,12 @@ describe('验证记录签发 E2E 测试', () => {
           `,
           variables: {
             input: {
-              type: 'EMAIL_VERIFY_CODE',
+              type: 'INVITE_COACH',
               targetAccountId: 999999,
               subjectType: 'LEARNER',
               payload: {
-                title: '测试证书',
-                issuer: '测试机构',
+                coachName: '测试教练',
+                description: '测试用教练邀请',
               },
             },
           },
@@ -375,7 +377,7 @@ describe('验证记录签发 E2E 测试', () => {
   });
 
   describe('批量验证码签发', () => {
-    it('应该成功为多个学员批量签发邮箱验证码', async () => {
+    it('应该成功为多个学员批量签发教练邀请', async () => {
       const targets = learnerAccountIds.map((accountId, index) => ({
         targetAccountId: accountId,
         subjectType: 'LEARNER',
@@ -409,16 +411,17 @@ describe('验证记录签发 E2E 测试', () => {
            `,
             variables: {
               input: {
-                type: 'EMAIL_VERIFY_CODE',
+                type: 'INVITE_COACH',
                 token: `batch-token-${target.targetAccountId}-${Date.now()}`,
                 targetAccountId: target.targetAccountId,
                 subjectType: target.subjectType,
                 subjectId: target.subjectId,
                 payload: {
-                  title: '邮箱验证码',
-                  description: '用于验证邮箱地址的验证码',
-                  issuer: '测试培训机构',
-                  verificationCode: Math.floor(100000 + Math.random() * 900000).toString(),
+                  coachName: `批量邀请教练-${target.targetAccountId}`,
+                  coachLevel: 1,
+                  description: '批量创建的教练邀请',
+                  specialty: '综合训练',
+                  remark: `为学员 ${target.targetAccountId} 创建的教练邀请`,
                 },
                 expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
               },
@@ -443,14 +446,14 @@ describe('验证记录签发 E2E 测试', () => {
       expect(results).toHaveLength(learnerAccountIds.length);
       for (const record of results) {
         expect(parseInt(record.id)).toBeGreaterThan(0);
-        expect(record.type).toBe('EMAIL_VERIFY_CODE');
+        expect(record.type).toBe('INVITE_COACH');
         expect(record.status).toBe('ACTIVE');
         expect(learnerAccountIds).toContain(record.targetAccountId);
 
         const payload = record.payload;
-        expect(payload.title).toBe('邮箱验证码');
-        expect(payload.issuer).toBe('测试培训机构');
-        expect(payload.verificationCode).toBeDefined();
+        expect(payload.coachName).toBeDefined();
+        expect(payload.description).toBe('批量创建的教练邀请');
+        expect(payload.specialty).toBe('综合训练');
       }
 
       // 验证数据库中的验证记录
@@ -462,7 +465,7 @@ describe('验证记录签发 E2E 测试', () => {
       // 查找当前批次的记录
       const batchRecords = await verificationRecordRepository.find({
         where: {
-          type: 'EMAIL_VERIFY_CODE' as any,
+          type: 'INVITE_COACH' as any,
           id: In(currentBatchIds),
         },
       });
@@ -512,14 +515,15 @@ describe('验证记录签发 E2E 测试', () => {
           `,
           variables: {
             input: {
-              type: 'EMAIL_VERIFY_CODE',
+              type: 'INVITE_COACH',
               token: `skill-cert-${targets[0].targetAccountId}-${Date.now()}`,
               targetAccountId: targets[0].targetAccountId,
               subjectType: targets[0].subjectType,
               subjectId: targets[0].subjectId,
               payload: {
-                title: '技能认证证书',
-                issuer: '测试认证机构',
+                coachName: '技能认证教练',
+                description: '技能认证相关的教练邀请',
+                specialty: '技能认证',
               },
               expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
             },
@@ -549,7 +553,7 @@ describe('验证记录签发 E2E 测试', () => {
     });
   });
 
-  describe('验证码验证和消费', () => {
+  describe('教练邀请验证和消费', () => {
     let testToken: string;
     let testRecordId: number;
 
@@ -585,14 +589,15 @@ describe('验证记录签发 E2E 测试', () => {
           `,
           variables: {
             input: {
-              type: 'EMAIL_VERIFY_CODE',
+              type: 'INVITE_COACH',
               token: testToken,
               targetAccountId: learnerAccountIds[0],
               subjectType: 'LEARNER',
               subjectId: learnerEntities[0].id,
               payload: {
-                title: '成就徽章',
-                issuer: '测试机构',
+                coachName: '成就徽章教练',
+                description: '成就徽章相关的教练邀请',
+                specialty: '成就认证',
               },
               expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // 24小时后过期
             },
@@ -613,7 +618,7 @@ describe('验证记录签发 E2E 测试', () => {
       testRecordId = response.body.data.createVerificationRecord.data.id;
     });
 
-    it('应该能够验证有效的验证码', async () => {
+    it('应该能够验证有效的教练邀请', async () => {
       // 使用容错辅助函数，自动尝试不同签名
       const response = await tryFindVerificationRecord(app, testToken);
 
@@ -631,7 +636,7 @@ describe('验证记录签发 E2E 测试', () => {
       }
     });
 
-    it('应该能够消费验证码', async () => {
+    it('应该能够消费教练邀请', async () => {
       const learnerAccessToken = await getAccessToken(
         testAccountsConfig.learner.loginName,
         testAccountsConfig.learner.loginPassword,
@@ -666,7 +671,7 @@ describe('验证记录签发 E2E 测试', () => {
       }
     });
 
-    it('应该拒绝重复消费已使用的验证码', async () => {
+    it('应该拒绝重复消费已使用的教练邀请', async () => {
       const learnerAccessToken = await getAccessToken(
         testAccountsConfig.learner.loginName,
         testAccountsConfig.learner.loginPassword,
@@ -685,7 +690,7 @@ describe('验证记录签发 E2E 测试', () => {
 
         expect(response.body.data.consumeVerificationRecord.success).toBe(false);
         expect(response.body.data.consumeVerificationRecord.message).toContain(
-          '验证码已被使用或已失效',
+          '验证记录不存在或已失效',
         );
       } else {
         // 如果消费操作不存在，跳过此测试
@@ -738,16 +743,16 @@ describe('验证记录签发 E2E 测试', () => {
           `,
           variables: {
             input: {
-              type: 'EMAIL_VERIFY_CODE',
+              type: 'INVITE_COACH',
               // 不传 token，让服务端自动生成
               returnToken: true,
               targetAccountId: learnerAccountIds[0],
               subjectType: 'LEARNER',
               subjectId: learnerEntities[0].id,
               payload: {
-                title: '自动生成 token 测试',
-                issuer: '测试培训机构',
+                coachName: '自动生成 token 测试教练',
                 description: '测试服务端自动生成 token 功能',
+                specialty: '测试专业',
               },
               expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
             },
@@ -814,16 +819,16 @@ describe('验证记录签发 E2E 测试', () => {
           `,
           variables: {
             input: {
-              type: 'EMAIL_VERIFY_CODE',
+              type: 'INVITE_COACH',
               // 不传 token，让服务端自动生成
               returnToken: true,
               targetAccountId: learnerAccountIds[0],
               subjectType: 'LEARNER',
               subjectId: learnerEntities[0].id,
               payload: {
-                title: '自动生成 token 测试 - learner',
-                issuer: '测试培训机构',
+                coachName: '自动生成 token 测试教练 - learner',
                 description: '测试 learner 角色不能回显 token',
+                specialty: '测试专业',
               },
               expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
             },
@@ -883,16 +888,16 @@ describe('验证记录签发 E2E 测试', () => {
           `,
           variables: {
             input: {
-              type: 'EMAIL_VERIFY_CODE',
+              type: 'INVITE_COACH',
               token: customToken, // 传入自定义 token
               returnToken: true, // 即使要求回显
               targetAccountId: learnerAccountIds[0],
               subjectType: 'LEARNER',
               subjectId: learnerEntities[0].id,
               payload: {
-                title: '自定义 token 测试',
-                issuer: '测试培训机构',
+                coachName: '自定义 token 测试教练',
                 description: '测试自定义 token 不回显',
+                specialty: '测试专业',
               },
               expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
             },
@@ -953,15 +958,15 @@ describe('验证记录签发 E2E 测试', () => {
           `,
           variables: {
             input: {
-              type: 'EMAIL_VERIFY_CODE',
+              type: 'INVITE_COACH',
               token: duplicateToken,
               targetAccountId: learnerAccountIds[0],
               subjectType: 'LEARNER',
               subjectId: learnerEntities[0].id,
               payload: {
-                title: 'Token 冲突测试 - 第一次',
-                issuer: '测试培训机构',
+                coachName: 'Token 冲突测试教练 - 第一次',
                 description: '测试 token 冲突处理',
+                specialty: '测试专业',
               },
               expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
             },
@@ -1007,15 +1012,15 @@ describe('验证记录签发 E2E 测试', () => {
           `,
           variables: {
             input: {
-              type: 'EMAIL_VERIFY_CODE',
+              type: 'INVITE_COACH',
               token: duplicateToken, // 使用相同的 token
               targetAccountId: learnerAccountIds[0],
               subjectType: 'LEARNER',
               subjectId: learnerEntities[0].id,
               payload: {
-                title: 'Token 冲突测试 - 第二次',
-                issuer: '测试培训机构',
+                coachName: 'Token 冲突测试教练 - 第二次',
                 description: '测试 token 冲突处理',
+                specialty: '测试专业',
               },
               expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
             },
@@ -1061,15 +1066,15 @@ describe('验证记录签发 E2E 测试', () => {
           `,
           variables: {
             input: {
-              type: 'EMAIL_VERIFY_CODE',
+              type: 'INVITE_COACH',
               token: testToken,
               targetAccountId: learnerAccountIds[0],
               subjectType: 'LEARNER',
               subjectId: learnerEntities[0].id,
               payload: {
-                title: '公开查询测试记录',
-                issuer: '测试培训机构',
+                coachName: '公开查询测试教练',
                 description: '用于测试公开查询的 Target 限制',
+                specialty: '测试专业',
               },
               expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
             },
@@ -1155,7 +1160,7 @@ describe('验证记录签发 E2E 测试', () => {
       // 应该能查到记录
       expect(result).not.toBeNull();
       expect(result.id).toBeDefined();
-      expect(result.type).toBe('EMAIL_VERIFY_CODE');
+      expect(result.type).toBe('INVITE_COACH');
       expect(result.status).toBe('ACTIVE');
       expect(result.expiresAt).toBeDefined();
       expect(result.subjectType).toBe('LEARNER');
@@ -1244,10 +1249,10 @@ describe('验证记录签发 E2E 测试', () => {
         `,
         {
           input: {
-            type: 'EMAIL_VERIFY_CODE',
+            type: 'INVITE_COACH',
             payload: {
-              title: '目标账号测试',
-              verificationCode: '123456',
+              coachName: '目标账号测试教练',
+              description: '目标账号测试',
             },
             expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
             targetAccountId: learnerAccountIds[0],
@@ -1261,7 +1266,7 @@ describe('验证记录签发 E2E 测试', () => {
       targetRecordToken = targetResponse.body.data.createVerificationRecord.token;
       targetRecordId = parseInt(targetResponse.body.data.createVerificationRecord.data.id);
 
-      // 创建类型不匹配测试记录（EMAIL_VERIFY_CODE）
+      // 创建类型不匹配测试记录（INVITE_COACH）
       const typeResponse = await postGql(
         app,
         `
@@ -1280,10 +1285,10 @@ describe('验证记录签发 E2E 测试', () => {
         `,
         {
           input: {
-            type: 'EMAIL_VERIFY_CODE',
+            type: 'INVITE_COACH',
             payload: {
-              title: '类型测试',
-              verificationCode: '654321',
+              coachName: '类型测试教练',
+              description: '类型测试',
             },
             expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
             returnToken: true,
@@ -1393,10 +1398,10 @@ describe('验证记录签发 E2E 测试', () => {
         `,
         {
           input: {
-            type: 'EMAIL_VERIFY_CODE',
+            type: 'INVITE_COACH',
             payload: {
-              title: '重复消费测试',
-              verificationCode: '333333',
+              coachName: '重复消费测试教练',
+              description: '重复消费测试',
             },
             expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
             returnToken: true,
@@ -1454,7 +1459,7 @@ describe('验证记录签发 E2E 测试', () => {
     });
 
     it('应该在 expectedType 不匹配时拒绝消费', async () => {
-      // 创建的是 EMAIL_VERIFY_CODE，但消费时传 SMS_VERIFY_CODE
+      // 创建的是 INVITE_COACH，但消费时传 SMS_VERIFY_CODE
       const response = await postGql(
         app,
         `
@@ -1543,10 +1548,12 @@ describe('验证记录签发 E2E 测试', () => {
         `,
         {
           input: {
-            type: 'SMS_VERIFY_CODE',
+            type: 'INVITE_COACH',
+            targetAccountId: 2, // learner 账户
             payload: {
-              title: '宽限期测试',
-              verificationCode: '444444',
+              coachName: '宽限期测试教练',
+              specialty: '宽限期测试',
+              description: '用于测试宽限期功能的教练邀请',
             },
             expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // 先设置为24小时后过期
             returnToken: true,
@@ -1610,7 +1617,7 @@ describe('验证记录签发 E2E 测试', () => {
       }
 
       expect(response.body.data.consumeVerificationRecord.success).toBe(false);
-      expect(response.body.data.consumeVerificationRecord.message).toContain('尚未到使用时间');
+      expect(response.body.data.consumeVerificationRecord.message).toContain('验证记录尚未生效');
 
       // 验证数据库中记录状态仍为 ACTIVE
       const record = await dataSource.getRepository(VerificationRecordEntity).findOne({
@@ -1651,7 +1658,7 @@ describe('验证记录签发 E2E 测试', () => {
       );
       expect(secondResponse.body.data.consumeVerificationRecord.success).toBe(false);
       expect(secondResponse.body.data.consumeVerificationRecord.message).toContain(
-        '已被使用或已失效',
+        '验证记录不存在或已失效',
       );
 
       // 验证数据库中记录状态保持 CONSUMED
@@ -1753,12 +1760,12 @@ describe('验证记录签发 E2E 测试', () => {
           `,
           variables: {
             input: {
-              type: 'EMAIL_VERIFY_CODE',
+              type: 'INVITE_COACH',
               subjectType: 'LEARNER',
               subjectId: advLearnerEntities[0].id,
               payload: {
-                title: '并发消费测试',
-                issuer: '测试机构',
+                coachName: '并发消费测试教练',
+                description: '并发消费测试',
               },
               expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
               returnToken: true,
@@ -1791,12 +1798,12 @@ describe('验证记录签发 E2E 测试', () => {
           `,
           variables: {
             input: {
-              type: 'EMAIL_VERIFY_CODE',
+              type: 'INVITE_COACH',
               subjectType: 'LEARNER',
               subjectId: advLearnerEntities[0].id,
               payload: {
-                title: '撤销测试',
-                issuer: '测试机构',
+                coachName: '撤销测试教练',
+                description: '撤销测试',
               },
               expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
               returnToken: true,
@@ -1827,12 +1834,12 @@ describe('验证记录签发 E2E 测试', () => {
           `,
           variables: {
             input: {
-              type: 'EMAIL_VERIFY_CODE',
+              type: 'INVITE_COACH',
               subjectType: 'LEARNER',
               subjectId: advLearnerEntities[0].id,
               payload: {
-                title: '类型过滤测试',
-                issuer: '测试机构',
+                coachName: '类型过滤测试教练',
+                description: '类型过滤测试',
               },
               expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
               returnToken: true,
@@ -1862,13 +1869,13 @@ describe('验证记录签发 E2E 测试', () => {
           `,
           variables: {
             input: {
-              type: 'EMAIL_VERIFY_CODE',
+              type: 'INVITE_COACH',
               targetAccountId: advLearnerEntities[0].accountId,
               subjectType: 'LEARNER',
               subjectId: advLearnerEntities[0].id,
               payload: {
-                title: 'forAccountId 测试',
-                issuer: '测试机构',
+                coachName: 'forAccountId 测试教练',
+                description: 'forAccountId 测试',
               },
               expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
               returnToken: true,
@@ -1901,12 +1908,12 @@ describe('验证记录签发 E2E 测试', () => {
           `,
           variables: {
             input: {
-              type: 'EMAIL_VERIFY_CODE',
+              type: 'INVITE_COACH',
               subjectType: 'LEARNER',
               subjectId: advLearnerEntities[0].id,
               payload: {
-                title: '无目标账号测试',
-                issuer: '测试机构',
+                coachName: '无目标账号测试教练',
+                description: '无目标账号测试',
               },
               expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
               returnToken: true,
@@ -1949,12 +1956,12 @@ describe('验证记录签发 E2E 测试', () => {
         const successCount = [firstSuccess, secondSuccess].filter(Boolean).length;
         expect(successCount).toBe(1);
 
-        // 断言：失败的那个应该包含"已被使用或已失效"消息
+        // 断言：失败的那个应该包含"验证码已被使用或已失效"消息
         if (!firstSuccess) {
-          expect(firstMessage).toContain('已被使用或已失效');
+          expect(firstMessage).toContain('验证码已被使用或已失效');
         }
         if (!secondSuccess) {
-          expect(secondMessage).toContain('已被使用或已失效');
+          expect(secondMessage).toContain('验证码已被使用或已失效');
         }
 
         // 验证数据库中记录最终状态为 CONSUMED
@@ -2020,7 +2027,7 @@ describe('验证记录签发 E2E 测试', () => {
 
     describe('expectedType 过滤测试', () => {
       it('应该在 expectedType 不匹配时返回 null', async () => {
-        // 创建的是 EMAIL_VERIFY_CODE，但查询时传 SMS_VERIFY_CODE
+        // 创建的是 INVITE_COACH，但查询时传 SMS_VERIFY_CODE
         await tryFindVerificationRecord(app, typeFilterTestToken);
 
         // 先用正确的类型查询，应该能找到
@@ -2038,14 +2045,14 @@ describe('验证记录签发 E2E 测试', () => {
           {
             input: {
               token: typeFilterTestToken,
-              expectedType: 'EMAIL_VERIFY_CODE',
+              expectedType: 'INVITE_COACH',
             },
           },
         );
 
         console.log('正确类型查询响应:', JSON.stringify(correctTypeResponse.body, null, 2));
         expect(correctTypeResponse.body.data.findVerificationRecord).not.toBeNull();
-        expect(correctTypeResponse.body.data.findVerificationRecord.type).toBe('EMAIL_VERIFY_CODE');
+        expect(correctTypeResponse.body.data.findVerificationRecord.type).toBe('INVITE_COACH');
 
         // 用错误的类型查询，应该返回 null
         const wrongTypeResponse = await postGql(

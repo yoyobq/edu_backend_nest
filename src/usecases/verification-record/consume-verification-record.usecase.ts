@@ -178,7 +178,7 @@ export class ConsumeVerificationRecordUsecase {
       whereCondition: { id: recordId },
       whereClause: (qb) => qb.andWhere('id = :recordId', { recordId }),
       notFoundError: VERIFICATION_RECORD_ERROR.RECORD_NOT_FOUND,
-      notFoundMessage: '验证记录不存在',
+      notFoundMessage: '验证记录不存在或已失效',
       context: { consumedByAccountId, expectedType, now: new Date() },
       errorDetails: { recordId, consumedByAccountId, expectedType },
     });
@@ -429,9 +429,6 @@ export class ConsumeVerificationRecordUsecase {
     }
 
     // 如果所有检查都通过，说明是未知错误
-    throw new DomainError(
-      VERIFICATION_RECORD_ERROR.CONSUMPTION_FAILED,
-      '消费验证记录失败：未知原因',
-    );
+    throw new DomainError(VERIFICATION_RECORD_ERROR.CONSUMPTION_FAILED, '验证码已被使用或已失效');
   }
 }

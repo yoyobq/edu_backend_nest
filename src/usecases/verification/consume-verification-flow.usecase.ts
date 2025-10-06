@@ -72,15 +72,24 @@ export class ConsumeVerificationFlowUsecase {
       if (!recordView) {
         throw new DomainError(
           VERIFICATION_RECORD_ERROR.VERIFICATION_INVALID,
-          '验证记录不存在或已失效',
+          '验证码已被使用或已失效',
           { token, expectedType },
         );
       }
 
-      // 第二步：获取对应的业务处理器
+      // 第二步：验证 expectedType（如果提供）
+      if (expectedType && recordView.type !== expectedType) {
+        throw new DomainError(
+          VERIFICATION_RECORD_ERROR.VERIFICATION_INVALID,
+          `验证记录类型不匹配，期望: ${expectedType}，实际: ${recordView.type}`,
+          { expectedType, actualType: recordView.type },
+        );
+      }
+
+      // 第三步：获取对应的业务处理器
       const handler = this.getHandler(recordView.type);
 
-      // 第三步：构建验证流程上下文
+      // 第四步：构建验证流程上下文
       const context: VerificationFlowContext = {
         recordView,
         consumedByAccountId,
@@ -88,10 +97,10 @@ export class ConsumeVerificationFlowUsecase {
         resetPassword, // 传递密码重置载荷
       };
 
-      // 第四步：执行业务逻辑
+      // 第五步：执行业务逻辑
       const businessResult = await handler.handle(context);
 
-      // 第五步：消费验证记录（在同一事务中）
+      // 第六步：消费验证记录（在同一事务中）
       await this.consumeVerificationRecordUsecase.consumeByToken({
         token,
         consumedByAccountId,

@@ -44,14 +44,10 @@ export class InviteCoachHandler implements VerificationFlowHandler<InviteCoachHa
     // 验证邀请权限
     if (targetAccountId && consumedByAccountId !== targetAccountId) {
       // 如果邀请指定了特定账户，只有该账户可以接受邀请
-      throw new DomainError(
-        VERIFICATION_RECORD_ERROR.VERIFICATION_INVALID,
-        '此邀请仅限指定账户使用',
-        {
-          consumedByAccountId,
-          targetAccountId,
-        },
-      );
+      throw new DomainError(VERIFICATION_RECORD_ERROR.VERIFICATION_INVALID, '无权使用此验证码', {
+        consumedByAccountId,
+        targetAccountId,
+      });
     }
 
     // 解析邀请载荷
