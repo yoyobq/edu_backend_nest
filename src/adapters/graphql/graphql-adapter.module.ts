@@ -8,11 +8,13 @@ import { VerificationRecordModule } from '@modules/verification-record/verificat
 
 import { Module } from '@nestjs/common';
 import { AccountInstallerModule } from '@src/modules/account/account-installer.module';
+import { IdentityManagementModule } from '@src/modules/identity-management/identity-management.module';
 
 // Resolvers
 import { AccountResolver } from './account/account.resolver';
 import { AuthResolver } from './auth/auth.resolver';
 import { CourseCatalogResolver } from './course-catalogs/course-catalog.resolver';
+import { IdentityManagementResolver } from './identity-management/identity-management.resolver';
 import { RegistrationResolver } from './registration/registration.resolver';
 import { ThirdPartyAuthResolver } from './third-party-auth/third-party-auth.resolver';
 import { VerificationRecordResolver } from './verification-record/verification-record.resolver';
@@ -33,6 +35,7 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
     ThirdPartyAuthModule,
     CourseCatalogsModule, // 导入课程目录模块
     VerificationRecordModule, // 导入验证记录模块（包含验证流程相关组件）
+    IdentityManagementModule, // 导入身份管理模块
   ],
   providers: [
     // Resolvers
@@ -42,6 +45,7 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
     ThirdPartyAuthResolver,
     CourseCatalogResolver, // 注册课程目录 resolver
     VerificationRecordResolver,
+    IdentityManagementResolver, // 注册身份管理 resolver
     // Guards
     JwtAuthGuard,
   ],
@@ -53,6 +57,7 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
     ThirdPartyAuthResolver,
     CourseCatalogResolver, // 导出课程目录 resolver
     VerificationRecordResolver,
+    IdentityManagementResolver, // 导出身份管理 resolver
     JwtAuthGuard,
   ],
 })

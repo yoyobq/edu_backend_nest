@@ -41,6 +41,7 @@ import { LoginWithThirdPartyUsecase } from '@usecases/auth/login-with-third-part
   ],
   exports: [
     AuthService,
+    TokenHelper, // 导出 TokenHelper 供其他模块使用
     JwtStrategy,
     // 导出 usecases 供 GraphQLAdapterModule 使用
     LoginWithPasswordUsecase,
