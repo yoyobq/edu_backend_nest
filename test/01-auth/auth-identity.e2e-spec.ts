@@ -276,7 +276,7 @@ describe('Auth Identity (e2e)', () => {
               accountId
               role
               userInfo {
-                id
+                userInfoId: id
                 accountId
                 nickname
                 gender
@@ -297,7 +297,7 @@ describe('Auth Identity (e2e)', () => {
               }
               identity {
                 ... on StaffType {
-                  id
+                  staffId: id
                   name
                   remark
                   jobTitle
@@ -305,19 +305,19 @@ describe('Auth Identity (e2e)', () => {
                   employmentStatus
                 }
                 ... on CoachType {
-                  id
+                  coachId: id
                   name
                   remark
                   employmentStatus
                 }
                 ... on ManagerType {
-                  id
+                  managerId: id
                   name
                   remark
                   employmentStatus
                 }
                 ... on CustomerType {
-                  id
+                  customerId: id
                   name
                   contactPhone
                   preferredContactTime
@@ -325,9 +325,9 @@ describe('Auth Identity (e2e)', () => {
                   remark
                 }
                 ... on LearnerType {
-                  id
+                  learnerId: id
                   accountId
-                  customerId
+                  learnerCustomerId: customerId
                   name
                   gender
                   birthDate
@@ -372,7 +372,7 @@ describe('Auth Identity (e2e)', () => {
 
       const { data } = response.body;
       expect(data?.login.identity).toBeDefined();
-      expect(data?.login.identity.id).toBeDefined();
+      expect(data?.login.identity.coachId).toBeDefined();
       expect(data?.login.identity.name).toContain('coach_name');
       expect(data?.login.identity.remark).toContain('测试用 coach 身份记录');
       expect(data?.login.identity.employmentStatus).toBeDefined();
@@ -399,7 +399,7 @@ describe('Auth Identity (e2e)', () => {
       });
 
       expect(coachEntity).toBeDefined();
-      expect(data?.login.identity.id).toBe(coachEntity?.id.toString());
+      expect(data?.login.identity.coachId).toBe(coachEntity?.id);
       expect(data?.login.identity.name).toBe(coachEntity?.name);
       expect(data?.login.identity.remark).toBe(coachEntity?.remark);
     });
@@ -423,7 +423,7 @@ describe('Auth Identity (e2e)', () => {
 
       const { data } = response.body;
       expect(data?.login.identity).toBeDefined();
-      expect(data?.login.identity.id).toBeDefined();
+      expect(data?.login.identity.customerId).toBeDefined();
       expect(data?.login.identity.name).toContain('customer_name');
       expect(data?.login.identity.contactPhone).toBe('13800138000');
       expect(data?.login.identity.preferredContactTime).toBe('09:00-18:00');
@@ -452,7 +452,7 @@ describe('Auth Identity (e2e)', () => {
       });
 
       expect(customerEntity).toBeDefined();
-      expect(data?.login.identity.id).toBe(customerEntity?.id.toString());
+      expect(data?.login.identity.customerId).toBe(customerEntity?.id);
       expect(data?.login.identity.name).toBe(customerEntity?.name);
       expect(data?.login.identity.contactPhone).toBe(customerEntity?.contactPhone);
       expect(data?.login.identity.preferredContactTime).toBe(customerEntity?.preferredContactTime);
@@ -479,7 +479,7 @@ describe('Auth Identity (e2e)', () => {
 
       const { data } = response.body;
       expect(data?.login.identity).toBeDefined();
-      expect(data?.login.identity.id).toBeDefined();
+      expect(data?.login.identity.managerId).toBeDefined();
       expect(data?.login.identity.name).toContain('manager_name');
       expect(data?.login.identity.remark).toContain('测试用 manager 身份记录');
       expect(data?.login.identity.employmentStatus).toBeDefined();
@@ -506,7 +506,7 @@ describe('Auth Identity (e2e)', () => {
       });
 
       expect(managerEntity).toBeDefined();
-      expect(data?.login.identity.id).toBe(managerEntity?.id.toString());
+      expect(data?.login.identity.managerId).toBe(managerEntity?.id);
       expect(data?.login.identity.name).toBe(managerEntity?.name);
       expect(data?.login.identity.remark).toBe(managerEntity?.remark);
     });
@@ -530,9 +530,9 @@ describe('Auth Identity (e2e)', () => {
 
       const { data } = response.body;
       expect(data?.login.identity).toBeDefined();
-      expect(data?.login.identity.id).toBeDefined();
+      expect(data?.login.identity.learnerId).toBeDefined();
       expect(data?.login.identity.name).toBeDefined();
-      expect(data?.login.identity.customerId).toBeDefined();
+      expect(data?.login.identity.learnerCustomerId).toBeDefined();
       expect(typeof data?.login.identity.countPerSession).toBe('number');
       expect(data?.login.identity.specialNeeds).toBeDefined();
       expect(data?.login.identity.remark).toBeDefined();
@@ -559,9 +559,9 @@ describe('Auth Identity (e2e)', () => {
       });
 
       expect(learnerEntity).toBeDefined();
-      expect(data?.login.identity.id).toBe(learnerEntity?.id.toString());
+      expect(data?.login.identity.learnerId).toBe(learnerEntity?.id);
       expect(data?.login.identity.name).toBe(learnerEntity?.name);
-      expect(data?.login.identity.customerId).toBe(learnerEntity?.customerId);
+      expect(data?.login.identity.learnerCustomerId).toBe(learnerEntity?.customerId);
       expect(typeof data?.login.identity.countPerSession).toBe('number');
       expect(data?.login.identity.specialNeeds).toBe(learnerEntity?.specialNeeds);
       expect(data?.login.identity.remark).toBe(learnerEntity?.remark);

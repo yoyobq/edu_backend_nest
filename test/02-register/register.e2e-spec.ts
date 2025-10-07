@@ -257,12 +257,12 @@ describe('Register (e2e)', () => {
       expect(data?.register.success).toBe(true);
       expect(data?.register.message).toBe('注册成功');
       expect(data?.register.accountId).toBeDefined();
-      expect(typeof data?.register.accountId).toBe('string');
+      expect(typeof data?.register.accountId).toBe('number');
 
       // 验证账户是否正确创建
       const accountRepository = dataSource.getRepository(AccountEntity);
       const createdAccount = await accountRepository.findOne({
-        where: { id: parseInt(data?.register.accountId) },
+        where: { id: data?.register.accountId },
       });
 
       expect(createdAccount).toBeDefined();
@@ -461,7 +461,7 @@ describe('Register (e2e)', () => {
       const response = await performRegister(testRegisterData.validUser);
 
       const { data } = response.body;
-      const accountId = parseInt(data?.register.accountId);
+      const accountId = data?.register.accountId;
 
       const accountRepository = dataSource.getRepository(AccountEntity);
       const account = await accountRepository.findOne({
@@ -478,7 +478,7 @@ describe('Register (e2e)', () => {
       const response = await performRegister(testRegisterData.validUser);
 
       const { data } = response.body;
-      const accountId = parseInt(data?.register.accountId);
+      const accountId = data?.register.accountId;
 
       const accountRepository = dataSource.getRepository(AccountEntity);
       const account = await accountRepository.findOne({
@@ -497,7 +497,7 @@ describe('Register (e2e)', () => {
       const response = await performRegister(testRegisterData.validUser);
 
       const { data } = response.body;
-      const accountId = parseInt(data?.register.accountId);
+      const accountId = data?.register.accountId;
 
       const userInfoRepository = dataSource.getRepository(UserInfoEntity);
       const userInfo = await userInfoRepository.findOne({
@@ -515,7 +515,7 @@ describe('Register (e2e)', () => {
       const response = await performRegister(testRegisterData.validUser);
 
       const { data } = response.body;
-      const accountId = parseInt(data?.register.accountId);
+      const accountId = data?.register.accountId;
 
       const accountRepository = dataSource.getRepository(AccountEntity);
       const account = await accountRepository.findOne({
@@ -545,7 +545,7 @@ describe('Register (e2e)', () => {
 
       expect(response.status).toBe(200);
       const { data } = response.body;
-      const accountId = parseInt(data?.register.accountId);
+      const accountId = data?.register.accountId;
 
       // 直接查询数据库获取原始加密数据
       const rawQuery = `SELECT meta_digest FROM base_user_info WHERE account_id = ?`;
@@ -575,7 +575,7 @@ describe('Register (e2e)', () => {
       const response = await performRegister(testRegisterData.validUser);
 
       const { data } = response.body;
-      const accountId = parseInt(data?.register.accountId);
+      const accountId = data?.register.accountId;
 
       // 通过 ORM 查询，应该自动解密
       const userInfoRepository = dataSource.getRepository(UserInfoEntity);
