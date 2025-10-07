@@ -158,7 +158,7 @@ describe('Auth (e2e)', () => {
               accountId
               role
               userInfo {
-                id
+                userInfoId: id
                 accountId
                 nickname
                 gender
@@ -179,7 +179,7 @@ describe('Auth (e2e)', () => {
               }
               identity {
                 ... on StaffType {
-                  id
+                  staffId: id
                   name
                   remark
                   jobTitle
@@ -187,19 +187,19 @@ describe('Auth (e2e)', () => {
                   employmentStatus
                 }
                 ... on CoachType {
-                  id
+                  coachId: id
                   name
                   remark
                   employmentStatus
                 }
                 ... on ManagerType {
-                  id
+                  managerId: id
                   name
                   remark
                   employmentStatus
                 }
                 ... on CustomerType {
-                  id
+                  customerId: id
                   name
                   contactPhone
                   preferredContactTime
@@ -283,7 +283,7 @@ describe('Auth (e2e)', () => {
       const response = await performLogin(activeUser.loginName, activeUser.loginPassword);
 
       const { data } = response.body;
-      expect(data?.login.accountId).toBe(account?.id.toString());
+      expect(data?.login.accountId).toBe(account?.id);
     });
 
     it('应该正确决策用户角色', async () => {
