@@ -110,8 +110,9 @@ export class AccountService {
   }
 
   /** 根据 ID 查询账户 */
-  async findOneById(id: number): Promise<AccountEntity | null> {
-    return await this.accountRepository.findOne({ where: { id } });
+  async findOneById(id: number, manager?: EntityManager): Promise<AccountEntity | null> {
+    const repository = manager ? manager.getRepository(AccountEntity) : this.accountRepository;
+    return await repository.findOne({ where: { id } });
   }
 
   /** 根据登录名或邮箱查询账户 */
@@ -136,8 +137,12 @@ export class AccountService {
   }
 
   /** 根据账户 ID 查找用户信息（带 account 关系） */
-  async findUserInfoByAccountId(accountId: number): Promise<UserInfoEntity | null> {
-    return await this.userInfoRepository.findOne({
+  async findUserInfoByAccountId(
+    accountId: number,
+    manager?: EntityManager,
+  ): Promise<UserInfoEntity | null> {
+    const repository = manager ? manager.getRepository(UserInfoEntity) : this.userInfoRepository;
+    return await repository.findOne({
       where: { accountId },
       relations: ['account'],
     });
@@ -166,6 +171,27 @@ export class AccountService {
   ): Promise<void> {
     const repository = manager ? manager.getRepository(AccountEntity) : this.accountRepository;
     await repository.update(id, updateData);
+  }
+
+  /**
+   * 显式锁定账户以避免并发覆盖
+   * @param accountId 账户 ID
+   * @param manager 事务管理器
+   * @returns 锁定的账户实体
+   */
+  async lockByIdForUpdate(accountId: number, manager: EntityManager): Promise<AccountEntity> {
+    const repository = manager.getRepository(AccountEntity);
+    const account = await repository
+      .createQueryBuilder('account')
+      .where('account.id = :accountId', { accountId })
+      .setLock('pessimistic_write')
+      .getOne();
+
+    if (!account) {
+      throw new DomainError(ACCOUNT_ERROR.ACCOUNT_NOT_FOUND, '账户不存在');
+    }
+
+    return account;
   }
 
   /** 创建用户信息实体（不落库） */

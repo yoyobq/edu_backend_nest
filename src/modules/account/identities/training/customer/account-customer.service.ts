@@ -2,7 +2,7 @@
 
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, EntityManager } from 'typeorm';
 import { CustomerEntity } from './account-customer.entity';
 
 /**
@@ -61,10 +61,18 @@ export class CustomerService {
   /**
    * 保存客户信息
    * @param customer 客户实体
+   * @param manager 可选的事务管理器，用于保证事务一致性
    * @returns 保存后的客户实体
    */
-  async saveCustomer(customer: CustomerEntity): Promise<CustomerEntity> {
-    return await this.customerRepository.save(customer);
+  async saveCustomer(customer: CustomerEntity, manager?: EntityManager): Promise<CustomerEntity> {
+    if (manager) {
+      // 使用传入的事务管理器
+      const repository = manager.getRepository(CustomerEntity);
+      return await repository.save(customer);
+    } else {
+      // 使用默认的 repository
+      return await this.customerRepository.save(customer);
+    }
   }
 
   /**

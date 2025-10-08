@@ -2,6 +2,8 @@
 
 import { IdentityTypeEnum } from '@app-types/models/account.types';
 import { Field, Int, ObjectType } from '@nestjs/graphql';
+// 导入枚举注册文件以确保 GraphQL 类型系统正确识别枚举
+import '@src/adapters/graphql/account/enums/identity-type.enum';
 
 /**
  * JWT Token 对象
@@ -29,7 +31,7 @@ export class UpgradeToCustomerResult {
   @Field(() => [String], { description: '更新后的访问组' })
   accessGroup!: string[];
 
-  @Field(() => String, { description: '用户角色（固定为 CUSTOMER）' })
+  @Field(() => IdentityTypeEnum, { description: '用户角色' })
   role!: IdentityTypeEnum;
 
   @Field(() => TokensType, { description: '新生成的 JWT tokens', nullable: true })

@@ -19,14 +19,12 @@ export interface PerformUpgradeToCustomerParams {
   name: string;
   /** 联系电话 */
   contactPhone: string;
-  /** 首选联系时间 */
+  /** 偏好联系时间 */
   preferredContactTime?: string;
   /** 备注 */
   remark?: string;
   /** 客户端类型 */
   audience: AudienceTypeEnum;
-  /** 微信小程序 openId（可选） */
-  weappOpenId?: string;
 }
 
 /**
@@ -73,8 +71,11 @@ export class PerformUpgradeToCustomerUsecase {
     const { accountId, name, contactPhone, preferredContactTime, remark, audience } = params;
 
     return await this.accountService.runTransaction(async (manager: EntityManager) => {
+      // 0. 显式锁定账户以避免并发覆盖 accessGroup
+      await this.accountService.lockByIdForUpdate(accountId, manager);
+
       // 1. 检查账户是否存在
-      const account = await this.accountService.findOneById(accountId);
+      const account = await this.accountService.findOneById(accountId, manager);
       if (!account) {
         throw new DomainError(ACCOUNT_ERROR.ACCOUNT_NOT_FOUND, '账户不存在');
       }
@@ -83,7 +84,7 @@ export class PerformUpgradeToCustomerUsecase {
       const existingCustomer = await this.customerService.findByAccountId(accountId);
       if (existingCustomer) {
         // 获取当前用户信息
-        const userInfo = await this.accountService.findUserInfoByAccountId(accountId);
+        const userInfo = await this.accountService.findUserInfoByAccountId(accountId, manager);
         if (!userInfo) {
           throw new DomainError(ACCOUNT_ERROR.USER_INFO_NOT_FOUND, '用户信息不存在');
         }
@@ -106,10 +107,10 @@ export class PerformUpgradeToCustomerUsecase {
         preferredContactTime,
         remark,
       });
-      const savedCustomer = await this.customerService.saveCustomer(customerEntity);
+      const savedCustomer = await this.customerService.saveCustomer(customerEntity, manager);
 
       // 4. 获取用户信息并更新访问权限组
-      const userInfo = await this.accountService.findUserInfoByAccountId(accountId);
+      const userInfo = await this.accountService.findUserInfoByAccountId(accountId, manager);
       if (!userInfo) {
         throw new DomainError(ACCOUNT_ERROR.USER_INFO_NOT_FOUND, '用户信息不存在');
       }
