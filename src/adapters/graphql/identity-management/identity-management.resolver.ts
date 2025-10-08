@@ -37,8 +37,10 @@ export class IdentityManagementResolver {
     // 调用 usecase 执行升级逻辑
     const result = await this.performUpgradeToCustomerUsecase.execute({
       accountId: user.sub,
-      name: '客户', // 默认名称，因为当前 GraphQL input 没有 name 字段
-      contactPhone: '未提供', // 默认电话，因为当前 GraphQL input 没有 contactPhone 字段
+      name: input.name,
+      contactPhone: input.contactPhone || '',
+      preferredContactTime: input.preferredContactTime,
+      remark: input.remark,
       audience: input.audience,
     });
 

@@ -88,6 +88,8 @@ const ENUM_CONFIGS: Record<string, EnumConfig> = {
       CUSTOMER: { description: '客户' },
       LEARNER: { description: '学员' },
       REGISTRANT: { description: '注册用户' },
+      ADMIN: { description: '管理员' },
+      GUEST: { description: '访客' },
     },
   },
   LOGIN_TYPE_ENUM: {
