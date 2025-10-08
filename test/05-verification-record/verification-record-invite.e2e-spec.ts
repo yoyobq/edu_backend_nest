@@ -322,18 +322,18 @@ describe('验证记录邀请类型测试 E2E', () => {
       expect(consumeResponse.body.data.consumeVerificationRecord.data.status).toBe('CONSUMED');
 
       // 验证事务一致性：所有操作都应该成功完成
-      // 验证 Manager 身份已创建
-      const managerAfterConsume = await dataSource.getRepository(ManagerEntity).findOne({
+      // 验证 Coach 身份已创建
+      const coachAfterConsume = await dataSource.getRepository(CoachEntity).findOne({
         where: { accountId: learnerAccountId },
       });
 
-      expect(managerAfterConsume).toBeDefined();
-      expect(managerAfterConsume).not.toBeNull();
-      expect(managerAfterConsume?.deactivatedAt).toBeNull();
+      expect(coachAfterConsume).toBeDefined();
+      expect(coachAfterConsume).not.toBeNull();
+      expect(coachAfterConsume?.deactivatedAt).toBeNull();
 
       // 清理测试数据
-      if (managerAfterConsume) {
-        await dataSource.getRepository(ManagerEntity).remove(managerAfterConsume);
+      if (coachAfterConsume) {
+        await dataSource.getRepository(CoachEntity).remove(coachAfterConsume);
       }
     });
 
