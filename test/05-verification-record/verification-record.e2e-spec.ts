@@ -16,7 +16,7 @@ async function postGql(app: INestApplication, query: string, variables: any, bea
   if (res.status !== 200) {
     // 打印原始 body 便于定位 schema 报错
     // 常见信息类似：Unknown argument "token" on field "Mutation.findVerificationRecord"
-    console.error('[GQL 400]', res.status, res.text || JSON.stringify(res.body));
+    throw new Error(`GraphQL 请求失败: ${res.status} - ${res.text || JSON.stringify(res.body)}`);
   }
   return res;
 }
@@ -110,8 +110,8 @@ import { LearnerEntity } from '@src/modules/account/identities/training/learner/
 import { VerificationRecordEntity } from '@src/modules/verification-record/verification-record.entity';
 import { CreateAccountUsecase } from '@src/usecases/account/create-account.usecase';
 import { FindVerificationRecordUsecase } from '@src/usecases/verification-record/find-verification-record.usecase';
-// 引入统一账号系统
 import { seedTestAccounts, testAccountsConfig } from '../utils/test-accounts';
+import { initGraphQLSchema } from '../../src/adapters/graphql/schema/schema.init';
 
 /**
  * 验证记录签发 E2E 测试
@@ -132,6 +132,9 @@ describe('验证记录签发 E2E 测试', () => {
 
   // 使用统一账号配置
   beforeAll(async () => {
+    // 初始化 GraphQL Schema
+    initGraphQLSchema();
+
     moduleFixture = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();

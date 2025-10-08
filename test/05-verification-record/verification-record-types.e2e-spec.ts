@@ -5,10 +5,11 @@ import request from 'supertest';
 import { App } from 'supertest/types';
 import { DataSource, IsNull, Not } from 'typeorm';
 
+import { TokenHelper } from '@core/common/token/token.helper';
 import { AppModule } from '@src/app.module';
 import { LearnerEntity } from '@src/modules/account/identities/training/learner/account-learner.entity';
 import { CreateAccountUsecase } from '@usecases/account/create-account.usecase';
-import { TokenHelper } from '@core/common/token/token.helper';
+import { initGraphQLSchema } from '../../src/adapters/graphql/schema/schema.init';
 import { cleanupTestAccounts, seedTestAccounts, testAccountsConfig } from '../utils/test-accounts';
 
 /**
@@ -247,6 +248,9 @@ describe('验证记录类型测试 E2E', () => {
   let learnerSubject: LearnerEntity;
 
   beforeAll(async () => {
+    // 初始化 GraphQL Schema
+    initGraphQLSchema();
+
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
@@ -704,9 +708,9 @@ describe('验证记录类型测试 E2E', () => {
         console.log('完整的错误响应:', JSON.stringify(resetResponse.body, null, 2));
       }
 
-      // 如果有 GraphQL 错误，也输出
+      // 如果有 GraphQL 错误，抛出异常
       if (resetResponse.body.errors) {
-        console.log('GraphQL 错误:', JSON.stringify(resetResponse.body.errors, null, 2));
+        throw new Error(`GraphQL 错误: ${JSON.stringify(resetResponse.body.errors)}`);
       }
 
       expect(resetResponse.body.data.resetPassword.success).toBe(true);
@@ -732,8 +736,6 @@ describe('验证记录类型测试 E2E', () => {
           },
         },
       );
-
-      console.log('新密码登录响应:', JSON.stringify(loginResponse.body, null, 2));
 
       // 验证新密码登录成功
       expect(loginResponse.body.data).toBeDefined();
@@ -761,8 +763,6 @@ describe('验证记录类型测试 E2E', () => {
           },
         },
       );
-
-      console.log('旧密码登录响应:', JSON.stringify(oldPasswordLoginResponse.body, null, 2));
 
       // 验证旧密码登录失败
       expect(oldPasswordLoginResponse.body.errors).toBeDefined();

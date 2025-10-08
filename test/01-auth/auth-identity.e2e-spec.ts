@@ -15,6 +15,7 @@ import { UserState } from '@app-types/models/user-info.types';
 import { AppModule } from '@src/app.module';
 import { CreateAccountUsecase } from '@src/usecases/account/create-account.usecase';
 import { cleanupTestAccounts, seedTestAccounts, testAccountsConfig } from '../utils/test-accounts';
+import { initGraphQLSchema } from '../../src/adapters/graphql/schema/schema.init';
 
 /**
  * Auth 身份测试 E2E 测试 - 专门测试 Coach、Customer、Manager 和 Learner 身份
@@ -28,6 +29,9 @@ describe('Auth Identity (e2e)', () => {
   const { coach, customer, manager, learner } = testAccountsConfig;
 
   beforeAll(async () => {
+    // 初始化 GraphQL Schema
+    initGraphQLSchema();
+
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
@@ -662,5 +666,27 @@ describe('Auth Identity (e2e)', () => {
       expect(accessToken.split('.')).toHaveLength(3);
       expect(refreshToken.split('.')).toHaveLength(3);
     });
+  });
+
+  afterAll(async () => {
+    try {
+      // 检查数据库连接状态，只有在连接有效时才进行清理
+      if (dataSource && dataSource.isInitialized) {
+        await cleanupTestAccounts(dataSource);
+      }
+    } catch (error) {
+      console.error('afterAll 清理失败:', error);
+    } finally {
+      // 确保应用正确关闭，添加延迟以允许 WebSocket 服务器优雅关闭
+      if (app) {
+        try {
+          await app.close();
+          // 给 WebSocket 服务器一些时间来完成清理
+          await new Promise((resolve) => setTimeout(resolve, 100));
+        } catch (closeError) {
+          console.warn('应用关闭时出现警告:', closeError);
+        }
+      }
+    }
   });
 });

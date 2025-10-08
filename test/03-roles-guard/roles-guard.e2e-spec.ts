@@ -16,6 +16,7 @@ import { App } from 'supertest/types';
 import { DataSource } from 'typeorm';
 // 导入全局测试账户工具
 import { cleanupTestAccounts, seedTestAccounts, testAccountsConfig } from '../utils/test-accounts';
+import { initGraphQLSchema } from '../../src/adapters/graphql/schema/schema.init';
 
 /**
  * 测试用的 GraphQL Resolver
@@ -109,6 +110,9 @@ describe('RolesGuard (e2e)', () => {
   let createAccountUsecase: CreateAccountUsecase;
 
   beforeAll(async () => {
+    // 初始化 GraphQL Schema
+    initGraphQLSchema();
+
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
       providers: [TestRolesResolver],
@@ -122,8 +126,24 @@ describe('RolesGuard (e2e)', () => {
   }, 30000);
 
   afterAll(async () => {
-    if (app) {
-      await app.close();
+    try {
+      // 检查数据库连接状态，只有在连接有效时才进行清理
+      if (dataSource && dataSource.isInitialized) {
+        await cleanupTestAccounts(dataSource);
+      }
+    } catch (error) {
+      console.error('afterAll 清理失败:', error);
+    } finally {
+      // 确保应用正确关闭，添加延迟以允许 WebSocket 服务器优雅关闭
+      if (app) {
+        try {
+          await app.close();
+          // 给 WebSocket 服务器一些时间来完成清理
+          await new Promise((resolve) => setTimeout(resolve, 100));
+        } catch (closeError) {
+          console.warn('应用关闭时出现警告:', closeError);
+        }
+      }
     }
   });
 

@@ -12,6 +12,7 @@ import { LearnerEntity } from '@src/modules/account/identities/training/learner/
 import { ManagerEntity } from '@src/modules/account/identities/training/manager/account-manager.entity';
 import { CreateAccountUsecase } from '@usecases/account/create-account.usecase';
 import { cleanupTestAccounts, seedTestAccounts, testAccountsConfig } from '../utils/test-accounts';
+import { initGraphQLSchema } from '../../src/adapters/graphql/schema/schema.init';
 
 /**
  * GraphQL 请求辅助函数
@@ -183,6 +184,10 @@ describe('验证记录邀请类型测试 E2E', () => {
   let learnerSubject: LearnerEntity;
 
   beforeAll(async () => {
+    // 初始化 GraphQL Schema（确保 VerificationRecordStatus 等枚举被正确注册）
+    const schemaResult = initGraphQLSchema();
+    console.log(`✅ GraphQL Schema 初始化: ${schemaResult.message}`);
+
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
@@ -261,8 +266,6 @@ describe('验证记录邀请类型测试 E2E', () => {
         },
       );
 
-      console.log('INVITE_COACH 创建响应:', JSON.stringify(response.body, null, 2));
-
       // 检查 GraphQL 错误
       if (response.body.errors) {
         console.error('GraphQL errors:', response.body.errors);
@@ -297,8 +300,6 @@ describe('验证记录邀请类型测试 E2E', () => {
           subjectId: 1,
         },
       );
-
-      console.log('INVITE_COACH 消费测试创建响应:', JSON.stringify(createResponse.body, null, 2));
 
       expect(createResponse.body.data.createVerificationRecord.success).toBe(true);
       expect(createResponse.body.data.createVerificationRecord.token).toBeDefined();
@@ -386,11 +387,6 @@ describe('验证记录邀请类型测试 E2E', () => {
         );
       }
 
-      console.log(
-        '重复消费错误信息:',
-        secondConsumeResponse.body.data.consumeVerificationRecord.message,
-      );
-
       // 清理测试数据
       const coachRepository = dataSource.getRepository(CoachEntity);
       const coachAfterTest = await coachRepository.findOne({
@@ -462,10 +458,6 @@ describe('验证记录邀请类型测试 E2E', () => {
       expect(coachAfterReactivate?.deactivatedAt).toBeNull(); // 应该被重新激活
       expect(coachAfterReactivate?.name).toBe('已存在的教练'); // 名称不应该被更新
 
-      console.log('重新激活前 Coach ID:', existingCoach.id);
-      console.log('重新激活后 Coach ID:', coachAfterReactivate?.id);
-      console.log('重新激活后状态:', coachAfterReactivate?.deactivatedAt);
-
       // 5. 清理测试数据
       await coachRepository.remove(coachAfterReactivate!);
     });
@@ -516,8 +508,6 @@ describe('验证记录邀请类型测试 E2E', () => {
 
       expect(successfulResults).toHaveLength(1);
       expect(failedResults.length).toBeGreaterThanOrEqual(2);
-
-      console.log('并发测试结果 - 成功:', successfulResults.length, '失败:', failedResults.length);
 
       // 4. 验证数据库中只创建了一个 Coach 记录
       const coachRepository = dataSource.getRepository(CoachEntity);
@@ -583,8 +573,6 @@ describe('验证记录邀请类型测试 E2E', () => {
           },
         });
 
-      console.log('匿名消费响应:', JSON.stringify(anonymousConsumeResponse.body, null, 2));
-
       // 3. 验证匿名消费应该失败
       expect(anonymousConsumeResponse.status).toBe(200);
       if (anonymousConsumeResponse.body.errors) {
@@ -636,8 +624,6 @@ describe('验证记录邀请类型测试 E2E', () => {
         managerAccessToken, // 使用错误的用户 token
         'INVITE_COACH',
       );
-
-      console.log('错误用户消费响应:', JSON.stringify(wrongUserConsumeResponse.body, null, 2));
 
       // 3. 验证错误用户消费应该失败
       expect(wrongUserConsumeResponse.body.data.consumeVerificationRecord.success).toBe(false);
@@ -1100,8 +1086,6 @@ describe('验证记录邀请类型测试 E2E', () => {
           subjectId: learnerSubject.id,
         },
       );
-
-      console.log('INVITE_LEARNER 创建响应:', JSON.stringify(response.body, null, 2));
 
       // 检查 GraphQL 错误
       if (response.body.errors) {

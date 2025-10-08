@@ -5,7 +5,7 @@ import 'tsconfig-paths/register';
 import * as dotenv from 'dotenv';
 import * as fs from 'fs';
 import * as path from 'path';
-import { DataSource, DataSourceOptions } from 'typeorm';
+import { DataSource, type DataSourceOptions } from 'typeorm';
 import databaseConfig from '../src/core/config/database.config';
 
 /**
@@ -93,7 +93,15 @@ export default async (): Promise<void> => {
     // 1) 加载环境变量
     loadE2EEnv();
 
-    // 2) 初始化数据库连接（一次性清库后关闭）
+    // 2) 设置测试环境变量（确保 resetInitState 可以执行）
+    process.env.NODE_ENV = 'test';
+
+    // 注意：不在全局设置中调用 initGraphQLSchema
+    // 因为 Jest globalSetup 运行在独立上下文中，
+    // 这里注册的 GraphQL 类型无法被测试进程中的 NestJS 应用访问到
+    // 应该让每个测试文件在 beforeAll 中自行调用
+
+    // 3) 初始化数据库连接（一次性清库后关闭）
     const dbConfig = databaseConfig() as { mysql: DataSourceOptions };
     const config: DataSourceOptions = {
       ...dbConfig.mysql,
@@ -114,21 +122,21 @@ export default async (): Promise<void> => {
     const ds = new DataSource(config);
     await ds.initialize();
 
-    // 3) 连接测试
+    // 4) 连接测试
     await ds.query('SELECT 1');
     console.log('✅ 数据库连接测试成功');
 
-    // 4) 实体元数据加载情况
+    // 5) 实体元数据加载情况
     const entities = ds.entityMetadatas;
     console.log(
       `✅ 成功加载 ${entities.length} 个实体:`,
       entities.map((e) => e.name),
     );
 
-    // 5) 仅清库，不预插用户
+    // 6) 仅清库，不预插用户
     await cleanupTestDatabase(ds);
 
-    // 6) 用完即关，避免长连接 & 共享对象误用
+    // 7) 用完即关，避免长连接 & 共享对象误用
     await ds.destroy();
 
     console.log('🚀 E2E 测试环境初始化完成');

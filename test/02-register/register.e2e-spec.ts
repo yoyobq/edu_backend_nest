@@ -11,6 +11,7 @@ import { AccountEntity } from '../../src/modules/account/base/entities/account.e
 import { UserInfoEntity } from '../../src/modules/account/base/entities/user-info.entity';
 import { AccountStatus } from '../../src/types/models/account.types';
 import { RegisterTypeEnum } from '../../src/types/services/register.types';
+import { initGraphQLSchema } from '../../src/adapters/graphql/schema/schema.init';
 
 /**
  * Register 模块 E2E 测试
@@ -122,6 +123,9 @@ describe('Register (e2e)', () => {
   };
 
   beforeAll(async () => {
+    // 初始化 GraphQL Schema
+    initGraphQLSchema();
+
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
@@ -137,8 +141,26 @@ describe('Register (e2e)', () => {
   }, 30000);
 
   afterAll(async () => {
-    if (app) {
-      await app.close();
+    try {
+      // 检查数据库连接状态，只有在连接有效时才进行清理
+      if (dataSource && dataSource.isInitialized) {
+        // 清理测试数据
+        await dataSource.getRepository(AccountEntity).delete({});
+        await dataSource.getRepository(UserInfoEntity).delete({});
+      }
+    } catch (error) {
+      console.error('afterAll 清理失败:', error);
+    } finally {
+      // 确保应用正确关闭，添加延迟以允许 WebSocket 服务器优雅关闭
+      if (app) {
+        try {
+          await app.close();
+          // 给 WebSocket 服务器一些时间来完成清理
+          await new Promise((resolve) => setTimeout(resolve, 100));
+        } catch (closeError) {
+          console.warn('应用关闭时出现警告:', closeError);
+        }
+      }
     }
   });
 

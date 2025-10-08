@@ -7,12 +7,9 @@ import { CourseCatalogEntity } from '@src/modules/course-catalogs/course-catalog
 import { AudienceTypeEnum, LoginTypeEnum } from '@src/types/models/account.types';
 import request from 'supertest';
 import { DataSource } from 'typeorm';
-// 添加 GraphQL 枚举注册导入
-import '@src/adapters/graphql/auth/enums/audience-type.enum';
-import '@src/adapters/graphql/auth/enums/login-type.enum';
-import '@src/adapters/graphql/course-catalogs/enums/course-level.enum';
 // 导入统一账号配置
 import { cleanupTestAccounts, seedTestAccounts, testAccountsConfig } from '../utils/test-accounts';
+import { initGraphQLSchema } from '../../src/adapters/graphql/schema/schema.init';
 
 describe('课程目录模块 (e2e)', () => {
   let app: INestApplication;
@@ -49,6 +46,9 @@ describe('课程目录模块 (e2e)', () => {
 
   beforeAll(async () => {
     try {
+      // 初始化 GraphQL Schema
+      initGraphQLSchema();
+
       // 创建测试模块
       const moduleFixture: TestingModule = await Test.createTestingModule({
         imports: [AppModule],
@@ -71,8 +71,7 @@ describe('课程目录模块 (e2e)', () => {
       // 登录测试用户获取 token
       await loginTestUsers();
     } catch (error) {
-      console.error('测试初始化失败:', error);
-      throw error;
+      throw new Error(`测试初始化失败: ${String(error)}`);
     }
   });
 
@@ -81,6 +80,7 @@ describe('课程目录模块 (e2e)', () => {
       // 清理测试数据
       await cleanupTestData();
     } catch (error) {
+      // 在 afterAll 中保留 console.error，避免影响测试清理
       console.error('afterAll 清理失败:', error);
     } finally {
       // 确保应用正确关闭
