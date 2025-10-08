@@ -1,7 +1,6 @@
 // src/adapters/graphql/third-party-auth/dto/unbind-third-party.input.ts
 import { ThirdPartyProviderEnum } from '@app-types/models/account.types';
 import { Field, Int, InputType } from '@nestjs/graphql';
-import '@src/adapters/graphql/third-party-auth/enums/third-party-provider.enum';
 import { IsEnum, IsOptional, IsPositive } from 'class-validator';
 
 /**

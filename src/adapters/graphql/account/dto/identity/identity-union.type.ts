@@ -6,9 +6,6 @@ import { CustomerType } from './customer.dto';
 import { LearnerType } from './learner.dto';
 import { ManagerType } from './manager.dto';
 
-// 导入枚举注册文件以确保 GraphQL 类型系统正确识别所有枚举
-import '@src/adapters/graphql/account/enums/identity-type.enum';
-
 /**
  * 身份联合类型的所有可能类型
  */

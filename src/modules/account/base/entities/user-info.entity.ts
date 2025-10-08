@@ -13,8 +13,6 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
-import '../../../../adapters/graphql/account/dto/user-state.enum';
-import '../../../../adapters/graphql/account/enums/gender.enum';
 import { AccountEntity } from './account.entity';
 
 @Entity('base_user_info')

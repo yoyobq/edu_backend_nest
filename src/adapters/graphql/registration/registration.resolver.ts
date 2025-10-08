@@ -10,9 +10,6 @@ import { RegisterResult } from './dto/register-result.dto';
 import { RegisterInput } from './dto/register.input';
 import { ThirdPartyRegisterInput } from './dto/third-party-register.input';
 
-// 枚举注册（side-effect）
-import './enums/register-type.enum';
-
 @Resolver()
 export class RegistrationResolver {
   constructor(

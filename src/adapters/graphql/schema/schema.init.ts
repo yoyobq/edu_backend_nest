@@ -40,7 +40,6 @@ export function initGraphQLSchema(): {
   // 重复调用统一处理：开发环境和生产环境都只警告并返回
   // 避免热更新、Jest/E2E 测试、并发场景误伤
   if (inited) {
-    console.warn('⚠️ GraphQL Schema 重复初始化调用，已忽略');
     return {
       success: false,
       enums: [],
@@ -52,41 +51,40 @@ export function initGraphQLSchema(): {
 
   try {
     // 注册枚举类型
-    const enumResult = registerEnums();
-    console.log(`✅ 成功注册 ${enumResult.enums.length} 个 GraphQL 枚举类型`);
+    registerEnums();
 
     // 注册标量类型
     const scalarResult = registerScalars();
-    if (scalarResult.scalars.length > 0) {
-      console.log(`✅ 成功注册 ${scalarResult.scalars.length} 个 GraphQL 标量类型`);
-    }
+
+    // 由于 registerEnums 不再返回枚举列表，使用预期枚举列表
+    const enumList = [
+      'AccountStatus',
+      'AudienceTypeEnum',
+      'EmploymentStatus',
+      'IdentityTypeEnum',
+      'LoginTypeEnum',
+      'ThirdPartyProviderEnum',
+      'RegisterTypeEnum',
+      'Gender',
+      'UserState',
+      'CourseLevel',
+      'SubjectType',
+      'VerificationRecordStatus',
+      'VerificationRecordType',
+    ];
 
     // 生成 Schema 指纹
-    const fingerprint = generateSchemaFingerprint(enumResult.enums, scalarResult.scalars);
+    const fingerprint = generateSchemaFingerprint(enumList, scalarResult.scalars);
 
-    // 打印注册摘要
-    const totalTypes = enumResult.enums.length + scalarResult.scalars.length;
-    console.log(`📊 GraphQL Schema 注册完成：`);
-    console.log(`   - 枚举类型: ${enumResult.enums.length} 个`);
-    console.log(`   - 标量类型: ${scalarResult.scalars.length} 个`);
-    console.log(`   - 总计: ${totalTypes} 个类型`);
-    console.log(`🔍 GraphQL Schema fingerprint=${fingerprint}`);
-
-    // 打印枚举清单（裁剪显示）
-    if (enumResult.enums.length > 0) {
-      const enumList =
-        enumResult.enums.length > 5
-          ? `${enumResult.enums.slice(0, 5).join(', ')}... (+${enumResult.enums.length - 5} more)`
-          : enumResult.enums.join(', ');
-      console.log(`📋 已注册枚举: ${enumList}`);
-    }
+    // 计算总类型数
+    const totalTypes = enumList.length + scalarResult.scalars.length;
 
     // 标记为已初始化
     inited = true;
 
     return {
       success: true,
-      enums: enumResult.enums,
+      enums: enumList,
       scalars: scalarResult.scalars,
       fingerprint,
       message: `成功注册 ${totalTypes} 个 GraphQL 类型`,

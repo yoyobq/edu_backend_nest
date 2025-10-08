@@ -8,9 +8,6 @@ import {
 import { Field, Int, ObjectType } from '@nestjs/graphql';
 import GraphQLJSON from 'graphql-type-json';
 
-// 导入枚举注册文件以确保 GraphQL 类型系统正确识别所有枚举
-import '@src/adapters/graphql/verification-record/enums/verification-record-type.enum';
-
 /**
  * 验证记录数据传输对象
  * 与 VerificationRecordEntity 保持结构一致，用于 GraphQL 查询返回

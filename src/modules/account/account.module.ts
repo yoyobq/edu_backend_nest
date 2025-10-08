@@ -22,10 +22,6 @@ import {
 } from './base/constants/provider-tokens';
 
 // 如这些 GraphQL 类型迁入各身份包，请移除以下 side-effect import，避免关闭身份后 schema 残留
-import '@adapters/graphql/account/enums/account-status.enum';
-import '@adapters/graphql/account/enums/gender.enum';
-import '@adapters/graphql/account/enums/identity-type.enum';
-import '@src/adapters/graphql/account/dto/user-state.enum';
 import '@src/adapters/graphql/account/enums/login-history.types';
 
 // 可选用例
