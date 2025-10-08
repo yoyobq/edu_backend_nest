@@ -2,8 +2,6 @@
 
 import { IdentityTypeEnum } from '@app-types/models/account.types';
 import { Field, Int, ObjectType } from '@nestjs/graphql';
-// 导入枚举注册文件以确保 GraphQL 类型系统正确识别枚举
-import '@src/adapters/graphql/account/enums/identity-type.enum';
 
 /**
  * JWT Token 对象

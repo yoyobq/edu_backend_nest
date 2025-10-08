@@ -1,7 +1,6 @@
 // src/adapters/graphql/third-party-auth/dto/third-party-auth.dto.ts
 import { ThirdPartyProviderEnum } from '@app-types/models/account.types';
 import { Field, Int, ObjectType } from '@nestjs/graphql';
-import '@src/adapters/graphql/third-party-auth/enums/third-party-provider.enum';
 
 /**
  * third_party_auth 表数据传输对象

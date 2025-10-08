@@ -7,9 +7,6 @@ import {
 } from '@app-types/models/verification-record.types';
 import { Field, Int, ObjectType } from '@nestjs/graphql';
 
-// 导入枚举注册文件以确保 GraphQL 类型系统正确识别所有枚举
-import '@src/adapters/graphql/verification-record/enums/verification-record-type.enum';
-
 /**
  * 公开验证记录数据传输对象
  * 仅包含公开验证所需的必要字段，不包含敏感信息
