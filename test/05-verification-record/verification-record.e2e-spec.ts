@@ -161,17 +161,10 @@ describe('验证记录签发 E2E 测试', () => {
     });
 
     // 获取 manager 的访问令牌
-    console.log('使用统一账号系统的manager账号登录:', testAccountsConfig.manager.loginName);
-    try {
-      managerAccessToken = await getAccessToken(
-        testAccountsConfig.manager.loginName,
-        testAccountsConfig.manager.loginPassword,
-      );
-      console.log('Manager token 获取成功，长度:', managerAccessToken.length);
-    } catch (error: any) {
-      console.error('Manager token 获取失败:', error.message);
-      throw error;
-    }
+    managerAccessToken = await getAccessToken(
+      testAccountsConfig.manager.loginName,
+      testAccountsConfig.manager.loginPassword,
+    );
   }, 60000);
 
   afterAll(async () => {
@@ -226,17 +219,13 @@ describe('验证记录签发 E2E 测试', () => {
   describe('单个验证记录签发', () => {
     it('应该成功签发单个验证记录', async () => {
       // 重新获取新的访问令牌以确保有效性
-      console.log('重新获取 manager 访问令牌...');
       const freshManagerToken = await getAccessToken(
         testAccountsConfig.manager.loginName,
         testAccountsConfig.manager.loginPassword,
       );
-      console.log('新的 manager token 长度:', freshManagerToken.length);
-      console.log('新的 manager token 预览:', freshManagerToken.substring(0, 50) + '...');
 
       // 确保学员账户 ID 不为空
       expect(learnerEntities[0].accountId).not.toBeNull();
-      console.log('目标学员账户 ID:', learnerEntities[0].accountId);
 
       const response = await request(app.getHttpServer() as App)
         .post('/graphql')
@@ -704,17 +693,10 @@ describe('验证记录签发 E2E 测试', () => {
 
     beforeAll(async () => {
       // 获取 learner 的访问令牌
-      console.log('获取 learner 访问令牌...');
-      try {
-        learnerAccessToken = await getAccessToken(
-          testAccountsConfig.learner.loginName,
-          testAccountsConfig.learner.loginPassword,
-        );
-        console.log('Learner token 获取成功，长度:', learnerAccessToken.length);
-      } catch (error: any) {
-        console.error('Learner token 获取失败:', error.message);
-        throw error;
-      }
+      learnerAccessToken = await getAccessToken(
+        testAccountsConfig.learner.loginName,
+        testAccountsConfig.learner.loginPassword,
+      );
     });
 
     it('应该支持自动生成 token - manager 身份可以回显', async () => {
@@ -1608,8 +1590,6 @@ describe('验证记录签发 E2E 测试', () => {
         learnerAccessToken,
       );
 
-      console.log('未到使用时间响应:', JSON.stringify(response.body, null, 2));
-
       // 检查是否有 GraphQL 错误
       if (response.body.errors) {
         console.log('GraphQL 错误:', response.body.errors);
@@ -1633,8 +1613,6 @@ describe('验证记录签发 E2E 测试', () => {
         duplicateRecordToken,
         learnerAccessToken,
       );
-
-      console.log('第一次消费响应:', JSON.stringify(firstResponse.body, null, 2));
 
       // 检查是否有 GraphQL 错误
       if (firstResponse.body.errors) {
@@ -1935,9 +1913,6 @@ describe('验证记录签发 E2E 测试', () => {
           tryConsumeVerificationRecord(app, concurrentTestToken, learnerAccessToken),
         ]);
 
-        console.log('并发消费第一个结果:', JSON.stringify(firstResult.body, null, 2));
-        console.log('并发消费第二个结果:', JSON.stringify(secondResult.body, null, 2));
-
         // 检查 GraphQL 错误
         if (firstResult.body.errors) {
           console.log('第一个请求 GraphQL 错误:', firstResult.body.errors);
@@ -1987,8 +1962,6 @@ describe('验证记录签发 E2E 测试', () => {
           managerAccessToken,
         );
 
-        console.log('撤销记录响应:', JSON.stringify(revokeResponse.body, null, 2));
-
         // 检查 GraphQL 错误
         if (revokeResponse.body.errors) {
           console.log('撤销记录 GraphQL 错误:', revokeResponse.body.errors);
@@ -2010,8 +1983,6 @@ describe('验证记录签发 E2E 测试', () => {
           revokeTestToken,
           learnerAccessToken,
         );
-
-        console.log('撤销后消费响应:', JSON.stringify(consumeResponse.body, null, 2));
 
         // 检查 GraphQL 错误
         if (consumeResponse.body.errors) {

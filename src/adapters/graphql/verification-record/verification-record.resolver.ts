@@ -217,7 +217,7 @@ export class VerificationRecordResolver {
         message: '验证记录消费成功',
       };
     } catch (error) {
-      console.error('ConsumeVerificationFlowUsecase 执行失败:', error);
+      // console.error('ConsumeVerificationFlowUsecase 执行失败:', error);
       return {
         success: false,
         data: null,

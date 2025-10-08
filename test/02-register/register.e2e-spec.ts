@@ -388,11 +388,6 @@ describe('Register (e2e)', () => {
     it('应该正确处理邮箱格式不正确的情况', async () => {
       const response = await performRegister(testRegisterData.invalidEmail);
 
-      // 打印完整的响应信息用于调试
-      console.log('📊 响应状态:', response.status);
-      console.log('📊 响应头:', response.headers);
-      console.log('📊 响应体:', JSON.stringify(response.body, null, 2));
-
       const { errors } = response.body;
       expect(errors).toBeDefined();
       expect(errors?.[0]?.message).toContain('邮箱格式不正确');
