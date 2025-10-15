@@ -1,7 +1,7 @@
-// src/adapters/graphql/identity-management/learner/dto/learners.output.ts
+// src/adapters/graphql/identity-management/learner/dto/learners.list.ts
 
 import { Field, Int, ObjectType } from '@nestjs/graphql';
-import { LearnerOutput } from './learner.output';
+import { LearnerOutput } from './learner.arg';
 
 /**
  * 分页信息

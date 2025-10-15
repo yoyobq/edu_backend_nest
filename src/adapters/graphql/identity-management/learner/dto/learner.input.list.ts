@@ -1,8 +1,8 @@
 // src/adapters/graphql/identity-management/learner/dto/learner.input.list.ts
 
 import { Field, InputType, Int } from '@nestjs/graphql';
+import { LearnerSortField, OrderDirection } from '@src/types/common/sort.types';
 import { IsEnum, IsInt, IsOptional, Max, Min } from 'class-validator';
-import { LearnerSortField, SortOrder } from '@src/types/models/learner.types';
 
 /**
  * 分页查询学员列表的 GraphQL Input DTO
@@ -35,8 +35,12 @@ export class ListLearnersInput {
   @IsEnum(LearnerSortField, { message: '排序字段必须是有效的枚举值' })
   sortBy?: LearnerSortField = LearnerSortField.CREATED_AT;
 
-  @Field(() => SortOrder, { nullable: true, description: '排序方向', defaultValue: SortOrder.DESC })
+  @Field(() => OrderDirection, {
+    nullable: true,
+    description: '排序方向',
+    defaultValue: OrderDirection.DESC,
+  })
   @IsOptional()
-  @IsEnum(SortOrder, { message: '排序方向必须是有效的枚举值' })
-  sortOrder?: SortOrder = SortOrder.DESC;
+  @IsEnum(OrderDirection, { message: '排序方向必须是有效的枚举值' })
+  sortOrder?: OrderDirection = OrderDirection.DESC;
 }

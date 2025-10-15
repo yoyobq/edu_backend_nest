@@ -1,4 +1,4 @@
-// src/adapters/graphql/identity-management/learner/dto/learner.output.ts
+// src/adapters/graphql/identity-management/learner/dto/learner.arg.ts
 
 import { Gender } from '@app-types/models/user-info.types';
 import { Field, Float, Int, ObjectType } from '@nestjs/graphql';

@@ -19,6 +19,7 @@ import {
   VerificationRecordType,
 } from '@app-types/models/verification-record.types';
 import { RegisterTypeEnum } from '@app-types/services/register.types';
+import { LearnerSortField, OrderDirection } from '@src/types/common/sort.types';
 
 /**
  * 枚举注册配置接口
@@ -203,6 +204,27 @@ const ENUM_CONFIGS: Record<string, EnumConfig> = {
       SMS_VERIFY_CODE: { description: '短信验证码' },
     },
   },
+  // Learner 相关枚举
+  LEARNER_SORT_FIELD: {
+    enumType: LearnerSortField,
+    name: 'LearnerSortField',
+    description: '学员排序字段',
+    valuesMap: {
+      CREATED_AT: { description: '创建时间' },
+      UPDATED_AT: { description: '更新时间' },
+      NAME: { description: '姓名' },
+      BIRTH_DATE: { description: '出生日期' },
+    },
+  },
+  SORT_ORDER: {
+    enumType: OrderDirection,
+    name: 'OrderDirection',
+    description: '排序方向',
+    valuesMap: {
+      ASC: { description: '升序' },
+      DESC: { description: '降序' },
+    },
+  },
 };
 
 /**
@@ -223,6 +245,8 @@ const EXPECTED_ENUMS = [
   'SubjectType',
   'VerificationRecordStatus',
   'VerificationRecordType',
+  'LearnerSortField',
+  'OrderDirection',
 ];
 
 /**

@@ -6,20 +6,21 @@ import { Args, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { currentUser } from '@src/adapters/graphql/decorators/current-user.decorator';
 import { JwtAuthGuard } from '@src/adapters/graphql/guards/jwt-auth.guard';
 import { LearnerEntity } from '@src/modules/account/identities/training/learner/account-learner.entity';
-import { CreateMyLearnerUsecase } from '@src/usecases/identity-management/learner/create-my-learner.usecase';
-import { DeleteMyLearnerUsecase } from '@src/usecases/identity-management/learner/delete-my-learner.usecase';
-import { GetMyLearnerUsecase } from '@src/usecases/identity-management/learner/get-my-learner.usecase';
+import { OrderDirection } from '@src/types/common/sort.types';
+import { CreateLearnerUsecase } from '@src/usecases/identity-management/learner/create-learner.usecase';
+import { DeleteLearnerUsecase } from '@src/usecases/identity-management/learner/delete-learner.usecase';
+import { GetLearnerUsecase } from '@src/usecases/identity-management/learner/get-learner.usecase';
 import {
-  ListMyLearnersUsecase,
+  ListLearnersUsecase,
   PaginatedLearners,
-} from '@src/usecases/identity-management/learner/list-my-learners.usecase';
-import { UpdateMyLearnerUsecase } from '@src/usecases/identity-management/learner/update-my-learner.usecase';
+} from '@src/usecases/identity-management/learner/list-learners.usecase';
+import { UpdateLearnerUsecase } from '@src/usecases/identity-management/learner/update-learner.usecase';
 import { CreateLearnerInput } from './dto/learner.input.create';
 import { DeleteLearnerInput } from './dto/learner.input.delete';
 import { GetLearnerInput } from './dto/learner.input.get';
-import { LearnerOutput } from './dto/learner.output';
+import { LearnerOutput } from './dto/learner.arg';
 import { ListLearnersInput } from './dto/learner.input.list';
-import { ListLearnersOutput } from './dto/learners.output';
+import { ListLearnersOutput } from './dto/learners.list';
 import { UpdateLearnerInput } from './dto/learner.input.update';
 
 /**
@@ -29,26 +30,26 @@ import { UpdateLearnerInput } from './dto/learner.input.update';
 @Resolver(() => LearnerOutput)
 export class LearnerResolver {
   constructor(
-    private readonly createMyLearnerUsecase: CreateMyLearnerUsecase,
-    private readonly updateMyLearnerUsecase: UpdateMyLearnerUsecase,
-    private readonly deleteMyLearnerUsecase: DeleteMyLearnerUsecase,
-    private readonly getMyLearnerUsecase: GetMyLearnerUsecase,
-    private readonly listMyLearnersUsecase: ListMyLearnersUsecase,
+    private readonly createLearnerUsecase: CreateLearnerUsecase,
+    private readonly updateLearnerUsecase: UpdateLearnerUsecase,
+    private readonly deleteLearnerUsecase: DeleteLearnerUsecase,
+    private readonly getLearnerUsecase: GetLearnerUsecase,
+    private readonly listLearnersUsecase: ListLearnersUsecase,
   ) {}
 
   /**
-   * 创建我的学员
+   * 创建学员
    * @param input 创建学员输入参数
    * @param user 当前用户信息
    * @returns 创建的学员信息
    */
   @UseGuards(JwtAuthGuard)
-  @Mutation(() => LearnerOutput, { description: '创建我的学员' })
-  async createMyLearner(
+  @Mutation(() => LearnerOutput, { description: '创建学员' })
+  async createLearner(
     @Args('input') input: CreateLearnerInput,
     @currentUser() user: JwtPayload,
   ): Promise<LearnerOutput> {
-    const result = await this.createMyLearnerUsecase.execute({
+    const result = await this.createLearnerUsecase.execute({
       currentAccountId: Number(user.sub),
       name: input.name,
       gender: input.gender,
@@ -63,18 +64,18 @@ export class LearnerResolver {
   }
 
   /**
-   * 更新我的学员信息
+   * 更新学员信息
    * @param input 更新学员输入参数
    * @param user 当前用户信息
    * @returns 更新后的学员信息
    */
   @UseGuards(JwtAuthGuard)
-  @Mutation(() => LearnerOutput, { description: '更新我的学员信息' })
-  async updateMyLearner(
+  @Mutation(() => LearnerOutput, { description: '更新学员信息' })
+  async updateLearner(
     @Args('input') input: UpdateLearnerInput,
     @currentUser() user: JwtPayload,
   ): Promise<LearnerOutput> {
-    const result = await this.updateMyLearnerUsecase.execute(Number(user.sub), {
+    const result = await this.updateLearnerUsecase.execute(Number(user.sub), {
       id: input.learnerId,
       name: input.name,
       gender: input.gender,
@@ -89,35 +90,35 @@ export class LearnerResolver {
   }
 
   /**
-   * 删除我的学员
+   * 删除学员
    * @param input 删除学员输入参数
    * @param user 当前用户信息
    * @returns 删除是否成功
    */
   @UseGuards(JwtAuthGuard)
-  @Mutation(() => Boolean, { description: '删除我的学员' })
-  async deleteMyLearner(
+  @Mutation(() => Boolean, { description: '删除学员' })
+  async deleteLearner(
     @Args('input') input: DeleteLearnerInput,
     @currentUser() user: JwtPayload,
   ): Promise<boolean> {
-    await this.deleteMyLearnerUsecase.execute(Number(user.sub), input.learnerId);
+    await this.deleteLearnerUsecase.execute(Number(user.sub), input.learnerId);
 
     return true;
   }
 
   /**
-   * 获取我的学员信息
+   * 获取学员信息
    * @param input 获取学员输入参数
    * @param user 当前用户信息
    * @returns 学员信息
    */
   @UseGuards(JwtAuthGuard)
-  @Query(() => LearnerOutput, { description: '获取我的学员信息' })
-  async myLearner(
+  @Query(() => LearnerOutput, { description: '获取学员信息' })
+  async learner(
     @Args('input') input: GetLearnerInput,
     @currentUser() user: JwtPayload,
   ): Promise<LearnerOutput> {
-    const result: LearnerEntity = await this.getMyLearnerUsecase.execute(
+    const result: LearnerEntity = await this.getLearnerUsecase.execute(
       Number(user.sub),
       input.learnerId,
     );
@@ -126,22 +127,22 @@ export class LearnerResolver {
   }
 
   /**
-   * 分页查询我的学员列表
+   * 分页查询学员列表
    * @param input 查询学员列表输入参数
    * @param user 当前用户信息
    * @returns 学员列表和分页信息
    */
   @UseGuards(JwtAuthGuard)
-  @Query(() => ListLearnersOutput, { description: '分页查询我的学员列表' })
-  async myLearners(
+  @Query(() => ListLearnersOutput, { description: '分页查询学员列表' })
+  async learners(
     @Args('input') input: ListLearnersInput,
     @currentUser() user: JwtPayload,
   ): Promise<ListLearnersOutput> {
-    const result: PaginatedLearners = await this.listMyLearnersUsecase.execute(Number(user.sub), {
+    const result: PaginatedLearners = await this.listLearnersUsecase.execute(Number(user.sub), {
       page: input.page,
       limit: input.limit,
       sortBy: input.sortBy,
-      sortOrder: input.sortOrder,
+      sortOrder: input.sortOrder || OrderDirection.DESC,
     });
 
     return {

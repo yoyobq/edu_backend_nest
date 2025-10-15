@@ -12,7 +12,8 @@ const ENABLED_SPECS = [
   // '05-verification-record/verification-record.e2e-spec.ts',
   // '05-verification-record/verification-record-types.e2e-spec.ts',
   // '05-verification-record/verification-record-invite.e2e-spec.ts',
-  '06-identity-management/identity-management.e2e-spec.ts',
+  // '06-identity-management/identity-management.e2e-spec.ts',
+  '06-identity-management/learner-management.e2e-spec.ts',
 ];
 
 /** 可选：命令行临时指定（逗号分隔）

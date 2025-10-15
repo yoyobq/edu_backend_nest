@@ -71,6 +71,8 @@ export function initGraphQLSchema(): {
       'SubjectType',
       'VerificationRecordStatus',
       'VerificationRecordType',
+      'LearnerSortField',
+      'OrderDirection',
     ];
 
     // 生成 Schema 指纹

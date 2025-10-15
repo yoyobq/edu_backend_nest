@@ -121,7 +121,21 @@ export const VERIFICATION_RECORD_ERROR = {
 } as const;
 Object.freeze(VERIFICATION_RECORD_ERROR);
 
-// 类型辅助
+// 学员管理相关错误码
+export const LEARNER_ERROR = {
+  LEARNER_NOT_FOUND: 'LEARNER_NOT_FOUND',
+  LEARNER_DUPLICATED: 'LEARNER_DUPLICATED',
+  LEARNER_ACCESS_DENIED: 'LEARNER_ACCESS_DENIED',
+  LEARNER_VALIDATION_FAILED: 'LEARNER_VALIDATION_FAILED',
+  LEARNER_CREATION_FAILED: 'LEARNER_CREATION_FAILED',
+  LEARNER_UPDATE_FAILED: 'LEARNER_UPDATE_FAILED',
+  LEARNER_DELETE_FAILED: 'LEARNER_DELETE_FAILED',
+  LEARNER_ALREADY_DELETED: 'LEARNER_ALREADY_DELETED',
+  LEARNER_CUSTOMER_MISMATCH: 'LEARNER_CUSTOMER_MISMATCH',
+} as const;
+Object.freeze(LEARNER_ERROR);
+
+// 类型定义
 export type AuthErrorCode = (typeof AUTH_ERROR)[keyof typeof AUTH_ERROR];
 export type AccountErrorCode = (typeof ACCOUNT_ERROR)[keyof typeof ACCOUNT_ERROR];
 export type ThirdPartyErrorCode = (typeof THIRDPARTY_ERROR)[keyof typeof THIRDPARTY_ERROR];
@@ -129,6 +143,7 @@ export type JwtErrorCode = (typeof JWT_ERROR)[keyof typeof JWT_ERROR];
 export type PermissionErrorCode = (typeof PERMISSION_ERROR)[keyof typeof PERMISSION_ERROR];
 export type VerificationRecordErrorCode =
   (typeof VERIFICATION_RECORD_ERROR)[keyof typeof VERIFICATION_RECORD_ERROR];
+export type LearnerErrorCode = (typeof LEARNER_ERROR)[keyof typeof LEARNER_ERROR];
 
 // 类型守卫：统一判断是否为领域错误（兼容多包/反序列化场景）
 export const isDomainError = (error: unknown): error is DomainError => {

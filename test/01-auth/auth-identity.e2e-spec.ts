@@ -14,8 +14,8 @@ import { DataSource } from 'typeorm';
 import { UserState } from '@app-types/models/user-info.types';
 import { AppModule } from '@src/app.module';
 import { CreateAccountUsecase } from '@src/usecases/account/create-account.usecase';
-import { cleanupTestAccounts, seedTestAccounts, testAccountsConfig } from '../utils/test-accounts';
 import { initGraphQLSchema } from '../../src/adapters/graphql/schema/schema.init';
+import { cleanupTestAccounts, seedTestAccounts, testAccountsConfig } from '../utils/test-accounts';
 
 /**
  * Auth 身份测试 E2E 测试 - 专门测试 Coach、Customer、Manager 和 Learner 身份
