@@ -10,8 +10,8 @@ import { LearnerEntity } from './account-learner.entity';
  * 分页查询参数接口
  */
 export interface LearnerPaginationParams {
-  /** 客户 ID */
-  customerId: number;
+  /** 客户 ID，如果为 undefined 则查询所有学员 */
+  customerId?: number;
   /** 页码，从 1 开始 */
   page?: number;
   /** 每页数量，默认 10，最大 100 */
@@ -224,13 +224,20 @@ export class LearnerService {
     const offset = (page - 1) * actualLimit;
 
     // 构建查询
-    const queryBuilder = this.learnerRepository
-      .createQueryBuilder('learner')
-      .where('learner.customerId = :customerId', { customerId });
+    const queryBuilder = this.learnerRepository.createQueryBuilder('learner');
+
+    // 如果指定了 customerId，则按客户 ID 过滤
+    if (customerId !== undefined) {
+      queryBuilder.where('learner.customerId = :customerId', { customerId });
+    }
 
     // 是否包含已删除的记录
     if (!includeDeleted) {
-      queryBuilder.andWhere('learner.deactivatedAt IS NULL');
+      if (customerId !== undefined) {
+        queryBuilder.andWhere('learner.deactivatedAt IS NULL');
+      } else {
+        queryBuilder.where('learner.deactivatedAt IS NULL');
+      }
     }
 
     // 排序

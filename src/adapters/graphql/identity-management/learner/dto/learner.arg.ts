@@ -11,6 +11,9 @@ export class LearnerOutput {
   @Field(() => Int, { description: '学员 ID' })
   id!: number;
 
+  @Field(() => Int, { description: '客户 ID' })
+  customerId!: number;
+
   @Field({ description: '学员姓名' })
   name!: string;
 

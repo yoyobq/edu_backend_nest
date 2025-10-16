@@ -77,6 +77,7 @@ export class LearnerResolver {
   ): Promise<LearnerOutput> {
     const result = await this.updateLearnerUsecase.execute(Number(user.sub), {
       id: input.learnerId,
+      customerId: input.customerId,
       name: input.name,
       gender: input.gender,
       birthDate: input.birthDate,
@@ -101,7 +102,7 @@ export class LearnerResolver {
     @Args('input') input: DeleteLearnerInput,
     @currentUser() user: JwtPayload,
   ): Promise<boolean> {
-    await this.deleteLearnerUsecase.execute(Number(user.sub), input.learnerId);
+    await this.deleteLearnerUsecase.execute(Number(user.sub), input.learnerId, input.customerId);
 
     return true;
   }
@@ -168,6 +169,7 @@ export class LearnerResolver {
   private mapLearnerEntityToOutput(learner: LearnerEntity): LearnerOutput {
     return {
       id: learner.id,
+      customerId: learner.customerId,
       name: learner.name,
       gender: learner.gender,
       birthDate: learner.birthDate,

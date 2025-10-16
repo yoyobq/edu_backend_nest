@@ -3,6 +3,7 @@
 import { Gender } from '@app-types/models/user-info.types';
 import { DomainError, LEARNER_ERROR, PERMISSION_ERROR } from '@core/common/errors/domain-error';
 import { CustomerService } from '@modules/account/identities/training/customer/account-customer.service';
+import { ManagerService } from '@modules/account/identities/training/manager/manager.service';
 import { LearnerEntity } from '@modules/account/identities/training/learner/account-learner.entity';
 import { LearnerService } from '@modules/account/identities/training/learner/account-learner.service';
 import { Injectable } from '@nestjs/common';
@@ -15,6 +16,8 @@ import { DataSource, EntityManager } from 'typeorm';
 export interface CreateLearnerUsecaseParams {
   /** 当前用户账户 ID */
   currentAccountId: number;
+  /** 目标客户 ID（可选，manager 身份时需要指定） */
+  customerId?: number;
   /** 学员姓名 */
   name: string;
   /** 性别（可选） */
@@ -52,6 +55,7 @@ export class CreateLearnerUsecase {
   constructor(
     private readonly learnerService: LearnerService,
     private readonly customerService: CustomerService,
+    private readonly managerService: ManagerService,
     @InjectDataSource() private readonly dataSource: DataSource,
   ) {}
 
@@ -64,19 +68,36 @@ export class CreateLearnerUsecase {
     params: CreateLearnerUsecaseParams,
     _manager?: EntityManager,
   ): Promise<CreateLearnerUsecaseResult> {
-    const { currentAccountId, name, gender, birthDate, avatarUrl, specialNeeds, remark } = params;
+    const {
+      currentAccountId,
+      customerId,
+      name,
+      gender,
+      birthDate,
+      avatarUrl,
+      specialNeeds,
+      remark,
+    } = params;
 
     return await this.dataSource.transaction(async (_manager: EntityManager) => {
-      // 1. 权限校验：验证当前用户是 Customer
+      // 1. 权限校验和客户确定
+      // 只允许 Customer 创建学员
       const customer = await this.customerService.findByAccountId(currentAccountId);
       if (!customer) {
         throw new DomainError(PERMISSION_ERROR.ACCESS_DENIED, '只有客户可以创建学员信息');
       }
 
+      // Customer 只能为自己创建学员
+      if (customerId && customerId !== customer.id) {
+        throw new DomainError(PERMISSION_ERROR.ACCESS_DENIED, '客户只能为自己创建学员');
+      }
+
+      const targetCustomerId = customer.id;
+
       // 2. 检查是否已存在同名学员（同一客户下）
       const existingLearner = await this.learnerService.findByNameAndCustomerId({
         name,
-        customerId: customer.id,
+        customerId: targetCustomerId,
       });
 
       if (existingLearner) {
@@ -85,7 +106,7 @@ export class CreateLearnerUsecase {
 
       // 3. 创建学员信息
       const learner = await this.learnerService.create({
-        customerId: customer.id,
+        customerId: targetCustomerId,
         name,
         gender,
         birthDate,

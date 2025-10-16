@@ -5,6 +5,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { AccountInstallerModule } from '@src/modules/account/account-installer.module';
 import { CustomerServiceModule } from '@src/modules/account/identities/training/customer/customer-service.module';
 import { LearnerIdentityModule } from '@src/modules/account/identities/training/learner/learner.module';
+import { ManagerServiceModule } from '@src/modules/account/identities/training/manager/manager-service.module';
 import { AuthModule } from '@src/modules/auth/auth.module';
 import { PerformUpgradeToCustomerUsecase } from '@src/usecases/identity-management/perform-upgrade-to-customer.usecase';
 import { CreateLearnerUsecase } from '@src/usecases/identity-management/learner/create-learner.usecase';
@@ -23,6 +24,7 @@ import { ListLearnersUsecase } from '@src/usecases/identity-management/learner/l
     AccountInstallerModule, // 提供账户相关服务
     CustomerServiceModule, // 提供 CustomerService
     LearnerIdentityModule, // 提供 LearnerService
+    ManagerServiceModule, // 提供 ManagerService
     AuthModule, // 提供认证相关服务
   ],
   providers: [

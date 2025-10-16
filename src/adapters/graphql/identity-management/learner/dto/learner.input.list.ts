@@ -6,9 +6,25 @@ import { IsEnum, IsInt, IsOptional, Max, Min } from 'class-validator';
 
 /**
  * 分页查询学员列表的 GraphQL Input DTO
+ * 支持两种查询方式：
+ * 1. 通过 managerId 查询（传统方式，保持向后兼容）
+ * 2. 通过 customerId 查询（新方式，支持客户范围查询）
+ * 注意：业务逻辑验证（如参数互斥性）由 usecase 层处理
  */
 @InputType()
 export class ListLearnersInput {
+  @Field(() => Int, { nullable: true, description: '管理员 ID，用于查询该管理员负责的学员' })
+  @IsOptional()
+  @IsInt({ message: '管理员 ID 必须是整数' })
+  @Min(1, { message: '管理员 ID 必须大于 0' })
+  managerId?: number;
+
+  @Field(() => Int, { nullable: true, description: '客户 ID，用于查询该客户下的所有学员' })
+  @IsOptional()
+  @IsInt({ message: '客户 ID 必须是整数' })
+  @Min(1, { message: '客户 ID 必须大于 0' })
+  customerId?: number;
+
   @Field(() => Int, { nullable: true, description: '页码，从 1 开始', defaultValue: 1 })
   @IsOptional()
   @IsInt({ message: '页码必须是整数' })

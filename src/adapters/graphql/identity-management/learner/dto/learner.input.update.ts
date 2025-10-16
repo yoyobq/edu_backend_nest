@@ -24,6 +24,12 @@ export class UpdateLearnerInput {
   @Min(1, { message: '学员 ID 必须大于 0' })
   learnerId!: number;
 
+  @Field(() => Int, { nullable: true, description: '目标客户 ID（Manager 必须指定）' })
+  @IsOptional()
+  @IsInt({ message: '客户 ID 必须是整数' })
+  @Min(1, { message: '客户 ID 必须大于 0' })
+  customerId?: number;
+
   @Field({ nullable: true, description: '学员姓名' })
   @IsOptional()
   @IsString({ message: '学员姓名必须是字符串' })

@@ -4,6 +4,7 @@ import { Injectable } from '@nestjs/common';
 import { LearnerSortField, OrderDirection } from '@src/types/common/sort.types';
 import { DomainError, PERMISSION_ERROR } from '../../../core/common/errors/domain-error';
 import { CustomerService } from '../../../modules/account/identities/training/customer/account-customer.service';
+import { ManagerService } from '../../../modules/account/identities/training/manager/manager.service';
 import { LearnerEntity } from '../../../modules/account/identities/training/learner/account-learner.entity';
 import { LearnerService } from '../../../modules/account/identities/training/learner/account-learner.service';
 
@@ -49,8 +50,9 @@ export interface PaginatedLearners {
 @Injectable()
 export class ListLearnersUsecase {
   constructor(
-    private readonly customerService: CustomerService,
     private readonly learnerService: LearnerService,
+    private readonly customerService: CustomerService,
+    private readonly managerService: ManagerService,
   ) {}
 
   /**
@@ -58,7 +60,7 @@ export class ListLearnersUsecase {
    * @param sortBy GraphQL 排序字段枚举
    * @returns 数据库字段名
    */
-  private mapSortFieldToDbField(sortBy?: LearnerSortField): string {
+  private mapSortFieldToDbField(sortBy?: LearnerSortField): 'createdAt' | 'updatedAt' | 'name' {
     switch (sortBy) {
       case LearnerSortField.NAME:
         return 'name';
@@ -71,74 +73,67 @@ export class ListLearnersUsecase {
   }
 
   /**
-   * 执行列出学员信息
-   * @param customerAccountId 当前登录的客户账户 ID
-   * @param pagination 分页参数
-   * @returns 分页的学员列表
+   * 执行分页查询学员列表
+   * @param accountId 当前用户的账户 ID（从 JWT token 解析）
+   * @param input 查询参数
+   * @returns 分页学员列表
    */
-  async execute(
-    customerAccountId: number,
-    pagination: PaginationInput = {},
-  ): Promise<PaginatedLearners> {
-    // 1. 权限校验：验证当前用户是 Customer
-    const customer = await this.customerService.findByAccountId(customerAccountId);
-    if (!customer) {
-      throw new DomainError(PERMISSION_ERROR.ACCESS_DENIED, '只有客户可以查看学员信息');
+  async execute(accountId: number, input: PaginationInput): Promise<PaginatedLearners> {
+    const page = input.page || 1;
+    const limit = Math.min(input.limit || 10, 100);
+    const sortBy = this.mapSortFieldToDbField(input.sortBy || LearnerSortField.CREATED_AT);
+    const sortOrder = input.sortOrder || OrderDirection.DESC;
+
+    // 首先尝试查找 Customer
+    const customer = await this.customerService.findByAccountId(accountId);
+
+    if (customer) {
+      // 如果是 Customer：只能查询该 Customer 的学员
+      const result = await this.learnerService.findPaginated({
+        customerId: customer.id,
+        page,
+        limit,
+        sortBy,
+        sortOrder: sortOrder as 'ASC' | 'DESC',
+        includeDeleted: false,
+      });
+
+      return {
+        items: result.learners,
+        total: result.total,
+        page: result.page,
+        limit: result.limit,
+        totalPages: result.totalPages,
+      };
     }
 
-    // 2. 设置分页参数默认值和业务映射
-    const page = Math.max(1, pagination.page || 1);
-    const limit = Math.min(100, Math.max(1, pagination.limit || 10));
-    const sortBy = this.mapSortFieldToDbField(pagination.sortBy || LearnerSortField.CREATED_AT);
-    const sortOrder = pagination.sortOrder || OrderDirection.DESC;
+    // 然后尝试查找 Manager
+    const manager = await this.managerService.findByAccountId(accountId);
 
-    // 3. 查询学员列表（只查询未软删除的）
-    const learners = await this.learnerService.findByCustomerId(customer.id);
+    if (manager) {
+      // 如果是 Manager：允许查询所有的 learner
+      const result = await this.learnerService.findPaginated({
+        customerId: undefined, // 不限制 customerId，查询所有学员
+        page,
+        limit,
+        sortBy,
+        sortOrder: sortOrder as 'ASC' | 'DESC',
+        includeDeleted: false,
+      });
 
-    // 4. 过滤掉已软删除的学员
-    const activeLearners = learners.filter((learner) => !learner.deactivatedAt);
+      return {
+        items: result.learners,
+        total: result.total,
+        page: result.page,
+        limit: result.limit,
+        totalPages: result.totalPages,
+      };
+    }
 
-    // 5. 排序
-    activeLearners.sort((a, b) => {
-      let aValue: string | Date;
-      let bValue: string | Date;
-
-      switch (sortBy) {
-        case 'name':
-          aValue = a.name;
-          bValue = b.name;
-          break;
-        case 'updatedAt':
-          aValue = a.updatedAt;
-          bValue = b.updatedAt;
-          break;
-        case 'createdAt':
-        default:
-          aValue = a.createdAt;
-          bValue = b.createdAt;
-          break;
-      }
-
-      if (sortOrder === OrderDirection.ASC) {
-        return aValue > bValue ? 1 : aValue < bValue ? -1 : 0;
-      } else {
-        return aValue < bValue ? 1 : aValue > bValue ? -1 : 0;
-      }
-    });
-
-    // 6. 分页
-    const total = activeLearners.length;
-    const totalPages = Math.ceil(total / limit);
-    const startIndex = (page - 1) * limit;
-    const endIndex = startIndex + limit;
-    const items = activeLearners.slice(startIndex, endIndex);
-
-    return {
-      items,
-      total,
-      page,
-      limit,
-      totalPages,
-    };
+    // 如果既不是 Customer 也不是 Manager，抛出权限错误
+    throw new DomainError(
+      PERMISSION_ERROR.ACCESS_DENIED,
+      '用户身份验证失败：该账户既不是客户也不是管理员',
+    );
   }
 }

@@ -1,7 +1,7 @@
 // src/adapters/graphql/identity-management/learner/dto/learner.input.delete.ts
 
 import { Field, InputType, Int } from '@nestjs/graphql';
-import { IsInt, Min } from 'class-validator';
+import { IsInt, IsOptional, Min } from 'class-validator';
 
 /**
  * 删除学员的 GraphQL Input DTO
@@ -12,4 +12,10 @@ export class DeleteLearnerInput {
   @IsInt({ message: '学员 ID 必须是整数' })
   @Min(1, { message: '学员 ID 必须大于 0' })
   learnerId!: number;
+
+  @Field(() => Int, { description: '目标客户 ID（Manager 身份时必须指定）', nullable: true })
+  @IsOptional()
+  @IsInt({ message: '客户 ID 必须是整数' })
+  @Min(1, { message: '客户 ID 必须大于 0' })
+  customerId?: number;
 }
