@@ -3,12 +3,20 @@ import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { AppModule } from '@src/app.module';
 import { AccountEntity } from '@src/modules/account/base/entities/account.entity';
-import { AccountStatus, IdentityTypeEnum, LoginTypeEnum } from '@src/types/models/account.types';
+import {
+  AccountStatus,
+  AudienceTypeEnum,
+  IdentityTypeEnum,
+  LoginTypeEnum,
+  ThirdPartyProviderEnum,
+} from '@src/types/models/account.types';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { DataSource, In } from 'typeorm';
 
 import { Gender, UserState } from '@app-types/models/user-info.types';
+import { ThirdPartyAuthEntity } from '@src/modules/account/base/entities/third-party-auth.entity';
+import { WeAppProvider } from '@src/modules/third-party-auth/providers/weapp.provider';
 import { CreateAccountUsecase } from '@src/usecases/account/create-account.usecase';
 import { initGraphQLSchema } from '../../src/adapters/graphql/schema/schema.init';
 import { cleanupTestAccounts, seedTestAccounts, testAccountsConfig } from '../utils/test-accounts';
@@ -23,6 +31,11 @@ describe('Auth (e2e)', () => {
 
   // 使用统一的测试账号配置
   const { guest: activeUser } = testAccountsConfig;
+
+  // WeApp 模拟的 openid/unionid（绑定/未绑定场景）
+  const MOCK_WEAPP_OPENID_BOUND = 'weapp_openid_e2e_guest_1';
+  const MOCK_WEAPP_OPENID_UNBOUND = 'weapp_openid_e2e_unbound_1';
+  const MOCK_WEAPP_UNIONID = 'weapp_union_e2e_guest_1';
 
   // 额外的测试账号（仅用于特殊状态测试）
   const bannedUser = {
@@ -43,13 +56,46 @@ describe('Auth (e2e)', () => {
     identityType: IdentityTypeEnum.REGISTRANT,
   };
 
+  // 覆写 WeAppProvider：根据 authCredential 返回不同的 openid（绑定 / 未绑定）
+  const mockWeAppProvider: Partial<WeAppProvider> & {
+    provider: ThirdPartyProviderEnum;
+    exchangeCredential: ({
+      authCredential,
+      audience,
+    }: {
+      authCredential: string;
+      audience: AudienceTypeEnum;
+    }) => Promise<any>;
+  } = {
+    provider: ThirdPartyProviderEnum.WEAPP,
+    exchangeCredential: ({ authCredential }) => {
+      if (authCredential === 'e2e-unbound') {
+        return Promise.resolve({
+          providerUserId: MOCK_WEAPP_OPENID_UNBOUND,
+          unionId: null,
+          profile: { nickname: 'UnboundUser' },
+          sessionKeyRaw: 'mock-session-key-unbound',
+        });
+      }
+      return Promise.resolve({
+        providerUserId: MOCK_WEAPP_OPENID_BOUND,
+        unionId: MOCK_WEAPP_UNIONID,
+        profile: { nickname: 'BoundUser' },
+        sessionKeyRaw: 'mock-session-key-bound',
+      });
+    },
+  };
+
   beforeAll(async () => {
     // 初始化 GraphQL Schema
     initGraphQLSchema();
 
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
-    }).compile();
+    })
+      .overrideProvider(WeAppProvider)
+      .useValue(mockWeAppProvider)
+      .compile();
 
     app = moduleFixture.createNestApplication();
     dataSource = moduleFixture.get<DataSource>(DataSource);
@@ -73,6 +119,10 @@ describe('Auth (e2e)', () => {
    */
   const cleanupTestData = async (): Promise<void> => {
     try {
+      // 先清理第三方绑定记录
+      const thirdPartyRepo = dataSource.getRepository(ThirdPartyAuthEntity);
+      await thirdPartyRepo.clear();
+
       // 清理统一测试账号
       await cleanupTestAccounts(dataSource);
 
@@ -135,9 +185,39 @@ describe('Auth (e2e)', () => {
           });
         }),
       );
+
+      // 绑定 WeApp 第三方登录到 guest 账号
+      await seedWeAppThirdPartyBinding();
     } catch (error) {
       console.error('❌ 创建测试账户失败:', error);
       throw error;
+    }
+  };
+
+  /**
+   * 为 guest 账号绑定 WeApp 第三方登录
+   */
+  const seedWeAppThirdPartyBinding = async (): Promise<void> => {
+    const accountRepository = dataSource.getRepository(AccountEntity);
+    const thirdPartyRepo = dataSource.getRepository(ThirdPartyAuthEntity);
+
+    const account = await accountRepository.findOne({ where: { loginName: activeUser.loginName } });
+    if (!account) return;
+
+    const existed = await thirdPartyRepo.findOne({
+      where: { accountId: account.id, provider: ThirdPartyProviderEnum.WEAPP },
+    });
+
+    if (!existed) {
+      await thirdPartyRepo.save(
+        thirdPartyRepo.create({
+          accountId: account.id,
+          provider: ThirdPartyProviderEnum.WEAPP,
+          providerUserId: MOCK_WEAPP_OPENID_BOUND,
+          unionId: MOCK_WEAPP_UNIONID,
+          accessToken: null,
+        }),
+      );
     }
   };
 
@@ -219,6 +299,91 @@ describe('Auth (e2e)', () => {
             loginName,
             loginPassword,
             type,
+            audience,
+            ip,
+          },
+        },
+      });
+
+    return response;
+  };
+
+  /**
+   * 执行 GraphQL 第三方 WeApp 登录请求
+   */
+  const performThirdPartyLogin = async (
+    provider: ThirdPartyProviderEnum,
+    authCredential: string,
+    audience: string = 'SSTSTEST',
+    ip: string = '127.0.0.1',
+  ) => {
+    const response = await request(app.getHttpServer())
+      .post('/graphql')
+      .send({
+        query: `
+          mutation ThirdPartyLogin($input: ThirdPartyLoginInput!) {
+            thirdPartyLogin(input: $input) {
+              accessToken
+              refreshToken
+              accountId
+              role
+              userInfo {
+                userInfoId: id
+                accountId
+                nickname
+                gender
+                birthDate
+                avatarUrl
+                email
+                signature
+                accessGroup
+                address
+                phone
+                tags
+                geographic
+                notifyCount
+                unreadCount
+                userState
+                createdAt
+                updatedAt
+              }
+              identity {
+                ... on StaffType {
+                  staffId: id
+                  name
+                  remark
+                  jobTitle
+                  departmentId
+                  employmentStatus
+                }
+                ... on CoachType {
+                  coachId: id
+                  name
+                  remark
+                  employmentStatus
+                }
+                ... on ManagerType {
+                  managerId: id
+                  name
+                  remark
+                  employmentStatus
+                }
+                ... on CustomerType {
+                  customerId: id
+                  name
+                  contactPhone
+                  preferredContactTime
+                  membershipLevel
+                  remark
+                }
+              }
+            }
+          }
+        `,
+        variables: {
+          input: {
+            provider,
+            authCredential,
             audience,
             ip,
           },
@@ -311,6 +476,43 @@ describe('Auth (e2e)', () => {
       expect(errors?.[0]?.message).toContain(
         'Value "invalid-audience" does not exist in "AudienceTypeEnum" enum.',
       );
+    });
+  });
+
+  describe('第三方登录 - WeApp', () => {
+    it('应该支持绑定账号的 WeApp 第三方登录', async () => {
+      const response = await performThirdPartyLogin(
+        ThirdPartyProviderEnum.WEAPP,
+        'e2e-bound',
+        'SSTSTEST',
+      );
+
+      const { data, errors } = response.body;
+      expect(errors).toBeUndefined();
+
+      const accountRepository = dataSource.getRepository(AccountEntity);
+      const account = await accountRepository.findOne({
+        where: { loginName: activeUser.loginName },
+      });
+
+      expect(data?.thirdPartyLogin.accountId).toBe(account?.id);
+      expect(data?.thirdPartyLogin.role).toBe(activeUser.identityType);
+      expect(typeof data?.thirdPartyLogin.accessToken).toBe('string');
+      expect(typeof data?.thirdPartyLogin.refreshToken).toBe('string');
+      // REGISTRANT 没有具体身份类型，identity 应为 null
+      expect(data?.thirdPartyLogin.identity).toBeNull();
+    });
+
+    it('未绑定的 WeApp 第三方登录应返回未绑定错误', async () => {
+      const response = await performThirdPartyLogin(
+        ThirdPartyProviderEnum.WEAPP,
+        'e2e-unbound',
+        'SSTSTEST',
+      );
+
+      const { errors } = response.body;
+      expect(errors).toBeDefined();
+      expect(errors?.[0]?.message).toContain('该第三方账户未绑定');
     });
   });
 
