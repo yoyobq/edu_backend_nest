@@ -28,10 +28,12 @@ import {
   LoginWithThirdPartyUsecase,
   ThirdPartyLoginParams,
 } from '@usecases/auth/login-with-third-party.usecase';
+import { BindThirdPartyAccountUsecase } from '@usecases/third-party-accounts/bind-third-party-account.usecase';
 import {
   GetWeappPhoneParams,
   GetWeappPhoneUsecase,
 } from '@usecases/third-party-accounts/get-weapp-phone.usecase';
+import { UnbindThirdPartyAccountUsecase } from '@usecases/third-party-accounts/unbind-third-party-account.usecase';
 import { CoachType } from '../account/dto/identity/coach.dto';
 import { CustomerType } from '../account/dto/identity/customer.dto';
 import { LearnerType } from '../account/dto/identity/learner.dto';
@@ -49,6 +51,8 @@ export class ThirdPartyAuthResolver {
     private readonly loginWithThirdPartyUsecase: LoginWithThirdPartyUsecase,
     private readonly getWeappPhoneUsecase: GetWeappPhoneUsecase, // 注入新的 usecase
     private readonly fetchUserInfoUsecase: FetchUserInfoUsecase,
+    private readonly bindThirdPartyAccountUsecase: BindThirdPartyAccountUsecase,
+    private readonly unbindThirdPartyAccountUsecase: UnbindThirdPartyAccountUsecase,
   ) {}
 
   /**
@@ -101,10 +105,14 @@ export class ThirdPartyAuthResolver {
     @Args('input') input: BindThirdPartyInput,
     @currentUser() user: JwtPayload,
   ): Promise<ThirdPartyAuthDTO> {
-    return await this.thirdPartyAuthService.bindThirdParty({
+    const result = await this.bindThirdPartyAccountUsecase.execute({
       accountId: user.sub,
-      input,
+      provider: input.provider,
+      providerUserId: input.providerUserId,
+      unionId: input.unionId || undefined,
+      accessToken: input.accessToken || undefined,
     });
+    return result as unknown as ThirdPartyAuthDTO;
   }
 
   /**
@@ -121,9 +129,10 @@ export class ThirdPartyAuthResolver {
     @Args('input') input: UnbindThirdPartyInput,
     @currentUser() user: JwtPayload,
   ): Promise<boolean> {
-    return await this.thirdPartyAuthService.unbindThirdParty({
+    return await this.unbindThirdPartyAccountUsecase.execute({
       accountId: user.sub,
-      input,
+      id: input.id,
+      provider: input.provider,
     });
   }
 

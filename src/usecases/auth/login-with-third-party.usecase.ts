@@ -4,7 +4,7 @@ import { HttpException, Injectable } from '@nestjs/common';
 
 import { AudienceTypeEnum, ThirdPartyProviderEnum } from '@app-types/models/account.types';
 import { LoginResultModel } from '@app-types/models/auth.types';
-import { DomainError } from '@core/common/errors';
+import { DomainError, THIRDPARTY_ERROR } from '@core/common/errors';
 
 import { ThirdPartyAuthService } from '@modules/third-party-auth/third-party-auth.service';
 import { LoginByAccountIdUsecase } from './login-by-account-id.usecase';
@@ -45,7 +45,7 @@ export class LoginWithThirdPartyUsecase {
 
     if (!authCredential) {
       // 统一的领域错误，避免把 HTTP 异常冒泡到适配层
-      throw new DomainError('THIRDPARTY_CREDENTIAL_INVALID', '第三方凭证无效');
+      throw new DomainError(THIRDPARTY_ERROR.CREDENTIAL_INVALID, '第三方凭证无效');
     }
 
     // 1) 解析第三方凭证
@@ -63,7 +63,7 @@ export class LoginWithThirdPartyUsecase {
 
     if (!bound?.accountId) {
       // 平台无关、可前端稳定识别的错误码
-      throw new DomainError('THIRDPARTY_ACCOUNT_NOT_BOUND', '该第三方账户未绑定', {
+      throw new DomainError(THIRDPARTY_ERROR.ACCOUNT_NOT_BOUND, '该第三方账户未绑定', {
         provider,
         providerUserId: session.providerUserId,
       });
@@ -99,7 +99,7 @@ export class LoginWithThirdPartyUsecase {
         const code =
           typeof resp === 'object' && resp?.errorCode
             ? String(resp.errorCode)
-            : 'THIRDPARTY_CREDENTIAL_INVALID';
+            : THIRDPARTY_ERROR.CREDENTIAL_INVALID;
         const message =
           typeof resp === 'object' && (resp.errorMessage || resp.message)
             ? String(resp.errorMessage || resp.message)
@@ -107,7 +107,7 @@ export class LoginWithThirdPartyUsecase {
         throw new DomainError(code, message);
       }
       // 其它未知错误统一收敛
-      throw new DomainError('THIRDPARTY_LOGIN_FAILED', '第三方登录失败', {
+      throw new DomainError(THIRDPARTY_ERROR.LOGIN_FAILED, '第三方登录失败', {
         cause: (e as Error)?.message,
       });
     }

@@ -64,7 +64,7 @@ export class ThirdPartyAuthService {
     const adapter = this.adapters.get(provider);
     if (!adapter) {
       throw new BadRequestException({
-        errorCode: 'PROVIDER_UNSUPPORTED',
+        errorCode: 'THIRDPARTY_PROVIDER_NOT_SUPPORTED',
         errorMessage: `不支持的第三方平台：${provider}`,
       });
     }
@@ -201,12 +201,14 @@ export class ThirdPartyAuthService {
   }): Promise<boolean> {
     const { accountId, input } = params;
 
-    const result = await this.thirdPartyAuthRepository.delete({
-      accountId,
-      provider: input.provider,
-    });
+    const where = input?.id ? { id: input.id, accountId } : { accountId, provider: input.provider };
+
+    const result = await this.thirdPartyAuthRepository.delete(where);
     if (result.affected === 0) {
-      throw new HttpException(`未找到 ${input.provider} 平台的绑定记录`, HttpStatus.NOT_FOUND);
+      throw new HttpException(
+        input?.id ? `未找到绑定记录 ID=${input.id}` : `未找到 ${input.provider} 平台的绑定记录`,
+        HttpStatus.NOT_FOUND,
+      );
     }
     return true;
   }
@@ -240,7 +242,15 @@ export class ThirdPartyAuthService {
   async getThirdPartyAuths(accountId: number): Promise<ThirdPartyAuthEntity[]> {
     return this.thirdPartyAuthRepository.find({
       where: { accountId },
-      select: ['id', 'provider', 'providerUserId', 'unionId', 'createdAt'],
+      select: [
+        'id',
+        'accountId',
+        'provider',
+        'providerUserId',
+        'unionId',
+        'createdAt',
+        'updatedAt',
+      ],
     });
   }
 

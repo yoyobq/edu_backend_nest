@@ -10,6 +10,9 @@ import { ThirdPartyAuthEntity } from '@src/modules/account/base/entities/third-p
 
 import { ThirdPartyProviderEnum } from '@app-types/models/account.types';
 import { GetWeappPhoneUsecase } from '@usecases/third-party-accounts/get-weapp-phone.usecase';
+import { BindThirdPartyAccountUsecase } from '@usecases/third-party-accounts/bind-third-party-account.usecase';
+import { UnbindThirdPartyAccountUsecase } from '@usecases/third-party-accounts/unbind-third-party-account.usecase';
+import { ResolveThirdPartyIdentityUsecase } from '@usecases/third-party-accounts/resolve-third-party-identity.usecase';
 import { ThirdPartyProvider } from './interfaces/third-party-provider.interface';
 import { WeAppProvider } from './providers/weapp.provider';
 import { WechatProvider } from './providers/wechat.provider';
@@ -51,7 +54,16 @@ const providerMapFactory: Provider = {
     providerMapFactory,
     ThirdPartyAuthService,
     GetWeappPhoneUsecase, // 添加新的 usecase
+    BindThirdPartyAccountUsecase,
+    UnbindThirdPartyAccountUsecase,
+    ResolveThirdPartyIdentityUsecase,
   ],
-  exports: [ThirdPartyAuthService, GetWeappPhoneUsecase], // 导出 usecase
+  exports: [
+    ThirdPartyAuthService,
+    GetWeappPhoneUsecase,
+    BindThirdPartyAccountUsecase,
+    UnbindThirdPartyAccountUsecase,
+    ResolveThirdPartyIdentityUsecase,
+  ], // 导出 usecase
 })
 export class ThirdPartyAuthModule {}
