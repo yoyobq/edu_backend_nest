@@ -53,6 +53,27 @@ export class DecideLoginRoleUsecase implements IDecideLoginRoleUsecase {
       reason = 'fallback';
     }
 
+    // 如果发生回退，额外记录详细回退原因，便于快速定位
+    if (reason === 'fallback') {
+      const fallbackCause = this.getFallbackCause(roleFromHint, accessGroup);
+      this.logger.warn(
+        {
+          event: 'login_role_fallback',
+          accountId,
+          audience,
+          roleFromHint,
+          fallbackCause,
+          accessGroupHash: this.hashAccessGroup(accessGroup),
+          accessGroupSnapshot: accessGroup,
+          accessGroupSize: Array.isArray(accessGroup) ? accessGroup.length : -1,
+          ip,
+          userAgent,
+          timestamp: new Date().toISOString(),
+        },
+        `登录角色回退: 账户=${accountId}, 提示身份=${roleFromHint ?? 'NULL'}, 原因=${fallbackCause}, 最终=${finalRole}`,
+      );
+    }
+
     // 记录审计日志
     this.recordAuditLog({
       accountId,
@@ -91,6 +112,22 @@ export class DecideLoginRoleUsecase implements IDecideLoginRoleUsecase {
   private hashAccessGroup(accessGroup: IdentityTypeEnum[]): string {
     const sortedGroups = [...accessGroup].sort().join(',');
     return createHash('sha256').update(sortedGroups).digest('hex').substring(0, 16);
+  }
+
+  // 新增：角色回退原因分析，帮助快速定位问题
+  private getFallbackCause(
+    roleFromHint: IdentityTypeEnum | null,
+    accessGroup: IdentityTypeEnum[],
+  ): string {
+    if (!Array.isArray(accessGroup) || accessGroup.length === 0) {
+      return roleFromHint ? 'access_group_empty_with_hint' : 'access_group_empty_hint_absent';
+    }
+    if (!roleFromHint) {
+      return 'hint_absent';
+    }
+    return this.isRoleInAccessGroup(roleFromHint, accessGroup)
+      ? 'unexpected' // 理论上不会触发（只在回退时调用）
+      : 'hint_not_in_access_group';
   }
 
   /**
