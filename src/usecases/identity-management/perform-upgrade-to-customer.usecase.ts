@@ -80,8 +80,8 @@ export class PerformUpgradeToCustomerUsecase {
         throw new DomainError(ACCOUNT_ERROR.ACCOUNT_NOT_FOUND, '账户不存在');
       }
 
-      // 2. 检查是否已经是客户（幂等返回，不抛错）
-      const existingCustomer = await this.customerService.findByAccountId(accountId);
+      // 2. 检查是否已经是客户（幂等返回，不抛错）——在同一事务中读取
+      const existingCustomer = await this.customerService.findByAccountId(accountId, manager);
       if (existingCustomer) {
         // 获取当前用户信息
         const userInfo = await this.accountService.findUserInfoByAccountId(accountId, manager);

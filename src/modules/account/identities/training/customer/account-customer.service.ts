@@ -1,8 +1,9 @@
 // src/modules/account/identities/training/customer/customer.service.ts
 
+import { ACCOUNT_ERROR, DomainError } from '@core/common/errors/domain-error';
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, EntityManager } from 'typeorm';
+import { EntityManager, QueryFailedError, Repository } from 'typeorm';
 import { CustomerEntity } from './account-customer.entity';
 
 /**
@@ -21,10 +22,12 @@ export class CustomerService {
    * @param accountId 账户 ID
    * @returns 客户信息或 null
    */
-  async findByAccountId(accountId: number): Promise<CustomerEntity | null> {
-    return await this.customerRepository.findOne({
-      where: { accountId },
-    });
+  async findByAccountId(
+    accountId: number,
+    manager?: EntityManager,
+  ): Promise<CustomerEntity | null> {
+    const repo = manager ? manager.getRepository(CustomerEntity) : this.customerRepository;
+    return await repo.findOne({ where: { accountId } });
   }
 
   /**
@@ -65,13 +68,36 @@ export class CustomerService {
    * @returns 保存后的客户实体
    */
   async saveCustomer(customer: CustomerEntity, manager?: EntityManager): Promise<CustomerEntity> {
-    if (manager) {
-      // 使用传入的事务管理器
-      const repository = manager.getRepository(CustomerEntity);
-      return await repository.save(customer);
-    } else {
-      // 使用默认的 repository
-      return await this.customerRepository.save(customer);
+    const repo = manager ? manager.getRepository(CustomerEntity) : this.customerRepository;
+    try {
+      return await repo.save(customer);
+    } catch (error) {
+      // 处理唯一约束冲突（accountId 唯一）且返回已存在实体，实现幂等
+      if (error instanceof QueryFailedError) {
+        const driverError = (
+          error as unknown as { driverError?: { code?: string; errno?: number; sqlState?: string } }
+        ).driverError;
+        const code = driverError?.code ?? (error as unknown as { code?: string }).code;
+        const errno = driverError?.errno ?? (error as unknown as { errno?: number }).errno;
+        const sqlState =
+          driverError?.sqlState ?? (error as unknown as { sqlState?: string }).sqlState;
+
+        const isUniqueViolation =
+          code === 'ER_DUP_ENTRY' || errno === 1062 || sqlState === '23000' || code === '23505';
+
+        if (isUniqueViolation && customer.accountId != null) {
+          const existing = await this.findByAccountId(customer.accountId, manager);
+          if (existing) return existing;
+        }
+      }
+
+      // 其他错误：抛出领域错误，便于上层捕获与回滚
+      throw new DomainError(
+        ACCOUNT_ERROR.REGISTRATION_FAILED,
+        `创建 Customer 实体失败: ${error instanceof Error ? error.message : '未知错误'}`,
+        { accountId: customer.accountId ?? null },
+        error,
+      );
     }
   }
 
