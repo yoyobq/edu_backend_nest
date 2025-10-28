@@ -144,15 +144,24 @@ export class AcceptInviteCoachUsecase {
       throw new DomainError(ACCOUNT_ERROR.USER_INFO_NOT_FOUND, '用户信息不存在');
     }
 
-    // 检查是否已经包含 COACH 权限
+    // 清理 REGISTRANT，确保包含 COACH 权限
     const currentAccessGroup = userInfo.accessGroup || [];
-    if (!currentAccessGroup.includes(IdentityTypeEnum.COACH)) {
-      // 添加 COACH 权限到 accessGroup
-      const updatedAccessGroup = [...currentAccessGroup, IdentityTypeEnum.COACH];
+    const cleanedAccessGroup = currentAccessGroup.filter(
+      (item) => item !== IdentityTypeEnum.REGISTRANT,
+    );
+    if (!cleanedAccessGroup.includes(IdentityTypeEnum.COACH)) {
+      cleanedAccessGroup.push(IdentityTypeEnum.COACH);
+    }
 
-      // 更新用户信息实体
-      userInfo.accessGroup = updatedAccessGroup;
-      userInfo.metaDigest = updatedAccessGroup; // 直接传入数组，让 @EncryptedField 装饰器自动处理
+    const needUpdate =
+      cleanedAccessGroup.length !== currentAccessGroup.length ||
+      !currentAccessGroup.includes(IdentityTypeEnum.COACH) ||
+      currentAccessGroup.includes(IdentityTypeEnum.REGISTRANT);
+
+    if (needUpdate) {
+      // 更新用户信息实体并同步加密前数据
+      userInfo.accessGroup = cleanedAccessGroup;
+      userInfo.metaDigest = cleanedAccessGroup; // 直接传入数组，让 @EncryptedField 装饰器自动处理
       userInfo.updatedAt = new Date();
 
       // 使用 save 方法保存，确保 @EncryptedField 装饰器正常工作

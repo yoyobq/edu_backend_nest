@@ -69,81 +69,154 @@ export class PerformUpgradeToCustomerUsecase {
    */
   async execute(params: PerformUpgradeToCustomerParams): Promise<PerformUpgradeToCustomerResult> {
     const { accountId, name, contactPhone, preferredContactTime, remark, audience } = params;
-
-    return await this.accountService.runTransaction(async (manager: EntityManager) => {
-      // 0. 显式锁定账户以避免并发覆盖 accessGroup
-      await this.accountService.lockByIdForUpdate(accountId, manager);
-
-      // 1. 检查账户是否存在
-      const account = await this.accountService.findOneById(accountId, manager);
-      if (!account) {
-        throw new DomainError(ACCOUNT_ERROR.ACCOUNT_NOT_FOUND, '账户不存在');
-      }
-
-      // 2. 检查是否已经是客户（幂等返回，不抛错）——在同一事务中读取
-      const existingCustomer = await this.customerService.findByAccountId(accountId, manager);
-      if (existingCustomer) {
-        // 获取当前用户信息
-        const userInfo = await this.accountService.findUserInfoByAccountId(accountId, manager);
-        if (!userInfo) {
-          throw new DomainError(ACCOUNT_ERROR.USER_INFO_NOT_FOUND, '用户信息不存在');
-        }
-
-        return {
-          success: false,
-          customerId: existingCustomer.id,
-          accessToken: '',
-          refreshToken: '',
-          message: 'ALREADY_CUSTOMER',
-          updatedAccessGroup: userInfo.accessGroup.map((item) => item.toString()),
-        };
-      }
-
-      // 3. 创建客户记录
-      const customerEntity = this.customerService.createCustomerEntity({
+    return await this.accountService.runTransaction((manager: EntityManager) =>
+      this.executeInTransaction({
         accountId,
         name,
         contactPhone,
         preferredContactTime,
         remark,
-      });
-      const savedCustomer = await this.customerService.saveCustomer(customerEntity, manager);
-
-      // 4. 获取用户信息并更新访问权限组
-      const userInfo = await this.accountService.findUserInfoByAccountId(accountId, manager);
-      if (!userInfo) {
-        throw new DomainError(ACCOUNT_ERROR.USER_INFO_NOT_FOUND, '用户信息不存在');
-      }
-
-      // 添加客户身份到访问权限组（如果还没有的话）
-      const updatedAccessGroup = [...userInfo.accessGroup];
-      if (!updatedAccessGroup.includes(IdentityTypeEnum.CUSTOMER)) {
-        updatedAccessGroup.push(IdentityTypeEnum.CUSTOMER);
-      }
-
-      // 更新用户信息
-      userInfo.accessGroup = updatedAccessGroup;
-      userInfo.metaDigest = updatedAccessGroup;
-      await manager.getRepository(UserInfoEntity).save(userInfo);
-
-      // 5. 生成新的 JWT 令牌
-      const tokens = this.generateTokens(
-        accountId,
-        userInfo.nickname,
-        account.loginEmail,
-        updatedAccessGroup,
         audience,
-      );
+        manager,
+      }),
+    );
+  }
 
-      return {
-        success: true,
-        customerId: savedCustomer.id,
-        accessToken: tokens.accessToken,
-        refreshToken: tokens.refreshToken,
-        message: 'UPGRADE_SUCCESS',
-        updatedAccessGroup: updatedAccessGroup.map((item) => item.toString()),
-      };
-    });
+  /**
+   * 在同一事务中执行升级逻辑，拆分以降低 execute 的行数与复杂度
+   */
+  private async executeInTransaction({
+    accountId,
+    name,
+    contactPhone,
+    preferredContactTime,
+    remark,
+    audience,
+    manager,
+  }: PerformUpgradeToCustomerParams & {
+    manager: EntityManager;
+  }): Promise<PerformUpgradeToCustomerResult> {
+    // 0. 显式锁定账户以避免并发覆盖 accessGroup
+    await this.accountService.lockByIdForUpdate(accountId, manager);
+
+    // 1. 检查账户是否存在
+    const account = await this.accountService.findOneById(accountId, manager);
+    if (!account) {
+      throw new DomainError(ACCOUNT_ERROR.ACCOUNT_NOT_FOUND, '账户不存在');
+    }
+
+    // 2. 幂等分支：若已是客户则清理并返回
+    const idempotentResult = await this.handleIdempotentBranch(accountId, manager);
+    if (idempotentResult) return idempotentResult;
+
+    // 3. 创建客户记录
+    const savedCustomer = await this.createCustomer(
+      { accountId, name, contactPhone, preferredContactTime, remark },
+      manager,
+    );
+
+    // 4. 更新用户信息（移除 REGISTRANT 并确保包含 CUSTOMER）
+    const updatedAccessGroup = await this.updateUserInfoAccessGroup(accountId, manager);
+
+    // 同步更新账户的身份提示为 CUSTOMER
+    await this.accountService.updateAccount(
+      accountId,
+      { identityHint: IdentityTypeEnum.CUSTOMER },
+      manager,
+    );
+
+    // 5. 生成新的 JWT 令牌
+    const tokens = this.generateTokens(
+      accountId,
+      (await this.accountService.findUserInfoByAccountId(accountId, manager))!.nickname,
+      account.loginEmail,
+      updatedAccessGroup,
+      audience,
+    );
+
+    return {
+      success: true,
+      customerId: savedCustomer.id,
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+      message: 'UPGRADE_SUCCESS',
+      updatedAccessGroup: updatedAccessGroup.map((item) => item.toString()),
+    };
+  }
+
+  private async handleIdempotentBranch(
+    accountId: number,
+    manager: EntityManager,
+  ): Promise<PerformUpgradeToCustomerResult | null> {
+    const existingCustomer = await this.customerService.findByAccountId(accountId, manager);
+    if (!existingCustomer) return null;
+
+    const userInfo = await this.accountService.findUserInfoByAccountId(accountId, manager);
+    if (!userInfo) {
+      throw new DomainError(ACCOUNT_ERROR.USER_INFO_NOT_FOUND, '用户信息不存在');
+    }
+
+    const cleanedAccessGroup = userInfo.accessGroup.filter(
+      (item) => item !== IdentityTypeEnum.REGISTRANT,
+    );
+    if (!cleanedAccessGroup.includes(IdentityTypeEnum.CUSTOMER))
+      cleanedAccessGroup.push(IdentityTypeEnum.CUSTOMER);
+
+    const needCleanup =
+      cleanedAccessGroup.length !== userInfo.accessGroup.length ||
+      userInfo.accessGroup.some((item) => item === IdentityTypeEnum.REGISTRANT);
+    if (needCleanup) {
+      userInfo.accessGroup = cleanedAccessGroup;
+      userInfo.metaDigest = cleanedAccessGroup;
+      await manager.getRepository(UserInfoEntity).save(userInfo);
+    }
+
+    return {
+      success: false,
+      customerId: existingCustomer.id,
+      accessToken: '',
+      refreshToken: '',
+      message: 'ALREADY_CUSTOMER',
+      updatedAccessGroup: (needCleanup ? cleanedAccessGroup : userInfo.accessGroup).map((item) =>
+        item.toString(),
+      ),
+    };
+  }
+
+  private async createCustomer(
+    data: {
+      accountId: number;
+      name: string;
+      contactPhone: string;
+      preferredContactTime?: string;
+      remark?: string;
+    },
+    manager: EntityManager,
+  ) {
+    const customerEntity = this.customerService.createCustomerEntity(data);
+    return await this.customerService.saveCustomer(customerEntity, manager);
+  }
+
+  private async updateUserInfoAccessGroup(
+    accountId: number,
+    manager: EntityManager,
+  ): Promise<IdentityTypeEnum[]> {
+    const userInfo = await this.accountService.findUserInfoByAccountId(accountId, manager);
+    if (!userInfo) {
+      throw new DomainError(ACCOUNT_ERROR.USER_INFO_NOT_FOUND, '用户信息不存在');
+    }
+
+    const updatedAccessGroup = userInfo.accessGroup.filter(
+      (item) => item !== IdentityTypeEnum.REGISTRANT,
+    );
+    if (!updatedAccessGroup.includes(IdentityTypeEnum.CUSTOMER))
+      updatedAccessGroup.push(IdentityTypeEnum.CUSTOMER);
+
+    userInfo.accessGroup = updatedAccessGroup;
+    userInfo.metaDigest = updatedAccessGroup;
+    await manager.getRepository(UserInfoEntity).save(userInfo);
+
+    return updatedAccessGroup;
   }
 
   /**

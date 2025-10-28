@@ -146,15 +146,24 @@ export class AcceptInviteManagerUsecase {
       throw new DomainError(ACCOUNT_ERROR.USER_INFO_NOT_FOUND, '用户信息不存在');
     }
 
-    // 检查是否已经包含 MANAGER 权限
+    // 清理 REGISTRANT，确保包含 MANAGER 权限
     const currentAccessGroup = userInfo.accessGroup || [];
-    if (!currentAccessGroup.includes(IdentityTypeEnum.MANAGER)) {
-      // 添加 MANAGER 权限到 accessGroup
-      const updatedAccessGroup = [...currentAccessGroup, IdentityTypeEnum.MANAGER];
+    const cleanedAccessGroup = currentAccessGroup.filter(
+      (item) => item !== IdentityTypeEnum.REGISTRANT,
+    );
+    if (!cleanedAccessGroup.includes(IdentityTypeEnum.MANAGER)) {
+      cleanedAccessGroup.push(IdentityTypeEnum.MANAGER);
+    }
 
-      // 更新用户信息实体
-      userInfo.accessGroup = updatedAccessGroup;
-      userInfo.metaDigest = updatedAccessGroup; // 直接传入数组，让 @EncryptedField 装饰器自动处理
+    const needUpdate =
+      cleanedAccessGroup.length !== currentAccessGroup.length ||
+      !currentAccessGroup.includes(IdentityTypeEnum.MANAGER) ||
+      currentAccessGroup.includes(IdentityTypeEnum.REGISTRANT);
+
+    if (needUpdate) {
+      // 更新用户信息实体并同步加密前数据
+      userInfo.accessGroup = cleanedAccessGroup;
+      userInfo.metaDigest = cleanedAccessGroup; // 直接传入数组，让 @EncryptedField 装饰器自动处理
       userInfo.updatedAt = new Date();
 
       // 使用 save 方法保存，确保 @EncryptedField 装饰器正常工作
