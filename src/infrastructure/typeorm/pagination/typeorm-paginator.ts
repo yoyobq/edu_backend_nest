@@ -5,10 +5,11 @@ import { DomainError, PAGINATION_ERROR } from '@core/common/errors/domain-error'
 import { isCursorMode, isOffsetMode } from '@core/pagination/pagination.policy';
 import type { ICursorSigner, IPaginator } from '@core/pagination/pagination.ports';
 import type {
-  PaginatedResult,
-  PaginationParams,
   CursorParams,
   OffsetParams,
+  PaginatedResult,
+  PaginationParams,
+  SortDirection,
   SortParam,
 } from '@core/pagination/pagination.types';
 import type { SelectQueryBuilder } from 'typeorm';
@@ -34,7 +35,11 @@ export class TypeOrmPaginator implements IPaginator {
     const builder = qb as SelectQueryBuilder<Record<string, unknown>>;
 
     try {
-      const sorts = this.resolveSorts(params.sorts, options.allowedSorts, options.defaultSorts);
+      let sorts = this.resolveSorts(params.sorts, options.allowedSorts, options.defaultSorts);
+      // 在游标模式下，确保稳定排序包含 tieBreaker（例如 id）
+      if (isCursorMode(params) && options.cursorKey) {
+        sorts = this.ensureTieBreakerSort(sorts, options.cursorKey);
+      }
       this.applyOrderBy(builder, sorts, options.resolveColumn);
 
       if (isOffsetMode(params)) {
@@ -156,6 +161,21 @@ export class TypeOrmPaginator implements IPaginator {
       if (idx === 0) qb.orderBy(column, s.direction);
       else qb.addOrderBy(column, s.direction);
     });
+  }
+
+  private ensureTieBreakerSort(
+    sorts: ReadonlyArray<SortParam>,
+    cursorKey: { readonly primary: string; readonly tieBreaker: string },
+  ): ReadonlyArray<SortParam> {
+    const hasTieBreaker = sorts.some((s) => s.field === cursorKey.tieBreaker);
+    if (hasTieBreaker) return sorts;
+    // 方向以 primary 的方向为准；若未显式提供，则沿用第一排序方向或 ASC
+    const primaryDir: SortDirection | undefined = sorts.find(
+      (s) => s.field === cursorKey.primary,
+    )?.direction;
+    const fallbackDir: SortDirection = (sorts[0]?.direction as SortDirection | undefined) ?? 'ASC';
+    const direction: SortDirection = primaryDir ?? fallbackDir;
+    return [...sorts, { field: cursorKey.tieBreaker, direction }];
   }
 
   private applyCursorBoundary(
