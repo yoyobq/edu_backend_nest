@@ -112,12 +112,22 @@ export class TypeOrmPaginator implements IPaginator {
     const { after, limit } = params;
     if (after) {
       const token = this.signer.verify(after);
+      // 强一致校验：防止跨端点/跨列表复用游标导致边界错乱
+      if (token.key !== options.cursorKey.primary) {
+        throw new DomainError(PAGINATION_ERROR.INVALID_CURSOR, '游标主键不匹配');
+      }
       const primaryDir =
         options.sorts.find((s) => s.field === options.cursorKey.primary)?.direction ?? 'ASC';
       const tieBreakerDir =
         options.sorts.find((s) => s.field === options.cursorKey.tieBreaker)?.direction ??
         primaryDir;
-      this.applyCursorBoundary(builder, token, options.cursorKey, { primaryDir, tieBreakerDir });
+      this.applyCursorBoundary(
+        builder,
+        token,
+        options.cursorKey,
+        { primaryDir, tieBreakerDir },
+        options.resolveColumn,
+      );
     }
 
     const rows = (await builder.take(limit + 1).getMany()) as unknown as T[];
@@ -211,10 +221,12 @@ export class TypeOrmPaginator implements IPaginator {
     token: { key: string; value: string | number; id: string | number },
     cursorKey: { primary: string; tieBreaker: string },
     directions: { readonly primaryDir: SortDirection; readonly tieBreakerDir: SortDirection },
+    resolveColumn: (field: string) => string | null,
   ): void {
     // 典型 (primary, id) 边界： (primary > value) OR (primary = value AND id > token.id)
-    const primaryColumn = this.mapSortColumn(cursorKey.primary);
-    const idColumn = this.mapSortColumn(cursorKey.tieBreaker);
+    const primaryColumn = resolveColumn(cursorKey.primary) ?? this.mapSortColumn(cursorKey.primary);
+    const idColumn =
+      resolveColumn(cursorKey.tieBreaker) ?? this.mapSortColumn(cursorKey.tieBreaker);
     if (!primaryColumn || !idColumn) {
       throw new DomainError(PAGINATION_ERROR.INVALID_CURSOR, '非法游标边界列');
     }
