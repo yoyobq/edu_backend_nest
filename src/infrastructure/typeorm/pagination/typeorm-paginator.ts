@@ -28,6 +28,7 @@ export class TypeOrmPaginator implements IPaginator {
       readonly allowedSorts: ReadonlyArray<string>;
       readonly defaultSorts: ReadonlyArray<SortParam>;
       readonly cursorKey?: { readonly primary: string; readonly tieBreaker: string };
+      readonly countDistinctBy?: string;
       readonly resolveColumn: (field: string) => string | null;
     };
   }): Promise<PaginatedResult<T>> {
@@ -43,7 +44,7 @@ export class TypeOrmPaginator implements IPaginator {
       this.applyOrderBy(builder, sorts, options.resolveColumn);
 
       if (isOffsetMode(params)) {
-        return await this.paginateOffset<T>(builder, params);
+        return await this.paginateOffset<T>(builder, params, options.countDistinctBy);
       }
 
       if (isCursorMode(params)) {
@@ -52,6 +53,7 @@ export class TypeOrmPaginator implements IPaginator {
         }
         return await this.paginateCursor<T>(builder, params, {
           cursorKey: options.cursorKey,
+          sorts,
           resolveColumn: options.resolveColumn,
         });
       }
@@ -72,11 +74,29 @@ export class TypeOrmPaginator implements IPaginator {
   private async paginateOffset<T>(
     builder: SelectQueryBuilder<Record<string, unknown>>,
     params: OffsetParams,
+    countDistinctBy?: string,
   ): Promise<PaginatedResult<T>> {
     const skip = (params.page - 1) * params.pageSize;
-    builder.skip(skip).take(params.pageSize);
-    const items = (await builder.getMany()) as unknown as T[];
-    const total = params.withTotal ? await builder.getCount() : undefined;
+    const pageQb = builder.clone().skip(skip).take(params.pageSize);
+    const items = (await pageQb.getMany()) as unknown as T[];
+    let total: number | undefined;
+    if (params.withTotal) {
+      const countQb = builder.clone();
+      // 清理排序以提升 COUNT 性能，避免 ORDER BY 对 COUNT 的影响
+      countQb.orderBy();
+      if (countDistinctBy) {
+        // 当存在 join 或多行同实体时，通过 COUNT(DISTINCT ...) 保证总数准确
+        const col = countQb.connection.driver.escape(countDistinctBy);
+        const alias = 'distinct_cnt';
+        const raw = await countQb
+          .select(`COUNT(DISTINCT ${col})`, alias)
+          .getRawOne<Record<string, unknown>>();
+        const val = raw?.[alias];
+        total = typeof val === 'number' ? val : Number(val ?? 0);
+      } else {
+        total = await countQb.getCount();
+      }
+    }
     return { items, total, page: params.page, pageSize: params.pageSize };
   }
 
@@ -85,13 +105,19 @@ export class TypeOrmPaginator implements IPaginator {
     params: CursorParams,
     options: {
       readonly cursorKey: { readonly primary: string; readonly tieBreaker: string };
+      readonly sorts: ReadonlyArray<SortParam>;
       readonly resolveColumn: (field: string) => string | null;
     },
   ): Promise<PaginatedResult<T>> {
     const { after, limit } = params;
     if (after) {
       const token = this.signer.verify(after);
-      this.applyCursorBoundary(builder, token, options.cursorKey);
+      const primaryDir =
+        options.sorts.find((s) => s.field === options.cursorKey.primary)?.direction ?? 'ASC';
+      const tieBreakerDir =
+        options.sorts.find((s) => s.field === options.cursorKey.tieBreaker)?.direction ??
+        primaryDir;
+      this.applyCursorBoundary(builder, token, options.cursorKey, { primaryDir, tieBreakerDir });
     }
 
     const rows = (await builder.take(limit + 1).getMany()) as unknown as T[];
@@ -115,6 +141,8 @@ export class TypeOrmPaginator implements IPaginator {
     if (primaryVal == null || tieBreakerVal == null) {
       throw new DomainError(PAGINATION_ERROR.INVALID_CURSOR, '无法从结果行提取游标键值');
     }
+    // 额外健壮性校验：签名 token 中的 key 必须为 cursorKey.primary；
+    // 当字段类型为 Date 时，建议查询层返回 string（ISO）或数值时间戳，避免驱动差异导致比较不一致。
 
     let valueStr: string;
     if (typeof primaryVal === 'string' || typeof primaryVal === 'number') {
@@ -182,6 +210,7 @@ export class TypeOrmPaginator implements IPaginator {
     qb: SelectQueryBuilder<Record<string, unknown>>,
     token: { key: string; value: string | number; id: string | number },
     cursorKey: { primary: string; tieBreaker: string },
+    directions: { readonly primaryDir: SortDirection; readonly tieBreakerDir: SortDirection },
   ): void {
     // 典型 (primary, id) 边界： (primary > value) OR (primary = value AND id > token.id)
     const primaryColumn = this.mapSortColumn(cursorKey.primary);
@@ -190,9 +219,13 @@ export class TypeOrmPaginator implements IPaginator {
       throw new DomainError(PAGINATION_ERROR.INVALID_CURSOR, '非法游标边界列');
     }
 
+    // 根据排序方向选择比较操作符
+    const primaryOp = directions.primaryDir === 'DESC' ? '<' : '>';
+    const tieBreakerOp = directions.tieBreakerDir === 'DESC' ? '<' : '>';
+
     // 使用参数化避免注入风险
     qb.andWhere(
-      `(${primaryColumn} > :cursorPrimary OR (${primaryColumn} = :cursorPrimary AND ${idColumn} > :cursorId))`,
+      `(${primaryColumn} ${primaryOp} :cursorPrimary OR (${primaryColumn} = :cursorPrimary AND ${idColumn} ${tieBreakerOp} :cursorId))`,
       {
         cursorPrimary: token.value,
         cursorId: token.id,

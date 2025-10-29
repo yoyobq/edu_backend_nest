@@ -11,6 +11,7 @@ export interface IPaginator {
       readonly allowedSorts: ReadonlyArray<string>;
       readonly defaultSorts: ReadonlyArray<SortParam>;
       readonly cursorKey?: { readonly primary: string; readonly tieBreaker: string };
+      readonly countDistinctBy?: string; // 可选：在存在 join 的复杂查询下使用 COUNT(DISTINCT ...)
       readonly resolveColumn: (field: string) => string | null;
     };
   }): Promise<PaginatedResult<T>>;
