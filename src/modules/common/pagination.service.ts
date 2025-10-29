@@ -29,8 +29,10 @@ export class PaginationService {
     readonly allowedSorts: ReadonlyArray<string>;
     readonly defaultSorts: ReadonlyArray<SortParam>;
     readonly cursorKey?: { readonly primary: string; readonly tieBreaker: string };
+    readonly countDistinctBy?: string;
     readonly maxPageSize?: number;
-    readonly resolveColumn?: (field: string) => string | null;
+    // ★ 必传，拒绝不安全兜底
+    readonly resolveColumn: (field: string) => string | null;
   }): Promise<PaginatedResult<T>> {
     const {
       qb,
@@ -38,9 +40,15 @@ export class PaginationService {
       allowedSorts,
       defaultSorts,
       cursorKey,
+      countDistinctBy,
       maxPageSize = 100,
       resolveColumn,
     } = args;
+
+    // Cursor 模式必须提供 cursorKey
+    if (params.mode === 'CURSOR' && !cursorKey) {
+      throw new Error('cursorKey is required in CURSOR mode');
+    }
 
     // 应用默认规则与页大小上限
     const withDefaults = applyDefaults(params, { sorts: defaultSorts });
@@ -56,7 +64,8 @@ export class PaginationService {
         allowedSorts,
         defaultSorts,
         cursorKey,
-        resolveColumn: resolveColumn ?? ((_f: string) => null),
+        countDistinctBy,
+        resolveColumn,
       },
     });
   }

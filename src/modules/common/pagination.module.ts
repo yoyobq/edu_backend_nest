@@ -3,7 +3,6 @@
 
 import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { TypeOrmModule } from '@nestjs/typeorm';
 
 import { PaginationService } from './pagination.service';
 import { PAGINATION_TOKENS } from './tokens/pagination.tokens';
@@ -12,15 +11,17 @@ import { HmacCursorSigner } from '@src/infrastructure/security/hmac-signer';
 import { TypeOrmPaginator } from '@src/infrastructure/typeorm/pagination/typeorm-paginator';
 
 @Module({
-  imports: [TypeOrmModule],
   providers: [
     {
       provide: PAGINATION_TOKENS.CURSOR_SIGNER,
       inject: [ConfigService],
       useFactory: (config: ConfigService) => {
         const secret = config.get<string>('pagination.hmacSecret');
+        const nodeEnv = config.get<string>('NODE_ENV') ?? process.env.NODE_ENV ?? 'development';
         if (!secret) {
-          // 允许缺省情况下使用一个占位符，但在生产必须配置
+          if (nodeEnv === 'production') {
+            throw new Error('pagination.hmacSecret is required in production');
+          }
           return new HmacCursorSigner('dev-placeholder-secret');
         }
         return new HmacCursorSigner(secret);
@@ -30,7 +31,8 @@ import { TypeOrmPaginator } from '@src/infrastructure/typeorm/pagination/typeorm
       provide: PAGINATION_TOKENS.PAGINATOR,
       inject: [PAGINATION_TOKENS.CURSOR_SIGNER],
       useFactory: (signer: HmacCursorSigner) =>
-        new TypeOrmPaginator(signer, (field: string) => field),
+        // ★ 更安全：没有显式映射时返回 null，强制调用方提供 resolveColumn
+        new TypeOrmPaginator(signer, (_field: string) => null),
     },
     PaginationService,
   ],

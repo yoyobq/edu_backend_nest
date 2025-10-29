@@ -20,6 +20,7 @@ import {
 } from '@app-types/models/verification-record.types';
 import { RegisterTypeEnum } from '@app-types/services/register.types';
 import { LearnerSortField, OrderDirection } from '@src/types/common/sort.types';
+import { GqlPaginationMode, GqlSortDirection } from '@src/adapters/graphql/pagination.enums';
 
 /**
  * 枚举注册配置接口
@@ -225,6 +226,25 @@ const ENUM_CONFIGS: Record<string, EnumConfig> = {
       DESC: { description: '降序' },
     },
   },
+  // 分页相关枚举（GraphQL 层适配）
+  PAGINATION_MODE: {
+    enumType: GqlPaginationMode,
+    name: 'PaginationMode',
+    description: '分页模式（偏移或游标）',
+    valuesMap: {
+      OFFSET: { description: '偏移分页' },
+      CURSOR: { description: '游标分页' },
+    },
+  },
+  SORT_DIRECTION: {
+    enumType: GqlSortDirection,
+    name: 'SortDirection',
+    description: 'GraphQL 排序方向',
+    valuesMap: {
+      ASC: { description: '升序' },
+      DESC: { description: '降序' },
+    },
+  },
 };
 
 /**
@@ -247,6 +267,8 @@ const EXPECTED_ENUMS = [
   'VerificationRecordType',
   'LearnerSortField',
   'OrderDirection',
+  'PaginationMode',
+  'SortDirection',
 ];
 
 /**
