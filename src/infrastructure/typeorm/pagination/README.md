@@ -59,6 +59,7 @@
 
 - 逻辑：
   - 若 `after` 存在：通过 `ICursorSigner.verify(cursor)` 验证并解析游标令牌，得到 `{ key, value, id }`。
+  - 强一致性校验：比较 `token.key` 与当前查询的 `cursorKey.primary`，不一致时抛出 `DomainError(PAGINATION_ERROR.INVALID_CURSOR)`，防止跨端点/跨列表复用游标导致边界错乱。
   - 根据当前排序 `sorts`，提取主排序与 tie breaker 的方向，用于游标边界比较符选择。
   - 应用边界 `applyCursorBoundary()`：
     - 典型边界表达式：
@@ -66,6 +67,7 @@
       - `(primary < value) OR (primary = value AND id < token.id)`（降序）
     - 比较操作符由排序方向动态决定，避免 `DESC` 场景下的重复或漏行。
     - 使用参数化变量（`:cursorPrimary`, `:cursorId`）避免注入风险。
+    - 边界列解析与排序一致：优先使用调用方提供的 `resolveColumn`，回退到注入的 `mapSortColumn`；两者都无法解析时抛错。
   - 拉取 `limit + 1` 行，判断 `hasNext = rows.length > limit`，`items = hasNext ? rows.slice(0, limit) : rows`。
   - 计算 `nextCursor`：取当前页最后一项作为来源，通过 `buildNextCursor()` 使用 `{ primary, tieBreaker }` 两字段签名生成；避免跳过一项的问题。
 - 返回：`{ items, pageInfo: { hasNext, nextCursor? } }`。
@@ -77,7 +79,7 @@
   - 值类型要求为 `string | number`（严格模式下禁止 `any`）。
   - 若字段类型为 `Date`，建议查询层归一化为 ISO 字符串或数值时间戳，以避免不同驱动或序列化差异造成比较不一致。
 - 输出：经 `ICursorSigner.sign({ key, value, id })` 加密签名的游标字符串。
-- 说明：当前实现未强制校验 `token.key === cursorKey.primary`（读取时），但签名时使用了 `cursorKey.primary`；如需更强约束，可在 `verify()` 之后增加一致性校验（在未来版本可增强）。
+- 说明：读取时已强制校验 `token.key === cursorKey.primary`；签名时使用 `cursorKey.primary`，两者保持一致，防止跨列表游标复用。
 
 ### resolveSorts()
 
@@ -108,7 +110,7 @@
 ## 错误处理与错误码
 
 - 使用 `DomainError` 与 `PAGINATION_ERROR` 映射表（位于 `src/core/common/errors/domain-error`）。分页器抛出的典型错误码：
-  - `INVALID_CURSOR`：游标缺失（游标模式）、游标键值不可提取、游标边界列非法等。
+  - `INVALID_CURSOR`：游标缺失（游标模式）、游标键值不可提取、游标主键不匹配、游标边界列非法等。
   - `SORT_FIELD_NOT_ALLOWED`：排序字段不在白名单内或无法解析为安全列。
   - `DB_QUERY_FAILED`：底层数据库查询或构造失败（包含原始错误信息）。
 
@@ -142,6 +144,7 @@
   - 应用默认规则（`applyDefaults`）、页大小上限（`enforceMaxPageSize`）、排序白名单过滤（`whitelistSorts`）。
   - 强制游标模式必须提供 `cursorKey`。
   - 通过 `IPaginator.paginate()` 调用本实现，传入 `qb/params/options`。
+  - 默认 DI 策略：`PaginationModule` 将 `mapSortColumn` 绑定为返回 `null` 的实现，更安全地强制上层提供 `resolveColumn`；否则无法解析的排序/边界列会抛出 `SORT_FIELD_NOT_ALLOWED`。
 - GraphQL 适配：
   - 入参 DTO：`PaginationArgs` 使用枚举 `PaginationMode` 与 `SortDirection`。
   - 转换工具：`mapGqlToCoreParams()`（位于 `src/adapters/graphql/pagination.mapper.ts`）将 GraphQL 入参转换为 `core` 的 `PaginationParams`。
@@ -223,6 +226,7 @@ const result = await paginationService.paginateQuery({
   - `CURSOR` 模式与 `nextCursor` 正确衔接（按 `name ASC, id ASC`）。
   - 非法排序字段将被忽略并回退到默认排序。
   - 非法游标签名被拒绝。
+  - 游标主键一致性校验：跨端点/跨列表复用游标会被拒绝（抛 `INVALID_CURSOR`）。
 - 建议增补：
   - `DESC` 排序的游标模式跨页稳定性用例。
   - `COUNT(DISTINCT ...)` 在复杂查询下的准确性验证用例。
@@ -234,8 +238,8 @@ const result = await paginationService.paginateQuery({
   - `OFFSET` 计数查询清理 `ORDER BY` 并支持 `COUNT(DISTINCT ...)`。
   - 集中注册 GraphQL 枚举，统一初始化与校验。
   - GraphQL→core 的入参转换工具，避免各 Resolver 重复逻辑。
+  - 游标主键一致性校验：在 `paginateCursor()` 中校验 `token.key === cursorKey.primary`，防止跨列表游标复用导致边界错乱。
 - 可选增强：
-  - 在 `paginateCursor()` 增加 `token.key === cursorKey.primary` 强一致性校验。
   - 支持 `COUNT(DISTINCT <表达式>)` 更灵活的表达式场景。
   - 为 `DESC` 排序补充 E2E 用例与边界数据集。
 
