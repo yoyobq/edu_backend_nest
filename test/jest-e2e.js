@@ -15,6 +15,7 @@ const ENABLED_SPECS = [
   // '06-identity-management/identity-management.e2e-spec.ts',
   // '06-identity-management/learner-management.e2e-spec.ts',
   '07-pagination/pagination.e2e-spec.ts',
+  // '07-pagination/learners-pagination.e2e-spec.ts',
 ];
 
 /** 可选：命令行临时指定（逗号分隔）
