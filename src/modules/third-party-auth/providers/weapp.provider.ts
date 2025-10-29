@@ -10,6 +10,7 @@ import {
 import { HttpService } from '@nestjs/axios';
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { PinoLogger } from 'nestjs-pino';
 import { ThirdPartyProvider } from '../interfaces/third-party-provider.interface';
 
 /**
@@ -23,6 +24,7 @@ export class WeAppProvider implements ThirdPartyProvider {
   constructor(
     private readonly httpService: HttpService,
     private readonly configService: ConfigService,
+    private readonly logger: PinoLogger,
   ) {}
 
   /**
@@ -207,7 +209,9 @@ export class WeAppProvider implements ThirdPartyProvider {
         throw new HttpException('微信 API 返回数据不完整', HttpStatus.BAD_GATEWAY);
       }
 
-      console.log('微信获取 access_token 成功', data.access_token);
+      // console.log('微信获取 access_token 成功', data.access_token); // 暂时屏蔽 console.log
+      // this.logger.setContext(WeAppProvider.name);
+      // this.logger.info({ accessToken: data.access_token }, '微信获取 access_token 成功'); // 避免记录敏感 token
       return data.access_token;
     } catch (error) {
       if (error instanceof HttpException) throw error;
