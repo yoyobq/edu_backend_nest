@@ -6,6 +6,7 @@ import graphqlConfig from './graphql.config';
 import jwtConfig from './jwt.config';
 import loggerConfig from './logger.config';
 import serverConfig from './server.config';
+import paginationConfig from './pagination.config';
 
 @Module({
   imports: [
@@ -15,7 +16,14 @@ import serverConfig from './server.config';
         `env/.env.${process.env.NODE_ENV || 'development'}`,
         'env/.env.development', // 备用文件
       ],
-      load: [graphqlConfig, serverConfig, loggerConfig, databaseConfig, jwtConfig],
+      load: [
+        graphqlConfig,
+        serverConfig,
+        loggerConfig,
+        databaseConfig,
+        jwtConfig,
+        paginationConfig,
+      ],
     }),
   ],
 })

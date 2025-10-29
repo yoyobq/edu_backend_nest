@@ -145,6 +145,17 @@ export type VerificationRecordErrorCode =
   (typeof VERIFICATION_RECORD_ERROR)[keyof typeof VERIFICATION_RECORD_ERROR];
 export type LearnerErrorCode = (typeof LEARNER_ERROR)[keyof typeof LEARNER_ERROR];
 
+// 分页相关错误码
+export const PAGINATION_ERROR = {
+  INVALID_PAGE_SIZE: 'PAGINATION_INVALID_PAGE_SIZE',
+  INVALID_CURSOR: 'PAGINATION_INVALID_CURSOR',
+  SORT_FIELD_NOT_ALLOWED: 'PAGINATION_SORT_FIELD_NOT_ALLOWED',
+  DB_QUERY_FAILED: 'PAGINATION_DB_QUERY_FAILED',
+} as const;
+Object.freeze(PAGINATION_ERROR);
+
+export type PaginationErrorCode = (typeof PAGINATION_ERROR)[keyof typeof PAGINATION_ERROR];
+
 // 类型守卫：统一判断是否为领域错误（兼容多包/反序列化场景）
 export const isDomainError = (error: unknown): error is DomainError => {
   if (error instanceof DomainError) return true;
