@@ -108,24 +108,54 @@ export class TypeOrmPaginator implements IPaginator {
       };
     },
   ): Promise<PaginatedResult<T>> {
-    const { after, limit } = params;
+    const { after, before, limit } = params;
+    if (after && before) {
+      throw new DomainError(PAGINATION_ERROR.INVALID_CURSOR, 'after 与 before 不可同时提供');
+    }
+
     if (after) {
       const token = this.signer.verify(after);
       // 强一致校验：防止跨端点/跨列表复用游标导致边界错乱
       if (token.key !== cursor.key.primary) {
         throw new DomainError(PAGINATION_ERROR.INVALID_CURSOR, '游标主键不匹配');
       }
-      this.applyCursorBoundary(builder, token, cursor.columns, cursor.directions);
+      this.applyCursorBoundary(builder, token, cursor.columns, cursor.directions, 'AFTER');
+    }
+
+    // before 模式：反向边界与反向排序，查询后再翻转结果为正序
+    const orderReversed = !!before;
+    if (before) {
+      const token = this.signer.verify(before);
+      if (token.key !== cursor.key.primary) {
+        throw new DomainError(PAGINATION_ERROR.INVALID_CURSOR, '游标主键不匹配');
+      }
+      this.applyCursorBoundary(builder, token, cursor.columns, cursor.directions, 'BEFORE');
+      // 按主键/副键反转排序方向，优先确保两键在 ORDER BY 前两位
+      const primaryDir = cursor.directions.primaryDir === 'ASC' ? 'DESC' : 'ASC';
+      const tieDir = cursor.directions.tieBreakerDir === 'ASC' ? 'DESC' : 'ASC';
+      builder.orderBy(cursor.columns.primary, primaryDir);
+      builder.addOrderBy(cursor.columns.tieBreaker, tieDir);
     }
 
     const rows = (await builder.take(limit + 1).getMany()) as unknown as T[];
-    const hasNext = rows.length > limit;
-    const items = hasNext ? rows.slice(0, limit) : rows;
+    const hasExtra = rows.length > limit;
 
+    if (orderReversed) {
+      let items = hasExtra ? rows.slice(0, limit) : rows;
+      // 翻转为正序
+      items = [...items].reverse();
+      const hasPrev = hasExtra;
+      const prevCursor = hasPrev
+        ? this.buildPrevCursor(items, cursor.key, cursor.accessors)
+        : undefined;
+      return { items, pageInfo: { hasPrev, prevCursor } };
+    }
+
+    const items = hasExtra ? rows.slice(0, limit) : rows;
+    const hasNext = hasExtra;
     const nextCursor = hasNext
       ? this.buildNextCursor(items, cursor.key, cursor.accessors)
       : undefined;
-
     return { items, pageInfo: { hasNext, nextCursor } };
   }
 
@@ -169,16 +199,17 @@ export class TypeOrmPaginator implements IPaginator {
 
     return this.signer.sign({
       key: cursorKey.primary,
-      value: valueStr,
-      id: idStr,
+      primaryValue: valueStr,
+      tieValue: idStr,
     });
   }
 
   private applyCursorBoundary(
     qb: SelectQueryBuilder<Record<string, unknown>>,
-    token: { key: string; value: string | number; id: string | number },
+    token: { key: string; primaryValue: string | number; tieValue: string | number },
     columns: { readonly primary: string; readonly tieBreaker: string },
     directions: { readonly primaryDir: SortDirection; readonly tieBreakerDir: SortDirection },
+    mode: 'AFTER' | 'BEFORE',
   ): void {
     // 典型 (primary, id) 边界： (primary > value) OR (primary = value AND id > token.id)
     const primaryColumn = columns.primary;
@@ -187,17 +218,66 @@ export class TypeOrmPaginator implements IPaginator {
       throw new DomainError(PAGINATION_ERROR.INVALID_CURSOR, '非法游标边界列');
     }
 
-    // 根据排序方向选择比较操作符
-    const primaryOp = directions.primaryDir === 'DESC' ? '<' : '>';
-    const tieBreakerOp = directions.tieBreakerDir === 'DESC' ? '<' : '>';
+    // 根据排序方向与模式选择比较操作符
+    const primaryOp = (() => {
+      if (mode === 'AFTER') return directions.primaryDir === 'DESC' ? '<' : '>';
+      return directions.primaryDir === 'DESC' ? '>' : '<';
+    })();
+    const tieBreakerOp = (() => {
+      if (mode === 'AFTER') return directions.tieBreakerDir === 'DESC' ? '<' : '>';
+      return directions.tieBreakerDir === 'DESC' ? '>' : '<';
+    })();
 
     // 使用参数化避免注入风险
     qb.andWhere(
       `(${primaryColumn} ${primaryOp} :cursorPrimary OR (${primaryColumn} = :cursorPrimary AND ${idColumn} ${tieBreakerOp} :cursorId))`,
       {
-        cursorPrimary: token.value,
-        cursorId: token.id,
+        cursorPrimary: token.primaryValue,
+        cursorId: token.tieValue,
       },
     );
+  }
+
+  /**
+   * 构建上一页游标（用于 before 模式）
+   * 优先使用调用方提供的 `accessors` 从结果行提取游标键值；
+   * 回退采用实体属性访问（适用于 `getMany` 返回实体）。
+   */
+  private buildPrevCursor<T>(
+    rows: ReadonlyArray<T>,
+    cursorKey: { readonly primary: string; readonly tieBreaker: string },
+    accessors?: {
+      readonly primary: (row: unknown) => string | number | null | undefined;
+      readonly tieBreaker: (row: unknown) => string | number | null | undefined;
+    },
+  ): string {
+    // 使用当前页第一项作为 prevCursor 的来源，保持对称语义
+    const first = rows[0] as unknown;
+    const record = first as Record<string, unknown>;
+    const primaryVal = accessors?.primary?.(first) ?? record[cursorKey.primary];
+    const tieBreakerVal = accessors?.tieBreaker?.(first) ?? record[cursorKey.tieBreaker];
+    if (primaryVal == null || tieBreakerVal == null) {
+      throw new DomainError(PAGINATION_ERROR.INVALID_CURSOR, '无法从结果行提取游标键值');
+    }
+
+    let valueStr: string;
+    if (typeof primaryVal === 'string' || typeof primaryVal === 'number') {
+      valueStr = String(primaryVal);
+    } else {
+      throw new DomainError(PAGINATION_ERROR.INVALID_CURSOR, '游标主键类型不受支持');
+    }
+
+    let idStr: string;
+    if (typeof tieBreakerVal === 'string' || typeof tieBreakerVal === 'number') {
+      idStr = String(tieBreakerVal);
+    } else {
+      throw new DomainError(PAGINATION_ERROR.INVALID_CURSOR, '游标副键类型不受支持');
+    }
+
+    return this.signer.sign({
+      key: cursorKey.primary,
+      primaryValue: valueStr,
+      tieValue: idStr,
+    });
   }
 }
