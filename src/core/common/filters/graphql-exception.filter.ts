@@ -8,6 +8,7 @@ import {
   JWT_ERROR,
   PERMISSION_ERROR,
   THIRDPARTY_ERROR,
+  PAGINATION_ERROR,
 } from '@core/common/errors';
 import { ArgumentsHost, Catch, HttpException } from '@nestjs/common';
 import { BaseExceptionFilter } from '@nestjs/core';
@@ -158,6 +159,12 @@ function mapDomainErrorToGqlCode(errorCode: string): string {
     [THIRDPARTY_ERROR.USER_NOT_FOUND]: 'NOT_FOUND',
     [THIRDPARTY_ERROR.PROVIDER_API_ERROR]: 'INTERNAL_SERVER_ERROR',
     [THIRDPARTY_ERROR.UNKNOWN_ERROR]: 'INTERNAL_SERVER_ERROR',
+
+    // 分页相关错误
+    [PAGINATION_ERROR.INVALID_PAGE_SIZE]: 'BAD_USER_INPUT',
+    [PAGINATION_ERROR.INVALID_CURSOR]: 'BAD_USER_INPUT',
+    [PAGINATION_ERROR.SORT_FIELD_NOT_ALLOWED]: 'BAD_USER_INPUT',
+    [PAGINATION_ERROR.DB_QUERY_FAILED]: 'INTERNAL_SERVER_ERROR',
   };
 
   // 返回映射结果，如果没有找到则返回默认值
