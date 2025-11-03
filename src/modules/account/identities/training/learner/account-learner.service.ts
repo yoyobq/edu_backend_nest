@@ -1,8 +1,11 @@
 // src/modules/account/identities/training/learner/account-learner.service.ts
 
 import { Gender } from '@app-types/models/user-info.types';
-import { Injectable } from '@nestjs/common';
+import type { PaginatedResult, SortParam } from '@core/pagination/pagination.types';
+import type { ISortResolver } from '@core/sort/sort.ports';
+import { Inject, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { PaginationService } from '@src/modules/common/pagination.service';
 import { Repository } from 'typeorm';
 import { LearnerEntity } from './account-learner.entity';
 
@@ -49,6 +52,9 @@ export class LearnerService {
   constructor(
     @InjectRepository(LearnerEntity)
     private readonly learnerRepository: Repository<LearnerEntity>,
+    private readonly paginationService: PaginationService,
+    // 从模块注入 Learner 域专用排序解析器（仅用于内部/专用接口的 CURSOR 流程）
+    @Inject('LEARNER_SORT_RESOLVER') private readonly learnerSortResolver: ISortResolver,
   ) {}
 
   /**
@@ -302,5 +308,50 @@ export class LearnerService {
 
     const count = await queryBuilder.getCount();
     return count === 0;
+  }
+
+  /**
+   * 内部接口：基于统一 PaginationService 的 CURSOR 分页
+   * 保持 GraphQL 不变，仅供内部/专用接口调用
+   * @param args 分页与筛选参数（CURSOR 模式）
+   */
+  async findCursorPage(args: {
+    readonly limit: number;
+    readonly after?: string;
+    readonly customerId?: number;
+    readonly includeDeleted?: boolean;
+    readonly sorts?: ReadonlyArray<SortParam>;
+  }): Promise<PaginatedResult<LearnerEntity>> {
+    const qb = this.learnerRepository.createQueryBuilder('learner');
+
+    if (args.customerId !== undefined) {
+      qb.where('learner.customerId = :customerId', { customerId: args.customerId });
+    }
+    if (!args.includeDeleted) {
+      if (args.customerId !== undefined) qb.andWhere('learner.deactivatedAt IS NULL');
+      else qb.where('learner.deactivatedAt IS NULL');
+    }
+
+    const allowedSorts: ReadonlyArray<string> = ['name', 'id', 'createdAt', 'updatedAt'];
+    const defaultSorts: ReadonlyArray<SortParam> = [
+      { field: 'name', direction: 'ASC' },
+      { field: 'id', direction: 'ASC' },
+    ];
+
+    const result = await this.paginationService.paginateQuery<LearnerEntity>({
+      qb,
+      params: {
+        mode: 'CURSOR',
+        limit: Math.min(args.limit, 100),
+        after: args.after,
+        sorts: args.sorts ?? defaultSorts,
+      },
+      allowedSorts,
+      defaultSorts,
+      cursorKey: { primary: 'name', tieBreaker: 'id' },
+      sortResolver: this.learnerSortResolver,
+    });
+
+    return result;
   }
 }
