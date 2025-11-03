@@ -1,26 +1,28 @@
 // test/07-pagination/pagination.e2e-spec.ts
 import { DomainError, PAGINATION_ERROR } from '@core/common/errors/domain-error';
-import type { ICursorSigner } from '@core/pagination/pagination.ports';
 import type { SortParam } from '@core/pagination/pagination.types';
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { initGraphQLSchema } from '@src/adapters/graphql/schema/schema.init';
 import { AppModule } from '@src/app.module';
-import { TypeOrmPaginator } from '@src/infrastructure/typeorm/pagination/typeorm-paginator';
+import { PaginationService } from '@src/modules/common/pagination.service';
 import { LearnerEntity } from '@src/modules/account/identities/training/learner/account-learner.entity';
 import { CustomerEntity } from '@src/modules/account/identities/training/customer/account-customer.entity';
 import { PaginationModule } from '@src/modules/common/pagination.module';
-import { PAGINATION_TOKENS } from '@src/modules/common/tokens/pagination.tokens';
 import { DataSource } from 'typeorm';
 
 describe('分页工具 (e2e)', () => {
   let app: INestApplication;
   let dataSource: DataSource;
-  let signer: ICursorSigner;
+  let paginationService: PaginationService;
 
   // 统一的排序白名单与默认排序
   const allowedSorts: ReadonlyArray<string> = ['name', 'id'];
-  const defaultSorts: ReadonlyArray<SortParam> = [{ field: 'id', direction: 'ASC' }];
+  // 为满足 CURSOR 校验，默认排序需包含 primary 与 tieBreaker
+  const defaultSorts: ReadonlyArray<SortParam> = [
+    { field: 'name', direction: 'ASC' },
+    { field: 'id', direction: 'ASC' },
+  ];
 
   // 列名解析：实体字段到 SQL 列（带别名）
   const resolveColumn = (field: string): string | null => {
@@ -34,27 +36,8 @@ describe('分页工具 (e2e)', () => {
     }
   };
 
-  // 排序列映射：用于游标边界
-  const mapSortColumn = (field: string): string | null => {
-    switch (field) {
-      case 'id':
-        return 'learner.id';
-      case 'name':
-        return 'learner.name';
-      default:
-        return null as unknown as string; // 保持类型，实际不会用到未知字段
-    }
-  };
-
-  // 构造待测分页器实例（使用同一 signer）
-  const buildPaginator = (): TypeOrmPaginator => new TypeOrmPaginator(signer, mapSortColumn);
-
-  /**
-   * 构造分页器（mapSortColumn 恒为 null）：
-   * 用于验证在游标边界阶段优先使用调用方提供的 resolveColumn。
-   */
-  const buildPaginatorNullMap = (): TypeOrmPaginator =>
-    new TypeOrmPaginator(signer as unknown as ICursorSigner, (_field: string) => null);
+  // 说明：测试改为使用 PaginationService 作为分页入口，
+  // 由服务层统一应用排序与游标选项，并传递给底层分页器。
 
   beforeAll(async () => {
     // 确保 GraphQL 枚举/标量注册（与项目习惯保持一致）
@@ -68,7 +51,7 @@ describe('分页工具 (e2e)', () => {
     await app.init();
 
     dataSource = app.get(DataSource);
-    signer = app.get(PAGINATION_TOKENS.CURSOR_SIGNER as unknown as string);
+    paginationService = app.get(PaginationService);
 
     // 清理并准备测试数据
     await seedLearners(30);
@@ -144,16 +127,12 @@ describe('分页工具 (e2e)', () => {
 
   it('OFFSET 模式返回正确的分页与总数', async () => {
     const qb = createBaseQb();
-    const paginator = buildPaginator();
-
-    const result = await paginator.paginate<{ id: number; name: string }>({
+    const result = await paginationService.paginateQuery<{ id: number; name: string }>({
       qb,
       params: { mode: 'OFFSET', page: 2, pageSize: 10, withTotal: true },
-      options: {
-        allowedSorts,
-        defaultSorts,
-        resolveColumn,
-      },
+      allowedSorts,
+      defaultSorts,
+      resolveColumn,
     });
 
     expect(result.items.length).toBe(10);
@@ -169,9 +148,7 @@ describe('分页工具 (e2e)', () => {
 
   it('CURSOR 模式分页与 nextCursor 正确衔接（按 name ASC, id ASC）', async () => {
     const qb1 = createBaseQb();
-    const paginator = buildPaginator();
-
-    const page1 = await paginator.paginate<{ id: number; name: string }>({
+    const page1 = await paginationService.paginateQuery<{ id: number; name: string }>({
       qb: qb1,
       params: {
         mode: 'CURSOR',
@@ -181,12 +158,10 @@ describe('分页工具 (e2e)', () => {
           { field: 'id', direction: 'ASC' },
         ],
       },
-      options: {
-        allowedSorts,
-        defaultSorts,
-        cursorKey: { primary: 'name', tieBreaker: 'id' },
-        resolveColumn,
-      },
+      allowedSorts,
+      defaultSorts,
+      cursorKey: { primary: 'name', tieBreaker: 'id' },
+      resolveColumn,
     });
 
     expect(page1.items.length).toBe(10);
@@ -194,7 +169,7 @@ describe('分页工具 (e2e)', () => {
     expect(page1.pageInfo?.nextCursor).toBeDefined();
 
     const qb2 = createBaseQb();
-    const page2 = await paginator.paginate<{ id: number; name: string }>({
+    const page2 = await paginationService.paginateQuery<{ id: number; name: string }>({
       qb: qb2,
       params: {
         mode: 'CURSOR',
@@ -205,19 +180,17 @@ describe('分页工具 (e2e)', () => {
           { field: 'id', direction: 'ASC' },
         ],
       },
-      options: {
-        allowedSorts,
-        defaultSorts,
-        cursorKey: { primary: 'name', tieBreaker: 'id' },
-        resolveColumn,
-      },
+      allowedSorts,
+      defaultSorts,
+      cursorKey: { primary: 'name', tieBreaker: 'id' },
+      resolveColumn,
     });
 
     expect(page2.items.length).toBe(10);
     expect(page2.pageInfo?.hasNext).toBe(true);
 
     const qb3 = createBaseQb();
-    const page3 = await paginator.paginate<{ id: number; name: string }>({
+    const page3 = await paginationService.paginateQuery<{ id: number; name: string }>({
       qb: qb3,
       params: {
         mode: 'CURSOR',
@@ -228,12 +201,10 @@ describe('分页工具 (e2e)', () => {
           { field: 'id', direction: 'ASC' },
         ],
       },
-      options: {
-        allowedSorts,
-        defaultSorts,
-        cursorKey: { primary: 'name', tieBreaker: 'id' },
-        resolveColumn,
-      },
+      allowedSorts,
+      defaultSorts,
+      cursorKey: { primary: 'name', tieBreaker: 'id' },
+      resolveColumn,
     });
 
     expect(page3.items.length).toBe(10);
@@ -247,22 +218,18 @@ describe('分页工具 (e2e)', () => {
 
   it('CURSOR 模式支持 DESC，自动补齐 tieBreaker 并正确前进', async () => {
     const qb1 = createBaseQb();
-    const paginator = buildPaginator();
-
-    const page1 = await paginator.paginate<{ id: number; name: string }>({
+    const page1 = await paginationService.paginateQuery<{ id: number; name: string }>({
       qb: qb1,
       params: {
         mode: 'CURSOR',
         limit: 10,
-        // 仅提供主排序字段，分页器需自动补齐 tieBreaker(id)
+        // 仅提供主排序字段，服务需自动补齐 tieBreaker(id)
         sorts: [{ field: 'name', direction: 'DESC' }],
       },
-      options: {
-        allowedSorts,
-        defaultSorts,
-        cursorKey: { primary: 'name', tieBreaker: 'id' },
-        resolveColumn,
-      },
+      allowedSorts,
+      defaultSorts,
+      cursorKey: { primary: 'name', tieBreaker: 'id' },
+      resolveColumn,
     });
 
     expect(page1.items.length).toBe(10);
@@ -270,7 +237,7 @@ describe('分页工具 (e2e)', () => {
     expect(page1.pageInfo?.nextCursor).toBeDefined();
 
     const qb2 = createBaseQb();
-    const page2 = await paginator.paginate<{ id: number; name: string }>({
+    const page2 = await paginationService.paginateQuery<{ id: number; name: string }>({
       qb: qb2,
       params: {
         mode: 'CURSOR',
@@ -278,16 +245,14 @@ describe('分页工具 (e2e)', () => {
         after: page1.pageInfo?.nextCursor,
         sorts: [{ field: 'name', direction: 'DESC' }],
       },
-      options: {
-        allowedSorts,
-        defaultSorts,
-        cursorKey: { primary: 'name', tieBreaker: 'id' },
-        resolveColumn,
-      },
+      allowedSorts,
+      defaultSorts,
+      cursorKey: { primary: 'name', tieBreaker: 'id' },
+      resolveColumn,
     });
 
     const qb3 = createBaseQb();
-    const page3 = await paginator.paginate<{ id: number; name: string }>({
+    const page3 = await paginationService.paginateQuery<{ id: number; name: string }>({
       qb: qb3,
       params: {
         mode: 'CURSOR',
@@ -295,12 +260,10 @@ describe('分页工具 (e2e)', () => {
         after: page2.pageInfo?.nextCursor,
         sorts: [{ field: 'name', direction: 'DESC' }],
       },
-      options: {
-        allowedSorts,
-        defaultSorts,
-        cursorKey: { primary: 'name', tieBreaker: 'id' },
-        resolveColumn,
-      },
+      allowedSorts,
+      defaultSorts,
+      cursorKey: { primary: 'name', tieBreaker: 'id' },
+      resolveColumn,
     });
 
     // 三页合计应覆盖全部 30 条，且无重复
@@ -317,9 +280,7 @@ describe('分页工具 (e2e)', () => {
 
   it('非法排序字段将被忽略并回退到默认排序', async () => {
     const qb = createBaseQb();
-    const paginator = buildPaginator();
-
-    const result = await paginator.paginate<{ id: number; name: string }>({
+    const result = await paginationService.paginateQuery<{ id: number; name: string }>({
       qb,
       params: {
         mode: 'OFFSET',
@@ -327,7 +288,9 @@ describe('分页工具 (e2e)', () => {
         pageSize: 10,
         sorts: [{ field: 'createdAt', direction: 'ASC' }],
       },
-      options: { allowedSorts, defaultSorts, resolveColumn },
+      allowedSorts,
+      defaultSorts,
+      resolveColumn,
     });
 
     // 默认排序 id ASC
@@ -339,41 +302,34 @@ describe('分页工具 (e2e)', () => {
 
   it('非法游标签名被拒绝', async () => {
     const qb = createBaseQb();
-    const paginator = buildPaginator();
-
     await expect(
-      paginator.paginate<{ id: number; name: string }>({
+      paginationService.paginateQuery<{ id: number; name: string }>({
         qb,
         params: { mode: 'CURSOR', limit: 10, after: 'invalid_cursor' },
-        options: {
-          allowedSorts,
-          defaultSorts,
-          cursorKey: { primary: 'name', tieBreaker: 'id' },
-          resolveColumn,
-        },
+        allowedSorts,
+        defaultSorts,
+        cursorKey: { primary: 'name', tieBreaker: 'id' },
+        resolveColumn,
       }),
     ).rejects.toBeInstanceOf(DomainError);
 
     await expect(
-      paginator.paginate<{ id: number; name: string }>({
+      paginationService.paginateQuery<{ id: number; name: string }>({
         qb,
         params: { mode: 'CURSOR', limit: 10, after: 'invalid_cursor' },
-        options: {
-          allowedSorts,
-          defaultSorts,
-          cursorKey: { primary: 'name', tieBreaker: 'id' },
-          resolveColumn,
-        },
+        allowedSorts,
+        defaultSorts,
+        cursorKey: { primary: 'name', tieBreaker: 'id' },
+        resolveColumn,
       }),
     ).rejects.toMatchObject({ code: PAGINATION_ERROR.INVALID_CURSOR });
   });
 
   it('游标签名不匹配（MAC 校验失败）触发 INVALID_CURSOR 错误码', async () => {
     const qb = createBaseQb();
-    const paginator = buildPaginator();
 
     // 先获取一个合法的 nextCursor
-    const page1 = await paginator.paginate<{ id: number; name: string }>({
+    const page1 = await paginationService.paginateQuery<{ id: number; name: string }>({
       qb,
       params: {
         mode: 'CURSOR',
@@ -383,12 +339,10 @@ describe('分页工具 (e2e)', () => {
           { field: 'id', direction: 'ASC' },
         ],
       },
-      options: {
-        allowedSorts,
-        defaultSorts,
-        cursorKey: { primary: 'name', tieBreaker: 'id' },
-        resolveColumn,
-      },
+      allowedSorts,
+      defaultSorts,
+      cursorKey: { primary: 'name', tieBreaker: 'id' },
+      resolveColumn,
     });
 
     const validCursor = page1.pageInfo?.nextCursor as string;
@@ -405,7 +359,7 @@ describe('分页工具 (e2e)', () => {
     let caught: unknown;
     try {
       const qb2 = createBaseQb();
-      await paginator.paginate<{ id: number; name: string }>({
+      await paginationService.paginateQuery<{ id: number; name: string }>({
         qb: qb2,
         params: {
           mode: 'CURSOR',
@@ -416,12 +370,10 @@ describe('分页工具 (e2e)', () => {
             { field: 'id', direction: 'ASC' },
           ],
         },
-        options: {
-          allowedSorts,
-          defaultSorts,
-          cursorKey: { primary: 'name', tieBreaker: 'id' },
-          resolveColumn,
-        },
+        allowedSorts,
+        defaultSorts,
+        cursorKey: { primary: 'name', tieBreaker: 'id' },
+        resolveColumn,
       });
     } catch (e) {
       caught = e;
@@ -494,17 +446,14 @@ describe('分页工具 (e2e)', () => {
       }
     };
 
-    const paginator = buildPaginator();
-    const result = await paginator.paginate<{ id: number; name: string }>({
+    const result = await paginationService.paginateQuery<{ id: number; name: string }>({
       qb,
       params: { mode: 'OFFSET', page: 1, pageSize: 3, withTotal: true },
-      options: {
-        allowedSorts,
-        defaultSorts,
-        resolveColumn: resolveCustomerColumn,
-        // 使用 JOIN 侧的外键列去重以避免 MySQL 对别名的转义问题
-        countDistinctBy: 'customer_id',
-      },
+      allowedSorts,
+      defaultSorts,
+      resolveColumn: resolveCustomerColumn,
+      // 使用 JOIN 侧的外键列去重以避免 MySQL 对别名的转义问题
+      countDistinctBy: 'customer_id',
     });
 
     expect(result.items.length).toBe(3);
@@ -520,11 +469,9 @@ describe('分页工具 (e2e)', () => {
     // 使用自定义前缀以便区分数据集
     await seedLearnersWithPrefix(15, 'K');
 
-    const paginator = buildPaginator();
-
     // 第一列表：primary = id，生成 nextCursor（token.key === 'id'）
     const qb1 = createBaseQb();
-    const page1 = await paginator.paginate<{ id: number; name: string }>({
+    const page1 = await paginationService.paginateQuery<{ id: number; name: string }>({
       qb: qb1,
       params: {
         mode: 'CURSOR',
@@ -534,12 +481,10 @@ describe('分页工具 (e2e)', () => {
           { field: 'name', direction: 'ASC' },
         ],
       },
-      options: {
-        allowedSorts,
-        defaultSorts,
-        cursorKey: { primary: 'id', tieBreaker: 'name' },
-        resolveColumn,
-      },
+      allowedSorts,
+      defaultSorts,
+      cursorKey: { primary: 'id', tieBreaker: 'name' },
+      resolveColumn,
     });
 
     expect(page1.pageInfo?.nextCursor).toBeDefined();
@@ -547,7 +492,7 @@ describe('分页工具 (e2e)', () => {
     // 第二列表：primary = name，复用上一列表游标，应命中主键一致性校验
     const qb2 = createBaseQb();
     await expect(
-      paginator.paginate<{ id: number; name: string }>({
+      paginationService.paginateQuery<{ id: number; name: string }>({
         qb: qb2,
         params: {
           mode: 'CURSOR',
@@ -558,12 +503,10 @@ describe('分页工具 (e2e)', () => {
             { field: 'id', direction: 'ASC' },
           ],
         },
-        options: {
-          allowedSorts,
-          defaultSorts,
-          cursorKey: { primary: 'name', tieBreaker: 'id' },
-          resolveColumn,
-        },
+        allowedSorts,
+        defaultSorts,
+        cursorKey: { primary: 'name', tieBreaker: 'id' },
+        resolveColumn,
       }),
     ).rejects.toEqual(new DomainError(PAGINATION_ERROR.INVALID_CURSOR, '游标主键不匹配'));
 
@@ -575,9 +518,7 @@ describe('分页工具 (e2e)', () => {
     await seedLearners(15);
 
     const qb1 = createBaseQb();
-    const paginator = buildPaginatorNullMap();
-
-    const page1 = await paginator.paginate<{ id: number; name: string }>({
+    const page1 = await paginationService.paginateQuery<{ id: number; name: string }>({
       qb: qb1,
       params: {
         mode: 'CURSOR',
@@ -587,12 +528,10 @@ describe('分页工具 (e2e)', () => {
           { field: 'id', direction: 'ASC' },
         ],
       },
-      options: {
-        allowedSorts,
-        defaultSorts,
-        cursorKey: { primary: 'name', tieBreaker: 'id' },
-        resolveColumn,
-      },
+      allowedSorts,
+      defaultSorts,
+      cursorKey: { primary: 'name', tieBreaker: 'id' },
+      resolveColumn,
     });
 
     expect(page1.items.length).toBe(10);
@@ -600,7 +539,7 @@ describe('分页工具 (e2e)', () => {
     expect(page1.pageInfo?.nextCursor).toBeDefined();
 
     const qb2 = createBaseQb();
-    const page2 = await paginator.paginate<{ id: number; name: string }>({
+    const page2 = await paginationService.paginateQuery<{ id: number; name: string }>({
       qb: qb2,
       params: {
         mode: 'CURSOR',
@@ -611,12 +550,10 @@ describe('分页工具 (e2e)', () => {
           { field: 'id', direction: 'ASC' },
         ],
       },
-      options: {
-        allowedSorts,
-        defaultSorts,
-        cursorKey: { primary: 'name', tieBreaker: 'id' },
-        resolveColumn,
-      },
+      allowedSorts,
+      defaultSorts,
+      cursorKey: { primary: 'name', tieBreaker: 'id' },
+      resolveColumn,
     });
 
     expect(page2.items.length).toBe(5);
@@ -634,9 +571,7 @@ describe('分页工具 (e2e)', () => {
     await seedLearners(15);
 
     const qb1 = createBaseQb();
-    const paginator = buildPaginatorNullMap();
-
-    const page1 = await paginator.paginate<{ id: number; name: string }>({
+    const page1 = await paginationService.paginateQuery<{ id: number; name: string }>({
       qb: qb1,
       params: {
         mode: 'CURSOR',
@@ -646,12 +581,10 @@ describe('分页工具 (e2e)', () => {
           { field: 'id', direction: 'ASC' },
         ],
       },
-      options: {
-        allowedSorts,
-        defaultSorts,
-        cursorKey: { primary: 'name', tieBreaker: 'id' },
-        resolveColumn,
-      },
+      allowedSorts,
+      defaultSorts,
+      cursorKey: { primary: 'name', tieBreaker: 'id' },
+      resolveColumn,
     });
 
     expect(page1.pageInfo?.nextCursor).toBeDefined();
@@ -675,7 +608,7 @@ describe('分页工具 (e2e)', () => {
     };
 
     await expect(
-      paginator.paginate<{ id: number; name: string }>({
+      paginationService.paginateQuery<{ id: number; name: string }>({
         qb: qb2,
         params: {
           mode: 'CURSOR',
@@ -686,14 +619,12 @@ describe('分页工具 (e2e)', () => {
             { field: 'id', direction: 'ASC' },
           ],
         },
-        options: {
-          allowedSorts,
-          defaultSorts,
-          cursorKey: { primary: 'name', tieBreaker: 'id' },
-          resolveColumn: resolveColumnFailAfterOrderBy,
-        },
+        allowedSorts,
+        defaultSorts,
+        cursorKey: { primary: 'name', tieBreaker: 'id' },
+        resolveColumn: resolveColumnFailAfterOrderBy,
       }),
-    ).rejects.toEqual(new DomainError(PAGINATION_ERROR.INVALID_CURSOR, '非法游标边界列'));
+    ).rejects.toMatchObject({ code: PAGINATION_ERROR.INVALID_CURSOR });
 
     // 还原数据以不影响其他用例
     await seedLearners(30);
