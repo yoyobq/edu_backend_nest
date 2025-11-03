@@ -10,52 +10,44 @@ import type {
   PaginatedResult,
   PaginationParams,
   SortDirection,
-  SortParam,
 } from '@core/pagination/pagination.types';
 import type { SelectQueryBuilder } from 'typeorm';
-import type { SortColumnMapper } from './sort-mapper';
 
 export class TypeOrmPaginator implements IPaginator {
-  constructor(
-    private readonly signer: ICursorSigner,
-    private readonly mapSortColumn: SortColumnMapper,
-  ) {}
+  constructor(private readonly signer: ICursorSigner) {}
 
   async paginate<T>(input: {
     readonly qb: unknown;
     readonly params: PaginationParams;
     readonly options: {
-      readonly allowedSorts: ReadonlyArray<string>;
-      readonly defaultSorts: ReadonlyArray<SortParam>;
-      readonly cursorKey?: { readonly primary: string; readonly tieBreaker: string };
       readonly countDistinctBy?: string;
-      readonly resolveColumn: (field: string) => string | null;
+      readonly cursor?: {
+        readonly key: { readonly primary: string; readonly tieBreaker: string };
+        readonly columns: { readonly primary: string; readonly tieBreaker: string };
+        readonly directions: {
+          readonly primaryDir: SortDirection;
+          readonly tieBreakerDir: SortDirection;
+        };
+        readonly accessors?: {
+          readonly primary: (row: unknown) => string | number | null | undefined;
+          readonly tieBreaker: (row: unknown) => string | number | null | undefined;
+        };
+      };
     };
   }): Promise<PaginatedResult<T>> {
     const { qb, params, options } = input;
     const builder = qb as SelectQueryBuilder<Record<string, unknown>>;
 
     try {
-      let sorts = this.resolveSorts(params.sorts, options.allowedSorts, options.defaultSorts);
-      // 在游标模式下，确保稳定排序包含 tieBreaker（例如 id）
-      if (isCursorMode(params) && options.cursorKey) {
-        sorts = this.ensureTieBreakerSort(sorts, options.cursorKey);
-      }
-      this.applyOrderBy(builder, sorts, options.resolveColumn);
-
       if (isOffsetMode(params)) {
         return await this.paginateOffset<T>(builder, params, options.countDistinctBy);
       }
 
       if (isCursorMode(params)) {
-        if (!options.cursorKey) {
+        if (!options.cursor) {
           throw new DomainError(PAGINATION_ERROR.INVALID_CURSOR, '游标分页缺少 cursorKey 定义');
         }
-        return await this.paginateCursor<T>(builder, params, {
-          cursorKey: options.cursorKey,
-          sorts,
-          resolveColumn: options.resolveColumn,
-        });
+        return await this.paginateCursor<T>(builder, params, options.cursor);
       }
 
       // 默认返回空结果（不应到达）
@@ -103,51 +95,58 @@ export class TypeOrmPaginator implements IPaginator {
   private async paginateCursor<T>(
     builder: SelectQueryBuilder<Record<string, unknown>>,
     params: CursorParams,
-    options: {
-      readonly cursorKey: { readonly primary: string; readonly tieBreaker: string };
-      readonly sorts: ReadonlyArray<SortParam>;
-      readonly resolveColumn: (field: string) => string | null;
+    cursor: {
+      readonly key: { readonly primary: string; readonly tieBreaker: string };
+      readonly columns: { readonly primary: string; readonly tieBreaker: string };
+      readonly directions: {
+        readonly primaryDir: SortDirection;
+        readonly tieBreakerDir: SortDirection;
+      };
+      readonly accessors?: {
+        readonly primary: (row: unknown) => string | number | null | undefined;
+        readonly tieBreaker: (row: unknown) => string | number | null | undefined;
+      };
     },
   ): Promise<PaginatedResult<T>> {
     const { after, limit } = params;
     if (after) {
       const token = this.signer.verify(after);
       // 强一致校验：防止跨端点/跨列表复用游标导致边界错乱
-      if (token.key !== options.cursorKey.primary) {
+      if (token.key !== cursor.key.primary) {
         throw new DomainError(PAGINATION_ERROR.INVALID_CURSOR, '游标主键不匹配');
       }
-      const primaryDir =
-        options.sorts.find((s) => s.field === options.cursorKey.primary)?.direction ?? 'ASC';
-      const tieBreakerDir =
-        options.sorts.find((s) => s.field === options.cursorKey.tieBreaker)?.direction ??
-        primaryDir;
-      this.applyCursorBoundary(
-        builder,
-        token,
-        options.cursorKey,
-        { primaryDir, tieBreakerDir },
-        options.resolveColumn,
-      );
+      this.applyCursorBoundary(builder, token, cursor.columns, cursor.directions);
     }
 
     const rows = (await builder.take(limit + 1).getMany()) as unknown as T[];
     const hasNext = rows.length > limit;
     const items = hasNext ? rows.slice(0, limit) : rows;
 
-    const nextCursor = hasNext ? this.buildNextCursor(items, options.cursorKey) : undefined;
+    const nextCursor = hasNext
+      ? this.buildNextCursor(items, cursor.key, cursor.accessors)
+      : undefined;
 
     return { items, pageInfo: { hasNext, nextCursor } };
   }
 
+  /**
+   * 构建下一页游标
+   * 优先使用调用方提供的 `accessors` 从结果行提取游标键值，以兼容 raw/别名查询；
+   * 回退采用实体属性访问（适用于 `getMany` 返回实体）。
+   */
   private buildNextCursor<T>(
     rows: ReadonlyArray<T>,
     cursorKey: { readonly primary: string; readonly tieBreaker: string },
+    accessors?: {
+      readonly primary: (row: unknown) => string | number | null | undefined;
+      readonly tieBreaker: (row: unknown) => string | number | null | undefined;
+    },
   ): string {
     // 使用当前页最后一项作为 nextCursor 的来源，避免跳过一项
-    const last = rows[rows.length - 1];
-    const lastRecord = last as unknown as Record<string, unknown>;
-    const primaryVal = lastRecord[cursorKey.primary];
-    const tieBreakerVal = lastRecord[cursorKey.tieBreaker];
+    const last = rows[rows.length - 1] as unknown;
+    const record = last as Record<string, unknown>;
+    const primaryVal = accessors?.primary?.(last) ?? record[cursorKey.primary];
+    const tieBreakerVal = accessors?.tieBreaker?.(last) ?? record[cursorKey.tieBreaker];
     if (primaryVal == null || tieBreakerVal == null) {
       throw new DomainError(PAGINATION_ERROR.INVALID_CURSOR, '无法从结果行提取游标键值');
     }
@@ -175,58 +174,15 @@ export class TypeOrmPaginator implements IPaginator {
     });
   }
 
-  private resolveSorts(
-    sorts: ReadonlyArray<SortParam> | undefined,
-    allowed: ReadonlyArray<string>,
-    defaults: ReadonlyArray<SortParam>,
-  ): ReadonlyArray<SortParam> {
-    const allowedSet = new Set(allowed);
-    const filtered = (sorts ?? defaults).filter((s) => allowedSet.has(s.field));
-    if (!filtered.length && defaults.length) return defaults;
-    return filtered;
-  }
-
-  private applyOrderBy(
-    qb: SelectQueryBuilder<Record<string, unknown>>,
-    sorts: ReadonlyArray<SortParam>,
-    resolveColumn: (field: string) => string | null,
-  ): void {
-    sorts.forEach((s, idx) => {
-      const column = resolveColumn(s.field) ?? this.mapSortColumn(s.field);
-      if (!column) {
-        throw new DomainError(PAGINATION_ERROR.SORT_FIELD_NOT_ALLOWED, `非法排序字段: ${s.field}`);
-      }
-      if (idx === 0) qb.orderBy(column, s.direction);
-      else qb.addOrderBy(column, s.direction);
-    });
-  }
-
-  private ensureTieBreakerSort(
-    sorts: ReadonlyArray<SortParam>,
-    cursorKey: { readonly primary: string; readonly tieBreaker: string },
-  ): ReadonlyArray<SortParam> {
-    const hasTieBreaker = sorts.some((s) => s.field === cursorKey.tieBreaker);
-    if (hasTieBreaker) return sorts;
-    // 方向以 primary 的方向为准；若未显式提供，则沿用第一排序方向或 ASC
-    const primaryDir: SortDirection | undefined = sorts.find(
-      (s) => s.field === cursorKey.primary,
-    )?.direction;
-    const fallbackDir: SortDirection = (sorts[0]?.direction as SortDirection | undefined) ?? 'ASC';
-    const direction: SortDirection = primaryDir ?? fallbackDir;
-    return [...sorts, { field: cursorKey.tieBreaker, direction }];
-  }
-
   private applyCursorBoundary(
     qb: SelectQueryBuilder<Record<string, unknown>>,
     token: { key: string; value: string | number; id: string | number },
-    cursorKey: { primary: string; tieBreaker: string },
+    columns: { readonly primary: string; readonly tieBreaker: string },
     directions: { readonly primaryDir: SortDirection; readonly tieBreakerDir: SortDirection },
-    resolveColumn: (field: string) => string | null,
   ): void {
     // 典型 (primary, id) 边界： (primary > value) OR (primary = value AND id > token.id)
-    const primaryColumn = resolveColumn(cursorKey.primary) ?? this.mapSortColumn(cursorKey.primary);
-    const idColumn =
-      resolveColumn(cursorKey.tieBreaker) ?? this.mapSortColumn(cursorKey.tieBreaker);
+    const primaryColumn = columns.primary;
+    const idColumn = columns.tieBreaker;
     if (!primaryColumn || !idColumn) {
       throw new DomainError(PAGINATION_ERROR.INVALID_CURSOR, '非法游标边界列');
     }

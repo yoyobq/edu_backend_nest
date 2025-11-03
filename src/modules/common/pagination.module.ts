@@ -9,6 +9,7 @@ import { PAGINATION_TOKENS } from './tokens/pagination.tokens';
 
 import { HmacCursorSigner } from '@src/infrastructure/security/hmac-signer';
 import { TypeOrmPaginator } from '@src/infrastructure/typeorm/pagination/typeorm-paginator';
+import { TypeOrmSortResolver } from '@src/infrastructure/typeorm/sort/typeorm-sort-resolver';
 
 @Module({
   providers: [
@@ -30,9 +31,12 @@ import { TypeOrmPaginator } from '@src/infrastructure/typeorm/pagination/typeorm
     {
       provide: PAGINATION_TOKENS.PAGINATOR,
       inject: [PAGINATION_TOKENS.CURSOR_SIGNER],
-      useFactory: (signer: HmacCursorSigner) =>
-        // ★ 更安全：没有显式映射时返回 null，强制调用方提供 resolveColumn
-        new TypeOrmPaginator(signer, (_field: string) => null),
+      useFactory: (signer: HmacCursorSigner) => new TypeOrmPaginator(signer),
+    },
+    // ★ 示例：集中注册一个可复用的排序解析器（可按域拆分注入）
+    {
+      provide: 'DEFAULT_SORT_RESOLVER',
+      useFactory: () => new TypeOrmSortResolver([], {}),
     },
     PaginationService,
   ],
