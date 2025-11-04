@@ -9,7 +9,7 @@ import { PAGINATION_TOKENS } from './tokens/pagination.tokens';
 
 import { HmacCursorSigner } from '@src/infrastructure/security/hmac-signer';
 import { TypeOrmPaginator } from '@src/infrastructure/typeorm/pagination/typeorm-paginator';
-import { TypeOrmSortResolver } from '@src/infrastructure/typeorm/sort/typeorm-sort-resolver';
+import { TypeOrmSortResolver } from '@src/infrastructure/typeorm/sort/typeorm-sort';
 
 @Module({
   providers: [

@@ -18,7 +18,11 @@ import { Brackets, type ObjectLiteral, type SelectQueryBuilder } from 'typeorm';
  * - 将文本查询与过滤条件应用到 QueryBuilder
  * - 复用分页策略（默认值、上限、白名单、游标稳定性）
  */
-export class TypeOrmSearchEngine implements ISearchEngine {
+/**
+ * TypeORM 搜索实现
+ * - 统一命名为 TypeOrmSearch（与文件名一致）
+ */
+export class TypeOrmSearch implements ISearchEngine {
   /**
    * 执行搜索与分页
    * - 进入时克隆调用方的 QueryBuilder，避免副作用污染

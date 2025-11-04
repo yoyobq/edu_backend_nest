@@ -5,7 +5,7 @@ import { Module } from '@nestjs/common';
 import type { SelectQueryBuilder } from 'typeorm';
 
 import type { ISearchEngine } from '@core/search/search.ports';
-import { TypeOrmSearchEngine } from '@src/infrastructure/typeorm/search/typeorm-search';
+import { TypeOrmSearch } from '@src/infrastructure/typeorm/search/typeorm-search';
 
 export const SEARCH_TOKENS = {
   ENGINE: Symbol('SEARCH_ENGINE'),
@@ -36,7 +36,7 @@ export class SearchService {
 
 @Module({
   providers: [
-    { provide: SEARCH_TOKENS.ENGINE, useClass: TypeOrmSearchEngine },
+    { provide: SEARCH_TOKENS.ENGINE, useClass: TypeOrmSearch },
     {
       provide: SearchService,
       useFactory: (engine: ISearchEngine) => new SearchService(engine),

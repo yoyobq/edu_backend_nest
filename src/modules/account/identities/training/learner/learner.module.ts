@@ -3,7 +3,7 @@
 // src/modules/account/identities/training/learner/learner.module.ts
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { TypeOrmSortResolver } from '@src/infrastructure/typeorm/sort/typeorm-sort-resolver';
+import { TypeOrmSortResolver } from '@src/infrastructure/typeorm/sort/typeorm-sort';
 import { PaginationModule } from '@src/modules/common/pagination.module';
 import { PROFILE_PROVIDER_TOKEN } from '../../../base/constants/provider-tokens';
 import { LearnerEntity } from './account-learner.entity';

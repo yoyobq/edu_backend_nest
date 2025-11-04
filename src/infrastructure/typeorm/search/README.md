@@ -4,7 +4,7 @@
 
 本文档整理了针对**文本搜索**与**分页**能力的设计、语义约束与最佳实践，覆盖：
 
-- `TypeOrmSearchEngine`：负责在 **QueryBuilder** 上应用文本搜索 / 过滤 / 排序，并执行 **OFFSET / CURSOR** 两种分页。
+ - `TypeOrmSearch`：负责在 **QueryBuilder** 上应用文本搜索 / 过滤 / 排序，并执行 **OFFSET / CURSOR** 两种分页。
 - `TypeOrmPaginator`：独立的分页器（可复用在非搜索场景），对 **after / before** 游标翻页有对称实现。
 
 > 目标：沉淀一套可在不同模块稳定复用的“读层”管线，同时保证**排序稳定性**与**游标一致性**。
@@ -19,7 +19,7 @@
   - `src/core/search/search.types.ts`
   - `src/core/pagination/pagination.types.ts`
 
-- 领域错误码：`src/core/common/errors/domain-error.ts`
+ - 领域错误码：`src/core/common/errors/domain-error`
 
 ---
 
@@ -116,9 +116,10 @@ buildFilter: ({ field, column, value }) => {
 **CURSOR 模式**
 
 - `after` / `before` 互斥（违规抛 `INVALID_CURSOR`）。
-- `after`：取当前页**最后一项**构建 `nextCursor`，返回 `{ hasNext, nextCursor }`。
-- `before`：查询阶段**反向排序**拉取，取当前页**第一项**构建 `prevCursor`，返回 `{ hasPrev, prevCursor }`，随后把结果**翻转回正序**。
-- `pageInfo.hasNext`：在 `before` 场景通常为 `undefined`（如需严格布尔，适配层自行判断）。
+- SearchEngine 仅返回 `items` 与 `pageInfo.hasNext/hasPrev`，不生成 `nextCursor/prevCursor` 文本；如需游标字符串，请在上层通过 signer 生成。
+- `after`：按已应用的排序方向拉取数据，`pageInfo.hasNext = hasExtra`，`pageInfo.hasPrev = undefined`。
+- `before`：查询阶段反向排序拉取，随后翻转为正序返回；`pageInfo.hasPrev = hasExtra`，`pageInfo.hasNext = undefined`（如需严格布尔可在适配层轻查询或置为 `false`）。
+- 当提供 `after` 或 `before` 时，必须同时通过 `options.cursorToken` 传入已验证的游标令牌（由上层 `signer.verify(cursor)` 解析）；缺失将抛出 `INVALID_CURSOR`。
 
 ---
 
@@ -144,7 +145,7 @@ interface CursorToken {
 
 ## SearchEngine 与 Paginator 的边界
 
-- `TypeOrmSearchEngine`：
+- `TypeOrmSearch`：
   - **负责**搜索/过滤/排序与分页查询；
   - **不生成** `nextCursor/prevCursor` 文本，由上层统一用 signer 生成（保持 core 纯净）。
 
@@ -157,25 +158,18 @@ interface CursorToken {
 
 ---
 
-## 实现校验差异说明（SearchEngine 与 Paginator）
-
-- `TypeOrmSearchEngine` 在解析游标时会校验：
-  - `token.key` 必须与 `cursorKey.primary` 一致；
-  - 若提供了 `token.tieField`，则必须与 `cursorKey.tieBreaker` 一致；
-  - 任一不一致将抛出 `INVALID_CURSOR`。
-
-- `TypeOrmPaginator` 当前仅校验：
-  - `token.key` 与 `cursor.key.primary` 一致；
-  - 不强制校验 `token.tieField`（允许缺省）。
-
-> 若业务需要在分页器侧也强制副键校验，可在 `paginateCursor` 的 `after/before` 分支加入对 `token.tieField === cursor.key.tieBreaker` 的校验，保持更严格的一致性。
-
----
+ 
 
 ## 使用示例（简版伪代码）
 
 ```ts
-// CURSOR + after（下一页）
+/**
+ * 演示 SearchEngine 在 CURSOR 模式下的调用：
+ * 1. 通过 signer.verify 解析 after 游标为 CursorToken，并传入 options.cursorToken
+ * 2. SearchEngine 返回 items 与 pageInfo（hasNext/hasPrev），不生成游标文本
+ */
+const token: CursorToken = signer.verify(after);
+
 const options: SearchOptions = {
   searchColumns: ['u.name', 'u.email'],
   minQueryLength: 2,
@@ -186,6 +180,7 @@ const options: SearchOptions = {
   allowedSorts: ['createdAt', 'id'],
   cursorKey: { primary: 'createdAt', tieBreaker: 'id' },
   resolveColumn: (f) => (f === 'createdAt' ? 'u.created_at' : f === 'id' ? 'u.id' : null),
+  cursorToken: token,
 };
 
 const res = await searchService.search<UserDTO>({
@@ -289,7 +284,7 @@ const res = await searchService.search<UserDTO>({
 
 ## 实现校验差异说明（SearchEngine 与 Paginator）
 
-- `TypeOrmSearchEngine` 在解析游标时会校验：
+- `TypeOrmSearch` 在解析游标时会校验：
   - `token.key` 必须与 `cursorKey.primary` 一致；
   - 若提供了 `token.tieField`，则必须与 `cursorKey.tieBreaker` 一致；
   - 任一不一致将抛出 `INVALID_CURSOR`。
