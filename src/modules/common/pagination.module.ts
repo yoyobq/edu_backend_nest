@@ -9,7 +9,7 @@ import { PAGINATION_TOKENS } from './tokens/pagination.tokens';
 
 import { HmacCursorSigner } from '@src/infrastructure/security/hmac-signer';
 import { TypeOrmPaginator } from '@src/infrastructure/typeorm/pagination/typeorm-paginator';
-import { TypeOrmSortResolver } from '@src/infrastructure/typeorm/sort/typeorm-sort';
+import { TypeOrmSort } from '@src/infrastructure/typeorm/sort/typeorm-sort';
 
 @Module({
   providers: [
@@ -36,7 +36,7 @@ import { TypeOrmSortResolver } from '@src/infrastructure/typeorm/sort/typeorm-so
     // ★ 示例：集中注册一个可复用的排序解析器（可按域拆分注入）
     {
       provide: 'DEFAULT_SORT_RESOLVER',
-      useFactory: () => new TypeOrmSortResolver([], {}),
+      useFactory: () => new TypeOrmSort([], {}),
     },
     PaginationService,
   ],

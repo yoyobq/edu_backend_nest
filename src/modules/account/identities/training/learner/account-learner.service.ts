@@ -318,6 +318,10 @@ export class LearnerService {
   async findCursorPage(args: {
     readonly limit: number;
     readonly after?: string;
+    /**
+     * 可选：上一页游标，支持回退翻页（与 after 互斥，仅传其中之一）
+     */
+    readonly before?: string;
     readonly customerId?: number;
     readonly includeDeleted?: boolean;
     readonly sorts?: ReadonlyArray<SortParam>;
@@ -344,6 +348,7 @@ export class LearnerService {
         mode: 'CURSOR',
         limit: Math.min(args.limit, 100),
         after: args.after,
+        before: args.before,
         sorts: args.sorts ?? defaultSorts,
       },
       allowedSorts,

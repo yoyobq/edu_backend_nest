@@ -3,7 +3,7 @@
 // src/modules/account/identities/training/learner/learner.module.ts
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { TypeOrmSortResolver } from '@src/infrastructure/typeorm/sort/typeorm-sort';
+import { TypeOrmSort } from '@src/infrastructure/typeorm/sort/typeorm-sort';
 import { PaginationModule } from '@src/modules/common/pagination.module';
 import { PROFILE_PROVIDER_TOKEN } from '../../../base/constants/provider-tokens';
 import { LearnerEntity } from './account-learner.entity';
@@ -27,7 +27,7 @@ import { LearnerProfileProvider } from './learner-profile.provider';
     {
       provide: 'LEARNER_SORT_RESOLVER',
       useFactory: () =>
-        new TypeOrmSortResolver(['name', 'id', 'createdAt', 'updatedAt'], {
+        new TypeOrmSort(['name', 'id', 'createdAt', 'updatedAt'], {
           name: 'learner.name',
           id: 'learner.id',
           createdAt: 'learner.createdAt',
