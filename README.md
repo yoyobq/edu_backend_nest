@@ -27,23 +27,102 @@
 
 ```
 src/
-├── app.module.ts          # 应用主模块
-├── main.ts                # 应用入口文件
-├── cats/                  # Cats 示例模块
-│   ├── cats.module.ts     # Cats 模块定义
-│   ├── cats.resolver.ts   # GraphQL 解析器
-│   ├── cats.service.ts    # 业务逻辑服务
-│   ├── dto/               # 数据传输对象
-│   └── entities/          # 数据库实体
-├── config/                # 配置模块
-│   ├── config.module.ts   # 配置模块定义
-│   ├── database.config.ts # 数据库配置
-│   ├── graphql.config.ts  # GraphQL 配置
-│   ├── logger.config.ts   # 日志配置
-│   └── server.config.ts   # 服务器配置
-├── logger/                # 日志模块
-└── utils/                 # 工具函数
+├── adapters/                    # 适配层： GraphQL / HTTP 入口
+│   ├── graphql/
+│   └── http/
+├── app.module.ts                # 应用主模块
+├── core/                        # 纯规则与端口接口（无 I/O）
+│   ├── common/
+│   ├── config/
+│   ├── database/
+│   ├── field-encryption/
+│   ├── graphql/
+│   ├── jwt/
+│   ├── logger/
+│   ├── middleware/
+│   ├── pagination/
+│   ├── search/
+│   ├── security/
+│   └── sort/
+├── infrastructure/              # 外部依赖具体实现（仅实现端口）
+│   ├── mail/
+│   ├── security/
+│   └── typeorm/
+├── main.ts                      # 应用入口
+├── modules/                     # 领域模块服务（对内复用的读/写服务）
+│   ├── account/
+│   ├── auth/
+│   ├── common/
+│   ├── course-catalogs/
+│   ├── identity-management/
+│   ├── register/
+│   ├── student/
+│   ├── third-party-auth/
+│   └── verification-record/
+├── plugins/
+├── shared/
+├── types/                       # 类型与模型定义
+│   ├── auth/
+│   ├── common/
+│   ├── errors/
+│   ├── gql/
+│   ├── jwt.types.ts
+│   ├── models/
+│   ├── response.types.ts
+│   └── services/
+├── usecases/                    # 用例编排（跨域读写与事务）
+│   ├── account/
+│   ├── auth/
+│   ├── course-catalogs/
+│   ├── identity-management/
+│   ├── registration/
+│   ├── third-party-accounts/
+│   └── verification/
+└── utils/                       # 工具与测试辅助
+    ├── logger/
+    └── test/
+test/
+├── 00-app/
+├── 01-auth/
+├── 02-register/
+├── 03-roles-guard/
+├── 04-course/
+├── 05-verification-record/
+├── 06-identity-management/
+├── 07-pagination-sort-search/
+└── ...
+
+env/
+└── .env.example
 ```
+
+## 架构分层与依赖方向
+
+为保持可维护性与安全性，项目采用分层架构并严格限定依赖方向：
+
+- 分层职责：
+  - `adapters`：作为入口适配，仅做输入输出适配与解析，不含业务规则。
+  - `usecases`：负责编排业务用例，执行写操作（创建/更新/删除），定义并开启事务；跨域读/写一律在此提升为用例。
+  - `modules (service)`：同域内可复用的读/写服务，暴露 DTO/只读模型，内部可使用 ORM 实体；通过 DI 承接 `infrastructure` 实现。
+  - `infrastructure`：实现 `core` 端口并对接外部依赖（数据库、邮件等），不编排业务规则。
+  - `core`：只放领域模型/值对象/端口接口与纯函数，不引入或依赖任何框架/驱动；不得出现 I/O 或副作用。
+
+- 允许的依赖方向：
+  - `adapters → usecases`
+  - `usecases → modules (service) | core`
+  - `modules (service) → infrastructure | core`
+  - `infrastructure → core`
+
+- 禁止的依赖方向：
+  - `adapters → modules (service) / infrastructure`
+  - `usecases → infrastructure`
+  - `任意层 → adapters`
+
+- 其他关键约束：
+  - 纯读操作尽量放在 `modules/_/_.service`，便于复用；写操作（创建/更新/删除）统一在 `usecases`。
+  - ORM 实体仅在 `modules (service)` 内部使用；对上游暴露的是 DTO/只读模型。
+  - 所有外部依赖的配置/密钥通过配置模块注入（如 `ConfigService`），禁止硬编码在 `infrastructure` 或 `usecases`；`core` 不得读取配置。
+  - 事务由 `usecases` 定义与开启；`modules (service)` 提供细粒度方法，由用例编排到同一事务上下文内，禁止在各模块各自开启跨域事务。
 
 ## 环境配置
 
@@ -132,40 +211,33 @@ $ npm run lint
 
 ## 已实现功能
 
-### 核心模块
-- ✅ **配置管理**: 多环境配置支持，类型安全的配置服务
-- ✅ **日志系统**: 基于 Pino 的高性能日志记录
-- ✅ **数据库集成**: TypeORM + MySQL 8.0，支持连接池和事务
-- ✅ **GraphQL API**: Apollo Server 集成，支持订阅和内省
+### 平台能力
 
-### 示例模块 (Cats)
-- ✅ **CRUD 操作**: 完整的增删改查功能
-- ✅ **GraphQL 解析器**: 类型安全的 GraphQL API
-- ✅ **数据验证**: 输入数据验证和转换
-- ✅ **分页查询**: 支持分页和排序
-- ✅ **错误处理**: 统一的错误处理机制
+- ✅ 配置管理：多环境配置支持，类型安全的配置服务
+- ✅ 日志系统：基于 Pino 的高性能日志记录
+- ✅ 数据库集成：TypeORM + MySQL 8.0，支持连接池与事务
+- ✅ GraphQL API：Apollo Server 集成，支持订阅与内省
+- ✅ 分页 / 排序 / 搜索：统一解析器与服务，防注入、稳定翻页
+- ✅ 安全与鉴权：JWT、角色守卫、字段加密（ Field Encryption ）
+
+### 业务模块
+
+- ✅ 账户与身份管理（ Account / Identity Management ）
+- ✅ 用户注册（ Register ）
+- ✅ 第三方认证（ Third-Party Auth / Accounts ）
+- ✅ 验证记录（ Verification Record ）
 
 ## 开发指南
 
-### 添加新模块
+### 新增模块流程（遵循分层与依赖方向）
 
-1. 使用 NestJS CLI 生成模块：
-
-```bash
-nest generate module your-module
-nest generate service your-module
-nest generate resolver your-module
-```
-
-2. 创建实体和 DTO：
-
-```bash
-# 在模块目录下创建
-mkdir src/your-module/entities
-mkdir src/your-module/dto
-```
-
-3. 在 `app.module.ts` 中注册新模块
+- 在 `core` 定义领域模型 / 值对象与端口接口，保持纯函数与零副作用。
+- 在 `infrastructure` 实现端口并对接外部依赖；禁止编排业务规则。
+- 在 `modules (service)` 绑定 DI 并提供同域可复用的读 / 写服务，对上游暴露 DTO / 只读模型。
+- 在 `usecases` 编排跨域读写与事务，写操作（ C / U / D ）一律在此层进行。
+- 在 `adapters` 注册 GraphQL / HTTP 入口，避免副作用注册，统一走 `src/adapters/graphql/schema.init.ts`。
+- 排序与分页：绑定实体专用 `SortResolver` 白名单映射；`CURSOR` 模式优先使用 `PaginationService`；`OFFSET` 模式补稳定副键（如 `id`）。
+- 测试：在 `test/` 增加端到端用例覆盖排序、分页与权限流程。
 
 ### 数据库迁移
 
