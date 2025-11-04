@@ -1,14 +1,16 @@
 // test/07-pagination/pagination.e2e-spec.ts
 import { DomainError, PAGINATION_ERROR } from '@core/common/errors/domain-error';
+import type { ICursorSigner } from '@core/pagination/pagination.ports';
 import type { SortParam } from '@core/pagination/pagination.types';
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { initGraphQLSchema } from '@src/adapters/graphql/schema/schema.init';
 import { AppModule } from '@src/app.module';
-import { PaginationService } from '@src/modules/common/pagination.service';
-import { LearnerEntity } from '@src/modules/account/identities/training/learner/account-learner.entity';
 import { CustomerEntity } from '@src/modules/account/identities/training/customer/account-customer.entity';
+import { LearnerEntity } from '@src/modules/account/identities/training/learner/account-learner.entity';
 import { PaginationModule } from '@src/modules/common/pagination.module';
+import { PaginationService } from '@src/modules/common/pagination.service';
+import { PAGINATION_TOKENS } from '@src/modules/common/tokens/pagination.tokens';
 import { DataSource } from 'typeorm';
 
 describe('分页工具 (e2e)', () => {
@@ -276,6 +278,86 @@ describe('分页工具 (e2e)', () => {
     const namesFirstPage = page1.items.map((r) => r.name);
     expect(namesFirstPage[0]).toBe('L29');
     expect(namesFirstPage[9]).toBe('L20');
+  });
+
+  it('CURSOR before 分支：按 name ASC, id ASC 正确后退并返回 prevCursor', async () => {
+    // 准备第一页与第二页（通过 after 翻页）
+    const qb1 = createBaseQb();
+    const page1 = await paginationService.paginateQuery<{ id: number; name: string }>({
+      qb: qb1,
+      params: {
+        mode: 'CURSOR',
+        limit: 10,
+        sorts: [
+          { field: 'name', direction: 'ASC' },
+          { field: 'id', direction: 'ASC' },
+        ],
+      },
+      allowedSorts,
+      defaultSorts,
+      cursorKey: { primary: 'name', tieBreaker: 'id' },
+      resolveColumn,
+    });
+
+    expect(page1.items.length).toBe(10);
+    expect(page1.pageInfo?.hasNext).toBe(true);
+    const next1 = page1.pageInfo?.nextCursor as string;
+    expect(typeof next1).toBe('string');
+
+    const qb2 = createBaseQb();
+    const page2 = await paginationService.paginateQuery<{ id: number; name: string }>({
+      qb: qb2,
+      params: {
+        mode: 'CURSOR',
+        limit: 10,
+        after: next1,
+        sorts: [
+          { field: 'name', direction: 'ASC' },
+          { field: 'id', direction: 'ASC' },
+        ],
+      },
+      allowedSorts,
+      defaultSorts,
+      cursorKey: { primary: 'name', tieBreaker: 'id' },
+      resolveColumn,
+    });
+
+    expect(page2.items.length).toBe(10);
+    // 从第二页的第一项构造 before 游标，验证按 README 的 before 语义正确后退
+    const signer = app.get<ICursorSigner>(PAGINATION_TOKENS.CURSOR_SIGNER);
+    const firstOfPage2 = page2.items[0];
+    const beforeCursor = signer.sign({
+      key: 'name',
+      primaryValue: firstOfPage2.name,
+      tieValue: firstOfPage2.id,
+    });
+
+    const qbPrev = createBaseQb();
+    const prevPage = await paginationService.paginateQuery<{ id: number; name: string }>({
+      qb: qbPrev,
+      params: {
+        mode: 'CURSOR',
+        limit: 10,
+        before: beforeCursor,
+        sorts: [
+          { field: 'name', direction: 'ASC' },
+          { field: 'id', direction: 'ASC' },
+        ],
+      },
+      allowedSorts,
+      defaultSorts,
+      cursorKey: { primary: 'name', tieBreaker: 'id' },
+      resolveColumn,
+    });
+
+    // prevPage 应与 page1 等价（正序返回）；因为是第一页，hasPrev 应为 false
+    expect(prevPage.items.length).toBe(10);
+    expect(prevPage.pageInfo?.hasPrev).toBe(false);
+    expect(prevPage.pageInfo?.prevCursor).toBeUndefined();
+
+    const namesPage1 = page1.items.map((r) => r.name);
+    const namesPrev = prevPage.items.map((r) => r.name);
+    expect(namesPrev).toEqual(namesPage1);
   });
 
   it('非法排序字段将被忽略并回退到默认排序', async () => {

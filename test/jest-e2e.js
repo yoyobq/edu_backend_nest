@@ -14,8 +14,10 @@ const ENABLED_SPECS = [
   // '05-verification-record/verification-record-invite.e2e-spec.ts',
   // '06-identity-management/identity-management.e2e-spec.ts',
   // '06-identity-management/learner-management.e2e-spec.ts',
-  // '07-pagination/pagination.e2e-spec.ts',
-  '07-pagination/learners-pagination.e2e-spec.ts',
+  '07-pagination-sort-search/pagination.e2e-spec.ts',
+  '07-pagination-sort-search/learners-pagination.e2e-spec.ts',
+  '07-pagination-sort-search/sort.e2e-spec.ts',
+  '07-pagination-sort-search/search.e2e-spec.ts',
 ];
 
 /** 可选：命令行临时指定（逗号分隔）

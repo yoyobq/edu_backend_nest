@@ -1,11 +1,13 @@
 // test/07-pagination/learners-pagination.e2e-spec.ts
 import { AudienceTypeEnum, LoginTypeEnum } from '@app-types/models/account.types';
+import type { ICursorSigner } from '@core/pagination/pagination.ports';
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { initGraphQLSchema } from '@src/adapters/graphql/schema/schema.init';
 import { AppModule } from '@src/app.module';
 import { LearnerEntity } from '@src/modules/account/identities/training/learner/account-learner.entity';
 import { LearnerService } from '@src/modules/account/identities/training/learner/account-learner.service';
+import { PAGINATION_TOKENS } from '@src/modules/common/tokens/pagination.tokens';
 import { CreateAccountUsecase } from '@usecases/account/create-account.usecase';
 import request from 'supertest';
 import { DataSource } from 'typeorm';
@@ -260,6 +262,46 @@ describe('Learners Pagination (e2e)', () => {
       const secondPageIds = secondPage.items.map((item) => item.id);
       const intersection = firstPageIds.filter((id) => secondPageIds.includes(id));
       expect(intersection).toHaveLength(0);
+    });
+
+    it('CURSOR 分页 - 使用 before 回退上一页（name ASC, id ASC）', async () => {
+      // 先前进到第二页
+      const firstPage = await learnerService.findCursorPage({
+        customerId: CURSOR_TEST_CUSTOMER_ID,
+        limit: 5,
+      });
+
+      const secondPage = await learnerService.findCursorPage({
+        customerId: CURSOR_TEST_CUSTOMER_ID,
+        limit: 5,
+        after: firstPage.pageInfo?.nextCursor,
+      });
+
+      expect(secondPage.items).toHaveLength(5);
+      let beforeCursor = secondPage.pageInfo?.prevCursor;
+
+      // 若未提供 prevCursor，则基于第二页首项构造 before 游标
+      if (!beforeCursor) {
+        const signer = app.get<ICursorSigner>(PAGINATION_TOKENS.CURSOR_SIGNER);
+        const firstOfSecond = secondPage.items[0];
+        beforeCursor = signer.sign({
+          key: 'name',
+          primaryValue: firstOfSecond.name,
+          tieValue: firstOfSecond.id,
+        });
+      }
+
+      const prevPage = await learnerService.findCursorPage({
+        customerId: CURSOR_TEST_CUSTOMER_ID,
+        limit: 5,
+        before: beforeCursor,
+      });
+
+      expect(prevPage.items).toHaveLength(5);
+      // 回退后应与第一页的 name 列相等（有序）
+      const namesPrev = prevPage.items.map((x) => x.name);
+      const namesFirst = firstPage.items.map((x) => x.name);
+      expect(namesPrev).toEqual(namesFirst);
     });
   });
 
