@@ -246,8 +246,18 @@ export class LearnerService {
       }
     }
 
-    // 排序
-    queryBuilder.orderBy(`learner.${sortBy}`, sortOrder);
+    // 排序（防注入与防漂移）：使用域排序解析器解析安全列名，无法解析则回退默认 createdAt
+    const primaryColumn =
+      this.learnerSortResolver.resolveColumn(sortBy) ??
+      this.learnerSortResolver.resolveColumn('createdAt');
+    if (primaryColumn) {
+      queryBuilder.orderBy(primaryColumn, sortOrder);
+      // 为避免 OFFSET 翻页在主键相等时顺序漂移，补充稳定副键 id（与主排序同向）
+      const tieColumn = this.learnerSortResolver.resolveColumn('id');
+      if (tieColumn) {
+        queryBuilder.addOrderBy(tieColumn, sortOrder);
+      }
+    }
 
     // 分页
     queryBuilder.skip(offset).take(actualLimit);
