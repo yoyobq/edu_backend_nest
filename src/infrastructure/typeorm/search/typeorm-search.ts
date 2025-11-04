@@ -180,7 +180,8 @@ export class TypeOrmSearch implements ISearchEngine {
     qb.andWhere(
       new Brackets((qb) => {
         options.searchColumns.forEach((col, idx) => {
-          const clause = `LOWER(${col}) LIKE LOWER(:q) ESCAPE '\\'`;
+          // 使用 ESCAPE '\\' 以确保在 MySQL 中解析为单个反斜杠字符
+          const clause = `LOWER(${col}) LIKE LOWER(:q) ESCAPE '\\\\'`;
           if (idx === 0) {
             qb.where(clause);
           } else {
@@ -503,7 +504,13 @@ export class TypeOrmSearch implements ISearchEngine {
           'countDistinctBy 必须为安全列名或 别名.列，不支持表达式',
         );
       }
-      const col = countQb.connection.driver.escape(distinctCol);
+      // 对 别名.列 进行分段转义，避免被当作单一列名
+      const col = distinctCol.includes('.')
+        ? distinctCol
+            .split('.')
+            .map((p) => countQb.connection.driver.escape(p))
+            .join('.')
+        : countQb.connection.driver.escape(distinctCol);
       const alias = 'distinct_cnt';
       const raw = await countQb
         .select(`COUNT(DISTINCT ${col})`, alias)
