@@ -6,6 +6,7 @@ import { CoachEntity } from '@src/modules/account/identities/training/coach/acco
 import { CustomerEntity } from '@src/modules/account/identities/training/customer/account-customer.entity';
 import { LearnerEntity } from '@src/modules/account/identities/training/learner/account-learner.entity';
 import { ManagerEntity } from '@src/modules/account/identities/training/manager/account-manager.entity';
+import { StaffEntity } from '@src/modules/account/identities/school/staff/account-staff.entity';
 import { AccountStatus, IdentityTypeEnum } from '@app-types/models/account.types';
 import { MembershipLevel } from '@app-types/models/training.types';
 import { Gender, UserState } from '@app-types/models/user-info.types';
@@ -27,6 +28,14 @@ export interface TestAccountConfig {
 }
 
 export const testAccountsConfig: Record<string, TestAccountConfig> = {
+  staff: {
+    loginName: 'teststaff',
+    loginEmail: 'staff@example.com',
+    loginPassword: 'testStaff@2024',
+    status: AccountStatus.ACTIVE,
+    accessGroup: [IdentityTypeEnum.STAFF],
+    identityType: IdentityTypeEnum.STAFF,
+  },
   manager: {
     loginName: 'testmanager',
     loginEmail: 'manager@example.com',
@@ -91,6 +100,7 @@ export const testAccountsConfig: Record<string, TestAccountConfig> = {
  * （按外键方向：先身份表 → user_info → account）
  */
 export const cleanupTestAccounts = async (dataSource: DataSource): Promise<void> => {
+  await dataSource.getRepository(StaffEntity).clear(); // 先清 Staff（不依赖其他 FK）
   await dataSource.getRepository(LearnerEntity).clear(); // ✅ 新增：先清 Learner（有 FK 指向 Customer）
   await dataSource.getRepository(CustomerEntity).clear(); // ✅ 新增：再清 Customer
   await dataSource.getRepository(ManagerEntity).clear();
@@ -163,6 +173,10 @@ const createIdentityForAccount = async (
   else if (cfg.identityType === IdentityTypeEnum.COACH) {
     await createCoachIdentity(dataSource, cfg, accountId);
   }
+  // Staff 身份
+  else if (cfg.identityType === IdentityTypeEnum.STAFF) {
+    await createStaffIdentity(dataSource, cfg, accountId);
+  }
   // Customer 身份
   else if (
     cfg.identityType === IdentityTypeEnum.CUSTOMER ||
@@ -179,6 +193,33 @@ const createIdentityForAccount = async (
       createAccountUsecase,
       createdMap,
     });
+  }
+};
+
+/**
+ * 创建 Staff 身份
+ */
+const createStaffIdentity = async (
+  dataSource: DataSource,
+  cfg: TestAccountConfig,
+  accountId: number,
+): Promise<void> => {
+  const repo = dataSource.getRepository(StaffEntity);
+  const exists = await repo.findOne({ where: { accountId } });
+  if (!exists) {
+    // StaffEntity.id 是 varchar(8)，GraphQL 会通过 parseStaffId 转为 number
+    // 这里采用一个简单的纯数字字符串，符合 parseStaffId 要求
+    const staffId = '10000001';
+    await repo.save(
+      repo.create({
+        id: staffId,
+        accountId,
+        name: `${cfg.loginName}_staff_name`,
+        departmentId: 101,
+        remark: `测试用 staff 身份记录 - ${cfg.loginName}`,
+        jobTitle: '教师',
+      }),
+    );
   }
 };
 

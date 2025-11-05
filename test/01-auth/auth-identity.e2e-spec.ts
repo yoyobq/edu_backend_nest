@@ -5,6 +5,7 @@ import { CoachEntity } from '@src/modules/account/identities/training/coach/acco
 import { CustomerEntity } from '@src/modules/account/identities/training/customer/account-customer.entity';
 import { LearnerEntity } from '@src/modules/account/identities/training/learner/account-learner.entity';
 import { ManagerEntity } from '@src/modules/account/identities/training/manager/account-manager.entity';
+import { StaffEntity } from '@src/modules/account/identities/school/staff/account-staff.entity';
 import { IdentityTypeEnum, LoginTypeEnum } from '@src/types/models/account.types';
 import { MembershipLevel } from '@src/types/models/training.types';
 import request from 'supertest';
@@ -26,7 +27,7 @@ describe('Auth Identity (e2e)', () => {
   let createAccountUsecase: CreateAccountUsecase;
 
   // 直接使用统一测试账号配置
-  const { coach, customer, manager, learner } = testAccountsConfig;
+  const { coach, customer, manager, learner, staff } = testAccountsConfig;
 
   beforeAll(async () => {
     // 初始化 GraphQL Schema
@@ -46,7 +47,7 @@ describe('Auth Identity (e2e)', () => {
     await seedTestAccounts({
       dataSource,
       createAccountUsecase,
-      includeKeys: ['coach', 'customer', 'manager', 'learner'],
+      includeKeys: ['coach', 'customer', 'manager', 'learner', 'staff'],
     });
 
     console.log('✅ 使用统一测试账号创建成功');
@@ -406,6 +407,63 @@ describe('Auth Identity (e2e)', () => {
       expect(data?.login.identity.coachId).toBe(coachEntity?.id);
       expect(data?.login.identity.name).toBe(coachEntity?.name);
       expect(data?.login.identity.remark).toBe(coachEntity?.remark);
+    });
+  });
+
+  describe('Staff 身份完整测试', () => {
+    it('应该支持 Staff 用户登录成功', async () => {
+      const response = await performLogin(staff.loginName, staff.loginPassword);
+
+      const { data } = response.body;
+      expect(data?.login.accountId).toBeDefined();
+      expect(data?.login.accessToken).toBeDefined();
+      expect(data?.login.refreshToken).toBeDefined();
+      expect(data?.login.role).toBe(IdentityTypeEnum.STAFF);
+      expect(typeof data?.login.accessToken).toBe('string');
+      expect(typeof data?.login.refreshToken).toBe('string');
+    });
+
+    it('应该正确返回 Staff 身份信息', async () => {
+      const response = await performLogin(staff.loginName, staff.loginPassword);
+
+      const { data } = response.body;
+      expect(data?.login.identity).toBeDefined();
+      expect(data?.login.identity.staffId).toBeDefined();
+      expect(data?.login.identity.name).toContain('staff_name');
+      expect(data?.login.identity.remark).toContain('测试用 staff 身份记录');
+      expect(data?.login.identity.jobTitle).toBe('教师');
+      expect(data?.login.identity.employmentStatus).toBeDefined();
+      // GraphQL schema 中 StaffType.id 是 Int，parseStaffId 将 varchar 工号解析为数字
+      expect(typeof data?.login.identity.staffId).toBe('number');
+    });
+
+    it('应该正确返回 Staff 用户信息', async () => {
+      const response = await performLogin(staff.loginName, staff.loginPassword);
+
+      const { data } = response.body;
+      expect(data?.login.userInfo).toBeDefined();
+      expect(data?.login.userInfo.nickname).toBeDefined();
+      expect(data?.login.userInfo.email).toBe(staff.loginEmail);
+      expect(data?.login.userInfo.accessGroup).toContain(IdentityTypeEnum.STAFF);
+      expect(data?.login.userInfo.userState).toBe(UserState.ACTIVE);
+    });
+
+    it('应该验证 Staff 身份记录与数据库一致', async () => {
+      const response = await performLogin(staff.loginName, staff.loginPassword);
+
+      const { data } = response.body;
+      const staffRepository = dataSource.getRepository(StaffEntity);
+      const staffEntity = await staffRepository.findOne({
+        where: { accountId: parseInt(data?.login.accountId) },
+      });
+
+      expect(staffEntity).toBeDefined();
+      // staffEntity.id 是 varchar 工号，GraphQL 返回的是解析后的数字 staffId
+      expect(data?.login.identity.staffId).toBe(parseInt(staffEntity!.id));
+      expect(data?.login.identity.name).toBe(staffEntity?.name);
+      expect(data?.login.identity.remark).toBe(staffEntity?.remark);
+      expect(data?.login.identity.departmentId).toBe(staffEntity?.departmentId);
+      expect(data?.login.identity.jobTitle).toBe(staffEntity?.jobTitle);
     });
   });
 

@@ -40,11 +40,12 @@ const IdentityPriorityProvider: Provider = {
  */
 @Module({
   imports: [
-    // 👇 按需要选择预设
-    AccountModule.forRoot({ preset: 'training' }),
-    // 或者：
-    // AccountModule.forRoot({ preset: 'school' }),
-    // AccountModule.forRoot({ preset: 'custom', identities: ['staff', 'manager'] }),
+    // 👇 统一启用测试所需身份：包含 school + training 集合
+    // 为避免遗漏，采用 custom 显式列出，覆盖 E2E 中使用的所有身份
+    AccountModule.forRoot({
+      preset: 'custom',
+      identities: ['staff', 'student', 'coach', 'manager', 'customer', 'learner'],
+    }),
   ],
   providers: [IdentityPriorityProvider],
   // 关键点：直接导出 AccountModule，本模块的下游即可获得它\"导出的所有 provider\"
