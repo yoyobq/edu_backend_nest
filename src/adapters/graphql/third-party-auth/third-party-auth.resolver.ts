@@ -39,6 +39,7 @@ import { CustomerType } from '../account/dto/identity/customer.dto';
 import { LearnerType } from '../account/dto/identity/learner.dto';
 import { ManagerType } from '../account/dto/identity/manager.dto';
 import { StaffType } from '../account/dto/identity/staff.dto';
+import { parseStaffId } from '@core/account/identity/parse-staff-id';
 
 /**
  * 第三方认证 GraphQL 解析器
@@ -287,7 +288,7 @@ export class ThirdPartyAuthResolver {
       case IdentityTypeEnum.STAFF: {
         const staff = identity as StaffEntity;
         return {
-          id: staff.id,
+          id: parseStaffId({ id: staff.id as unknown as number | string }),
           accountId: staff.accountId,
           name: staff.name,
           departmentId: staff.departmentId,
@@ -296,7 +297,7 @@ export class ThirdPartyAuthResolver {
           employmentStatus: staff.employmentStatus,
           createdAt: staff.createdAt,
           updatedAt: staff.updatedAt,
-          jobId: staff.id,
+          jobId: parseStaffId({ id: staff.id as unknown as number | string }),
         } as StaffType;
       }
 

@@ -20,6 +20,7 @@ import { StaffType } from '../account/dto/identity/staff.dto';
 import { LoginResult } from '../account/dto/login-result.dto';
 import { UserInfoDTO } from '../account/dto/user-info.dto';
 import { AuthLoginInput } from './dto/auth-login.input';
+import { parseStaffId } from '@core/account/identity/parse-staff-id';
 
 /**
  * 认证相关的 GraphQL Resolver
@@ -195,7 +196,7 @@ export class AuthResolver {
       case IdentityTypeEnum.STAFF: {
         const staff = identity as StaffEntity;
         return {
-          id: staff.id,
+          id: parseStaffId({ id: staff.id as unknown as number | string }),
           accountId: staff.accountId,
           name: staff.name,
           departmentId: staff.departmentId,
@@ -204,7 +205,7 @@ export class AuthResolver {
           employmentStatus: staff.employmentStatus,
           createdAt: staff.createdAt,
           updatedAt: staff.updatedAt,
-          jobId: staff.id, // Union 类型解析标识符
+          jobId: parseStaffId({ id: staff.id as unknown as number | string }), // Union 类型解析标识符
         } as StaffType;
       }
 

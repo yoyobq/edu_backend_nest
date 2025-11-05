@@ -3,6 +3,7 @@
 import { EmploymentStatus, IdentityTypeEnum } from '@app-types/models/account.types';
 import { Gender } from '@app-types/models/user-info.types';
 import { AUTH_ERROR, DomainError } from '@core/common/errors';
+import { parseStaffId } from '@core/account/identity/parse-staff-id';
 import { Injectable } from '@nestjs/common';
 import { AccountService } from '@src/modules/account/base/services/account.service';
 import { CoachType } from '../../adapters/graphql/account/dto/identity/coach.dto';
@@ -12,7 +13,7 @@ import { ManagerType } from '../../adapters/graphql/account/dto/identity/manager
 import { StaffType } from '../../adapters/graphql/account/dto/identity/staff.dto';
 
 export type RawIdentity =
-  | { kind: 'STAFF'; data: StaffType & { id: string } }
+  | { kind: 'STAFF'; data: StaffType & { id: number } }
   | {
       kind: 'COACH';
       data: Pick<
@@ -179,7 +180,7 @@ export class FetchIdentityByRoleUsecase {
    * 映射员工数据
    */
   private mapStaffData(entity: {
-    id: string;
+    id: string | number;
     accountId: number;
     name: string;
     departmentId: number | null;
@@ -188,9 +189,10 @@ export class FetchIdentityByRoleUsecase {
     employmentStatus: EmploymentStatus;
     createdAt: Date;
     updatedAt: Date;
-  }): StaffType & { id: string } {
+  }): StaffType & { id: number } {
+    const parsedId = parseStaffId({ id: entity.id });
     return {
-      id: entity.id,
+      id: parsedId,
       accountId: entity.accountId,
       name: entity.name,
       departmentId: entity.departmentId,
