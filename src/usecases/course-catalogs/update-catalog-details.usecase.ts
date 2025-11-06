@@ -1,7 +1,7 @@
 // src/usecases/course-catalogs/update-catalog-details.usecase.ts
 import { UpdateCatalogDetailsInput } from '@adapters/graphql/course-catalogs/dto/course-catalog.input';
 import { UpdateCatalogDetailsResult } from '@adapters/graphql/course-catalogs/dto/course-catalog.result';
-import { DomainError } from '@core/common/errors/domain-error';
+import { DomainError, CATALOG_ERROR } from '@core/common/errors/domain-error';
 import { CourseCatalogEntity } from '@modules/course-catalogs/course-catalog.entity';
 import { CourseCatalogService } from '@modules/course-catalogs/course-catalog.service';
 import { Injectable } from '@nestjs/common';
@@ -11,8 +11,11 @@ import { UsecaseSession } from '@src/types/auth/session.types';
 
 /**
  * 更新课程目录详情用例
- * 仅允许 manager 更新 title/description
- * 不允许修改 courseLevel / deactivatedAt
+ * 约束：仅允许 admin / teacher / manager 更新 `title / description`
+ * 禁止修改 `courseLevel / deactivatedAt`
+ * 并发与时间戳：
+ * - 使用 Service 的 `update`（先查再 `merge + save`）保证 `@UpdateDateColumn` 自动维护
+ * - 若并发更新同一行，后写覆盖前写，若需更严格控制可在 usecase 层引入版本字段或乐观锁（本项目暂不启用）
  */
 @Injectable()
 export class UpdateCatalogDetailsUsecase {
@@ -34,7 +37,7 @@ export class UpdateCatalogDetailsUsecase {
     // 2) 查询实体
     const entity = await this.courseCatalogService.findById(input.id);
     if (!entity) {
-      throw new DomainError('CATALOG_NOT_FOUND', '课程目录不存在');
+      throw new DomainError(CATALOG_ERROR.NOT_FOUND, '课程目录不存在');
     }
 
     // 3) 验证至少更新一项
@@ -46,7 +49,7 @@ export class UpdateCatalogDetailsUsecase {
     // 5) 保存更新
     const savedEntity = await this.courseCatalogService.update(input.id, updateData);
     if (!savedEntity) {
-      throw new DomainError('UPDATE_FAILED', '更新课程目录失败');
+      throw new DomainError(CATALOG_ERROR.UPDATE_FAILED, '更新课程目录失败');
     }
 
     return {
@@ -66,7 +69,7 @@ export class UpdateCatalogDetailsUsecase {
     const hasPermission = session.roles.some((role) => allowedRoles.includes(role.toLowerCase()));
 
     if (!hasPermission) {
-      throw new DomainError('INSUFFICIENT_PERMISSIONS', '仅管理员可以更新课程目录');
+      throw new DomainError(CATALOG_ERROR.PERMISSION_DENIED, '仅管理员可以更新课程目录');
     }
   }
 
@@ -80,7 +83,7 @@ export class UpdateCatalogDetailsUsecase {
 
     if (!hasTitle && !hasDescription) {
       throw new DomainError(
-        'NO_UPDATABLE_FIELDS',
+        CATALOG_ERROR.NO_UPDATABLE_FIELDS,
         '至少需要提供 title 或 description 中的一个字段',
       );
     }
@@ -107,7 +110,7 @@ export class UpdateCatalogDetailsUsecase {
     if (typeof input.title !== 'undefined') {
       const trimmedTitle = (input.title ?? '').trim();
       if (!trimmedTitle) {
-        throw new DomainError('TITLE_EMPTY', '标题不能为空');
+        throw new DomainError(CATALOG_ERROR.TITLE_EMPTY, '标题不能为空');
       }
       updateData.title = trimmedTitle;
     }

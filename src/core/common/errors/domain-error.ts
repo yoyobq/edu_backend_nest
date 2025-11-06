@@ -145,6 +145,18 @@ export type VerificationRecordErrorCode =
   (typeof VERIFICATION_RECORD_ERROR)[keyof typeof VERIFICATION_RECORD_ERROR];
 export type LearnerErrorCode = (typeof LEARNER_ERROR)[keyof typeof LEARNER_ERROR];
 
+// 课程目录相关错误码（集中定义）
+export const CATALOG_ERROR = {
+  TITLE_EMPTY: 'CATALOG_TITLE_EMPTY',
+  NOT_FOUND: 'CATALOG_NOT_FOUND',
+  UPDATE_FAILED: 'CATALOG_UPDATE_FAILED',
+  PERMISSION_DENIED: PERMISSION_ERROR.INSUFFICIENT_PERMISSIONS, // 复用统一权限码值以兼容现有断言
+  NO_UPDATABLE_FIELDS: 'NO_UPDATABLE_FIELDS', // 兼容现有断言码值
+} as const;
+Object.freeze(CATALOG_ERROR);
+
+export type CatalogErrorCode = (typeof CATALOG_ERROR)[keyof typeof CATALOG_ERROR];
+
 // 分页相关错误码
 export const PAGINATION_ERROR = {
   INVALID_PAGE_SIZE: 'PAGINATION_INVALID_PAGE_SIZE',

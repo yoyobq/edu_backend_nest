@@ -1,6 +1,6 @@
 // src/usecases/course-catalogs/create-catalog.usecase.ts
 import { CourseLevel } from '@app-types/models/course.types';
-import { DomainError, PERMISSION_ERROR } from '@core/common/errors/domain-error';
+import { DomainError, CATALOG_ERROR } from '@core/common/errors/domain-error';
 import { CourseCatalogEntity } from '@modules/course-catalogs/course-catalog.entity';
 import { CourseCatalogService } from '@modules/course-catalogs/course-catalog.service';
 import { Injectable } from '@nestjs/common';
@@ -34,9 +34,10 @@ export interface CreateCatalogResult {
  * 创建课程目录用例
  * 规则：
  * - 仅允许 admin/manager/teacher 创建
- * - `courseLevel` 全局唯一，若已存在则幂等返回（isNewlyCreated=false）
- * - `title` 必填且去除首尾空格；`description` 为空字符串按 null 存储
- * - 默认 `deactivatedAt=null`，并记录 `createdBy/updatedBy`
+ * - `courseLevel` 全局唯一，若已存在则幂等返回（`isNewlyCreated = false`）
+ * - `title` 必填且去除首尾空格；`description` 为空字符串按 `null` 存储
+ * - 默认 `deactivatedAt = null`，并记录 `createdBy / updatedBy`
+ * - 并发安全：通过 Service 的并发安全创建方法（`createOrGet`）直接尝试插入，捕获唯一约束冲突后回退查询，统一返回结果结构
  */
 @Injectable()
 export class CreateCatalogUsecase {
@@ -44,9 +45,13 @@ export class CreateCatalogUsecase {
 
   /**
    * 执行创建课程目录
+   * 并发语义：
+   * - 依赖数据库唯一约束（`uk_catalogs_course_level`）
+   * - 当并发同时创建同一 `courseLevel` 时，只有一次插入成功返回 `isNewlyCreated = true`，其余并发者捕获重复键后回退查询，返回 `isNewlyCreated = false`
+   * - 保证时间戳由 ORM 自动维护，不手动赋值 `createdAt / updatedAt`
    * @param session 当前用户会话
    * @param input 创建参数
-   * @returns 创建结果
+   * @returns 创建结果（包含 `catalog` 与 `isNewlyCreated`）
    */
   async execute(session: UsecaseSession, input: CreateCatalogParams): Promise<CreateCatalogResult> {
     this.ensurePermissions(session);
@@ -54,13 +59,7 @@ export class CreateCatalogUsecase {
     // 字段规范化与校验
     const normalized = this.normalizeInput(input);
 
-    // 唯一性校验：按 courseLevel 查重（幂等）
-    const existing = await this.courseCatalogService.findByCourseLevel(normalized.courseLevel);
-    if (existing) {
-      return { catalog: existing, isNewlyCreated: false };
-    }
-
-    // 创建实体
+    // 并发安全创建：依赖数据库唯一约束并在冲突时幂等回退
     const toCreate: Partial<CourseCatalogEntity> = {
       courseLevel: normalized.courseLevel,
       title: normalized.title,
@@ -70,8 +69,8 @@ export class CreateCatalogUsecase {
       updatedBy: session.accountId,
     };
 
-    const created = await this.courseCatalogService.create(toCreate);
-    return { catalog: created, isNewlyCreated: true };
+    const { catalog, isNewlyCreated } = await this.courseCatalogService.createOrGet(toCreate);
+    return { catalog, isNewlyCreated };
   }
 
   /**
@@ -82,7 +81,7 @@ export class CreateCatalogUsecase {
     const allowed = ['admin', 'manager', 'teacher'];
     const ok = session.roles?.some((r) => allowed.includes(String(r).toLowerCase()));
     if (!ok) {
-      throw new DomainError(PERMISSION_ERROR.INSUFFICIENT_PERMISSIONS, '仅管理员可以创建课程目录');
+      throw new DomainError(CATALOG_ERROR.PERMISSION_DENIED, '仅管理员可以创建课程目录');
     }
   }
 
@@ -93,7 +92,7 @@ export class CreateCatalogUsecase {
   private normalizeInput(input: CreateCatalogParams): Required<CreateCatalogParams> {
     const title = (input.title ?? '').trim();
     if (!title) {
-      throw new DomainError('TITLE_EMPTY', '标题不能为空');
+      throw new DomainError(CATALOG_ERROR.TITLE_EMPTY, '标题不能为空');
     }
 
     // 描述去空格；空串存 null

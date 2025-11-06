@@ -1,5 +1,5 @@
 // src/usecases/course-catalogs/deactivate-catalog.usecase.ts
-import { DomainError, PERMISSION_ERROR } from '@core/common/errors/domain-error';
+import { DomainError, CATALOG_ERROR } from '@core/common/errors/domain-error';
 import { CourseCatalogEntity } from '@modules/course-catalogs/course-catalog.entity';
 import { CourseCatalogService } from '@modules/course-catalogs/course-catalog.service';
 import { Injectable } from '@nestjs/common';
@@ -27,7 +27,10 @@ export interface DeactivateCatalogResult {
 
 /**
  * 下线课程目录用例
- * 行为：若已下线则幂等返回；否则设置 deactivatedAt，并记录 updatedBy
+ * 并发与幂等语义：
+ * - 若已下线（`deactivatedAt` 非 `null`）则直接幂等返回 `isUpdated = false`
+ * - 否则调用 Service 的 `deactivate`（内部使用 `merge + save`），确保 `@UpdateDateColumn` 自动维护
+ * - 本用例按 `id` 单行更新，不涉及唯一约束竞争，默认幂等
  */
 @Injectable()
 export class DeactivateCatalogUsecase {
@@ -47,7 +50,7 @@ export class DeactivateCatalogUsecase {
 
     const entity = await this.courseCatalogService.findById(input.id);
     if (!entity) {
-      throw new DomainError('CATALOG_NOT_FOUND', '课程目录不存在');
+      throw new DomainError(CATALOG_ERROR.NOT_FOUND, '课程目录不存在');
     }
 
     // 已下线 → 幂等返回
@@ -57,7 +60,7 @@ export class DeactivateCatalogUsecase {
 
     const updated = await this.courseCatalogService.deactivate(input.id, session.accountId);
     if (!updated) {
-      throw new DomainError('UPDATE_FAILED', '下线课程目录失败');
+      throw new DomainError(CATALOG_ERROR.UPDATE_FAILED, '下线课程目录失败');
     }
 
     return { catalog: updated, isUpdated: true };
@@ -71,7 +74,7 @@ export class DeactivateCatalogUsecase {
     const allowed = ['admin', 'manager', 'teacher'];
     const ok = session.roles?.some((r) => allowed.includes(String(r).toLowerCase()));
     if (!ok) {
-      throw new DomainError(PERMISSION_ERROR.INSUFFICIENT_PERMISSIONS, '仅管理员可以下线课程目录');
+      throw new DomainError(CATALOG_ERROR.PERMISSION_DENIED, '仅管理员可以下线课程目录');
     }
   }
 }
