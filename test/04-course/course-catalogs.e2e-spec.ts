@@ -468,6 +468,161 @@ describe('课程目录模块 (e2e)', () => {
       expect(updateResponse.body.errors[0].extensions.errorCode).toBe('NO_UPDATABLE_FIELDS');
       expect(updateResponse.body.errors[0].message).toContain('至少需要提供 title 或 description');
     });
+
+    it('更新后 updatedAt 应自动维护为更晚的时间', async () => {
+      // 先获取课程目录列表，选取武术课程项
+      const listQuery = `
+        query {
+          courseCatalogsList {
+            items {
+              id
+              courseLevel
+              title
+              description
+              updatedAt
+            }
+          }
+        }
+      `;
+
+      const listResponse = await executeQuery(listQuery).expect(200);
+      const wushuItem = listResponse.body.data.courseCatalogsList.items.find(
+        (item: { courseLevel: CourseLevel; id: number; updatedAt: string }) =>
+          item.courseLevel === CourseLevel.WUSHU,
+      );
+
+      const beforeUpdatedAt = new Date(wushuItem.updatedAt).getTime();
+
+      // 等待片刻防止时间戳分辨率导致相等
+      await new Promise((resolve) => setTimeout(resolve, 1100));
+
+      // 执行一次更新（修改描述）
+      const newDescription = '验证 updatedAt 自动维护的描述';
+      const updateQuery = `
+        mutation {
+          updateCatalogDetails(input: { id: ${wushuItem.id}, description: "${newDescription}" }) {
+            success
+            data { id description }
+          }
+        }
+      `;
+      const updateResponse = await executeQuery(updateQuery, managerToken).expect(200);
+      expect(updateResponse.body.data.updateCatalogDetails.success).toBe(true);
+
+      // 再次查询该项，检查 updatedAt 变更
+      const afterListResponse = await executeQuery(listQuery).expect(200);
+      const afterItem = afterListResponse.body.data.courseCatalogsList.items.find(
+        (item: { courseLevel: CourseLevel; id: number; updatedAt: string }) =>
+          item.id === wushuItem.id,
+      );
+      const afterUpdatedAt = new Date(afterItem.updatedAt).getTime();
+
+      expect(afterUpdatedAt).toBeGreaterThan(beforeUpdatedAt);
+    });
+  });
+
+  describe('下线 / 重新激活课程目录', () => {
+    let fitnessId: number;
+
+    beforeEach(async () => {
+      // 确保有最新的目录数据
+      await createTestCatalogs();
+
+      // 获取体能训练目录 ID
+      const listQuery = `
+        query { courseCatalogsList { items { id courseLevel deactivatedAt } } }
+      `;
+      const listResp = await executeQuery(listQuery).expect(200);
+      fitnessId = listResp.body.data.courseCatalogsList.items.find(
+        (i: { courseLevel: CourseLevel; id: number }) => i.courseLevel === CourseLevel.FITNESS,
+      ).id;
+    });
+
+    it('管理员可以下线课程目录，并返回 isUpdated=true', async () => {
+      const mutate = `
+        mutation { deactivateCatalog(input: { id: ${fitnessId} }) { isUpdated catalog { id deactivatedAt } } }
+      `;
+      const res = await executeQuery(mutate, managerToken).expect(200);
+      expect(res.body.data.deactivateCatalog.isUpdated).toBe(true);
+      expect(res.body.data.deactivateCatalog.catalog.deactivatedAt).not.toBeNull();
+    });
+
+    it('重复下线幂等，返回 isUpdated=false', async () => {
+      // 先下线一次
+      await executeQuery(
+        `mutation { deactivateCatalog(input: { id: ${fitnessId} }) { isUpdated } }`,
+        managerToken,
+      ).expect(200);
+
+      // 再下线一次，幂等
+      const res = await executeQuery(
+        `mutation { deactivateCatalog(input: { id: ${fitnessId} }) { isUpdated } }`,
+        managerToken,
+      ).expect(200);
+      expect(res.body.data.deactivateCatalog.isUpdated).toBe(false);
+    });
+
+    it('管理员可以重新激活课程目录，并返回 isUpdated=true', async () => {
+      // 确保先处于下线
+      await executeQuery(
+        `mutation { deactivateCatalog(input: { id: ${fitnessId} }) { isUpdated } }`,
+        managerToken,
+      ).expect(200);
+
+      const res = await executeQuery(
+        `mutation { reactivateCatalog(input: { id: ${fitnessId} }) { isUpdated catalog { id deactivatedAt } } }`,
+        managerToken,
+      ).expect(200);
+      expect(res.body.data.reactivateCatalog.isUpdated).toBe(true);
+      expect(res.body.data.reactivateCatalog.catalog.deactivatedAt).toBeNull();
+    });
+
+    it('重复激活幂等，返回 isUpdated=false', async () => {
+      // 先确保激活
+      await executeQuery(
+        `mutation { reactivateCatalog(input: { id: ${fitnessId} }) { isUpdated } }`,
+        managerToken,
+      ).expect(200);
+
+      const res = await executeQuery(
+        `mutation { reactivateCatalog(input: { id: ${fitnessId} }) { isUpdated } }`,
+        managerToken,
+      ).expect(200);
+      expect(res.body.data.reactivateCatalog.isUpdated).toBe(false);
+    });
+
+    it('非管理员（教练）无权限下线目录', async () => {
+      const res = await executeQuery(
+        `mutation { deactivateCatalog(input: { id: ${fitnessId} }) { isUpdated } }`,
+        coachToken,
+      ).expect(200);
+      expect(res.body.errors).toBeDefined();
+      expect(res.body.errors[0].extensions.errorCode).toBe('INSUFFICIENT_PERMISSIONS');
+    });
+
+    it('未登录用户不允许下线或激活目录', async () => {
+      const res1 = await executeQuery(
+        `mutation { deactivateCatalog(input: { id: ${fitnessId} }) { isUpdated } }`,
+      ).expect(200);
+      expect(res1.body.errors).toBeDefined();
+      expect(res1.body.errors[0].extensions.code).toBe('UNAUTHENTICATED');
+
+      const res2 = await executeQuery(
+        `mutation { reactivateCatalog(input: { id: ${fitnessId} }) { isUpdated } }`,
+      ).expect(200);
+      expect(res2.body.errors).toBeDefined();
+      expect(res2.body.errors[0].extensions.code).toBe('UNAUTHENTICATED');
+    });
+
+    it('操作不存在的目录应返回业务错误', async () => {
+      const notExistId = 999999;
+      const res = await executeQuery(
+        `mutation { deactivateCatalog(input: { id: ${notExistId} }) { isUpdated } }`,
+        managerToken,
+      ).expect(200);
+      expect(res.body.errors).toBeDefined();
+      expect(res.body.errors[0].extensions.errorCode).toBe('CATALOG_NOT_FOUND');
+    });
   });
 
   describe('根据课程等级查询课程目录', () => {
