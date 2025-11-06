@@ -80,8 +80,14 @@ export class CourseCatalogService {
     id: number,
     updateData: Partial<CourseCatalogEntity>,
   ): Promise<CourseCatalogEntity | null> {
-    await this.courseCatalogRepository.update(id, updateData);
-    return await this.findById(id);
+    // 使用先查询再 merge + save 的方式，确保实体完整性与 @UpdateDateColumn 自动维护
+    const existing = await this.findById(id);
+    if (!existing) {
+      return null;
+    }
+    const merged = this.courseCatalogRepository.merge(existing, updateData);
+    const saved = await this.courseCatalogRepository.save(merged);
+    return saved ?? null;
   }
 
   /**

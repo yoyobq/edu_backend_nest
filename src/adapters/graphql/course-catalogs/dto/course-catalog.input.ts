@@ -36,3 +36,27 @@ export class UpdateCatalogDetailsInput {
   @MaxLength(512, { message: '描述长度不能超过 512 个字符' })
   description?: string;
 }
+
+/**
+ * 下线课程目录输入参数
+ */
+@InputType({ description: '下线课程目录输入参数' })
+export class DeactivateCatalogInput {
+  /** 课程目录 ID */
+  @Field(() => ID, { description: '课程目录 ID' })
+  @Type(() => Number)
+  @IsInt({ message: 'ID 必须是整数' })
+  id!: number;
+}
+
+/**
+ * 重新激活课程目录输入参数
+ */
+@InputType({ description: '重新激活课程目录输入参数' })
+export class ReactivateCatalogInput {
+  /** 课程目录 ID */
+  @Field(() => ID, { description: '课程目录 ID' })
+  @Type(() => Number)
+  @IsInt({ message: 'ID 必须是整数' })
+  id!: number;
+}

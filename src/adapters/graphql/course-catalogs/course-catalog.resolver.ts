@@ -5,12 +5,25 @@ import { CourseCatalogService } from '@modules/course-catalogs/course-catalog.se
 import { UseGuards } from '@nestjs/common';
 import { Args, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { UpdateCatalogDetailsUsecase } from '@usecases/course-catalogs/update-catalog-details.usecase';
+import { DeactivateCatalogUsecase } from '@usecases/course-catalogs/deactivate-catalog.usecase';
+import { ReactivateCatalogUsecase } from '@usecases/course-catalogs/reactivate-catalog.usecase';
 import { ListCatalogsUsecase } from '@usecases/course-catalogs/list-catalogs.usecase';
 import { currentUser } from '../decorators/current-user.decorator';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 import { CourseCatalogDTO } from './dto/course-catalog.dto';
-import { GetCatalogByLevelInput, UpdateCatalogDetailsInput } from './dto/course-catalog.input';
-import { CourseCatalogsListResult, UpdateCatalogDetailsResult } from './dto/course-catalog.result';
+import {
+  DeactivateCatalogInput,
+  GetCatalogByLevelInput,
+  ReactivateCatalogInput,
+  UpdateCatalogDetailsInput,
+} from './dto/course-catalog.input';
+import {
+  CourseCatalogsListResult,
+  DeactivateCatalogResult,
+  ReactivateCatalogResult,
+  UpdateCatalogDetailsResult,
+} from './dto/course-catalog.result';
+import { mapJwtToUsecaseSession } from '@app-types/auth/session.types';
 /**
  * 课程目录 GraphQL Resolver
  * 提供课程目录相关的查询和变更操作
@@ -21,6 +34,8 @@ export class CourseCatalogResolver {
     private readonly courseCatalogService: CourseCatalogService,
     private readonly listCatalogsUsecase: ListCatalogsUsecase, // 注入列表查询 usecase
     private readonly updateCatalogDetailsUsecase: UpdateCatalogDetailsUsecase,
+    private readonly deactivateCatalogUsecase: DeactivateCatalogUsecase,
+    private readonly reactivateCatalogUsecase: ReactivateCatalogUsecase,
   ) {}
 
   /**
@@ -77,12 +92,67 @@ export class CourseCatalogResolver {
     @currentUser() user: JwtPayload,
   ): Promise<UpdateCatalogDetailsResult> {
     // 构建会话信息
-    const session = {
-      accountId: user.sub,
-      roles: user.accessGroup, // 传递完整的角色数组
-    };
+    const session = mapJwtToUsecaseSession(user);
 
     const result = await this.updateCatalogDetailsUsecase.execute(session, input);
     return result;
+  }
+
+  /**
+   * 下线课程目录（需要管理员权限）
+   * @param input 下线输入参数
+   * @param user 当前用户的 JWT 信息
+   * @returns 下线结果（包含是否更新与最新实体）
+   */
+  @UseGuards(JwtAuthGuard)
+  @Mutation(() => DeactivateCatalogResult, { description: '下线课程目录' })
+  async deactivateCatalog(
+    @Args('input') input: DeactivateCatalogInput,
+    @currentUser() user: JwtPayload,
+  ): Promise<DeactivateCatalogResult> {
+    const session = mapJwtToUsecaseSession(user);
+    const result = await this.deactivateCatalogUsecase.execute(session, { id: input.id });
+
+    return {
+      catalog: {
+        id: result.catalog.id,
+        courseLevel: result.catalog.courseLevel,
+        title: result.catalog.title,
+        description: result.catalog.description,
+        createdAt: result.catalog.createdAt,
+        updatedAt: result.catalog.updatedAt,
+        deactivatedAt: result.catalog.deactivatedAt,
+      },
+      isUpdated: result.isUpdated,
+    };
+  }
+
+  /**
+   * 重新激活课程目录（需要管理员权限）
+   * @param input 重新激活输入参数
+   * @param user 当前用户的 JWT 信息
+   * @returns 重新激活结果（包含是否更新与最新实体）
+   */
+  @UseGuards(JwtAuthGuard)
+  @Mutation(() => ReactivateCatalogResult, { description: '重新激活课程目录' })
+  async reactivateCatalog(
+    @Args('input') input: ReactivateCatalogInput,
+    @currentUser() user: JwtPayload,
+  ): Promise<ReactivateCatalogResult> {
+    const session = mapJwtToUsecaseSession(user);
+    const result = await this.reactivateCatalogUsecase.execute(session, { id: input.id });
+
+    return {
+      catalog: {
+        id: result.catalog.id,
+        courseLevel: result.catalog.courseLevel,
+        title: result.catalog.title,
+        description: result.catalog.description,
+        createdAt: result.catalog.createdAt,
+        updatedAt: result.catalog.updatedAt,
+        deactivatedAt: result.catalog.deactivatedAt,
+      },
+      isUpdated: result.isUpdated,
+    };
   }
 }

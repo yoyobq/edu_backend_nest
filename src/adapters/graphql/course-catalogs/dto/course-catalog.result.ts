@@ -40,3 +40,31 @@ export class CourseCatalogsListResult {
   @Field(() => [CourseCatalogDTO], { description: '课程目录列表' })
   items!: CourseCatalogDTO[];
 }
+
+/**
+ * 下线课程目录返回结果
+ */
+@ObjectType({ description: '下线课程目录结果' })
+export class DeactivateCatalogResult {
+  /** 更新后的课程目录实体 */
+  @Field(() => CourseCatalogDTO, { description: '更新后的课程目录实体' })
+  catalog!: CourseCatalogDTO;
+
+  /** 是否发生状态变更（幂等时为 false） */
+  @Field(() => Boolean, { description: '是否发生状态变更（幂等时为 false）' })
+  isUpdated!: boolean;
+}
+
+/**
+ * 重新激活课程目录返回结果
+ */
+@ObjectType({ description: '重新激活课程目录结果' })
+export class ReactivateCatalogResult {
+  /** 更新后的课程目录实体 */
+  @Field(() => CourseCatalogDTO, { description: '更新后的课程目录实体' })
+  catalog!: CourseCatalogDTO;
+
+  /** 是否发生状态变更（幂等时为 false） */
+  @Field(() => Boolean, { description: '是否发生状态变更（幂等时为 false）' })
+  isUpdated!: boolean;
+}

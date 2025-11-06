@@ -5,13 +5,9 @@ import { DomainError } from '@core/common/errors/domain-error';
 import { CourseCatalogEntity } from '@modules/course-catalogs/course-catalog.entity';
 import { CourseCatalogService } from '@modules/course-catalogs/course-catalog.service';
 import { Injectable } from '@nestjs/common';
+import { UsecaseSession } from '@src/types/auth/session.types';
 
-// 假设的会话和权限类型，需要根据实际项目调整
-interface AccountSession {
-  accountId: number;
-  roles: string[]; // 修改：改为角色数组
-  // 其他会话信息
-}
+// 使用统一的 UsecaseSession 类型，避免重复定义会话模型
 
 /**
  * 更新课程目录详情用例
@@ -29,7 +25,7 @@ export class UpdateCatalogDetailsUsecase {
    * @returns 更新结果
    */
   async execute(
-    session: AccountSession,
+    session: UsecaseSession,
     input: UpdateCatalogDetailsInput,
   ): Promise<UpdateCatalogDetailsResult> {
     // 1) 权限验证
@@ -44,8 +40,8 @@ export class UpdateCatalogDetailsUsecase {
     // 3) 验证至少更新一项
     this.validateUpdateFields(input);
 
-    // 4) 准备更新数据
-    const updateData = this.prepareUpdateData(input);
+    // 4) 准备更新数据（包含审计字段 updatedBy）
+    const updateData = this.prepareUpdateData(input, session);
 
     // 5) 保存更新
     const savedEntity = await this.courseCatalogService.update(input.id, updateData);
@@ -64,7 +60,7 @@ export class UpdateCatalogDetailsUsecase {
    * 验证用户权限
    * @param session 用户会话
    */
-  private validatePermissions(session: AccountSession): void {
+  private validatePermissions(session: UsecaseSession): void {
     // 统一转换为小写再比较，更优雅且高效
     const allowedRoles = ['admin', 'teacher', 'manager'];
     const hasPermission = session.roles.some((role) => allowedRoles.includes(role.toLowerCase()));
@@ -95,7 +91,17 @@ export class UpdateCatalogDetailsUsecase {
    * @param input 输入参数
    * @returns 更新数据对象
    */
-  private prepareUpdateData(input: UpdateCatalogDetailsInput): Partial<CourseCatalogEntity> {
+  /**
+   * 准备更新数据
+   * 补充审计字段 updatedBy 为当前会话账户 ID
+   * @param input 输入参数
+   * @param session 当前用户会话
+   * @returns 更新数据对象
+   */
+  private prepareUpdateData(
+    input: UpdateCatalogDetailsInput,
+    session: UsecaseSession,
+  ): Partial<CourseCatalogEntity> {
     const updateData: Partial<CourseCatalogEntity> = {};
 
     if (typeof input.title !== 'undefined') {
@@ -111,6 +117,9 @@ export class UpdateCatalogDetailsUsecase {
       // 空字符串转为 null，与数据库可空字段一致
       updateData.description = trimmedDescription === '' ? null : trimmedDescription;
     }
+
+    // 审计：记录更新者
+    updateData.updatedBy = session.accountId;
 
     return updateData;
   }
