@@ -8,8 +8,8 @@ import { AudienceTypeEnum, LoginTypeEnum } from '@src/types/models/account.types
 import request from 'supertest';
 import { DataSource } from 'typeorm';
 // 导入统一账号配置
-import { cleanupTestAccounts, seedTestAccounts, testAccountsConfig } from '../utils/test-accounts';
 import { initGraphQLSchema } from '../../src/adapters/graphql/schema/schema.init';
+import { cleanupTestAccounts, seedTestAccounts, testAccountsConfig } from '../utils/test-accounts';
 
 describe('课程目录模块 (e2e)', () => {
   let app: INestApplication;

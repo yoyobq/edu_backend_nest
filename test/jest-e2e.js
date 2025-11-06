@@ -70,8 +70,9 @@ module.exports = {
 
   testTimeout: 30000,
 
-  // 串行执行，避免 DS 并发
-  maxWorkers: 1,
+  // 串行执行由 CLI --runInBand 控制；避免与 CLI 互斥参数冲突
+  // 如需并发可移除此配置，改用 CLI 侧控制
+  // maxWorkers: 1,
 
   forceExit: true,
   detectOpenHandles: true,
