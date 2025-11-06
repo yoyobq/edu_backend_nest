@@ -27,4 +27,10 @@ export class CourseCatalogDTO {
 
   @Field(() => Date, { description: '停用时间', nullable: true })
   deactivatedAt?: Date | null;
+
+  @Field(() => ID, { description: '创建者 ID', nullable: true })
+  createdBy?: number | null;
+
+  @Field(() => ID, { description: '更新者 ID', nullable: true })
+  updatedBy?: number | null;
 }

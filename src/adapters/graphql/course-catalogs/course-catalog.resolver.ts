@@ -1,5 +1,6 @@
 // src/adapters/graphql/course-catalogs/course-catalog.resolver.ts
 
+// src/adapters/graphql/course-catalogs/course-catalog.resolver.ts
 import { JwtPayload } from '@app-types/jwt.types';
 import { CourseCatalogService } from '@modules/course-catalogs/course-catalog.service';
 import { UseGuards } from '@nestjs/common';
@@ -7,23 +8,30 @@ import { Args, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { UpdateCatalogDetailsUsecase } from '@usecases/course-catalogs/update-catalog-details.usecase';
 import { DeactivateCatalogUsecase } from '@usecases/course-catalogs/deactivate-catalog.usecase';
 import { ReactivateCatalogUsecase } from '@usecases/course-catalogs/reactivate-catalog.usecase';
+import { CreateCatalogUsecase } from '@usecases/course-catalogs/create-catalog.usecase';
 import { ListCatalogsUsecase } from '@usecases/course-catalogs/list-catalogs.usecase';
+import { SearchCatalogsUsecase } from '@usecases/course-catalogs/search-catalogs.usecase';
 import { currentUser } from '../decorators/current-user.decorator';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 import { CourseCatalogDTO } from './dto/course-catalog.dto';
 import {
   DeactivateCatalogInput,
   GetCatalogByLevelInput,
+  SearchCourseCatalogsInput,
   ReactivateCatalogInput,
   UpdateCatalogDetailsInput,
+  CreateCatalogInput,
 } from './dto/course-catalog.input';
 import {
   CourseCatalogsListResult,
+  PaginatedCourseCatalogsResult,
   DeactivateCatalogResult,
   ReactivateCatalogResult,
   UpdateCatalogDetailsResult,
+  CreateCatalogResult,
 } from './dto/course-catalog.result';
 import { mapJwtToUsecaseSession } from '@app-types/auth/session.types';
+import { mapGqlToCoreParams } from '@src/adapters/graphql/pagination.mapper';
 /**
  * 课程目录 GraphQL Resolver
  * 提供课程目录相关的查询和变更操作
@@ -33,9 +41,11 @@ export class CourseCatalogResolver {
   constructor(
     private readonly courseCatalogService: CourseCatalogService,
     private readonly listCatalogsUsecase: ListCatalogsUsecase, // 注入列表查询 usecase
+    private readonly searchCatalogsUsecase: SearchCatalogsUsecase, // 注入分页搜索 usecase
     private readonly updateCatalogDetailsUsecase: UpdateCatalogDetailsUsecase,
     private readonly deactivateCatalogUsecase: DeactivateCatalogUsecase,
     private readonly reactivateCatalogUsecase: ReactivateCatalogUsecase,
+    private readonly createCatalogUsecase: CreateCatalogUsecase,
   ) {}
 
   /**
@@ -53,6 +63,8 @@ export class CourseCatalogResolver {
       createdAt: catalog.createdAt,
       updatedAt: catalog.updatedAt,
       deactivatedAt: catalog.deactivatedAt,
+      createdBy: catalog.createdBy,
+      updatedBy: catalog.updatedBy,
     }));
 
     return { items };
@@ -79,6 +91,43 @@ export class CourseCatalogResolver {
       createdAt: catalog.createdAt,
       updatedAt: catalog.updatedAt,
       deactivatedAt: catalog.deactivatedAt,
+      createdBy: catalog.createdBy,
+      updatedBy: catalog.updatedBy,
+    };
+  }
+
+  /**
+   * 分页搜索课程目录
+   * 支持 OFFSET/CURSOR 两种分页模式、排序白名单与文本检索（标题/描述）
+   */
+  @Query(() => PaginatedCourseCatalogsResult, { description: '分页搜索课程目录' })
+  async searchCourseCatalogs(
+    @Args('input') input: SearchCourseCatalogsInput,
+  ): Promise<PaginatedCourseCatalogsResult> {
+    const params = mapGqlToCoreParams(input.pagination);
+    const result = await this.searchCatalogsUsecase.execute({ params, query: input.query });
+
+    return {
+      items: result.items.map((catalog) => ({
+        id: catalog.id,
+        courseLevel: catalog.courseLevel,
+        title: catalog.title,
+        description: catalog.description,
+        createdAt: catalog.createdAt,
+        updatedAt: catalog.updatedAt,
+        deactivatedAt: catalog.deactivatedAt,
+        createdBy: catalog.createdBy,
+        updatedBy: catalog.updatedBy,
+      })),
+      total: result.total,
+      page: result.page,
+      pageSize: result.pageSize,
+      pageInfo: result.pageInfo
+        ? {
+            hasNext: result.pageInfo.hasNext ?? false,
+            nextCursor: result.pageInfo.nextCursor,
+          }
+        : undefined,
     };
   }
 
@@ -122,6 +171,8 @@ export class CourseCatalogResolver {
         createdAt: result.catalog.createdAt,
         updatedAt: result.catalog.updatedAt,
         deactivatedAt: result.catalog.deactivatedAt,
+        createdBy: result.catalog.createdBy,
+        updatedBy: result.catalog.updatedBy,
       },
       isUpdated: result.isUpdated,
     };
@@ -151,8 +202,38 @@ export class CourseCatalogResolver {
         createdAt: result.catalog.createdAt,
         updatedAt: result.catalog.updatedAt,
         deactivatedAt: result.catalog.deactivatedAt,
+        createdBy: result.catalog.createdBy,
+        updatedBy: result.catalog.updatedBy,
       },
       isUpdated: result.isUpdated,
+    };
+  }
+
+  /**
+   * 创建课程目录（需要管理员/经理/教师权限）
+   * 并发安全，按 courseLevel 唯一约束幂等
+   */
+  @UseGuards(JwtAuthGuard)
+  @Mutation(() => CreateCatalogResult, { description: '创建课程目录' })
+  async createCatalog(
+    @Args('input') input: CreateCatalogInput,
+    @currentUser() user: JwtPayload,
+  ): Promise<CreateCatalogResult> {
+    const session = mapJwtToUsecaseSession(user);
+    const result = await this.createCatalogUsecase.execute(session, input);
+    return {
+      catalog: {
+        id: result.catalog.id,
+        courseLevel: result.catalog.courseLevel,
+        title: result.catalog.title,
+        description: result.catalog.description,
+        createdAt: result.catalog.createdAt,
+        updatedAt: result.catalog.updatedAt,
+        deactivatedAt: result.catalog.deactivatedAt,
+        createdBy: result.catalog.createdBy,
+        updatedBy: result.catalog.updatedBy,
+      },
+      isNewlyCreated: result.isNewlyCreated,
     };
   }
 }

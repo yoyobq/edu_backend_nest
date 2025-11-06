@@ -4,6 +4,7 @@ import { CourseLevel } from '@app-types/models/course.types';
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Repository, type QueryFailedError } from 'typeorm';
+import { PaginationService } from '@modules/common/pagination.service';
 import { CourseCatalogEntity } from './course-catalog.entity';
 
 /**
@@ -15,6 +16,7 @@ export class CourseCatalogService {
   constructor(
     @InjectRepository(CourseCatalogEntity)
     private readonly courseCatalogRepository: Repository<CourseCatalogEntity>,
+    private readonly paginationService: PaginationService,
   ) {}
 
   /**
@@ -165,5 +167,82 @@ export class CourseCatalogService {
       updateData.updatedBy = updatedBy;
     }
     return await this.update(id, updateData);
+  }
+
+  /**
+   * 搜索 / 分页查询课程目录
+   * - 文本搜索支持 `title` 与 `description`
+   * - 统一支持 OFFSET / CURSOR 分页与排序白名单
+   * - 仅返回未下线的数据（`deactivatedAt IS NULL`）
+   * @param args 查询参数（包含分页与可选文本查询）
+   */
+  async searchCatalogs(args: {
+    readonly params: import('@core/pagination/pagination.types').PaginationParams;
+    readonly query?: string;
+  }): Promise<import('@core/pagination/pagination.types').PaginatedResult<CourseCatalogEntity>> {
+    const { params, query } = args;
+
+    const qb = this.courseCatalogRepository.createQueryBuilder('catalog');
+    qb.where('catalog.deactivatedAt IS NULL');
+
+    const q = (query ?? '').trim();
+    if (q.length > 0) {
+      qb.andWhere('(catalog.title LIKE :q OR catalog.description LIKE :q)', {
+        q: `%${q}%`,
+      });
+    }
+
+    const allowedSorts: ReadonlyArray<string> = [
+      'id',
+      'courseLevel',
+      'title',
+      'createdAt',
+      'updatedAt',
+    ];
+    const defaultSorts: ReadonlyArray<import('@core/pagination/pagination.types').SortParam> = [
+      { field: 'id', direction: 'DESC' },
+      { field: 'createdAt', direction: 'DESC' },
+    ];
+
+    return this.paginationService.paginateQuery<CourseCatalogEntity>({
+      qb,
+      params,
+      allowedSorts,
+      defaultSorts,
+      // 使用数值主键 id 作为游标主键，避免时间类型比较差异
+      cursorKey: { primary: 'id', tieBreaker: 'createdAt' },
+      resolveColumn: (field: string): string | null => {
+        switch (field) {
+          case 'id':
+            return 'catalog.id';
+          case 'courseLevel':
+            return 'catalog.courseLevel';
+          case 'title':
+            return 'catalog.title';
+          case 'createdAt':
+            return 'catalog.createdAt';
+          case 'updatedAt':
+            return 'catalog.updatedAt';
+          default:
+            return null;
+        }
+      },
+      // 为 CURSOR 模式提供访问器，将 Date 转为 ISO 字符串，避免不支持的主键类型
+      accessors: {
+        // 主键：返回数值 id
+        primary: (row: unknown): number | null | undefined => {
+          const r = row as CourseCatalogEntity;
+          return typeof r.id === 'number' ? r.id : null;
+        },
+        // 副键：createdAt，仅用于同 id 的稳定排序（几乎不会触发）
+        tieBreaker: (row: unknown): string | number | null | undefined => {
+          const r = row as CourseCatalogEntity;
+          const v = r.createdAt as unknown;
+          if (v == null) return null;
+          if (v instanceof Date) return v.toISOString();
+          return typeof v === 'string' || typeof v === 'number' ? v : null;
+        },
+      },
+    });
   }
 }

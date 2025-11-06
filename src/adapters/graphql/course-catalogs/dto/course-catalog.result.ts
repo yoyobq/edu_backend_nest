@@ -2,6 +2,7 @@
 
 import { Field, ObjectType } from '@nestjs/graphql';
 import { CourseCatalogDTO } from './course-catalog.dto';
+import { paginatedTypeFactory } from '@src/adapters/graphql/pagination.type-factory';
 
 /**
  * 更新课程目录详情返回结果
@@ -42,6 +43,13 @@ export class CourseCatalogsListResult {
 }
 
 /**
+ * 课程目录分页输出类型
+ * 复用统一分页外壳结构（items/total/page/pageSize/pageInfo）
+ */
+@ObjectType({ description: '课程目录分页结果' })
+export class PaginatedCourseCatalogsResult extends paginatedTypeFactory(CourseCatalogDTO) {}
+
+/**
  * 下线课程目录返回结果
  */
 @ObjectType({ description: '下线课程目录结果' })
@@ -67,4 +75,18 @@ export class ReactivateCatalogResult {
   /** 是否发生状态变更（幂等时为 false） */
   @Field(() => Boolean, { description: '是否发生状态变更（幂等时为 false）' })
   isUpdated!: boolean;
+}
+
+/**
+ * 创建课程目录返回结果
+ */
+@ObjectType({ description: '创建课程目录结果' })
+export class CreateCatalogResult {
+  /** 创建/幂等返回的课程目录实体 */
+  @Field(() => CourseCatalogDTO, { description: '课程目录实体' })
+  catalog!: CourseCatalogDTO;
+
+  /** 是否为本次新创建（并发冲突或已存在时为 false） */
+  @Field(() => Boolean, { description: '是否为本次新创建' })
+  isNewlyCreated!: boolean;
 }
