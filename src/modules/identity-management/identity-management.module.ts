@@ -13,6 +13,9 @@ import { UpdateLearnerUsecase } from '@src/usecases/identity-management/learner/
 import { DeleteLearnerUsecase } from '@src/usecases/identity-management/learner/delete-learner.usecase';
 import { GetLearnerUsecase } from '@src/usecases/identity-management/learner/get-learner.usecase';
 import { ListLearnersUsecase } from '@src/usecases/identity-management/learner/list-learners.usecase';
+import { UpdateCustomerUsecase } from '@src/usecases/identity-management/customer/update-customer.usecase';
+import { DeactivateCustomerUsecase } from '@src/usecases/identity-management/customer/deactivate-customer.usecase';
+import { ReactivateCustomerUsecase } from '@src/usecases/identity-management/customer/reactivate-customer.usecase';
 
 /**
  * 身份管理模块
@@ -29,6 +32,10 @@ import { ListLearnersUsecase } from '@src/usecases/identity-management/learner/l
   ],
   providers: [
     PerformUpgradeToCustomerUsecase, // 升级为客户用例
+    // 客户管理相关用例
+    UpdateCustomerUsecase,
+    DeactivateCustomerUsecase,
+    ReactivateCustomerUsecase,
     // 学员管理相关用例
     CreateLearnerUsecase,
     UpdateLearnerUsecase,
@@ -38,6 +45,10 @@ import { ListLearnersUsecase } from '@src/usecases/identity-management/learner/l
   ],
   exports: [
     PerformUpgradeToCustomerUsecase, // 导出用例供其他模块使用
+    // 导出客户管理相关用例
+    UpdateCustomerUsecase,
+    DeactivateCustomerUsecase,
+    ReactivateCustomerUsecase,
     // 导出学员管理相关用例
     CreateLearnerUsecase,
     UpdateLearnerUsecase,
