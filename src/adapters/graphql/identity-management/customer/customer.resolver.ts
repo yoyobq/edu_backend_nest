@@ -1,0 +1,117 @@
+// src/adapters/graphql/identity-management/customer/customer.resolver.ts
+
+import { JwtPayload } from '@app-types/jwt.types';
+import { UseGuards } from '@nestjs/common';
+import { Args, Mutation, Resolver } from '@nestjs/graphql';
+import { currentUser } from '@src/adapters/graphql/decorators/current-user.decorator';
+import { JwtAuthGuard } from '@src/adapters/graphql/guards/jwt-auth.guard';
+import { CustomerEntity } from '@src/modules/account/identities/training/customer/account-customer.entity';
+import { DeactivateCustomerUsecase } from '@src/usecases/identity-management/customer/deactivate-customer.usecase';
+import { ReactivateCustomerUsecase } from '@src/usecases/identity-management/customer/reactivate-customer.usecase';
+import { UpdateCustomerUsecase } from '@src/usecases/identity-management/customer/update-customer.usecase';
+import { CustomerType } from '../../account/dto/identity/customer.dto';
+import { DeactivateCustomerInput } from './dto/customer.input.deactivate';
+import { ReactivateCustomerInput } from './dto/customer.input.reactivate';
+import { UpdateCustomerInput } from './dto/customer.input.update';
+import {
+  DeactivateCustomerResult,
+  ReactivateCustomerResult,
+  UpdateCustomerResult,
+} from './dto/customer.result';
+
+/**
+ * Customer 管理 GraphQL 解析器
+ * - 提供更新、下线、上线三个操作
+ * - 仅做 DTO 与 Usecase 的薄适配；业务规则由 Usecase 层实现
+ */
+@Resolver(() => CustomerType)
+export class CustomerResolver {
+  constructor(
+    private readonly updateCustomerUsecase: UpdateCustomerUsecase,
+    private readonly deactivateCustomerUsecase: DeactivateCustomerUsecase,
+    private readonly reactivateCustomerUsecase: ReactivateCustomerUsecase,
+  ) {}
+
+  /**
+   * 更新客户信息
+   * @param input 更新输入参数
+   * @param user 当前用户信息
+   * @returns 更新后的客户信息
+   */
+  @UseGuards(JwtAuthGuard)
+  @Mutation(() => UpdateCustomerResult, { description: '更新客户信息' })
+  async updateCustomer(
+    @Args('input') input: UpdateCustomerInput,
+    @currentUser() user: JwtPayload,
+  ): Promise<UpdateCustomerResult> {
+    const entity: CustomerEntity = await this.updateCustomerUsecase.execute({
+      currentAccountId: Number(user.sub),
+      customerId: input.customerId,
+      name: input.name,
+      contactPhone: input.contactPhone ?? null,
+      preferredContactTime: input.preferredContactTime ?? null,
+      remark: input.remark ?? null,
+      membershipLevel: input.membershipLevel,
+    });
+
+    return { customer: this.mapCustomerEntityToType(entity) };
+  }
+
+  /**
+   * 下线客户
+   * @param input 下线输入参数
+   * @param user 当前用户信息
+   * @returns 下线结果（含是否更新）
+   */
+  @UseGuards(JwtAuthGuard)
+  @Mutation(() => DeactivateCustomerResult, { description: '下线客户' })
+  async deactivateCustomer(
+    @Args('input') input: DeactivateCustomerInput,
+    @currentUser() user: JwtPayload,
+  ): Promise<DeactivateCustomerResult> {
+    const result = await this.deactivateCustomerUsecase.execute(Number(user.sub), { id: input.id });
+    return {
+      customer: this.mapCustomerEntityToType(result.customer),
+      isUpdated: result.isUpdated,
+    };
+  }
+
+  /**
+   * 上线客户
+   * @param input 上线输入参数
+   * @param user 当前用户信息
+   * @returns 上线结果（含是否更新）
+   */
+  @UseGuards(JwtAuthGuard)
+  @Mutation(() => ReactivateCustomerResult, { description: '上线客户' })
+  async reactivateCustomer(
+    @Args('input') input: ReactivateCustomerInput,
+    @currentUser() user: JwtPayload,
+  ): Promise<ReactivateCustomerResult> {
+    const result = await this.reactivateCustomerUsecase.execute(Number(user.sub), { id: input.id });
+    return {
+      customer: this.mapCustomerEntityToType(result.customer),
+      isUpdated: result.isUpdated,
+    };
+  }
+
+  /**
+   * 将 Customer 实体映射为 GraphQL 输出类型
+   * @param entity 客户实体
+   * @returns GraphQL 输出 DTO
+   */
+  private mapCustomerEntityToType(entity: CustomerEntity): CustomerType {
+    return {
+      id: entity.id,
+      accountId: entity.accountId,
+      name: entity.name,
+      contactPhone: entity.contactPhone,
+      preferredContactTime: entity.preferredContactTime,
+      membershipLevel: entity.membershipLevel ?? null,
+      remark: entity.remark,
+      createdAt: entity.createdAt,
+      updatedAt: entity.updatedAt,
+      deactivatedAt: entity.deactivatedAt ?? null,
+    };
+  }
+}

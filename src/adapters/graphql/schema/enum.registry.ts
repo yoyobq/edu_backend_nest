@@ -12,6 +12,7 @@ import {
   ThirdPartyProviderEnum,
 } from '@app-types/models/account.types';
 import { CourseLevel } from '@app-types/models/course.types';
+import { MembershipLevel } from '@app-types/models/training.types';
 import { Gender, UserState } from '@app-types/models/user-info.types';
 import {
   SubjectType,
@@ -19,8 +20,8 @@ import {
   VerificationRecordType,
 } from '@app-types/models/verification-record.types';
 import { RegisterTypeEnum } from '@app-types/services/register.types';
-import { LearnerSortField, OrderDirection } from '@src/types/common/sort.types';
 import { GqlPaginationMode, GqlSortDirection } from '@src/adapters/graphql/pagination.enums';
+import { LearnerSortField, OrderDirection } from '@src/types/common/sort.types';
 
 /**
  * 枚举注册配置接口
@@ -165,6 +166,20 @@ const ENUM_CONFIGS: Record<string, EnumConfig> = {
     },
   },
 
+  // 训练相关枚举
+  MEMBERSHIP_LEVEL: {
+    enumType: MembershipLevel,
+    name: 'MembershipLevel',
+    description: '会员等级枚举',
+    valuesMap: {
+      NORMAL: { description: '普通会员' },
+      VIP: { description: 'VIP 会员' },
+      GOLD: { description: '黄金会员' },
+      PLATINUM: { description: '白金会员' },
+      DIAMOND: { description: '钻石会员' },
+    },
+  },
+
   // 验证记录相关枚举
   SUBJECT_TYPE: {
     enumType: SubjectType,
@@ -262,6 +277,7 @@ const EXPECTED_ENUMS = [
   'Gender',
   'UserState',
   'CourseLevel',
+  'MembershipLevel',
   'SubjectType',
   'VerificationRecordStatus',
   'VerificationRecordType',
