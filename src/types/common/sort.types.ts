@@ -24,3 +24,15 @@ export enum LearnerSortField {
   /** 按出生日期排序 */
   BIRTH_DATE = 'birthDate',
 }
+
+/**
+ * 客户排序字段枚举
+ */
+export enum CustomerSortField {
+  /** 按创建时间排序 */
+  CREATED_AT = 'createdAt',
+  /** 按更新时间排序 */
+  UPDATED_AT = 'updatedAt',
+  /** 按客户姓名排序 */
+  NAME = 'name',
+}
