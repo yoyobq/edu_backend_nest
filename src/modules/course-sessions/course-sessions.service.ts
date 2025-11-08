@@ -1,0 +1,106 @@
+// src/modules/course-sessions/course-sessions.service.ts
+import { SessionStatus } from '@app-types/models/course-session.types';
+import { Injectable } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { CourseSessionEntity } from './course-session.entity';
+
+/**
+ * 课程节次服务
+ * 提供节次的基础读写、状态与出勤更新能力
+ */
+@Injectable()
+export class CourseSessionsService {
+  constructor(
+    @InjectRepository(CourseSessionEntity)
+    private readonly sessionRepository: Repository<CourseSessionEntity>,
+  ) {}
+
+  /**
+   * 按 ID 查询节次
+   * @param params 查询参数
+   */
+  async findById(id: number): Promise<CourseSessionEntity | null> {
+    return this.sessionRepository.findOne({ where: { id } });
+  }
+
+  /**
+   * 创建节次
+   * @param data 创建数据
+   */
+  async create(data: {
+    seriesId: number;
+    startTime: Date;
+    endTime: Date;
+    leadCoachId: number;
+    locationText: string;
+    extraCoachesJson?: CourseSessionEntity['extraCoachesJson'];
+    remark?: string | null;
+  }): Promise<CourseSessionEntity> {
+    const entity = this.sessionRepository.create({
+      seriesId: data.seriesId,
+      startTime: data.startTime,
+      endTime: data.endTime,
+      leadCoachId: data.leadCoachId,
+      locationText: data.locationText,
+      extraCoachesJson: data.extraCoachesJson ?? null,
+      status: SessionStatus.SCHEDULED,
+      remark: data.remark ?? null,
+    });
+    return this.sessionRepository.save(entity);
+  }
+
+  /**
+   * 更新节次基本信息
+   * @param id 节次 ID
+   * @param patch 部分更新数据
+   */
+  async update(
+    id: number,
+    patch: Partial<
+      Pick<
+        CourseSessionEntity,
+        'startTime' | 'endTime' | 'leadCoachId' | 'locationText' | 'extraCoachesJson' | 'remark'
+      >
+    >,
+  ): Promise<CourseSessionEntity> {
+    await this.sessionRepository.update({ id }, patch);
+    const fresh = await this.sessionRepository.findOne({ where: { id } });
+    if (!fresh) throw new Error('更新后的节次未找到');
+    return fresh;
+  }
+
+  /**
+   * 切换节次状态
+   * 管理员可将 CANCELED / FINISHED 回滚到 SCHEDULED
+   * @param id 节次 ID
+   * @param status 目标状态
+   */
+  async setStatus(params: { id: number; status: SessionStatus }): Promise<CourseSessionEntity> {
+    await this.sessionRepository.update({ id: params.id }, { status: params.status });
+    const fresh = await this.sessionRepository.findOne({ where: { id: params.id } });
+    if (!fresh) throw new Error('状态更新后的节次未找到');
+    return fresh;
+  }
+
+  /**
+   * 更新出勤确认信息
+   * @param id 节次 ID
+   * @param data 出勤确认信息
+   */
+  async updateAttendance(
+    id: number,
+    data: { attendanceConfirmedAt: Date | null; attendanceConfirmedBy: number | null },
+  ): Promise<CourseSessionEntity> {
+    await this.sessionRepository.update(
+      { id },
+      {
+        attendanceConfirmedAt: data.attendanceConfirmedAt,
+        attendanceConfirmedBy: data.attendanceConfirmedBy,
+      },
+    );
+    const fresh = await this.sessionRepository.findOne({ where: { id } });
+    if (!fresh) throw new Error('出勤更新后的节次未找到');
+    return fresh;
+  }
+}

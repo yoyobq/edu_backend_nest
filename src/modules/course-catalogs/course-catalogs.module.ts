@@ -1,6 +1,4 @@
 // src/modules/course-catalogs/course-catalogs.module.ts
-
-// src/modules/course-catalogs/course-catalogs.module.ts
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ListCatalogsUsecase } from '@usecases/course-catalogs/list-catalogs.usecase';
