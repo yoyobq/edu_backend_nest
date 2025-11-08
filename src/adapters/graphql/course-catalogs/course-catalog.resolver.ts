@@ -1,37 +1,37 @@
 // src/adapters/graphql/course-catalogs/course-catalog.resolver.ts
 
 // src/adapters/graphql/course-catalogs/course-catalog.resolver.ts
+import { mapJwtToUsecaseSession } from '@app-types/auth/session.types';
 import { JwtPayload } from '@app-types/jwt.types';
-import { CourseCatalogService } from '@modules/course-catalogs/course-catalog.service';
 import { UseGuards } from '@nestjs/common';
 import { Args, Mutation, Query, Resolver } from '@nestjs/graphql';
-import { UpdateCatalogDetailsUsecase } from '@usecases/course-catalogs/update-catalog-details.usecase';
-import { DeactivateCatalogUsecase } from '@usecases/course-catalogs/deactivate-catalog.usecase';
-import { ReactivateCatalogUsecase } from '@usecases/course-catalogs/reactivate-catalog.usecase';
+import { mapGqlToCoreParams } from '@src/adapters/graphql/pagination.mapper';
+import { CourseCatalogService } from '@src/modules/course/catalogs/course-catalog.service';
 import { CreateCatalogUsecase } from '@usecases/course-catalogs/create-catalog.usecase';
+import { DeactivateCatalogUsecase } from '@usecases/course-catalogs/deactivate-catalog.usecase';
 import { ListCatalogsUsecase } from '@usecases/course-catalogs/list-catalogs.usecase';
+import { ReactivateCatalogUsecase } from '@usecases/course-catalogs/reactivate-catalog.usecase';
 import { SearchCatalogsUsecase } from '@usecases/course-catalogs/search-catalogs.usecase';
+import { UpdateCatalogDetailsUsecase } from '@usecases/course-catalogs/update-catalog-details.usecase';
 import { currentUser } from '../decorators/current-user.decorator';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 import { CourseCatalogDTO } from './dto/course-catalog.dto';
 import {
+  CreateCatalogInput,
   DeactivateCatalogInput,
   GetCatalogByLevelInput,
-  SearchCourseCatalogsInput,
   ReactivateCatalogInput,
+  SearchCourseCatalogsInput,
   UpdateCatalogDetailsInput,
-  CreateCatalogInput,
 } from './dto/course-catalog.input';
 import {
   CourseCatalogsListResult,
-  PaginatedCourseCatalogsResult,
+  CreateCatalogResult,
   DeactivateCatalogResult,
+  PaginatedCourseCatalogsResult,
   ReactivateCatalogResult,
   UpdateCatalogDetailsResult,
-  CreateCatalogResult,
 } from './dto/course-catalog.result';
-import { mapJwtToUsecaseSession } from '@app-types/auth/session.types';
-import { mapGqlToCoreParams } from '@src/adapters/graphql/pagination.mapper';
 /**
  * 课程目录 GraphQL Resolver
  * 提供课程目录相关的查询和变更操作

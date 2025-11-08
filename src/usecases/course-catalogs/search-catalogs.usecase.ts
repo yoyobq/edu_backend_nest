@@ -1,8 +1,8 @@
 // src/usecases/course-catalogs/search-catalogs.usecase.ts
 import type { PaginatedResult, PaginationParams } from '@core/pagination/pagination.types';
-import { CourseCatalogEntity } from '@modules/course-catalogs/course-catalog.entity';
-import { CourseCatalogService } from '@modules/course-catalogs/course-catalog.service';
 import { Injectable } from '@nestjs/common';
+import { CourseCatalogEntity } from '@src/modules/course/catalogs/course-catalog.entity';
+import { CourseCatalogService } from '@src/modules/course/catalogs/course-catalog.service';
 
 /**
  * 课程目录分页搜索用例

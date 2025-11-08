@@ -1,10 +1,10 @@
 // src/adapters/graphql/graphql-adapter.module.ts
 
 import { AuthModule } from '@modules/auth/auth.module';
-import { CourseCatalogsModule } from '@modules/course-catalogs/course-catalogs.module';
 import { RegisterModule } from '@modules/register/register.module';
 import { ThirdPartyAuthModule } from '@modules/third-party-auth/third-party-auth.module';
 import { VerificationRecordModule } from '@modules/verification-record/verification-record.module';
+import { CourseCatalogsModule } from '@src/modules/course/catalogs/course-catalogs.module';
 
 import { Module } from '@nestjs/common';
 import { AccountInstallerModule } from '@src/modules/account/account-installer.module';
@@ -14,10 +14,10 @@ import { IdentityManagementModule } from '@src/modules/identity-management/ident
 import { AccountResolver } from './account/account.resolver';
 import { AuthResolver } from './auth/auth.resolver';
 import { CourseCatalogResolver } from './course-catalogs/course-catalog.resolver';
+import { CoachResolver } from './identity-management/coach/coach.resolver';
+import { CustomerResolver } from './identity-management/customer/customer.resolver';
 import { IdentityManagementResolver } from './identity-management/identity-management.resolver';
 import { LearnerResolver } from './identity-management/learner/learner.resolver';
-import { CustomerResolver } from './identity-management/customer/customer.resolver';
-import { CoachResolver } from './identity-management/coach/coach.resolver';
 import { ManagerResolver } from './identity-management/manager/manager.resolver';
 import { RegistrationResolver } from './registration/registration.resolver';
 import { ThirdPartyAuthResolver } from './third-party-auth/third-party-auth.resolver';

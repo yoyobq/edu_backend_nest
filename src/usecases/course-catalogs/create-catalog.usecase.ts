@@ -1,9 +1,9 @@
 // src/usecases/course-catalogs/create-catalog.usecase.ts
 import { CourseLevel } from '@app-types/models/course.types';
-import { DomainError, CATALOG_ERROR } from '@core/common/errors/domain-error';
-import { CourseCatalogEntity } from '@modules/course-catalogs/course-catalog.entity';
-import { CourseCatalogService } from '@modules/course-catalogs/course-catalog.service';
+import { CATALOG_ERROR, DomainError } from '@core/common/errors/domain-error';
 import { Injectable } from '@nestjs/common';
+import { CourseCatalogEntity } from '@src/modules/course/catalogs/course-catalog.entity';
+import { CourseCatalogService } from '@src/modules/course/catalogs/course-catalog.service';
 import { UsecaseSession } from '@src/types/auth/session.types';
 
 // 统一使用 UsecaseSession，避免在各 usecase 重复定义本地会话类型

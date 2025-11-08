@@ -1,8 +1,8 @@
 // src/usecases/course-catalogs/deactivate-catalog.usecase.ts
-import { DomainError, CATALOG_ERROR } from '@core/common/errors/domain-error';
-import { CourseCatalogEntity } from '@modules/course-catalogs/course-catalog.entity';
-import { CourseCatalogService } from '@modules/course-catalogs/course-catalog.service';
+import { CATALOG_ERROR, DomainError } from '@core/common/errors/domain-error';
 import { Injectable } from '@nestjs/common';
+import { CourseCatalogEntity } from '@src/modules/course/catalogs/course-catalog.entity';
+import { CourseCatalogService } from '@src/modules/course/catalogs/course-catalog.service';
 import { UsecaseSession } from '@src/types/auth/session.types';
 
 // 统一使用 UsecaseSession 会话模型

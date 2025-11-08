@@ -1,10 +1,10 @@
 // src/usecases/course-catalogs/update-catalog-details.usecase.ts
 import { UpdateCatalogDetailsInput } from '@adapters/graphql/course-catalogs/dto/course-catalog.input';
 import { UpdateCatalogDetailsResult } from '@adapters/graphql/course-catalogs/dto/course-catalog.result';
-import { DomainError, CATALOG_ERROR } from '@core/common/errors/domain-error';
-import { CourseCatalogEntity } from '@modules/course-catalogs/course-catalog.entity';
-import { CourseCatalogService } from '@modules/course-catalogs/course-catalog.service';
+import { CATALOG_ERROR, DomainError } from '@core/common/errors/domain-error';
 import { Injectable } from '@nestjs/common';
+import { CourseCatalogEntity } from '@src/modules/course/catalogs/course-catalog.entity';
+import { CourseCatalogService } from '@src/modules/course/catalogs/course-catalog.service';
 import { UsecaseSession } from '@src/types/auth/session.types';
 
 // 使用统一的 UsecaseSession 类型，避免重复定义会话模型

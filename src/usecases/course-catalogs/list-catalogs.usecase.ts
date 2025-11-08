@@ -1,7 +1,7 @@
 // src/usecases/course-catalogs/list-catalogs.usecase.ts
-import { CourseCatalogEntity } from '@modules/course-catalogs/course-catalog.entity';
-import { CourseCatalogService } from '@modules/course-catalogs/course-catalog.service';
 import { Injectable } from '@nestjs/common';
+import { CourseCatalogEntity } from '@src/modules/course/catalogs/course-catalog.entity';
+import { CourseCatalogService } from '@src/modules/course/catalogs/course-catalog.service';
 
 /**
  * 获取课程目录列表用例
