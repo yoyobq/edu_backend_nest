@@ -3,7 +3,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import { Repository, SelectQueryBuilder } from 'typeorm';
-import { errorLog } from '../utils/logger/templates'; // 导入错误日志模板函数
+import { errorLog } from '../modules/common/logger-templates'; // 导入错误日志模板函数
 import { CatsArgs } from './dto/cats.args';
 import { CreateCatInput } from './dto/create-cat.input';
 import { UpdateCatDataInput } from './dto/update-cat.input';
