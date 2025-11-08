@@ -1,15 +1,15 @@
 // src/modules/course-catalogs/course-catalogs.module.ts
+import { PaginationModule } from '@modules/common/pagination.module';
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { ListCatalogsUsecase } from '@usecases/course-catalogs/list-catalogs.usecase';
-import { UpdateCatalogDetailsUsecase } from '@usecases/course-catalogs/update-catalog-details.usecase';
-import { CreateCatalogUsecase } from '@usecases/course-catalogs/create-catalog.usecase';
-import { DeactivateCatalogUsecase } from '@usecases/course-catalogs/deactivate-catalog.usecase';
-import { ReactivateCatalogUsecase } from '@usecases/course-catalogs/reactivate-catalog.usecase';
-import { SearchCatalogsUsecase } from '@usecases/course-catalogs/search-catalogs.usecase';
+import { CreateCatalogUsecase } from '@src/usecases/course/catalogs/create-catalog.usecase';
+import { DeactivateCatalogUsecase } from '@src/usecases/course/catalogs/deactivate-catalog.usecase';
+import { ListCatalogsUsecase } from '@src/usecases/course/catalogs/list-catalogs.usecase';
+import { ReactivateCatalogUsecase } from '@src/usecases/course/catalogs/reactivate-catalog.usecase';
+import { SearchCatalogsUsecase } from '@src/usecases/course/catalogs/search-catalogs.usecase';
+import { UpdateCatalogDetailsUsecase } from '@src/usecases/course/catalogs/update-catalog-details.usecase';
 import { CourseCatalogEntity } from './course-catalog.entity';
 import { CourseCatalogService } from './course-catalog.service';
-import { PaginationModule } from '@modules/common/pagination.module';
 
 /**
  * 课程目录模块
