@@ -18,6 +18,7 @@ import { IdentityManagementResolver } from './identity-management/identity-manag
 import { LearnerResolver } from './identity-management/learner/learner.resolver';
 import { CustomerResolver } from './identity-management/customer/customer.resolver';
 import { CoachResolver } from './identity-management/coach/coach.resolver';
+import { ManagerResolver } from './identity-management/manager/manager.resolver';
 import { RegistrationResolver } from './registration/registration.resolver';
 import { ThirdPartyAuthResolver } from './third-party-auth/third-party-auth.resolver';
 import { VerificationRecordResolver } from './verification-record/verification-record.resolver';
@@ -52,6 +53,7 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
     LearnerResolver, // 注册学员管理 resolver
     CustomerResolver, // 注册客户管理 resolver
     CoachResolver, // 注册教练管理 resolver
+    ManagerResolver, // 注册经理管理 resolver
     // Guards
     JwtAuthGuard,
   ],
@@ -67,6 +69,7 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
     LearnerResolver, // 导出学员管理 resolver
     CustomerResolver, // 导出客户管理 resolver
     CoachResolver, // 导出教练管理 resolver
+    ManagerResolver, // 导出经理管理 resolver
     JwtAuthGuard,
   ],
 })

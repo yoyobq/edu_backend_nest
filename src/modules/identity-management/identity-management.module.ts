@@ -23,6 +23,10 @@ import { UpdateCustomerUsecase } from '@src/usecases/identity-management/custome
 import { DeactivateCustomerUsecase } from '@src/usecases/identity-management/customer/deactivate-customer.usecase';
 import { ReactivateCustomerUsecase } from '@src/usecases/identity-management/customer/reactivate-customer.usecase';
 import { ListCustomersUsecase } from '@src/usecases/identity-management/customer/list-customers.usecase';
+import { ListManagersUsecase } from '@src/usecases/identity-management/manager/list-managers.usecase';
+import { UpdateManagerUsecase } from '@src/usecases/identity-management/manager/update-manager.usecase';
+import { DeactivateManagerUsecase } from '@src/usecases/identity-management/manager/deactivate-manager.usecase';
+import { ReactivateManagerUsecase } from '@src/usecases/identity-management/manager/reactivate-manager.usecase';
 
 /**
  * 身份管理模块
@@ -57,6 +61,11 @@ import { ListCustomersUsecase } from '@src/usecases/identity-management/customer
     DeleteLearnerUsecase,
     GetLearnerUsecase,
     ListLearnersUsecase,
+    // 经理管理相关用例
+    ListManagersUsecase,
+    UpdateManagerUsecase,
+    DeactivateManagerUsecase,
+    ReactivateManagerUsecase,
   ],
   exports: [
     PerformUpgradeToCustomerUsecase, // 导出用例供其他模块使用
@@ -77,6 +86,11 @@ import { ListCustomersUsecase } from '@src/usecases/identity-management/customer
     DeleteLearnerUsecase,
     GetLearnerUsecase,
     ListLearnersUsecase,
+    // 导出经理管理相关用例
+    ListManagersUsecase,
+    UpdateManagerUsecase,
+    DeactivateManagerUsecase,
+    ReactivateManagerUsecase,
   ],
 })
 export class IdentityManagementModule {}

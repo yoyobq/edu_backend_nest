@@ -25,6 +25,7 @@ import {
   CoachSortField,
   CustomerSortField,
   LearnerSortField,
+  ManagerSortField,
   OrderDirection,
 } from '@src/types/common/sort.types';
 
@@ -259,6 +260,17 @@ const ENUM_CONFIGS: Record<string, EnumConfig> = {
       NAME: { description: '姓名' },
     },
   },
+  // Manager 相关枚举
+  MANAGER_SORT_FIELD: {
+    enumType: ManagerSortField,
+    name: 'ManagerSortField',
+    description: '经理排序字段',
+    valuesMap: {
+      CREATED_AT: { description: '创建时间' },
+      UPDATED_AT: { description: '更新时间' },
+      NAME: { description: '姓名' },
+    },
+  },
   SORT_ORDER: {
     enumType: OrderDirection,
     name: 'OrderDirection',
@@ -311,6 +323,7 @@ const EXPECTED_ENUMS = [
   'LearnerSortField',
   'CustomerSortField',
   'CoachSortField',
+  'ManagerSortField',
   'OrderDirection',
   'PaginationMode',
   'SortDirection',

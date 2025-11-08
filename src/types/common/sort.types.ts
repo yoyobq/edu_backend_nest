@@ -48,3 +48,15 @@ export enum CoachSortField {
   /** 按教练姓名排序 */
   NAME = 'name',
 }
+
+/**
+ * 经理排序字段枚举
+ */
+export enum ManagerSortField {
+  /** 按创建时间排序 */
+  CREATED_AT = 'createdAt',
+  /** 按更新时间排序 */
+  UPDATED_AT = 'updatedAt',
+  /** 按姓名排序 */
+  NAME = 'name',
+}

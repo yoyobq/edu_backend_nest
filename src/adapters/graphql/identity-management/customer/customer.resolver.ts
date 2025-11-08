@@ -70,7 +70,7 @@ export class CustomerResolver {
    * @param user 当前用户
    */
   @UseGuards(JwtAuthGuard)
-  @Query(() => ListCustomersOutput, { description: '分页查询客户列表（仅管理员）' })
+  @Query(() => ListCustomersOutput, { description: '分页查询客户列表（仅 manager）' })
   async customers(
     @Args('input') input: ListCustomersInput,
     @currentUser() user: JwtPayload,

@@ -34,4 +34,7 @@ export class ManagerType {
 
   @Field(() => Date, { description: '更新时间' })
   updatedAt!: Date;
+
+  @Field(() => Date, { description: '停用时间', nullable: true })
+  deactivatedAt!: Date | null;
 }
