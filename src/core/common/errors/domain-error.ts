@@ -168,6 +168,20 @@ Object.freeze(PAGINATION_ERROR);
 
 export type PaginationErrorCode = (typeof PAGINATION_ERROR)[keyof typeof PAGINATION_ERROR];
 
+// 会员等级相关错误码（供用例在编排会员等级写入/查询时使用）
+export const MEMBERSHIP_ERROR = {
+  LEVEL_NOT_FOUND: 'MEMBERSHIP_LEVEL_NOT_FOUND',
+  LEVEL_CODE_INVALID: 'MEMBERSHIP_LEVEL_CODE_INVALID',
+  CREATION_FAILED: 'MEMBERSHIP_CREATION_FAILED',
+  UPDATE_FAILED: 'MEMBERSHIP_UPDATE_FAILED',
+  QUERY_FAILED: 'MEMBERSHIP_QUERY_FAILED',
+  SERVICE_UNAVAILABLE: 'MEMBERSHIP_SERVICE_UNAVAILABLE',
+  INVALID_PARAMS: 'MEMBERSHIP_INVALID_PARAMS',
+} as const;
+Object.freeze(MEMBERSHIP_ERROR);
+
+export type MembershipErrorCode = (typeof MEMBERSHIP_ERROR)[keyof typeof MEMBERSHIP_ERROR];
+
 // 类型守卫：统一判断是否为领域错误（兼容多包/反序列化场景）
 export const isDomainError = (error: unknown): error is DomainError => {
   if (error instanceof DomainError) return true;

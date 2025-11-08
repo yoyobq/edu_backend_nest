@@ -1,25 +1,25 @@
-// src/modules/member-membership-levels/member-membership-levels.service.ts
+// src/modules/membership-levels/membership-levels.service.ts
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { MemberMembershipLevelEntity } from './member-membership-level.entity';
+import { MembershipLevelEntity } from './membership-level.entity';
 
 /**
  * 会员等级服务
  * 提供会员等级的基础读写能力（供 usecases 编排复用）
  */
 @Injectable()
-export class MemberMembershipLevelsService {
+export class MembershipLevelsService {
   constructor(
-    @InjectRepository(MemberMembershipLevelEntity)
-    private readonly levelRepository: Repository<MemberMembershipLevelEntity>,
+    @InjectRepository(MembershipLevelEntity)
+    private readonly levelRepository: Repository<MembershipLevelEntity>,
   ) {}
 
   /**
    * 按 ID 查询会员等级
    * @param id 等级 ID
    */
-  async findById(id: number): Promise<MemberMembershipLevelEntity | null> {
+  async findById(id: number): Promise<MembershipLevelEntity | null> {
     return this.levelRepository.findOne({ where: { id } });
   }
 
@@ -27,7 +27,7 @@ export class MemberMembershipLevelsService {
    * 按唯一代码查询会员等级
    * @param code 等级代码
    */
-  async findByCode(code: string): Promise<MemberMembershipLevelEntity | null> {
+  async findByCode(code: string): Promise<MembershipLevelEntity | null> {
     return this.levelRepository.findOne({ where: { code } });
   }
 
@@ -38,8 +38,8 @@ export class MemberMembershipLevelsService {
   async create(data: {
     code: string;
     name: string;
-    benefits?: MemberMembershipLevelEntity['benefits'];
-  }): Promise<MemberMembershipLevelEntity> {
+    benefits?: MembershipLevelEntity['benefits'];
+  }): Promise<MembershipLevelEntity> {
     const entity = this.levelRepository.create({
       code: data.code,
       name: data.name,
@@ -55,8 +55,8 @@ export class MemberMembershipLevelsService {
    */
   async update(
     id: number,
-    patch: Partial<Pick<MemberMembershipLevelEntity, 'name' | 'benefits'>>,
-  ): Promise<MemberMembershipLevelEntity> {
+    patch: Partial<Pick<MembershipLevelEntity, 'name' | 'benefits'>>,
+  ): Promise<MembershipLevelEntity> {
     const existing = await this.levelRepository.findOne({ where: { id } });
     if (!existing) throw new Error('更新前的会员等级未找到');
     if (typeof patch.name !== 'undefined') existing.name = patch.name;

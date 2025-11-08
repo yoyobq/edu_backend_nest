@@ -1,5 +1,5 @@
-// src/modules/member-membership-levels/member-membership-level.entity.ts
-import { type MembershipBenefits } from '@app-types/models/member-membership-levels.types';
+// src/modules/membership-levels/membership-level.entity.ts
+import { type MembershipBenefits } from '@app-types/models/membership-levels.types';
 import { Column, Entity, Index, PrimaryGeneratedColumn } from 'typeorm';
 
 /**
@@ -8,7 +8,7 @@ import { Column, Entity, Index, PrimaryGeneratedColumn } from 'typeorm';
  */
 @Entity('member_membership_levels')
 @Index('uk_code', ['code'], { unique: true })
-export class MemberMembershipLevelEntity {
+export class MembershipLevelEntity {
   /** 主键 ID */
   @PrimaryGeneratedColumn({ type: 'int' })
   id!: number;

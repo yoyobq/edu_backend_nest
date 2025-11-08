@@ -8,6 +8,8 @@ import { CoachServiceModule } from '@src/modules/account/identities/training/coa
 import { LearnerIdentityModule } from '@src/modules/account/identities/training/learner/learner.module';
 import { ManagerServiceModule } from '@src/modules/account/identities/training/manager/manager-service.module';
 import { AuthModule } from '@src/modules/auth/auth.module';
+import { MembershipLevelsModule } from '@src/modules/membership-levels/membership-levels.module';
+import { GetMembershipLevelByIdUsecase } from '@src/usecases/membership-levels/get-membership-level-by-id.usecase';
 import { PerformUpgradeToCustomerUsecase } from '@src/usecases/identity-management/perform-upgrade-to-customer.usecase';
 import { PerformUpgradeToCoachUsecase } from '@src/usecases/identity-management/coach/perform-upgrade-to-coach.usecase';
 import { UpdateCoachUsecase } from '@src/usecases/identity-management/coach/update-coach.usecase';
@@ -40,11 +42,13 @@ import { ReactivateManagerUsecase } from '@src/usecases/identity-management/mana
     CoachServiceModule, // 提供 CoachService
     LearnerIdentityModule, // 提供 LearnerService
     ManagerServiceModule, // 提供 ManagerService
+    MembershipLevelsModule, // 会员等级服务
     AuthModule, // 提供认证相关服务
   ],
   providers: [
     PerformUpgradeToCustomerUsecase, // 升级为客户用例
     PerformUpgradeToCoachUsecase, // 升级为教练用例
+    GetMembershipLevelByIdUsecase, // 新增：读取会员等级信息用例
     // 客户管理相关用例
     UpdateCustomerUsecase,
     DeactivateCustomerUsecase,
@@ -70,6 +74,7 @@ import { ReactivateManagerUsecase } from '@src/usecases/identity-management/mana
   exports: [
     PerformUpgradeToCustomerUsecase, // 导出用例供其他模块使用
     PerformUpgradeToCoachUsecase, // 导出教练升级用例
+    GetMembershipLevelByIdUsecase, // 导出读取会员等级信息用例
     // 导出客户管理相关用例
     UpdateCustomerUsecase,
     DeactivateCustomerUsecase,

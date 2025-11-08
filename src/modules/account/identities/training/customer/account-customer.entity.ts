@@ -94,7 +94,7 @@ export class CustomerEntity {
    * 默认值为 1（普通会员）
    */
   @Column({
-    name: 'membership_level',
+    name: 'membership_level_id',
     type: 'int',
     default: MembershipLevel.NORMAL,
     comment: '会员等级,1=普通，2=VIP，3=黄金，4=白金，5=钻石',

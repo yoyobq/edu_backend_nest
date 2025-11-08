@@ -13,7 +13,9 @@ import {
 } from '@src/usecases/identity-management/customer/list-customers.usecase';
 import { ReactivateCustomerUsecase } from '@src/usecases/identity-management/customer/reactivate-customer.usecase';
 import { UpdateCustomerUsecase } from '@src/usecases/identity-management/customer/update-customer.usecase';
+import { GetMembershipLevelByIdUsecase } from '@src/usecases/membership-levels/get-membership-level-by-id.usecase';
 import { CustomerType } from '../../account/dto/identity/customer.dto';
+import { MembershipLevelType } from '../../account/dto/identity/membership-level.dto';
 import { DeactivateCustomerInput } from './dto/customer.input.deactivate';
 import { ListCustomersInput } from './dto/customer.input.list';
 import { ReactivateCustomerInput } from './dto/customer.input.reactivate';
@@ -37,6 +39,7 @@ export class CustomerResolver {
     private readonly deactivateCustomerUsecase: DeactivateCustomerUsecase,
     private readonly reactivateCustomerUsecase: ReactivateCustomerUsecase,
     private readonly listCustomersUsecase: ListCustomersUsecase,
+    private readonly getMembershipLevelByIdUsecase: GetMembershipLevelByIdUsecase,
   ) {}
 
   /**
@@ -61,7 +64,8 @@ export class CustomerResolver {
       membershipLevel: input.membershipLevel,
     });
 
-    return { customer: this.mapCustomerEntityToType(entity) };
+    const customer = await this.mapCustomerEntityToType(entity);
+    return { customer };
   }
 
   /**
@@ -82,8 +86,11 @@ export class CustomerResolver {
       sortOrder: input.sortOrder,
     });
 
+    const customers = await Promise.all(
+      result.items.map((entity: CustomerEntity) => this.mapCustomerEntityToType(entity)),
+    );
     return {
-      customers: result.items.map((entity: CustomerEntity) => this.mapCustomerEntityToType(entity)),
+      customers,
       pagination: {
         page: result.page,
         limit: result.limit,
@@ -108,10 +115,8 @@ export class CustomerResolver {
     @currentUser() user: JwtPayload,
   ): Promise<DeactivateCustomerResult> {
     const result = await this.deactivateCustomerUsecase.execute(Number(user.sub), { id: input.id });
-    return {
-      customer: this.mapCustomerEntityToType(result.customer),
-      isUpdated: result.isUpdated,
-    };
+    const customer = await this.mapCustomerEntityToType(result.customer);
+    return { customer, isUpdated: result.isUpdated };
   }
 
   /**
@@ -127,10 +132,8 @@ export class CustomerResolver {
     @currentUser() user: JwtPayload,
   ): Promise<ReactivateCustomerResult> {
     const result = await this.reactivateCustomerUsecase.execute(Number(user.sub), { id: input.id });
-    return {
-      customer: this.mapCustomerEntityToType(result.customer),
-      isUpdated: result.isUpdated,
-    };
+    const customer = await this.mapCustomerEntityToType(result.customer);
+    return { customer, isUpdated: result.isUpdated };
   }
 
   /**
@@ -138,8 +141,8 @@ export class CustomerResolver {
    * @param entity 客户实体
    * @returns GraphQL 输出 DTO
    */
-  private mapCustomerEntityToType(entity: CustomerEntity): CustomerType {
-    return {
+  private async mapCustomerEntityToType(entity: CustomerEntity): Promise<CustomerType> {
+    const base: CustomerType = {
       id: entity.id,
       accountId: entity.accountId,
       name: entity.name,
@@ -151,5 +154,21 @@ export class CustomerResolver {
       updatedAt: entity.updatedAt,
       deactivatedAt: entity.deactivatedAt ?? null,
     };
+
+    // 根据实体中的 membershipLevel（数值枚举）去等级表读取详细信息
+    const levelId = Number(entity.membershipLevel ?? 0);
+    const level =
+      levelId > 0 ? await this.getMembershipLevelByIdUsecase.execute({ id: levelId }) : null;
+    let membershipLevelInfo: MembershipLevelType | null = null;
+    if (level) {
+      membershipLevelInfo = {
+        id: level.id,
+        code: level.code,
+        name: level.name,
+        benefits: level.benefits ? JSON.stringify(level.benefits) : null,
+      };
+    }
+
+    return { ...base, membershipLevelInfo };
   }
 }
