@@ -2,6 +2,7 @@
 
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { TypeOrmSort } from '@src/infrastructure/typeorm/sort/typeorm-sort';
 import { CoachEntity } from './account-coach.entity';
 import { CoachService } from './coach.service';
 
@@ -11,7 +12,20 @@ import { CoachService } from './coach.service';
  */
 @Module({
   imports: [TypeOrmModule.forFeature([CoachEntity])],
-  providers: [CoachService],
-  exports: [CoachService],
+  providers: [
+    CoachService,
+    // 为 Coach 领域提供专用排序解析器，字段白名单与映射
+    {
+      provide: 'COACH_SORT_RESOLVER',
+      useFactory: () =>
+        new TypeOrmSort(['name', 'id', 'createdAt', 'updatedAt'], {
+          name: 'coach.name',
+          id: 'coach.id',
+          createdAt: 'coach.createdAt',
+          updatedAt: 'coach.updatedAt',
+        }),
+    },
+  ],
+  exports: [CoachService, 'COACH_SORT_RESOLVER'],
 })
 export class CoachServiceModule {}

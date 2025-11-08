@@ -1,9 +1,10 @@
 // src/modules/account/identities/training/coach/coach.service.ts
 
 import { ACCOUNT_ERROR, DomainError } from '@core/common/errors/domain-error';
-import { Injectable } from '@nestjs/common';
+import type { ISortResolver } from '@core/sort/sort.ports';
+import { Inject, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { EntityManager, Repository, IsNull } from 'typeorm';
+import { EntityManager, IsNull, Repository } from 'typeorm';
 import { CoachEntity } from './account-coach.entity';
 
 /**
@@ -37,6 +38,8 @@ export class CoachService {
   constructor(
     @InjectRepository(CoachEntity)
     private readonly coachRepository: Repository<CoachEntity>,
+    // Coach 域专用排序解析器（供分页使用）
+    @Inject('COACH_SORT_RESOLVER') private readonly coachSortResolver: ISortResolver,
   ) {}
 
   /**
@@ -227,5 +230,59 @@ export class CoachService {
       active,
       deactivated: total - active,
     };
+  }
+
+  /**
+   * 分页查询教练列表（OFFSET 模式，兼容现有 GraphQL 列表返回）
+   * @param params 分页查询参数对象
+   * @returns 分页查询结果对象
+   */
+  async findPaginated(params: {
+    readonly page?: number;
+    readonly limit?: number;
+    readonly sortBy?: 'createdAt' | 'updatedAt' | 'name';
+    readonly sortOrder?: 'ASC' | 'DESC';
+    readonly includeDeleted?: boolean;
+  }): Promise<{
+    readonly coaches: CoachEntity[];
+    readonly total: number;
+    readonly page: number;
+    readonly limit: number;
+    readonly totalPages: number;
+  }> {
+    const {
+      page = 1,
+      limit = 10,
+      sortBy = 'createdAt',
+      sortOrder = 'DESC',
+      includeDeleted = false,
+    } = params;
+
+    const actualLimit = Math.min(limit, 100);
+    const qb = this.coachRepository.createQueryBuilder('coach');
+
+    // 过滤停用记录
+    if (!includeDeleted) {
+      qb.where('coach.deactivatedAt IS NULL');
+    }
+
+    // 排序（使用域解析器，防注入；并补充稳定副键）
+    const primaryColumn =
+      this.coachSortResolver.resolveColumn(sortBy) ??
+      this.coachSortResolver.resolveColumn('createdAt');
+    if (primaryColumn) qb.orderBy(primaryColumn, sortOrder);
+    const tieBreaker = this.coachSortResolver.resolveColumn('id');
+    if (tieBreaker) qb.addOrderBy(tieBreaker, sortOrder);
+
+    // 统计总数（克隆一个用于 COUNT 的查询，避免 ORDER BY 干扰）
+    const countQb = qb.clone();
+    const total = await countQb.getCount();
+
+    // 应用分页
+    qb.take(actualLimit).skip((page - 1) * actualLimit);
+    const coaches = await qb.getMany();
+
+    const totalPages = Math.ceil(total / actualLimit) || 1;
+    return { coaches, total, page, limit: actualLimit, totalPages };
   }
 }

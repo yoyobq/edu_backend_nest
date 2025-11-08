@@ -36,3 +36,15 @@ export enum CustomerSortField {
   /** 按客户姓名排序 */
   NAME = 'name',
 }
+
+/**
+ * 教练排序字段枚举
+ */
+export enum CoachSortField {
+  /** 按创建时间排序 */
+  CREATED_AT = 'createdAt',
+  /** 按更新时间排序 */
+  UPDATED_AT = 'updatedAt',
+  /** 按教练姓名排序 */
+  NAME = 'name',
+}

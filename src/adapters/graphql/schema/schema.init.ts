@@ -73,6 +73,7 @@ export function initGraphQLSchema(): {
       'VerificationRecordType',
       'LearnerSortField',
       'CustomerSortField',
+      'CoachSortField',
       'OrderDirection',
       'PaginationMode',
       'SortDirection',
