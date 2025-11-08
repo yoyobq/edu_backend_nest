@@ -21,6 +21,7 @@ import { ListLearnersUsecase } from '@src/usecases/identity-management/learner/l
 import { UpdateCustomerUsecase } from '@src/usecases/identity-management/customer/update-customer.usecase';
 import { DeactivateCustomerUsecase } from '@src/usecases/identity-management/customer/deactivate-customer.usecase';
 import { ReactivateCustomerUsecase } from '@src/usecases/identity-management/customer/reactivate-customer.usecase';
+import { ListCustomersUsecase } from '@src/usecases/identity-management/customer/list-customers.usecase';
 
 /**
  * 身份管理模块
@@ -43,6 +44,7 @@ import { ReactivateCustomerUsecase } from '@src/usecases/identity-management/cus
     UpdateCustomerUsecase,
     DeactivateCustomerUsecase,
     ReactivateCustomerUsecase,
+    ListCustomersUsecase,
     // 教练管理相关用例
     UpdateCoachUsecase,
     DeactivateCoachUsecase,
@@ -61,6 +63,7 @@ import { ReactivateCustomerUsecase } from '@src/usecases/identity-management/cus
     UpdateCustomerUsecase,
     DeactivateCustomerUsecase,
     ReactivateCustomerUsecase,
+    ListCustomersUsecase,
     // 导出教练管理相关用例
     UpdateCoachUsecase,
     DeactivateCoachUsecase,

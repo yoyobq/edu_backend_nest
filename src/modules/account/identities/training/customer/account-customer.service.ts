@@ -1,8 +1,11 @@
 // src/modules/account/identities/training/customer/customer.service.ts
 
 import { ACCOUNT_ERROR, DomainError } from '@core/common/errors/domain-error';
-import { Injectable } from '@nestjs/common';
+import type { PaginatedResult, SortParam } from '@core/pagination/pagination.types';
+import type { ISortResolver } from '@core/sort/sort.ports';
+import { Injectable, Inject } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { PaginationService } from '@src/modules/common/pagination.service';
 import { EntityManager, QueryFailedError, Repository } from 'typeorm';
 import { CustomerEntity } from './account-customer.entity';
 
@@ -15,6 +18,9 @@ export class CustomerService {
   constructor(
     @InjectRepository(CustomerEntity)
     private readonly customerRepository: Repository<CustomerEntity>,
+    private readonly paginationService: PaginationService,
+    // 从模块注入 Customer 域专用排序解析器（仅用于内部/专用接口的 CURSOR 流程）
+    @Inject('CUSTOMER_SORT_RESOLVER') private readonly customerSortResolver: ISortResolver,
   ) {}
 
   /**
@@ -153,5 +159,99 @@ export class CustomerService {
       where: { id: customerId },
       relations: ['learners'],
     });
+  }
+
+  /**
+   * 分页查询客户列表（OFFSET 模式，兼容现有 GraphQL 列表返回）
+   * @param params 分页查询参数
+   * @returns 分页查询结果
+   */
+  async findPaginated(params: {
+    readonly page?: number;
+    readonly limit?: number;
+    readonly sortBy?: 'createdAt' | 'updatedAt' | 'name';
+    readonly sortOrder?: 'ASC' | 'DESC';
+    readonly includeDeleted?: boolean;
+  }): Promise<{
+    readonly customers: CustomerEntity[];
+    readonly total: number;
+    readonly page: number;
+    readonly limit: number;
+    readonly totalPages: number;
+  }> {
+    const {
+      page = 1,
+      limit = 10,
+      sortBy = 'createdAt',
+      sortOrder = 'DESC',
+      includeDeleted = false,
+    } = params;
+
+    const actualLimit = Math.min(limit, 100);
+    const qb = this.customerRepository.createQueryBuilder('customer');
+
+    // 过滤停用记录
+    if (!includeDeleted) {
+      qb.where('customer.deactivatedAt IS NULL');
+    }
+
+    // 排序（使用域解析器，防注入；并补充稳定副键）
+    const primaryColumn =
+      this.customerSortResolver.resolveColumn(sortBy) ??
+      this.customerSortResolver.resolveColumn('createdAt');
+    if (primaryColumn) qb.orderBy(primaryColumn, sortOrder);
+    const tieBreaker = this.customerSortResolver.resolveColumn('id');
+    if (tieBreaker) qb.addOrderBy(tieBreaker, sortOrder);
+
+    // 统计总数（克隆一个用于 COUNT 的查询，避免 ORDER BY 干扰）
+    const countQb = qb.clone();
+    const total = await countQb.getCount();
+
+    // 应用分页
+    qb.take(actualLimit).skip((page - 1) * actualLimit);
+    const customers = await qb.getMany();
+
+    const totalPages = Math.ceil(total / actualLimit) || 1;
+    return { customers, total, page, limit: actualLimit, totalPages };
+  }
+
+  /**
+   * 内部接口：基于统一 PaginationService 的 CURSOR 分页
+   * 保持 GraphQL 不变，仅供内部/专用接口调用
+   * @param args 分页与筛选参数（CURSOR 模式）
+   */
+  async findCursorPage(args: {
+    readonly limit: number;
+    readonly after?: string;
+    readonly before?: string; // 可选：上一页游标，支持回退翻页
+    readonly includeDeleted?: boolean;
+    readonly sorts?: ReadonlyArray<SortParam>;
+  }): Promise<PaginatedResult<CustomerEntity>> {
+    const qb = this.customerRepository.createQueryBuilder('customer');
+
+    if (!args.includeDeleted) qb.where('customer.deactivatedAt IS NULL');
+
+    const allowedSorts: ReadonlyArray<string> = ['name', 'id', 'createdAt', 'updatedAt'];
+    const defaultSorts: ReadonlyArray<SortParam> = [
+      { field: 'name', direction: 'ASC' },
+      { field: 'id', direction: 'ASC' },
+    ];
+
+    const result = await this.paginationService.paginateQuery<CustomerEntity>({
+      qb,
+      params: {
+        mode: 'CURSOR',
+        limit: Math.min(args.limit, 100),
+        after: args.after,
+        before: args.before,
+        sorts: args.sorts ?? defaultSorts,
+      },
+      allowedSorts,
+      defaultSorts,
+      cursorKey: { primary: 'name', tieBreaker: 'id' },
+      sortResolver: this.customerSortResolver,
+    });
+
+    return result;
   }
 }
