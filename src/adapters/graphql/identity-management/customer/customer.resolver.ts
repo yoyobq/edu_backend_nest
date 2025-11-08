@@ -2,15 +2,20 @@
 
 import { JwtPayload } from '@app-types/jwt.types';
 import { UseGuards } from '@nestjs/common';
-import { Args, Mutation, Resolver } from '@nestjs/graphql';
+import { Args, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { currentUser } from '@src/adapters/graphql/decorators/current-user.decorator';
 import { JwtAuthGuard } from '@src/adapters/graphql/guards/jwt-auth.guard';
 import { CustomerEntity } from '@src/modules/account/identities/training/customer/account-customer.entity';
 import { DeactivateCustomerUsecase } from '@src/usecases/identity-management/customer/deactivate-customer.usecase';
+import {
+  ListCustomersUsecase,
+  PaginatedCustomers,
+} from '@src/usecases/identity-management/customer/list-customers.usecase';
 import { ReactivateCustomerUsecase } from '@src/usecases/identity-management/customer/reactivate-customer.usecase';
 import { UpdateCustomerUsecase } from '@src/usecases/identity-management/customer/update-customer.usecase';
 import { CustomerType } from '../../account/dto/identity/customer.dto';
 import { DeactivateCustomerInput } from './dto/customer.input.deactivate';
+import { ListCustomersInput } from './dto/customer.input.list';
 import { ReactivateCustomerInput } from './dto/customer.input.reactivate';
 import { UpdateCustomerInput } from './dto/customer.input.update';
 import {
@@ -18,6 +23,7 @@ import {
   ReactivateCustomerResult,
   UpdateCustomerResult,
 } from './dto/customer.result';
+import { ListCustomersOutput } from './dto/customers.list';
 
 /**
  * Customer 管理 GraphQL 解析器
@@ -30,6 +36,7 @@ export class CustomerResolver {
     private readonly updateCustomerUsecase: UpdateCustomerUsecase,
     private readonly deactivateCustomerUsecase: DeactivateCustomerUsecase,
     private readonly reactivateCustomerUsecase: ReactivateCustomerUsecase,
+    private readonly listCustomersUsecase: ListCustomersUsecase,
   ) {}
 
   /**
@@ -55,6 +62,37 @@ export class CustomerResolver {
     });
 
     return { customer: this.mapCustomerEntityToType(entity) };
+  }
+
+  /**
+   * 分页查询客户列表（仅管理员）
+   * @param input 查询输入参数
+   * @param user 当前用户
+   */
+  @UseGuards(JwtAuthGuard)
+  @Query(() => ListCustomersOutput, { description: '分页查询客户列表（仅管理员）' })
+  async customers(
+    @Args('input') input: ListCustomersInput,
+    @currentUser() user: JwtPayload,
+  ): Promise<ListCustomersOutput> {
+    const result: PaginatedCustomers = await this.listCustomersUsecase.execute(Number(user.sub), {
+      page: input.page,
+      limit: input.limit,
+      sortBy: input.sortBy,
+      sortOrder: input.sortOrder,
+    });
+
+    return {
+      customers: result.items.map((entity: CustomerEntity) => this.mapCustomerEntityToType(entity)),
+      pagination: {
+        page: result.page,
+        limit: result.limit,
+        total: result.total,
+        totalPages: result.totalPages,
+        hasNext: result.page < result.totalPages,
+        hasPrev: result.page > 1,
+      },
+    };
   }
 
   /**

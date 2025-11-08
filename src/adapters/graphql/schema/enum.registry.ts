@@ -21,7 +21,7 @@ import {
 } from '@app-types/models/verification-record.types';
 import { RegisterTypeEnum } from '@app-types/services/register.types';
 import { GqlPaginationMode, GqlSortDirection } from '@src/adapters/graphql/pagination.enums';
-import { LearnerSortField, OrderDirection } from '@src/types/common/sort.types';
+import { LearnerSortField, OrderDirection, CustomerSortField } from '@src/types/common/sort.types';
 
 /**
  * 枚举注册配置接口
@@ -232,6 +232,17 @@ const ENUM_CONFIGS: Record<string, EnumConfig> = {
       BIRTH_DATE: { description: '出生日期' },
     },
   },
+  // Customer 相关枚举
+  CUSTOMER_SORT_FIELD: {
+    enumType: CustomerSortField,
+    name: 'CustomerSortField',
+    description: '客户排序字段',
+    valuesMap: {
+      CREATED_AT: { description: '创建时间' },
+      UPDATED_AT: { description: '更新时间' },
+      NAME: { description: '姓名' },
+    },
+  },
   SORT_ORDER: {
     enumType: OrderDirection,
     name: 'OrderDirection',
@@ -282,6 +293,7 @@ const EXPECTED_ENUMS = [
   'VerificationRecordStatus',
   'VerificationRecordType',
   'LearnerSortField',
+  'CustomerSortField',
   'OrderDirection',
   'PaginationMode',
   'SortDirection',
