@@ -189,3 +189,16 @@ export const isDomainError = (error: unknown): error is DomainError => {
   const anyE = error as { name?: unknown; code?: unknown };
   return anyE?.name === 'DomainError' && typeof anyE?.code === 'string';
 };
+
+// 课程系列相关错误码（集中定义）
+export const COURSE_SERIES_ERROR = {
+  SERIES_NOT_FOUND: 'COURSE_SERIES_NOT_FOUND',
+  SERIES_CREATION_FAILED: 'COURSE_SERIES_CREATION_FAILED',
+  SERIES_UPDATE_FAILED: 'COURSE_SERIES_UPDATE_FAILED',
+  SERIES_DELETE_FAILED: 'COURSE_SERIES_DELETE_FAILED',
+  TITLE_EMPTY: 'COURSE_SERIES_TITLE_EMPTY',
+  INVALID_PARAMS: 'COURSE_SERIES_INVALID_PARAMS',
+} as const;
+Object.freeze(COURSE_SERIES_ERROR);
+
+export type CourseSeriesErrorCode = (typeof COURSE_SERIES_ERROR)[keyof typeof COURSE_SERIES_ERROR];
