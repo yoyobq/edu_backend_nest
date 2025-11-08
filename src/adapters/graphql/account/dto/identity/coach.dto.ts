@@ -17,14 +17,20 @@ export class CoachType {
   @Field(() => String, { description: '教练姓名' })
   name!: string;
 
-  @Field(() => Number, { description: '部门 ID', nullable: true })
-  departmentId!: number | null;
-
   @Field(() => String, { description: '备注信息', nullable: true })
   remark!: string | null;
 
-  @Field(() => String, { description: '职位名称', nullable: true })
-  jobTitle!: string | null;
+  @Field(() => Int, { description: '教练等级（1/2/3）' })
+  level!: number;
+
+  @Field(() => String, { description: '教练简介/推介', nullable: true })
+  description!: string | null;
+
+  @Field(() => String, { description: '头像 URL', nullable: true })
+  avatarUrl!: string | null;
+
+  @Field(() => String, { description: '教练专长', nullable: true })
+  specialty!: string | null;
 
   @Field(() => EmploymentStatus, { description: '就业状态' })
   employmentStatus!: EmploymentStatus;
@@ -34,4 +40,7 @@ export class CoachType {
 
   @Field(() => Date, { description: '更新时间' })
   updatedAt!: Date;
+
+  @Field(() => Date, { description: '停用时间', nullable: true })
+  deactivatedAt!: Date | null;
 }

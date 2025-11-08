@@ -4,10 +4,15 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AccountInstallerModule } from '@src/modules/account/account-installer.module';
 import { CustomerServiceModule } from '@src/modules/account/identities/training/customer/customer-service.module';
+import { CoachServiceModule } from '@src/modules/account/identities/training/coach/coach-service.module';
 import { LearnerIdentityModule } from '@src/modules/account/identities/training/learner/learner.module';
 import { ManagerServiceModule } from '@src/modules/account/identities/training/manager/manager-service.module';
 import { AuthModule } from '@src/modules/auth/auth.module';
 import { PerformUpgradeToCustomerUsecase } from '@src/usecases/identity-management/perform-upgrade-to-customer.usecase';
+import { PerformUpgradeToCoachUsecase } from '@src/usecases/identity-management/coach/perform-upgrade-to-coach.usecase';
+import { UpdateCoachUsecase } from '@src/usecases/identity-management/coach/update-coach.usecase';
+import { DeactivateCoachUsecase } from '@src/usecases/identity-management/coach/deactivate-coach.usecase';
+import { ReactivateCoachUsecase } from '@src/usecases/identity-management/coach/reactivate-coach.usecase';
 import { CreateLearnerUsecase } from '@src/usecases/identity-management/learner/create-learner.usecase';
 import { UpdateLearnerUsecase } from '@src/usecases/identity-management/learner/update-learner.usecase';
 import { DeleteLearnerUsecase } from '@src/usecases/identity-management/learner/delete-learner.usecase';
@@ -26,16 +31,22 @@ import { ReactivateCustomerUsecase } from '@src/usecases/identity-management/cus
     TypeOrmModule.forFeature([]), // 为 DataSource 注入提供支持
     AccountInstallerModule, // 提供账户相关服务
     CustomerServiceModule, // 提供 CustomerService
+    CoachServiceModule, // 提供 CoachService
     LearnerIdentityModule, // 提供 LearnerService
     ManagerServiceModule, // 提供 ManagerService
     AuthModule, // 提供认证相关服务
   ],
   providers: [
     PerformUpgradeToCustomerUsecase, // 升级为客户用例
+    PerformUpgradeToCoachUsecase, // 升级为教练用例
     // 客户管理相关用例
     UpdateCustomerUsecase,
     DeactivateCustomerUsecase,
     ReactivateCustomerUsecase,
+    // 教练管理相关用例
+    UpdateCoachUsecase,
+    DeactivateCoachUsecase,
+    ReactivateCoachUsecase,
     // 学员管理相关用例
     CreateLearnerUsecase,
     UpdateLearnerUsecase,
@@ -45,10 +56,15 @@ import { ReactivateCustomerUsecase } from '@src/usecases/identity-management/cus
   ],
   exports: [
     PerformUpgradeToCustomerUsecase, // 导出用例供其他模块使用
+    PerformUpgradeToCoachUsecase, // 导出教练升级用例
     // 导出客户管理相关用例
     UpdateCustomerUsecase,
     DeactivateCustomerUsecase,
     ReactivateCustomerUsecase,
+    // 导出教练管理相关用例
+    UpdateCoachUsecase,
+    DeactivateCoachUsecase,
+    ReactivateCoachUsecase,
     // 导出学员管理相关用例
     CreateLearnerUsecase,
     UpdateLearnerUsecase,
