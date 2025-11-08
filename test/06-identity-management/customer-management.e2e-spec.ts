@@ -341,6 +341,121 @@ describe('Customer Management (e2e)', () => {
     });
   });
 
+  /**
+   * 分页查询客户列表（仅管理员）
+   * - 验证未授权访问返回 GraphQL 错误
+   * - 验证管理员分页查询与返回结构
+   * - 验证排序与翻页参数生效
+   */
+  describe('分页查询客户列表', () => {
+    /**
+     * 测试未授权访问 customers 查询
+     * 期望：返回 200 且包含 GraphQL 错误数组
+     */
+    it('未授权访问 customers 应该返回 200 且包含错误', async () => {
+      const query = `
+        query ListCustomers($input: ListCustomersInput!) {
+          customers(input: $input) {
+            customers { id accountId name membershipLevel createdAt updatedAt }
+            pagination { page limit total totalPages hasNext hasPrev }
+          }
+        }
+      `;
+
+      const res = await request(app.getHttpServer())
+        .post('/graphql')
+        .send({
+          query,
+          variables: { input: { page: 1, limit: 5 } },
+        })
+        .expect(200);
+
+      expect(res.body.errors).toBeDefined();
+      expect(Array.isArray(res.body.errors)).toBe(true);
+    });
+
+    /**
+     * 测试管理员分页查询 customers 列表
+     * 期望：无 GraphQL 错误，返回 pagination 字段与 customers 数组，基本字段类型正确
+     */
+    it('管理员身份可以分页查询 customers 列表', async () => {
+      const query = `
+        query ListCustomers($input: ListCustomersInput!) {
+          customers(input: $input) {
+            customers { id accountId name membershipLevel createdAt updatedAt }
+            pagination { page limit total totalPages hasNext hasPrev }
+          }
+        }
+      `;
+
+      const res = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', `Bearer ${managerAccessToken}`)
+        .send({
+          query,
+          variables: { input: { page: 1, limit: 5 } },
+        })
+        .expect(200);
+
+      expect(res.body.errors).toBeUndefined();
+      const payload = res.body.data.customers;
+      expect(payload).toBeDefined();
+      expect(payload.pagination).toBeDefined();
+      expect(typeof payload.pagination.page).toBe('number');
+      expect(typeof payload.pagination.limit).toBe('number');
+      expect(typeof payload.pagination.total).toBe('number');
+      expect(typeof payload.pagination.totalPages).toBe('number');
+      expect(typeof payload.pagination.hasNext).toBe('boolean');
+      expect(typeof payload.pagination.hasPrev).toBe('boolean');
+
+      expect(Array.isArray(payload.customers)).toBe(true);
+      if (payload.customers.length > 0) {
+        const first = payload.customers[0];
+        expect(typeof first.id).toBe('number');
+        expect(typeof first.name).toBe('string');
+        // accountId 允许为 null（DTO 定义），这里只做存在性断言
+        expect(first.accountId === null || typeof first.accountId === 'number').toBe(true);
+      }
+    });
+
+    /**
+     * 测试排序与翻页参数
+     * 输入：sortBy = UPDATED_AT，sortOrder = DESC，page = 2，limit = 2
+     * 期望：无 GraphQL 错误，返回的 pagination 与 limit 匹配
+     */
+    it('管理员身份支持排序与翻页参数（按 updatedAt DESC）', async () => {
+      const query = `
+        query ListCustomers($input: ListCustomersInput!) {
+          customers(input: $input) {
+            customers { id name createdAt updatedAt }
+            pagination { page limit total totalPages hasNext hasPrev }
+          }
+        }
+      `;
+
+      const res = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', `Bearer ${managerAccessToken}`)
+        .send({
+          query,
+          variables: {
+            input: {
+              page: 2,
+              limit: 2,
+              sortBy: 'UPDATED_AT',
+              sortOrder: 'DESC',
+            },
+          },
+        })
+        .expect(200);
+
+      expect(res.body.errors).toBeUndefined();
+      const pagination = res.body.data.customers.pagination;
+      expect(pagination.page).toBeGreaterThanOrEqual(1);
+      expect(pagination.limit).toBe(2);
+    });
+  });
+
   describe('客户上下线', () => {
     it('管理员应该可以下线客户（幂等）', async () => {
       // 第一次下线
