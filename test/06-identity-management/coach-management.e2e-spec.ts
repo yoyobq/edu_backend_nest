@@ -97,7 +97,7 @@ describe('Coach Management (e2e)', () => {
       expect(msg).toMatch(/仅管理员可查看教练列表|权限|无权|ACCESS_DENIED/);
     });
 
-    it('管理员可以分页查询教练列表，包含分页信息', async () => {
+    it('管理员可以分页查询教练列表，包含分页信息与新字段、分页标志', async () => {
       const response = await request(app.getHttpServer())
         .post('/graphql')
         .set('Authorization', `Bearer ${managerAccessToken}`)
@@ -105,8 +105,9 @@ describe('Coach Management (e2e)', () => {
           query: `
             query ListCoaches($input: ListCoachesInput!) {
               coaches(input: $input) {
-                data { id name accountId level description avatarUrl specialty deactivatedAt }
-                pagination { total page limit totalPages }
+                coaches { id name accountId level description avatarUrl specialty deactivatedAt }
+                data { id name }
+                pagination { total page limit totalPages hasNext hasPrev }
               }
             }
           `,
@@ -123,9 +124,15 @@ describe('Coach Management (e2e)', () => {
       expect(typeof out.pagination.total).toBe('number');
       expect(out.pagination.page).toBe(1);
       expect(out.pagination.limit).toBe(10);
+      // 新字段 coaches 列表
+      expect(Array.isArray(out.coaches)).toBe(true);
+      // 兼容旧字段 data 仍可用
       expect(Array.isArray(out.data)).toBe(true);
+      // 分页标志：根据当前预置数据仅 1 个教练，第一页应无上一页，且通常无下一页
+      expect(out.pagination.hasPrev).toBe(false);
+      expect(out.pagination.hasNext).toBe(false);
       // 至少应包含当前测试预置的 coach 账户
-      const hasCoach = out.data.some((c: any) => c.id === coachId);
+      const hasCoach = out.coaches.some((c: any) => c.id === coachId);
       expect(hasCoach).toBe(true);
     });
 
@@ -136,7 +143,7 @@ describe('Coach Management (e2e)', () => {
         .send({
           query: `
             query ListCoaches($input: ListCoachesInput!) {
-              coaches(input: $input) { data { id name } pagination { total page limit totalPages } }
+              coaches(input: $input) { coaches { id name } pagination { total page limit totalPages } }
             }
           `,
           variables: { input: { page: 1, limit: 10, sortBy: 'NAME', sortOrder: 'ASC' } },
@@ -146,7 +153,7 @@ describe('Coach Management (e2e)', () => {
       if (response.body.errors)
         throw new Error(`GraphQL 错误: ${JSON.stringify(response.body.errors)}`);
 
-      const items: Array<{ id: number; name: string }> = response.body.data.coaches.data;
+      const items: Array<{ id: number; name: string }> = response.body.data.coaches.coaches;
       // 简单断言：名称应按字典序非降排列
       const names = items.map((i) => i.name);
       const sorted = [...names].sort((a, b) => a.localeCompare(b));
@@ -427,6 +434,82 @@ describe('Coach Management (e2e)', () => {
       expect(msg).toMatch(/教练姓名长度不能超过 64|MaxLength|长度/);
     });
 
+    it('DTO 长度校验：avatarUrl 超长应报错', async () => {
+      const longUrl = 'https://example.com/'.padEnd(260, 'x');
+      const response = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', `Bearer ${coachAccessToken}`)
+        .send({
+          query: `
+            mutation UpdateCoach($input: UpdateCoachInput!) {
+              updateCoach(input: $input) { coach { id avatarUrl } }
+            }
+          `,
+          variables: { input: { avatarUrl: longUrl } },
+        })
+        .expect(200);
+      expect(response.body.errors).toBeDefined();
+      const msg = response.body.errors?.[0]?.message ?? '';
+      expect(msg).toMatch(/头像 URL 长度不能超过 255|MaxLength|长度/);
+    });
+
+    it('DTO 长度校验：specialty 超长应报错', async () => {
+      const longSpecialty = '特长'.repeat(51);
+      const response = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', `Bearer ${coachAccessToken}`)
+        .send({
+          query: `
+            mutation UpdateCoach($input: UpdateCoachInput!) {
+              updateCoach(input: $input) { coach { id specialty } }
+            }
+          `,
+          variables: { input: { specialty: longSpecialty } },
+        })
+        .expect(200);
+      expect(response.body.errors).toBeDefined();
+      const msg = response.body.errors?.[0]?.message ?? '';
+      expect(msg).toMatch(/教练专长长度不能超过 100|MaxLength|长度/);
+    });
+
+    it('DTO 长度校验：remark 超长应报错', async () => {
+      const longRemark = '备注'.repeat(130);
+      const response = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', `Bearer ${coachAccessToken}`)
+        .send({
+          query: `
+            mutation UpdateCoach($input: UpdateCoachInput!) {
+              updateCoach(input: $input) { coach { id remark } }
+            }
+          `,
+          variables: { input: { remark: longRemark } },
+        })
+        .expect(200);
+      expect(response.body.errors).toBeDefined();
+      const msg = response.body.errors?.[0]?.message ?? '';
+      expect(msg).toMatch(/备注长度不能超过 255|MaxLength|长度/);
+    });
+
+    it('DTO 长度校验：description 超长应报错', async () => {
+      const longDesc = '描'.repeat(2001);
+      const response = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', `Bearer ${coachAccessToken}`)
+        .send({
+          query: `
+            mutation UpdateCoach($input: UpdateCoachInput!) {
+              updateCoach(input: $input) { coach { id description } }
+            }
+          `,
+          variables: { input: { description: longDesc } },
+        })
+        .expect(200);
+      expect(response.body.errors).toBeDefined();
+      const msg = response.body.errors?.[0]?.message ?? '';
+      expect(msg).toMatch(/简介长度不能超过 2000|MaxLength|长度/);
+    });
+
     it('教练尝试跨人编辑（提供其他 coachId）应报错', async () => {
       const response = await request(app.getHttpServer())
         .post('/graphql')
@@ -592,6 +675,24 @@ describe('Coach Management (e2e)', () => {
           query: `
             mutation ReactivateCoach($input: ReactivateCoachInput!) {
               reactivateCoach(input: $input) { isUpdated }
+            }
+          `,
+          variables: { input: { id: 999999 } },
+        })
+        .expect(200);
+      expect(response.body.errors).toBeDefined();
+      const msg = response.body.errors?.[0]?.message ?? '';
+      expect(msg).toMatch(/教练不存在|未找到|不存在/);
+    });
+
+    it('管理员下线不存在的教练 ID 应报错', async () => {
+      const response = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', `Bearer ${managerAccessToken}`)
+        .send({
+          query: `
+            mutation DeactivateCoach($input: DeactivateCoachInput!) {
+              deactivateCoach(input: $input) { isUpdated }
             }
           `,
           variables: { input: { id: 999999 } },

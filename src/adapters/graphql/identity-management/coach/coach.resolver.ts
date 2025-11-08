@@ -4,8 +4,8 @@ import { EmploymentStatus } from '@app-types/models/account.types';
 import { UseGuards } from '@nestjs/common';
 import { Args, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { currentUser } from '@src/adapters/graphql/decorators/current-user.decorator';
-import { ListCoachesInput } from '@src/adapters/graphql/dto/coach/coach.input.list';
-import { ListCoachesOutput } from '@src/adapters/graphql/dto/coach/coaches.list';
+import { ListCoachesInput } from './dto/coach.input.list';
+import { ListCoachesOutput } from './dto/coaches.list';
 import { JwtAuthGuard } from '@src/adapters/graphql/guards/jwt-auth.guard';
 import { CoachEntity } from '@src/modules/account/identities/training/coach/account-coach.entity';
 import { DeactivateCoachUsecase } from '@src/usecases/identity-management/coach/deactivate-coach.usecase';
@@ -127,13 +127,13 @@ export class CoachResolver {
   }
 
   /**
-   * 分页查询教练列表（仅管理员）
+   * 分页查询教练列表（仅 manager）
    * @param input 查询输入参数
    * @param user 当前登录用户信息
    * @returns 教练列表与分页信息
    */
   @UseGuards(JwtAuthGuard)
-  @Query(() => ListCoachesOutput, { description: '分页查询教练列表（仅管理员）' })
+  @Query(() => ListCoachesOutput, { description: '分页查询教练列表（仅 manager）' })
   async coaches(
     @Args('input') input: ListCoachesInput,
     @currentUser() user: JwtPayload,

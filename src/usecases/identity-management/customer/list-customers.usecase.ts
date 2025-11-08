@@ -59,7 +59,7 @@ export class ListCustomersUsecase {
     // 仅允许 manager 身份执行客户列表查询
     const manager = await this.managerService.findByAccountId(currentAccountId);
     if (!manager) {
-      throw new DomainError(PERMISSION_ERROR.ACCESS_DENIED, '仅管理员可查看客户列表');
+      throw new DomainError(PERMISSION_ERROR.ACCESS_DENIED, '仅 manager 可查看客户列表');
     }
 
     const result = await this.customerService.findPaginated({
