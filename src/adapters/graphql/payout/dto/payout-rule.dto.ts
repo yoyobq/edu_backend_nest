@@ -38,11 +38,12 @@ export class PayoutSeriesRuleType {
   @Field(() => String, { nullable: true, description: '规则说明' })
   description!: string | null;
 
-  @Field(() => Int, { description: '是否为模板（1/0）' })
-  isTemplate!: number;
+  // 改为 Boolean，语义更清晰；适配层负责与 DB TINYINT 映射
+  @Field(() => Boolean, { description: '是否为模板（ true/false ）' })
+  isTemplate!: boolean;
 
-  @Field(() => Int, { description: '是否启用（1/0）' })
-  isActive!: number;
+  @Field(() => Boolean, { description: '是否启用（ true/false ）' })
+  isActive!: boolean;
 
   @Field(() => Date, { description: '创建时间' })
   createdAt!: Date;

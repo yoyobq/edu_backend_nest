@@ -1,9 +1,17 @@
 // src/adapters/graphql/payout/dto/payout-rule.input.ts
-import { Field, InputType, Int, Float } from '@nestjs/graphql';
+import { Field, Float, InputType, Int } from '@nestjs/graphql';
 import { PaginationArgs, SortInput } from '@src/adapters/graphql/pagination.args';
-import GraphQLJSON from 'graphql-type-json';
 import { Type } from 'class-transformer';
-import { IsInt, IsOptional, IsString, MaxLength, Min, ValidateNested } from 'class-validator';
+import {
+  IsBoolean,
+  IsInt,
+  IsOptional,
+  IsString,
+  MaxLength,
+  Min,
+  ValidateNested,
+} from 'class-validator';
+import GraphQLJSON from 'graphql-type-json';
 
 /**
  * 规则 JSON 入参（用于创建/更新）
@@ -45,13 +53,16 @@ export class CreatePayoutRuleInput {
   @MaxLength(255)
   description?: string | null;
 
-  @Field(() => Int, { nullable: true, description: '是否为模板（1/0）' })
+  // 改为 Boolean 输入，适配层转换为 0/1 写入用例
+  @Field(() => Boolean, { nullable: true, description: '是否为模板（ true/false ）' })
   @IsOptional()
-  isTemplate?: number;
+  @IsBoolean()
+  isTemplate?: boolean;
 
-  @Field(() => Int, { nullable: true, description: '是否启用（1/0）' })
+  @Field(() => Boolean, { nullable: true, description: '是否启用（ true/false ）' })
   @IsOptional()
-  isActive?: number;
+  @IsBoolean()
+  isActive?: boolean;
 }
 
 /**
@@ -70,13 +81,10 @@ export class UpdatePayoutRuleMetaInput {
   @MaxLength(255)
   description?: string | null;
 
-  @Field(() => Int, { nullable: true, description: '是否启用（1/0）' })
+  @Field(() => Boolean, { nullable: true, description: '是否启用（ true/false ）' })
   @IsOptional()
-  isActive?: number;
-
-  @Field(() => Int, { nullable: true, description: '是否为模板（1/0）' })
-  @IsOptional()
-  isTemplate?: number;
+  @IsBoolean()
+  isActive?: boolean;
 }
 
 /**
@@ -149,13 +157,15 @@ export class GetPayoutRuleBySeriesInput {
  */
 @InputType()
 export class ListPayoutRulesInput {
-  @Field(() => Int, { nullable: true, description: '是否为模板（1/0）' })
+  @Field(() => Boolean, { nullable: true, description: '是否为模板（ true/false ）' })
   @IsOptional()
-  isTemplate?: number;
+  @IsBoolean()
+  isTemplate?: boolean;
 
-  @Field(() => Int, { nullable: true, description: '是否启用（1/0）' })
+  @Field(() => Boolean, { nullable: true, description: '是否启用（ true/false ）' })
   @IsOptional()
-  isActive?: number;
+  @IsBoolean()
+  isActive?: boolean;
 
   @Field(() => Int, { nullable: true, description: '课程系列 ID；模板用 null' })
   @IsOptional()
@@ -195,13 +205,20 @@ export class SearchPayoutRulesInput {
   @IsOptional()
   sorts?: SortInput[];
 
-  @Field(() => Int, { nullable: true, description: '是否为模板（1/0）' })
+  @Field(() => Boolean, { nullable: true, description: '是否为模板（ true/false ）' })
   @IsOptional()
-  isTemplate?: number;
+  @IsBoolean()
+  isTemplate?: boolean;
 
-  @Field(() => Int, { nullable: true, description: '是否启用（1/0）' })
+  @Field(() => Boolean, { nullable: true, description: '是否启用（ true/false ）' })
   @IsOptional()
-  isActive?: number;
+  @IsBoolean()
+  isActive?: boolean;
+
+  @Field(() => Boolean, { nullable: true, description: '仅模板（ seriesId 为 null ）' })
+  @IsOptional()
+  @IsBoolean()
+  onlyTemplates?: boolean;
 
   @Field(() => Int, { nullable: true, description: '课程系列 ID；模板用 null' })
   @IsOptional()

@@ -26,7 +26,7 @@ export class BindPayoutRuleUsecase {
     readonly ruleId: number; // 模板规则 ID
     readonly seriesId: number; // 课程系列 ID
     readonly session: UsecaseSession;
-  }): Promise<PayoutSeriesRuleEntity> {
+  }): Promise<{ rule: PayoutSeriesRuleEntity; isUpdated: boolean }> {
     // 先确认 series 存在
     const series = await this.seriesService.findById(args.seriesId);
     if (!series) {
@@ -38,6 +38,16 @@ export class BindPayoutRuleUsecase {
     // 再确认 rule 存在
     const rule = await this.ruleService.findById(args.ruleId);
     if (!rule) throw new DomainError(PAYOUT_RULE_ERROR.RULE_NOT_FOUND, '结算规则不存在');
+
+    // 不允许绑定已停用规则
+    if (rule.isActive === 0) {
+      throw new DomainError(PAYOUT_RULE_ERROR.INACTIVE_BIND, '无法绑定已停用的结算规则', {
+        ruleId: args.ruleId,
+      });
+    }
+
+    // 互斥语义：绑定后需 isTemplate=0；若当前已是课程绑定规则但 series 不同，需走冲突逻辑
+    const isCurrentlyTemplate = rule.seriesId == null && rule.isTemplate === 1;
 
     // 尝试绑定（服务层对冲突返回 null）
     const updated = await this.ruleService.bindToSeries(
@@ -52,6 +62,6 @@ export class BindPayoutRuleUsecase {
         { seriesId: args.seriesId },
       );
     }
-    return updated;
+    return { rule: updated, isUpdated: isCurrentlyTemplate };
   }
 }

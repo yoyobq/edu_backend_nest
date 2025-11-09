@@ -6,6 +6,7 @@ import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { GraphQLModule } from '@nestjs/graphql';
 import { PinoLogger } from 'nestjs-pino';
+import type { Request } from 'express';
 
 /**
  * GraphQL 配置工厂函数
@@ -19,6 +20,8 @@ const createGraphQLConfig = (config: ConfigService): ApolloDriverConfig => ({
   sortSchema: config.get<boolean>('graphql.sortSchema'),
   subscriptions: config.get('graphql.subscriptions'),
   plugins: [ApolloServerPluginLandingPageLocalDefault()],
+  // 将原始请求对象注入到 GraphQL 上下文，供 JwtAuthGuard 与 RolesGuard 读取 Authorization 头
+  context: ({ req }: { req: Request }) => ({ req }),
 });
 
 /**

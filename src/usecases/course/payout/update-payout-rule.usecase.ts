@@ -9,7 +9,8 @@ import { type UsecaseSession } from '@src/types/auth/session.types';
 /**
  * 更新结算规则用例
  *
- * 支持元信息更新（描述、启停、模板标记）以及规则 JSON 更新两种操作。
+ * 仅支持元信息更新（描述、启停）与规则 JSON 更新两种操作。
+ * 模板 ↔ 绑定 的切换由 bindPayoutRule/unbindPayoutRule 负责，不在 updateMeta 中修改。
  */
 @Injectable()
 export class UpdatePayoutRuleUsecase {
@@ -21,14 +22,13 @@ export class UpdatePayoutRuleUsecase {
    */
   async updateMeta(args: {
     readonly id: number;
-    readonly patch: Partial<
-      Pick<PayoutSeriesRuleEntity, 'description' | 'isActive' | 'isTemplate'>
-    >;
+    readonly patch: Partial<Pick<PayoutSeriesRuleEntity, 'description' | 'isActive'>>;
     readonly session: UsecaseSession;
   }): Promise<PayoutSeriesRuleEntity> {
     try {
       const found = await this.ruleService.findById(args.id);
       if (!found) throw new DomainError(PAYOUT_RULE_ERROR.RULE_NOT_FOUND, '结算规则不存在');
+
       const updated = await this.ruleService.updateMeta(args.id, {
         ...args.patch,
         updatedBy: args.session.accountId,
@@ -49,16 +49,16 @@ export class UpdatePayoutRuleUsecase {
     readonly ruleJson: PayoutRuleJson;
     readonly session: UsecaseSession;
   }): Promise<PayoutSeriesRuleEntity> {
-    // 基础校验：base 需要为非负，factors 键值为有限数字
+    // 统一 JSON 校验：base 非负，factors 为有限数字
     if (args.ruleJson.base < 0) {
-      throw new DomainError(PAYOUT_RULE_ERROR.INVALID_PARAMS, 'rule_json.base 不能为负数', {
+      throw new DomainError(PAYOUT_RULE_ERROR.JSON_INVALID, 'rule_json.base 不能为负数', {
         base: args.ruleJson.base,
       });
     }
     for (const [k, v] of Object.entries(args.ruleJson.factors)) {
       if (typeof v !== 'number' || Number.isNaN(v)) {
         throw new DomainError(
-          PAYOUT_RULE_ERROR.INVALID_PARAMS,
+          PAYOUT_RULE_ERROR.JSON_INVALID,
           'rule_json.factors 的值必须为有效数字',
           { key: k, value: v },
         );

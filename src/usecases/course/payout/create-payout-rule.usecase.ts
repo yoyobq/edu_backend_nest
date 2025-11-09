@@ -30,11 +30,30 @@ export class CreatePayoutRuleUsecase {
     readonly isActive?: number; // 1=启用，0=停用
     readonly session: UsecaseSession;
   }): Promise<{ rule: PayoutSeriesRuleEntity; isNewlyCreated: boolean }> {
-    // 基础校验：ruleJson.base 不得为负
+    // 统一 JSON 校验：base 非负，factors 为有限数字
     if (args.ruleJson.base < 0) {
-      throw new DomainError(PAYOUT_RULE_ERROR.INVALID_PARAMS, 'rule_json.base 不能为负数', {
+      throw new DomainError(PAYOUT_RULE_ERROR.JSON_INVALID, 'rule_json.base 不能为负数', {
         base: args.ruleJson.base,
       });
+    }
+    for (const [k, v] of Object.entries(args.ruleJson.factors)) {
+      if (typeof v !== 'number' || Number.isNaN(v)) {
+        throw new DomainError(
+          PAYOUT_RULE_ERROR.JSON_INVALID,
+          'rule_json.factors 的值必须为有效数字',
+          { key: k, value: v },
+        );
+      }
+    }
+
+    // 模板/系列互斥校验：seriesId=null → isTemplate 应为 1；seriesId!=null → isTemplate 应为 0
+    const desiredIsTemplate = args.seriesId == null ? 1 : 0;
+    if (typeof args.isTemplate === 'number' && args.isTemplate !== desiredIsTemplate) {
+      throw new DomainError(
+        PAYOUT_RULE_ERROR.INVALID_TEMPLATE_FLAG,
+        'isTemplate 与 seriesId 不一致：模板/系列互斥违规',
+        { seriesId: args.seriesId, isTemplate: args.isTemplate, expected: desiredIsTemplate },
+      );
     }
 
     try {
@@ -49,7 +68,7 @@ export class CreatePayoutRuleUsecase {
         seriesId: args.seriesId,
         ruleJson: args.ruleJson,
         description: args.description ?? null,
-        isTemplate: args.isTemplate ?? (args.seriesId == null ? 1 : 0),
+        isTemplate: args.isTemplate ?? desiredIsTemplate,
         isActive: args.isActive ?? 1,
         createdBy: args.session.accountId,
       });

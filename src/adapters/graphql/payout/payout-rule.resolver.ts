@@ -1,14 +1,13 @@
 // src/adapters/graphql/payout/payout-rule.resolver.ts
 import { mapJwtToUsecaseSession } from '@app-types/auth/session.types';
 import { JwtPayload } from '@app-types/jwt.types';
-import type { ICursorSigner } from '@core/pagination/pagination.ports';
-import type { CursorToken } from '@core/pagination/pagination.types';
-import { Inject, UseGuards } from '@nestjs/common';
+import { UseGuards } from '@nestjs/common';
 import { Args, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { currentUser } from '@src/adapters/graphql/decorators/current-user.decorator';
+import { Roles } from '@src/adapters/graphql/decorators/roles.decorator';
 import { JwtAuthGuard } from '@src/adapters/graphql/guards/jwt-auth.guard';
+import { RolesGuard } from '@src/adapters/graphql/guards/roles.guard';
 import { mapGqlToCoreParams } from '@src/adapters/graphql/pagination.mapper';
-import { PAGINATION_TOKENS } from '@src/modules/common/tokens/pagination.tokens';
 import { BindPayoutRuleUsecase } from '@src/usecases/course/payout/bind-payout-rule.usecase';
 import { CreatePayoutRuleUsecase } from '@src/usecases/course/payout/create-payout-rule.usecase';
 import { DeactivatePayoutRuleUsecase } from '@src/usecases/course/payout/deactivate-payout-rule.usecase';
@@ -54,9 +53,63 @@ export class PayoutRuleResolver {
     private readonly getUsecase: GetPayoutRuleUsecase,
     private readonly reactivateUsecase: ReactivatePayoutRuleUsecase,
     private readonly deactivateUsecase: DeactivatePayoutRuleUsecase,
-    // 注入游标签名器用于解析/签名游标字符串
-    @Inject(PAGINATION_TOKENS.CURSOR_SIGNER) private readonly cursorSigner: ICursorSigner,
   ) {}
+
+  /**
+   * 构造搜索过滤（纯函数，无副作用）
+   * 说明：将 GraphQL 输入的宽类型转换为局部强类型，再安全映射到 SearchParams 允许的 Record
+   * @param input GraphQL 搜索输入
+   * @returns SearchParams.filters 兼容的键值对
+   */
+  private buildSearchFilters(
+    input: SearchPayoutRulesInput,
+  ): Readonly<Record<string, string | number | boolean>> {
+    const normalized: Record<string, string | number | boolean | undefined> = {
+      isTemplate: this.toTinyInt(input.isTemplate),
+      isActive: this.toTinyInt(input.isActive),
+      seriesId: this.toNumberOrUndefined(input.seriesId),
+      // 语义：仅模板 → 通过 onlyTemplates 在服务层映射为 series_id IS NULL
+      onlyTemplates: input.onlyTemplates === true ? true : undefined,
+      createdFrom: input.createdFrom ?? undefined,
+      createdTo: input.createdTo ?? undefined,
+      updatedFrom: input.updatedFrom ?? undefined,
+      updatedTo: input.updatedTo ?? undefined,
+    };
+    return this.pickDefined(normalized);
+  }
+
+  /**
+   * 将可选布尔值规范化为 TINYINT（0/1），未提供返回 undefined
+   * @param value 布尔输入
+   * @returns 0 / 1 或 undefined
+   */
+  private toTinyInt(value?: boolean): number | undefined {
+    return typeof value === 'boolean' ? (value ? 1 : 0) : undefined;
+  }
+
+  /**
+   * 仅接受 number 类型，其他返回 undefined（避免 any）
+   * @param value 可能是 number 的输入
+   * @returns number 或 undefined
+   */
+  private toNumberOrUndefined(value: unknown): number | undefined {
+    return typeof value === 'number' ? value : undefined;
+  }
+
+  /**
+   * 过滤出对象中已定义的键值，返回 SearchParams 兼容类型
+   * @param obj 含可选字段的对象
+   * @returns 仅包含已定义字段的只读键值对
+   */
+  private pickDefined(
+    obj: Record<string, string | number | boolean | undefined>,
+  ): Readonly<Record<string, string | number | boolean>> {
+    const out: Record<string, string | number | boolean> = {};
+    for (const [k, v] of Object.entries(obj)) {
+      if (v !== undefined) out[k] = v;
+    }
+    return out;
+  }
 
   /**
    * 将实体映射为 GraphQL 输出类型
@@ -78,6 +131,7 @@ export class PayoutRuleResolver {
     readonly createdBy: number | null;
     readonly updatedBy: number | null;
   }): PayoutSeriesRuleType {
+    // 适配层输出：将 TINYINT 数值映射为 GraphQL Boolean
     return {
       id: e.id,
       seriesId: e.seriesId,
@@ -87,8 +141,8 @@ export class PayoutRuleResolver {
         factors: e.ruleJson.factors,
       },
       description: e.description,
-      isTemplate: e.isTemplate,
-      isActive: e.isActive,
+      isTemplate: !!e.isTemplate,
+      isActive: !!e.isActive,
       createdAt: e.createdAt,
       updatedAt: e.updatedAt,
       createdBy: e.createdBy,
@@ -99,7 +153,8 @@ export class PayoutRuleResolver {
   /**
    * 创建结算规则或模板
    */
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('manager')
   @Mutation(() => CreatePayoutRuleResult, { description: '创建结算规则或模板' })
   async createPayoutRule(
     @Args('input') input: CreatePayoutRuleInput,
@@ -110,14 +165,17 @@ export class PayoutRuleResolver {
       seriesId: input.seriesId ?? null,
       ruleJson: input.ruleJson,
       description: input.description ?? null,
-      isTemplate: input.isTemplate,
-      isActive: input.isActive,
+      // 输入布尔 -> 用例层依旧是 number（0/1）
+      isTemplate: typeof input.isTemplate === 'boolean' ? (input.isTemplate ? 1 : 0) : undefined,
+      isActive: typeof input.isActive === 'boolean' ? (input.isActive ? 1 : 0) : undefined,
       session,
     });
     return { rule: this.toDTO(result.rule), isNewlyCreated: result.isNewlyCreated };
   }
 
   /** 查询：按 ID */
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('manager')
   @Query(() => PayoutSeriesRuleType, { description: '按 ID 查询结算规则' })
   async payoutRuleById(
     @Args('input') input: GetPayoutRuleByIdInput,
@@ -127,6 +185,8 @@ export class PayoutRuleResolver {
   }
 
   /** 查询：按系列 ID */
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('manager')
   @Query(() => PayoutSeriesRuleType, { description: '按系列 ID 查询课程绑定规则' })
   async payoutRuleBySeries(
     @Args('input') input: GetPayoutRuleBySeriesInput,
@@ -136,20 +196,23 @@ export class PayoutRuleResolver {
   }
 
   /** 列表 */
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('manager', 'coach')
   @Query(() => ListPayoutRulesResult, { description: '列出结算规则/模板' })
   async listPayoutRules(
     @Args('input') input: ListPayoutRulesInput,
   ): Promise<ListPayoutRulesResult> {
     const items = await this.listUsecase.execute({
-      isTemplate: input.isTemplate,
-      isActive: input.isActive,
+      isTemplate: typeof input.isTemplate === 'boolean' ? (input.isTemplate ? 1 : 0) : undefined,
+      isActive: typeof input.isActive === 'boolean' ? (input.isActive ? 1 : 0) : undefined,
       seriesId: input.seriesId ?? undefined,
     });
     return { items: items.map((e) => this.toDTO(e)) };
   }
 
   /** 更新元信息 */
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('manager')
   @Mutation(() => UpdatePayoutRuleResult, { description: '更新结算规则元信息' })
   async updatePayoutRuleMeta(
     @Args('input') input: UpdatePayoutRuleMetaInput,
@@ -160,8 +223,7 @@ export class PayoutRuleResolver {
       id: input.id,
       patch: {
         description: input.description ?? undefined,
-        isActive: input.isActive,
-        isTemplate: input.isTemplate,
+        isActive: typeof input.isActive === 'boolean' ? (input.isActive ? 1 : 0) : undefined,
       },
       session,
     });
@@ -169,7 +231,8 @@ export class PayoutRuleResolver {
   }
 
   /** 更新 JSON */
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('manager')
   @Mutation(() => UpdatePayoutRuleResult, { description: '更新结算规则 JSON' })
   async updatePayoutRuleJson(
     @Args('input') input: UpdatePayoutRuleJsonInput,
@@ -185,23 +248,25 @@ export class PayoutRuleResolver {
   }
 
   /** 绑定模板到系列 */
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('manager')
   @Mutation(() => BindOrUnbindPayoutRuleResult, { description: '绑定模板到课程系列' })
   async bindPayoutRule(
     @Args('input') input: BindPayoutRuleInput,
     @currentUser() user: JwtPayload,
   ): Promise<BindOrUnbindPayoutRuleResult> {
     const session = mapJwtToUsecaseSession(user);
-    const rule = await this.bindUsecase.execute({
+    const result = await this.bindUsecase.execute({
       ruleId: input.ruleId,
       seriesId: input.seriesId,
       session,
     });
-    return { rule: this.toDTO(rule) };
+    return { rule: this.toDTO(result.rule), isUpdated: result.isUpdated };
   }
 
   /** 解绑课程系列 */
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('manager')
   @Mutation(() => BindOrUnbindPayoutRuleResult, { description: '解绑课程系列与结算规则' })
   async unbindPayoutRule(
     @Args('input') input: UnbindPayoutRuleInput,
@@ -209,11 +274,12 @@ export class PayoutRuleResolver {
   ): Promise<BindOrUnbindPayoutRuleResult> {
     const session = mapJwtToUsecaseSession(user);
     const rule = await this.unbindUsecase.execute({ ruleId: input.ruleId, session });
-    return { rule: this.toDTO(rule) };
+    return { rule: this.toDTO(rule), isUpdated: true };
   }
 
   /** 停用 */
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('manager')
   @Mutation(() => TogglePayoutRuleActiveResult, { description: '停用结算规则' })
   async deactivatePayoutRule(
     @Args('input') input: TogglePayoutRuleActiveInput,
@@ -225,7 +291,8 @@ export class PayoutRuleResolver {
   }
 
   /** 启用 */
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('manager')
   @Mutation(() => TogglePayoutRuleActiveResult, { description: '启用结算规则' })
   async reactivatePayoutRule(
     @Args('input') input: TogglePayoutRuleActiveInput,
@@ -243,27 +310,18 @@ export class PayoutRuleResolver {
    * - 排序 createdAt / id / seriesId / isActive / isTemplate
    * - 支持 OFFSET / CURSOR
    */
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('manager')
   @Query(() => ListPayoutRulesResult, { description: '搜索与分页结算规则（不含 JSON 细项）' })
   async searchPayoutRules(
     @Args('input') input: SearchPayoutRulesInput,
   ): Promise<ListPayoutRulesResult> {
     const page = mapGqlToCoreParams({ ...input.pagination, sorts: input.sorts });
-    const after = page.mode === 'CURSOR' ? page.after : undefined;
-    const token: CursorToken | undefined = after ? this.cursorSigner.verify(after) : undefined;
-
-    const filters: Record<string, string | number | boolean> = {};
-    if (typeof input.isTemplate === 'number') filters.isTemplate = input.isTemplate;
-    if (typeof input.isActive === 'number') filters.isActive = input.isActive;
-    if (typeof input.seriesId === 'number') filters.seriesId = input.seriesId;
-    if (input.seriesId === null) filters.seriesId = null as unknown as number; // 占位：服务层特判 IS NULL
-    if (input.createdFrom) filters.createdFrom = input.createdFrom;
-    if (input.createdTo) filters.createdTo = input.createdTo;
-    if (input.updatedFrom) filters.updatedFrom = input.updatedFrom;
-    if (input.updatedTo) filters.updatedTo = input.updatedTo;
+    // 过滤构造下沉为私有纯函数，降低分支复杂度
+    const filters = this.buildSearchFilters(input);
 
     const res = await this.listUsecase.searchPaged({
       params: { query: input.query, filters, pagination: page },
-      cursorToken: token,
     });
 
     return { items: res.items.map((e) => this.toDTO(e)) };

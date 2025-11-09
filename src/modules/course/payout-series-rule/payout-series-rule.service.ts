@@ -88,9 +88,7 @@ export class PayoutSeriesRuleService {
    */
   async updateMeta(
     id: number,
-    patch: Partial<
-      Pick<PayoutSeriesRuleEntity, 'description' | 'isActive' | 'isTemplate' | 'updatedBy'>
-    >,
+    patch: Partial<Pick<PayoutSeriesRuleEntity, 'description' | 'isActive' | 'updatedBy'>>,
   ): Promise<PayoutSeriesRuleEntity> {
     await this.ruleRepository.update({ id }, patch);
     const fresh = await this.ruleRepository.findOne({ where: { id } });
@@ -225,6 +223,7 @@ export class PayoutSeriesRuleService {
         'isTemplate',
         'isActive',
         'seriesId',
+        'onlyTemplates',
         'createdFrom',
         'createdTo',
         'updatedFrom',
@@ -261,6 +260,10 @@ export class PayoutSeriesRuleService {
         }
         if (field === 'seriesId') {
           return { clause: `${column} = :seriesId`, params: { seriesId: value } };
+        }
+        // 语义化过滤：仅模板（ seriesId IS NULL ）
+        if (field === 'onlyTemplates' && value === true) {
+          return { clause: 'psr.series_id IS NULL', params: {} };
         }
         if (field === 'isTemplate') {
           return { clause: `${column} = :isTemplate`, params: { isTemplate: value } };

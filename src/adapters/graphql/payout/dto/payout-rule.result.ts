@@ -52,6 +52,9 @@ export class UpdatePayoutRuleResult {
 export class BindOrUnbindPayoutRuleResult {
   @Field(() => PayoutSeriesRuleType, { description: '更新后的结算规则实体' })
   rule!: PayoutSeriesRuleType;
+
+  @Field(() => Boolean, { nullable: true, description: '是否发生状态变更（幂等为 false）' })
+  isUpdated?: boolean;
 }
 
 /**
