@@ -6,7 +6,7 @@ import { JwtPayload } from '@app-types/jwt.types';
 import { UseGuards } from '@nestjs/common';
 import { Args, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { mapGqlToCoreParams } from '@src/adapters/graphql/pagination.mapper';
-import { CourseCatalogService } from '@src/modules/course/catalogs/course-catalog.service';
+import { GetCatalogByLevelUsecase } from '@src/usecases/course/catalogs/get-catalog-by-level.usecase';
 import { CreateCatalogUsecase } from '@src/usecases/course/catalogs/create-catalog.usecase';
 import { DeactivateCatalogUsecase } from '@src/usecases/course/catalogs/deactivate-catalog.usecase';
 import { ListCatalogsUsecase } from '@src/usecases/course/catalogs/list-catalogs.usecase';
@@ -39,7 +39,7 @@ import {
 @Resolver(() => CourseCatalogDTO)
 export class CourseCatalogResolver {
   constructor(
-    private readonly courseCatalogService: CourseCatalogService,
+    private readonly getCatalogByLevelUsecase: GetCatalogByLevelUsecase,
     private readonly listCatalogsUsecase: ListCatalogsUsecase, // 注入列表查询 usecase
     private readonly searchCatalogsUsecase: SearchCatalogsUsecase, // 注入分页搜索 usecase
     private readonly updateCatalogDetailsUsecase: UpdateCatalogDetailsUsecase,
@@ -77,7 +77,7 @@ export class CourseCatalogResolver {
   async courseCatalogByLevel(
     @Args('input') input: GetCatalogByLevelInput,
   ): Promise<CourseCatalogDTO | null> {
-    const catalog = await this.courseCatalogService.findByCourseLevel(input.courseLevel);
+    const catalog = await this.getCatalogByLevelUsecase.execute({ courseLevel: input.courseLevel });
 
     if (!catalog) {
       return null;
