@@ -28,6 +28,7 @@ import { VerificationRecordResolver } from './verification-record/verification-r
 
 // Guards
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { RolesGuard } from './guards/roles.guard';
 
 /**
  * GraphQL 适配器模块
@@ -63,6 +64,7 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
     ManagerResolver, // 注册经理管理 resolver
     // Guards
     JwtAuthGuard,
+    RolesGuard,
   ],
   exports: [
     // Resolvers
@@ -79,6 +81,7 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
     CoachResolver, // 导出教练管理 resolver
     ManagerResolver, // 导出经理管理 resolver
     JwtAuthGuard,
+    RolesGuard,
   ],
 })
 export class GraphQLAdapterModule {}

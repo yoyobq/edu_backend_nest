@@ -2,7 +2,7 @@
 
 import { JwtPayload } from '@app-types/jwt.types';
 import { DomainError, JWT_ERROR, PERMISSION_ERROR } from '@core/common/errors/domain-error';
-import { CanActivate, ExecutionContext, Injectable, SetMetadata } from '@nestjs/common';
+import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { GqlContextType, GqlExecutionContext } from '@nestjs/graphql';
 import { Request } from 'express';
@@ -14,12 +14,8 @@ interface GraphQLContext {
   req: Request & { user?: JwtPayload };
 }
 
-/**
- * 角色权限装饰器
- * @param roleList 允许的角色列表
- */
-// eslint-disable-next-line @typescript-eslint/naming-convention
-export const Roles = (...roleList: string[]) => SetMetadata('roles', roleList);
+// 注意：角色装饰器统一定义在 src/adapters/graphql/decorators/roles.decorator.ts
+// 该守卫不再重复定义 Roles 装饰器，避免混淆与重复实现。
 
 /**
  * 角色权限守卫
