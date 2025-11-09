@@ -4,7 +4,9 @@ import { AuthModule } from '@modules/auth/auth.module';
 import { RegisterModule } from '@modules/register/register.module';
 import { ThirdPartyAuthModule } from '@modules/third-party-auth/third-party-auth.module';
 import { VerificationRecordModule } from '@modules/verification-record/verification-record.module';
+import { PaginationModule } from '@modules/common/pagination.module';
 import { CourseCatalogsModule } from '@src/modules/course/catalogs/course-catalogs.module';
+import { PayoutSeriesRuleModule } from '@src/modules/course/payout-series-rule/payout-series-rule.module';
 
 import { Module } from '@nestjs/common';
 import { AccountInstallerModule } from '@src/modules/account/account-installer.module';
@@ -14,6 +16,7 @@ import { IdentityManagementModule } from '@src/modules/identity-management/ident
 import { AccountResolver } from './account/account.resolver';
 import { AuthResolver } from './auth/auth.resolver';
 import { CourseCatalogResolver } from './course-catalogs/course-catalog.resolver';
+import { PayoutRuleResolver } from './payout/payout-rule.resolver';
 import { CoachResolver } from './identity-management/coach/coach.resolver';
 import { CustomerResolver } from './identity-management/customer/customer.resolver';
 import { IdentityManagementResolver } from './identity-management/identity-management.resolver';
@@ -37,7 +40,10 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
     AuthModule,
     RegisterModule,
     ThirdPartyAuthModule,
+    // 提供 CURSOR_SIGNER 与 PAGINATOR（分页相关的 DI 令牌）
+    PaginationModule,
     CourseCatalogsModule, // 导入课程目录模块
+    PayoutSeriesRuleModule, // 导入结算规则模块，提供 usecase 与服务
     VerificationRecordModule, // 导入验证记录模块（包含验证流程相关组件）
     IdentityManagementModule, // 导入身份管理模块
   ],
@@ -48,6 +54,7 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
     RegistrationResolver,
     ThirdPartyAuthResolver,
     CourseCatalogResolver, // 注册课程目录 resolver
+    PayoutRuleResolver, // 注册结算规则 resolver
     VerificationRecordResolver,
     IdentityManagementResolver, // 注册身份管理 resolver
     LearnerResolver, // 注册学员管理 resolver
@@ -64,6 +71,7 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
     RegistrationResolver,
     ThirdPartyAuthResolver,
     CourseCatalogResolver, // 导出课程目录 resolver
+    PayoutRuleResolver, // 导出结算规则 resolver
     VerificationRecordResolver,
     IdentityManagementResolver, // 导出身份管理 resolver
     LearnerResolver, // 导出学员管理 resolver

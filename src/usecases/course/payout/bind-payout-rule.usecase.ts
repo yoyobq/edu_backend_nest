@@ -1,0 +1,57 @@
+// src/usecases/course/payout/bind-payout-rule.usecase.ts
+import { DomainError, PAYOUT_RULE_ERROR } from '@core/common/errors/domain-error';
+import { Injectable } from '@nestjs/common';
+import { PayoutSeriesRuleEntity } from '@src/modules/course/payout-series-rule/payout-series-rule.entity';
+import { PayoutSeriesRuleService } from '@src/modules/course/payout-series-rule/payout-series-rule.service';
+import { CourseSeriesService } from '@src/modules/course/series/course-series.service';
+import { type UsecaseSession } from '@src/types/auth/session.types';
+
+/**
+ * 绑定结算规则到课程系列用例
+ *
+ * 将模板规则绑定到指定课程系列，若该系列已有规则则失败。
+ */
+@Injectable()
+export class BindPayoutRuleUsecase {
+  constructor(
+    private readonly ruleService: PayoutSeriesRuleService,
+    private readonly seriesService: CourseSeriesService,
+  ) {}
+
+  /**
+   * 执行绑定
+   * @param args 参数对象
+   */
+  async execute(args: {
+    readonly ruleId: number; // 模板规则 ID
+    readonly seriesId: number; // 课程系列 ID
+    readonly session: UsecaseSession;
+  }): Promise<PayoutSeriesRuleEntity> {
+    // 先确认 series 存在
+    const series = await this.seriesService.findById(args.seriesId);
+    if (!series) {
+      throw new DomainError(PAYOUT_RULE_ERROR.INVALID_PARAMS, '课程系列不存在', {
+        seriesId: args.seriesId,
+      });
+    }
+
+    // 再确认 rule 存在
+    const rule = await this.ruleService.findById(args.ruleId);
+    if (!rule) throw new DomainError(PAYOUT_RULE_ERROR.RULE_NOT_FOUND, '结算规则不存在');
+
+    // 尝试绑定（服务层对冲突返回 null）
+    const updated = await this.ruleService.bindToSeries(
+      args.ruleId,
+      args.seriesId,
+      args.session.accountId,
+    );
+    if (!updated) {
+      throw new DomainError(
+        PAYOUT_RULE_ERROR.SERIES_RULE_CONFLICT,
+        '该课程系列已绑定其他结算规则，无法重复绑定',
+        { seriesId: args.seriesId },
+      );
+    }
+    return updated;
+  }
+}

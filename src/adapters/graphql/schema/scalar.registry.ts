@@ -14,5 +14,8 @@ export function registerScalars(): { scalars: string[] } {
   // registerScalarType(GraphQLJSON, 'JSON');
   // registeredScalars.push('JSON');
 
+  // 启用 JSON 标量类型（由 @Scalar('JSON') 提供者注册），这里仅记录类型名称用于指纹生成
+  registeredScalars.push('JSON');
+
   return { scalars: registeredScalars };
 }
