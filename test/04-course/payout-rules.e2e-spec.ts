@@ -30,6 +30,8 @@ describe('Payout Rules (e2e)', () => {
   let catalogId: number;
   let seriesId: number;
   let seriesId2: number;
+  let coachSeriesId: number;
+  let coachBoundRuleId: number;
 
   // 统一基础规则 JSON，用于创建与更新
   const baseRuleJson = {
@@ -75,6 +77,63 @@ describe('Payout Rules (e2e)', () => {
     catalogId = await ensureTestCatalog();
     seriesId = await createTestSeries(catalogId);
     seriesId2 = await createTestSeries(catalogId);
+
+    // 为 coach 创建一个自有系列（用于权限正例）
+    const coachId = await (async (): Promise<number> => {
+      const resp = await request(app.getHttpServer())
+        .post('/graphql')
+        .send({
+          query: `
+            mutation Login($input: AuthLoginInput!) {
+              login(input: $input) {
+                role
+                identity { ... on CoachType { id } }
+              }
+            }
+          `,
+          variables: {
+            input: {
+              loginName: testAccountsConfig.coach.loginName,
+              loginPassword: testAccountsConfig.coach.loginPassword,
+              type: LoginTypeEnum.PASSWORD,
+              audience: AudienceTypeEnum.DESKTOP,
+            },
+          },
+        })
+        .expect(200);
+      if (resp.body.errors)
+        throw new Error(`读取教练身份失败: ${JSON.stringify(resp.body.errors)}`);
+      return resp.body.data.login.identity.id as number;
+    })();
+    coachSeriesId = await (async () => {
+      const repo = dataSource.getRepository(CourseSeriesEntity);
+      const now = new Date();
+      const start = new Date(now.getTime() + 24 * 3600 * 1000);
+      const end = new Date(now.getTime() + 8 * 24 * 3600 * 1000);
+      const created = await repo.save(
+        repo.create({
+          catalogId,
+          publisherType: PublisherType.COACH,
+          publisherId: coachId,
+          title: `测试系列 ${Date.now()}`,
+          description: '自动化测试系列（教练自有）',
+          venueType: VenueType.SANDA_GYM,
+          classMode: ClassMode.SMALL_CLASS,
+          startDate: start.toISOString().slice(0, 10),
+          endDate: end.toISOString().slice(0, 10),
+          recurrenceRule: null,
+          leaveCutoffHours: 12,
+          pricePerSession: '100.00',
+          teachingFeeRef: '80.00',
+          maxLearners: 8,
+          status: CourseSeriesStatus.PLANNED,
+          remark: 'E2E 测试用系列（教练自有）',
+          createdBy: null,
+          updatedBy: null,
+        }),
+      );
+      return created.id;
+    })();
   }, 60000);
 
   afterAll(async () => {
@@ -183,8 +242,8 @@ describe('Payout Rules (e2e)', () => {
    */
   const cleanupPayoutRules = async (): Promise<void> => {
     await dataSource.query(
-      'DELETE FROM payout_series_rule WHERE series_id IS NULL OR series_id IN (?, ?)',
-      [seriesId ?? 0, seriesId2 ?? 0],
+      'DELETE FROM payout_series_rule WHERE series_id IS NULL OR series_id IN (?, ?, ?)',
+      [seriesId ?? 0, seriesId2 ?? 0, coachSeriesId ?? 0],
     );
   };
 
@@ -194,6 +253,8 @@ describe('Payout Rules (e2e)', () => {
   const cleanupSeriesAndCatalog = async (): Promise<void> => {
     if (seriesId) await dataSource.query('DELETE FROM course_series WHERE id = ?', [seriesId]);
     if (seriesId2) await dataSource.query('DELETE FROM course_series WHERE id = ?', [seriesId2]);
+    if (coachSeriesId)
+      await dataSource.query('DELETE FROM course_series WHERE id = ?', [coachSeriesId]);
     if (catalogId) await dataSource.query('DELETE FROM course_catalogs WHERE id = ?', [catalogId]);
   };
 
@@ -599,15 +660,47 @@ describe('Payout Rules (e2e)', () => {
     });
 
     it('权限校验：payoutRuleBySeries 仅 manager 可访问，coach 应失败', async () => {
-      const query = `
+      // coach 访问他人系列应失败（权限不足 / 非归属）
+      const queryOther = `
         query {
           payoutRuleBySeries(input: { seriesId: ${seriesId} }) { id }
         }
       `;
-      const res = await executeGQL(query, coachToken).expect(200);
-      expect(Array.isArray(res.body.errors)).toBe(true);
-      const err = res.body.errors[0];
-      expect(err.extensions?.errorCode).toBe('INSUFFICIENT_PERMISSIONS');
+      const resOther = await executeGQL(queryOther, coachToken).expect(200);
+      expect(Array.isArray(resOther.body.errors)).toBe(true);
+      const errOther = resOther.body.errors[0];
+      expect(errOther.extensions?.errorCode).toBe('INSUFFICIENT_PERMISSIONS');
+
+      // 先为 coach 自有系列创建规则（由 manager 执行，绑定到 coachSeriesId）
+      const createRes = await executeGQL(
+        `
+          mutation {
+            createPayoutRule(input: {
+              seriesId: ${coachSeriesId},
+              ruleJson: { base: 130, explain: "coach 自有系列规则", factors: ${toGqlFactors({ own: 1.0 })} },
+              description: "coach 系列绑定规则",
+              isTemplate: false,
+              isActive: true
+            }) { rule { id seriesId isTemplate isActive } isNewlyCreated }
+          }
+        `,
+        managerToken,
+      ).expect(200);
+      if (createRes.body.errors)
+        throw new Error(`GraphQL 错误: ${JSON.stringify(createRes.body.errors)}`);
+      coachBoundRuleId = createRes.body.data.createPayoutRule.rule.id as number;
+
+      // coach 访问自身系列应成功
+      const querySelf = `
+        query {
+          payoutRuleBySeries(input: { seriesId: ${coachSeriesId} }) { id seriesId isTemplate isActive }
+        }
+      `;
+      const resSelf = await executeGQL(querySelf, coachToken).expect(200);
+      expect(resSelf.body.errors).toBeUndefined();
+      expect(resSelf.body.data?.payoutRuleBySeries?.id).toBe(coachBoundRuleId);
+      expect(resSelf.body.data?.payoutRuleBySeries?.seriesId).toBe(coachSeriesId);
+      expect(resSelf.body.data?.payoutRuleBySeries?.isTemplate).toBe(false);
     });
 
     it('权限校验：listPayoutRules 允许 coach 访问', async () => {

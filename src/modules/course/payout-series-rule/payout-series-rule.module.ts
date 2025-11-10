@@ -13,6 +13,7 @@ import { DeactivatePayoutRuleUsecase } from '@src/usecases/course/payout/deactiv
 import { BindPayoutRuleUsecase } from '@src/usecases/course/payout/bind-payout-rule.usecase';
 import { UnbindPayoutRuleUsecase } from '@src/usecases/course/payout/unbind-payout-rule.usecase';
 import { CourseSeriesModule } from '../series/course-series.module';
+import { CoachServiceModule } from '@src/modules/account/identities/training/coach/coach-service.module';
 import { PaginationModule } from '@src/modules/common/pagination.module';
 import { SearchModule } from '@src/modules/common/search.module';
 
@@ -24,6 +25,7 @@ import { SearchModule } from '@src/modules/common/search.module';
   imports: [
     TypeOrmModule.forFeature([PayoutSeriesRuleEntity]),
     CourseSeriesModule,
+    CoachServiceModule,
     // 提供 CURSOR_SIGNER 与 PAGINATOR 的绑定（用于 ListPayoutRulesUsecase 注入）
     PaginationModule,
     SearchModule,

@@ -186,12 +186,15 @@ export class PayoutRuleResolver {
 
   /** 查询：按系列 ID */
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('manager')
+  @Roles('manager', 'coach')
   @Query(() => PayoutSeriesRuleType, { description: '按系列 ID 查询课程绑定规则' })
   async payoutRuleBySeries(
     @Args('input') input: GetPayoutRuleBySeriesInput,
+    @currentUser() user: JwtPayload,
   ): Promise<PayoutSeriesRuleType> {
-    const rule = await this.getUsecase.bySeries({ seriesId: input.seriesId });
+    // 将当前用户映射为用例会话，交由用例层进行权限与归属校验
+    const session = mapJwtToUsecaseSession(user);
+    const rule = await this.getUsecase.bySeries({ seriesId: input.seriesId, session });
     return this.toDTO(rule);
   }
 
@@ -201,11 +204,14 @@ export class PayoutRuleResolver {
   @Query(() => ListPayoutRulesResult, { description: '列出结算规则/模板' })
   async listPayoutRules(
     @Args('input') input: ListPayoutRulesInput,
+    @currentUser() user: JwtPayload,
   ): Promise<ListPayoutRulesResult> {
+    const session = mapJwtToUsecaseSession(user);
     const items = await this.listUsecase.execute({
       isTemplate: typeof input.isTemplate === 'boolean' ? (input.isTemplate ? 1 : 0) : undefined,
       isActive: typeof input.isActive === 'boolean' ? (input.isActive ? 1 : 0) : undefined,
       seriesId: input.seriesId ?? undefined,
+      session,
     });
     return { items: items.map((e) => this.toDTO(e)) };
   }
