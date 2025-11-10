@@ -26,6 +26,7 @@ describe('Payout Rules (e2e)', () => {
   let dataSource: DataSource;
 
   let managerToken: string;
+  let coachToken: string;
 
   let catalogId: number;
   let seriesId: number;
@@ -71,6 +72,12 @@ describe('Payout Rules (e2e)', () => {
     managerToken = await loginAndGetToken(
       testAccountsConfig.manager.loginName,
       testAccountsConfig.manager.loginPassword,
+    );
+
+    // 获取 coach 账号的 access token，用于权限负例校验
+    coachToken = await loginAndGetToken(
+      testAccountsConfig.coach.loginName,
+      testAccountsConfig.coach.loginPassword,
     );
 
     // 课程目录与系列准备
@@ -545,6 +552,102 @@ describe('Payout Rules (e2e)', () => {
       const res = await executeGQL(query, managerToken).expect(200);
       expect(res.body.errors).toBeUndefined();
       expect(res.body.data?.searchPayoutRules?.items).toBeDefined();
+    });
+  });
+
+  describe('权限负例：coach 写操作应返回 INSUFFICIENT_PERMISSIONS', () => {
+    let coachTestRuleId: number;
+
+    beforeAll(async () => {
+      // 预置一个模板规则用于 bind/update 测试（由 manager 创建）
+      const mutation = `
+        mutation {
+          createPayoutRule(input: {
+            ruleJson: { base: 180, explain: "coach 权限负例预置模板", factors: ${toGqlFactors({ peak: 1.1 })} },
+            description: "coach 权限负例预置模板",
+            isTemplate: true,
+            isActive: true
+          }) { rule { id } isNewlyCreated }
+        }
+      `;
+      const res = await executeGQL(mutation, managerToken).expect(200);
+      if (res.body.errors) throw new Error(`预置模板失败: ${JSON.stringify(res.body.errors)}`);
+      coachTestRuleId = res.body.data.createPayoutRule.rule.id as number;
+    });
+
+    /**
+     * coach 角色调用 createPayoutRule 应返回 INSUFFICIENT_PERMISSIONS
+     */
+    it('权限负例：coach 调用 createPayoutRule 返回 INSUFFICIENT_PERMISSIONS', async () => {
+      const mutation = `
+        mutation {
+          createPayoutRule(input: {
+            ruleJson: { base: 160, explain: "coach create 负例", factors: ${toGqlFactors({ offpeak: 0.95 })} },
+            description: "coach create 负例",
+            isTemplate: true,
+            isActive: true
+          }) { rule { id } isNewlyCreated }
+        }
+      `;
+      const res = await executeGQL(mutation, coachToken).expect(200);
+      expect(Array.isArray(res.body.errors)).toBe(true);
+      const err = res.body.errors[0];
+      expect(err.extensions.errorCode).toBe('INSUFFICIENT_PERMISSIONS');
+    });
+
+    /**
+     * coach 角色调用 bindPayoutRule 应返回 INSUFFICIENT_PERMISSIONS
+     */
+    it('权限负例：coach 调用 bindPayoutRule 返回 INSUFFICIENT_PERMISSIONS', async () => {
+      const mutation = `
+        mutation {
+          bindPayoutRule(input: { ruleId: ${coachTestRuleId}, seriesId: ${seriesId} }) {
+            rule { id seriesId isTemplate }
+            isUpdated
+          }
+        }
+      `;
+      const res = await executeGQL(mutation, coachToken).expect(200);
+      expect(Array.isArray(res.body.errors)).toBe(true);
+      const err = res.body.errors[0];
+      expect(err.extensions.errorCode).toBe('INSUFFICIENT_PERMISSIONS');
+    });
+
+    /**
+     * coach 角色调用 updatePayoutRuleMeta 应返回 INSUFFICIENT_PERMISSIONS
+     */
+    it('权限负例：coach 调用 updatePayoutRuleMeta 返回 INSUFFICIENT_PERMISSIONS', async () => {
+      const mutation = `
+        mutation {
+          updatePayoutRuleMeta(input: { id: ${coachTestRuleId}, description: "coach 更新元信息", isActive: false }) {
+            rule { id description isActive }
+          }
+        }
+      `;
+      const res = await executeGQL(mutation, coachToken).expect(200);
+      expect(Array.isArray(res.body.errors)).toBe(true);
+      const err = res.body.errors[0];
+      expect(err.extensions.errorCode).toBe('INSUFFICIENT_PERMISSIONS');
+    });
+
+    /**
+     * coach 角色调用 updatePayoutRuleJson 应返回 INSUFFICIENT_PERMISSIONS
+     */
+    it('权限负例：coach 调用 updatePayoutRuleJson 返回 INSUFFICIENT_PERMISSIONS', async () => {
+      const mutation = `
+        mutation {
+          updatePayoutRuleJson(input: {
+            id: ${coachTestRuleId},
+            ruleJson: { base: 200, explain: "coach 更新 JSON", factors: ${toGqlFactors({ levelB: 1.02 })} }
+          }) {
+            rule { id ruleJson { base explain } }
+          }
+        }
+      `;
+      const res = await executeGQL(mutation, coachToken).expect(200);
+      expect(Array.isArray(res.body.errors)).toBe(true);
+      const err = res.body.errors[0];
+      expect(err.extensions.errorCode).toBe('INSUFFICIENT_PERMISSIONS');
     });
   });
 

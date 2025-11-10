@@ -1,4 +1,4 @@
-// src/usecases/identity-management/coach/perform-upgrade-to-coach.usecase.ts
+// src/usecases/identity-management/coach/upgrade-to-coach.usecase.ts
 import { AudienceTypeEnum, IdentityTypeEnum } from '@app-types/models/account.types';
 import { Injectable } from '@nestjs/common';
 import { ACCOUNT_ERROR, DomainError } from '@src/core/common/errors/domain-error';
@@ -11,7 +11,10 @@ import { EntityManager } from 'typeorm';
 /**
  * 升级到教练用例的输入参数
  */
-export interface PerformUpgradeToCoachParams {
+/**
+ * 升级到教练用例的输入参数
+ */
+export interface UpgradeToCoachParams {
   /** 账户 ID */
   accountId: number;
   /** 教练姓名 */
@@ -33,7 +36,10 @@ export interface PerformUpgradeToCoachParams {
 /**
  * 升级到教练用例的返回结果
  */
-export interface PerformUpgradeToCoachResult {
+/**
+ * 升级到教练用例的返回结果
+ */
+export interface UpgradeToCoachResult {
   /** 操作是否成功（幂等：已是 Coach 则为 false） */
   success: boolean;
   /** 教练 ID */
@@ -55,8 +61,17 @@ export interface PerformUpgradeToCoachResult {
  * 3. 更新用户访问权限组（加入 COACH，移除 REGISTRANT），同步 metaDigest
  * 4. 生成新的 JWT 令牌
  */
+/**
+ * 升级为教练身份用例
+ *
+ * 负责将普通用户升级为教练身份，包括：
+ * 1. 幂等检查：若已是教练，清理 accessGroup 中的 REGISTRANT 并返回
+ * 2. 创建教练记录（由 CoachService 保证幂等）
+ * 3. 更新用户访问权限组（加入 COACH，移除 REGISTRANT），同步 metaDigest
+ * 4. 生成新的 JWT 令牌
+ */
 @Injectable()
-export class PerformUpgradeToCoachUsecase {
+export class UpgradeToCoachUsecase {
   constructor(
     private readonly accountService: AccountService,
     private readonly coachService: CoachService,
@@ -68,7 +83,12 @@ export class PerformUpgradeToCoachUsecase {
    * @param params 升级参数
    * @returns 升级结果
    */
-  async execute(params: PerformUpgradeToCoachParams): Promise<PerformUpgradeToCoachResult> {
+  /**
+   * 执行升级到教练的操作
+   * @param params 升级参数
+   * @returns 升级结果
+   */
+  async execute(params: UpgradeToCoachParams): Promise<UpgradeToCoachResult> {
     const { accountId, name, level, description, avatarUrl, specialty, remark, audience } = params;
     return await this.accountService.runTransaction((manager: EntityManager) =>
       this.executeInTransaction({
@@ -88,6 +108,9 @@ export class PerformUpgradeToCoachUsecase {
   /**
    * 在同一事务中执行升级逻辑
    */
+  /**
+   * 在同一事务中执行升级逻辑
+   */
   private async executeInTransaction({
     accountId,
     name,
@@ -98,9 +121,9 @@ export class PerformUpgradeToCoachUsecase {
     remark,
     audience,
     manager,
-  }: PerformUpgradeToCoachParams & {
+  }: UpgradeToCoachParams & {
     manager: EntityManager;
-  }): Promise<PerformUpgradeToCoachResult> {
+  }): Promise<UpgradeToCoachResult> {
     // 0. 显式锁定账户避免并发覆盖 accessGroup
     await this.accountService.lockByIdForUpdate(accountId, manager);
 
@@ -161,10 +184,13 @@ export class PerformUpgradeToCoachUsecase {
   /**
    * 幂等分支：已是教练则清理 REGISTRANT 并返回
    */
+  /**
+   * 幂等分支：已是教练则清理 REGISTRANT 并返回
+   */
   private async handleIdempotentBranch(
     accountId: number,
     manager: EntityManager,
-  ): Promise<PerformUpgradeToCoachResult | null> {
+  ): Promise<UpgradeToCoachResult | null> {
     const existingCoach = await this.coachService.findByAccountId(accountId, manager);
     if (!existingCoach) return null;
 
@@ -224,6 +250,9 @@ export class PerformUpgradeToCoachUsecase {
     return updatedAccessGroup;
   }
 
+  /**
+   * 生成新的访问令牌和刷新令牌
+   */
   /**
    * 生成新的访问令牌和刷新令牌
    */

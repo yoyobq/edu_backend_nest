@@ -10,8 +10,8 @@ import { ManagerServiceModule } from '@src/modules/account/identities/training/m
 import { AuthModule } from '@src/modules/auth/auth.module';
 import { MembershipLevelsModule } from '@src/modules/membership-levels/membership-levels.module';
 import { GetMembershipLevelByIdUsecase } from '@src/usecases/membership-levels/get-membership-level-by-id.usecase';
-import { PerformUpgradeToCustomerUsecase } from '@src/usecases/identity-management/perform-upgrade-to-customer.usecase';
-import { PerformUpgradeToCoachUsecase } from '@src/usecases/identity-management/coach/perform-upgrade-to-coach.usecase';
+import { UpgradeToCustomerUsecase } from '@src/usecases/identity-management/customer/upgrade-to-customer.usecase';
+import { UpgradeToCoachUsecase } from '@src/usecases/identity-management/coach/upgrade-to-coach.usecase';
 import { UpdateCoachUsecase } from '@src/usecases/identity-management/coach/update-coach.usecase';
 import { DeactivateCoachUsecase } from '@src/usecases/identity-management/coach/deactivate-coach.usecase';
 import { ReactivateCoachUsecase } from '@src/usecases/identity-management/coach/reactivate-coach.usecase';
@@ -46,8 +46,8 @@ import { ReactivateManagerUsecase } from '@src/usecases/identity-management/mana
     AuthModule, // 提供认证相关服务
   ],
   providers: [
-    PerformUpgradeToCustomerUsecase, // 升级为客户用例
-    PerformUpgradeToCoachUsecase, // 升级为教练用例
+    UpgradeToCustomerUsecase, // 升级为客户用例
+    UpgradeToCoachUsecase, // 升级为教练用例
     GetMembershipLevelByIdUsecase, // 新增：读取会员等级信息用例
     // 客户管理相关用例
     UpdateCustomerUsecase,
@@ -72,8 +72,8 @@ import { ReactivateManagerUsecase } from '@src/usecases/identity-management/mana
     ReactivateManagerUsecase,
   ],
   exports: [
-    PerformUpgradeToCustomerUsecase, // 导出用例供其他模块使用
-    PerformUpgradeToCoachUsecase, // 导出教练升级用例
+    UpgradeToCustomerUsecase, // 导出用例供其他模块使用
+    UpgradeToCoachUsecase, // 导出教练升级用例
     GetMembershipLevelByIdUsecase, // 导出读取会员等级信息用例
     // 导出客户管理相关用例
     UpdateCustomerUsecase,

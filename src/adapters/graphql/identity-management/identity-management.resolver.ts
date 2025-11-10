@@ -7,8 +7,8 @@ import { Args, Mutation, Resolver } from '@nestjs/graphql';
 import { currentUser } from '@src/adapters/graphql/decorators/current-user.decorator';
 import { JwtAuthGuard } from '@src/adapters/graphql/guards/jwt-auth.guard';
 import { DecideLoginRoleUsecase } from '@src/usecases/auth/decide-login-role.usecase';
-import { PerformUpgradeToCoachUsecase } from '@src/usecases/identity-management/coach/perform-upgrade-to-coach.usecase';
-import { PerformUpgradeToCustomerUsecase } from '@src/usecases/identity-management/perform-upgrade-to-customer.usecase';
+import { UpgradeToCoachUsecase } from '@src/usecases/identity-management/coach/upgrade-to-coach.usecase';
+import { UpgradeToCustomerUsecase } from '@src/usecases/identity-management/customer/upgrade-to-customer.usecase';
 import { UpgradeToCoachInput } from './dto/upgrade-to-coach.input';
 import { UpgradeToCoachResult } from './dto/upgrade-to-coach.result';
 import { UpgradeToCustomerInput } from './dto/upgrade-to-customer.input';
@@ -21,8 +21,8 @@ import { UpgradeToCustomerResult } from './dto/upgrade-to-customer.result';
 @Resolver()
 export class IdentityManagementResolver {
   constructor(
-    private readonly performUpgradeToCustomerUsecase: PerformUpgradeToCustomerUsecase,
-    private readonly performUpgradeToCoachUsecase: PerformUpgradeToCoachUsecase,
+    private readonly upgradeToCustomerUsecase: UpgradeToCustomerUsecase,
+    private readonly upgradeToCoachUsecase: UpgradeToCoachUsecase,
     private readonly decideLoginRoleUsecase: DecideLoginRoleUsecase,
   ) {}
 
@@ -39,8 +39,8 @@ export class IdentityManagementResolver {
     @currentUser() user: JwtPayload,
   ): Promise<UpgradeToCustomerResult> {
     // 调用 usecase 执行升级逻辑
-    const result: import('@src/usecases/identity-management/perform-upgrade-to-customer.usecase').PerformUpgradeToCustomerResult =
-      await this.performUpgradeToCustomerUsecase.execute({
+    const result: import('@src/usecases/identity-management/customer/upgrade-to-customer.usecase').UpgradeToCustomerResult =
+      await this.upgradeToCustomerUsecase.execute({
         accountId: user.sub,
         name: input.name,
         contactPhone: input.contactPhone || '',
@@ -81,8 +81,8 @@ export class IdentityManagementResolver {
   ): Promise<UpgradeToCoachResult> {
     // 使用安全的输入规整，避免对可能为 unknown 的值进行不安全访问
     const safe = this.sanitizeUpgradeToCoachInput(input);
-    const result: import('@src/usecases/identity-management/coach/perform-upgrade-to-coach.usecase').PerformUpgradeToCoachResult =
-      await this.performUpgradeToCoachUsecase.execute({
+    const result: import('@src/usecases/identity-management/coach/upgrade-to-coach.usecase').UpgradeToCoachResult =
+      await this.upgradeToCoachUsecase.execute({
         accountId: Number(user.sub),
         name: safe.name,
         level: safe.level,

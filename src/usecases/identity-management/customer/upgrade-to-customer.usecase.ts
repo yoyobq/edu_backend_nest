@@ -1,4 +1,4 @@
-// src/usecases/identity-management/perform-upgrade-to-customer.usecase.ts
+// src/usecases/identity-management/customer/upgrade-to-customer.usecase.ts
 
 import { AudienceTypeEnum, IdentityTypeEnum } from '@app-types/models/account.types';
 import { Injectable } from '@nestjs/common';
@@ -12,7 +12,10 @@ import { EntityManager } from 'typeorm';
 /**
  * 升级到客户用例的输入参数
  */
-export interface PerformUpgradeToCustomerParams {
+/**
+ * 升级到客户用例的输入参数
+ */
+export interface UpgradeToCustomerParams {
   /** 账户 ID */
   accountId: number;
   /** 客户姓名 */
@@ -30,7 +33,10 @@ export interface PerformUpgradeToCustomerParams {
 /**
  * 升级到客户用例的返回结果
  */
-export interface PerformUpgradeToCustomerResult {
+/**
+ * 升级到客户用例的返回结果
+ */
+export interface UpgradeToCustomerResult {
   /** 操作是否成功 */
   success: boolean;
   /** 客户 ID */
@@ -54,8 +60,17 @@ export interface PerformUpgradeToCustomerResult {
  * 3. 更新用户访问权限组
  * 4. 生成新的 JWT 令牌
  */
+/**
+ * 升级到客户身份用例
+ *
+ * 负责将普通用户升级为客户身份，包括：
+ * 1. 检查用户是否已经是客户
+ * 2. 创建客户记录
+ * 3. 更新用户访问权限组
+ * 4. 生成新的 JWT 令牌
+ */
 @Injectable()
-export class PerformUpgradeToCustomerUsecase {
+export class UpgradeToCustomerUsecase {
   constructor(
     private readonly accountService: AccountService,
     private readonly customerService: CustomerService,
@@ -67,7 +82,12 @@ export class PerformUpgradeToCustomerUsecase {
    * @param params 升级参数
    * @returns 升级结果
    */
-  async execute(params: PerformUpgradeToCustomerParams): Promise<PerformUpgradeToCustomerResult> {
+  /**
+   * 执行升级到客户的操作
+   * @param params 升级参数
+   * @returns 升级结果
+   */
+  async execute(params: UpgradeToCustomerParams): Promise<UpgradeToCustomerResult> {
     const { accountId, name, contactPhone, preferredContactTime, remark, audience } = params;
     return await this.accountService.runTransaction((manager: EntityManager) =>
       this.executeInTransaction({
@@ -85,6 +105,9 @@ export class PerformUpgradeToCustomerUsecase {
   /**
    * 在同一事务中执行升级逻辑，拆分以降低 execute 的行数与复杂度
    */
+  /**
+   * 在同一事务中执行升级逻辑，拆分以降低 execute 的行数与复杂度
+   */
   private async executeInTransaction({
     accountId,
     name,
@@ -93,9 +116,9 @@ export class PerformUpgradeToCustomerUsecase {
     remark,
     audience,
     manager,
-  }: PerformUpgradeToCustomerParams & {
+  }: UpgradeToCustomerParams & {
     manager: EntityManager;
-  }): Promise<PerformUpgradeToCustomerResult> {
+  }): Promise<UpgradeToCustomerResult> {
     // 0. 显式锁定账户以避免并发覆盖 accessGroup
     await this.accountService.lockByIdForUpdate(accountId, manager);
 
@@ -144,10 +167,13 @@ export class PerformUpgradeToCustomerUsecase {
     };
   }
 
+  /**
+   * 幂等分支：若已是客户则清理 REGISTRANT 并返回
+   */
   private async handleIdempotentBranch(
     accountId: number,
     manager: EntityManager,
-  ): Promise<PerformUpgradeToCustomerResult | null> {
+  ): Promise<UpgradeToCustomerResult | null> {
     const existingCustomer = await this.customerService.findByAccountId(accountId, manager);
     if (!existingCustomer) return null;
 
@@ -197,6 +223,9 @@ export class PerformUpgradeToCustomerUsecase {
     return await this.customerService.saveCustomer(customerEntity, manager);
   }
 
+  /**
+   * 更新 UserInfo 的 accessGroup，加入 CUSTOMER 并移除 REGISTRANT
+   */
   private async updateUserInfoAccessGroup(
     accountId: number,
     manager: EntityManager,
@@ -219,6 +248,15 @@ export class PerformUpgradeToCustomerUsecase {
     return updatedAccessGroup;
   }
 
+  /**
+   * 生成新的访问令牌和刷新令牌
+   * @param accountId 账户 ID
+   * @param nickname 用户昵称
+   * @param loginEmail 登录邮箱
+   * @param accessGroup 访问权限组
+   * @param audience 客户端类型
+   * @returns 令牌对象
+   */
   /**
    * 生成新的访问令牌和刷新令牌
    * @param accountId 账户 ID
