@@ -128,4 +128,28 @@ export class ParticipationEnrollmentService {
     if (!fresh) throw new Error('更新备注后的报名未找到');
     return fresh;
   }
+
+  /**
+   * 统计某节次的有效报名人数
+   * 有效报名定义：`isCanceled = 0`
+   * @param params 统计参数对象
+   * @returns 有效报名计数
+   */
+  async countEffectiveBySession(params: { sessionId: number }): Promise<number> {
+    const { sessionId } = params;
+    return await this.enrollmentRepository.count({ where: { sessionId, isCanceled: 0 } });
+  }
+
+  /**
+   * 按学员查询其有效报名列表
+   * 有效报名定义：`isCanceled = 0`
+   * @param params 查询参数对象
+   * @returns 该学员的有效报名列表
+   */
+  async findActiveByLearnerId(params: {
+    learnerId: number;
+  }): Promise<ParticipationEnrollmentEntity[]> {
+    const { learnerId } = params;
+    return await this.enrollmentRepository.find({ where: { learnerId, isCanceled: 0 } });
+  }
 }
