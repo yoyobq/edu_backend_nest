@@ -10,7 +10,6 @@ const ENABLED_SPECS = [
   // '03-roles-guard/roles-guard.e2e-spec.ts',
   // '04-course/course-catalogs.e2e-spec.ts',
   // '04-course/payout-rules.e2e-spec.ts',
-  '08-integration-events/outbox-dispatcher.e2e-spec.ts',
   // '05-verification-record/verification-record.e2e-spec.ts',
   // '05-verification-record/verification-record-types.e2e-spec.ts',
   // '05-verification-record/verification-record-invite.e2e-spec.ts',
@@ -23,6 +22,8 @@ const ENABLED_SPECS = [
   // '07-pagination-sort-search/learners-pagination.e2e-spec.ts',
   // '07-pagination-sort-search/sort.e2e-spec.ts',
   // '07-pagination-sort-search/search.e2e-spec.ts',
+  // '08-integration-events/outbox-dispatcher.e2e-spec.ts',
+  '08-integration-events/course-workflows.e2e-spec.ts',
 ];
 
 /** 可选：命令行临时指定（逗号分隔）

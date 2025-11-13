@@ -1,4 +1,4 @@
-// src/adapters/decorators/current-user.decorator.ts
+// src/adapters/graphql/decorators/current-user.decorator.ts
 import { JwtPayload } from '@app-types/jwt.types';
 import { createParamDecorator, ExecutionContext } from '@nestjs/common';
 import { GqlExecutionContext } from '@nestjs/graphql';

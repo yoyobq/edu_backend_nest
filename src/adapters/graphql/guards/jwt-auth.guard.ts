@@ -1,10 +1,11 @@
-// src/adapters/guards/jwt-auth.guard.ts
+// src/adapters/graphql/guards/jwt-auth.guard.ts
 
 import { JwtPayload } from '@app-types/jwt.types';
 import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
 import { GqlExecutionContext } from '@nestjs/graphql';
 import { AuthGuard } from '@nestjs/passport';
 import { DomainError, JWT_ERROR } from '../../../core/common/errors/domain-error';
+import type { Request } from 'express';
 
 /**
  * JWT 认证守卫

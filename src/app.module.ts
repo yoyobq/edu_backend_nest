@@ -3,7 +3,6 @@
 import { Module } from '@nestjs/common';
 import { APP_FILTER } from '@nestjs/core';
 import { GraphQLAdapterModule } from './adapters/graphql/graphql-adapter.module';
-import { IntegrationEventsModule } from './modules/common/integration-events/integration-events.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { CatsModule } from './cats/cats.module';
@@ -17,6 +16,7 @@ import { LoggerModule } from './core/logger/logger.module';
 import { MiddlewareModule } from './core/middleware/middleware.module';
 import { AccountModule } from './modules/account/account.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { IntegrationEventsModule } from './modules/common/integration-events/integration-events.module';
 import { RegisterModule } from './modules/register/register.module';
 
 @Module({
