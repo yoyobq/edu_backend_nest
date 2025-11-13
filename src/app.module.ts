@@ -3,6 +3,7 @@
 import { Module } from '@nestjs/common';
 import { APP_FILTER } from '@nestjs/core';
 import { GraphQLAdapterModule } from './adapters/graphql/graphql-adapter.module';
+import { IntegrationEventsModule } from './modules/common/integration-events/integration-events.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { CatsModule } from './cats/cats.module';
@@ -33,6 +34,8 @@ import { RegisterModule } from './modules/register/register.module';
     RegisterModule,
     // 添加 GraphQL 适配器模块
     GraphQLAdapterModule,
+    // 集成事件模块（内存 Outbox + 调度器）
+    IntegrationEventsModule,
     // ThirdPartyAuthModule, // 暂时屏蔽第三方认证模块
   ],
   controllers: [AppController],

@@ -222,3 +222,61 @@ export const PAYOUT_RULE_ERROR = {
 Object.freeze(PAYOUT_RULE_ERROR);
 
 export type PayoutRuleErrorCode = (typeof PAYOUT_RULE_ERROR)[keyof typeof PAYOUT_RULE_ERROR];
+
+// course-session相关错误码（课程节次）
+/**
+ * course-session领域错误码
+ * 覆盖节次读取/状态流转/出勤更新/结算前置等场景，供用例统一抛错
+ */
+export const SESSION_ERROR = {
+  /** course-session未找到 */
+  SESSION_NOT_FOUND: 'SESSION_NOT_FOUND',
+  /** course-session状态不允许该操作（如已 FINISHED/CANCELED） */
+  SESSION_STATUS_INVALID: 'SESSION_STATUS_INVALID',
+  /** course-session已关闭或已结算，无法重复关闭 */
+  SESSION_ALREADY_CLOSED: 'SESSION_ALREADY_CLOSED',
+  /** course-session已取消，无法执行该操作 */
+  SESSION_ALREADY_CANCELED: 'SESSION_ALREADY_CANCELED',
+  /** course-session关闭失败（数据写入失败或状态机异常） */
+  SESSION_CLOSE_FAILED: 'SESSION_CLOSE_FAILED',
+  /** course-session结算失败（规则缺失或计算异常） */
+  SESSION_SETTLEMENT_FAILED: 'SESSION_SETTLEMENT_FAILED',
+  /** 出勤更新失败 */
+  SESSION_ATTENDANCE_UPDATE_FAILED: 'SESSION_ATTENDANCE_UPDATE_FAILED',
+  /** 参数非法或缺失 */
+  INVALID_PARAMS: 'SESSION_INVALID_PARAMS',
+} as const;
+Object.freeze(SESSION_ERROR);
+
+export type SessionErrorCode = (typeof SESSION_ERROR)[keyof typeof SESSION_ERROR];
+
+// 报名相关错误码（参与报名）
+/**
+ * 报名领域错误码
+ * 覆盖报名创建/取消/恢复/唯一性冲突等场景，供用例统一抛错
+ */
+export const ENROLLMENT_ERROR = {
+  /** 报名未找到 */
+  ENROLLMENT_NOT_FOUND: 'ENROLLMENT_NOT_FOUND',
+  /** 报名已存在（唯一键冲突：sessionId + learnerId） */
+  ENROLLMENT_ALREADY_EXISTS: 'ENROLLMENT_ALREADY_EXISTS',
+  /** 报名创建失败 */
+  ENROLLMENT_CREATION_FAILED: 'ENROLLMENT_CREATION_FAILED',
+  /** 报名取消失败 */
+  ENROLLMENT_CANCEL_FAILED: 'ENROLLMENT_CANCEL_FAILED',
+  /** 报名已取消，无法重复取消或需要恢复 */
+  ENROLLMENT_ALREADY_CANCELED: 'ENROLLMENT_ALREADY_CANCELED',
+  /** 报名恢复失败 */
+  ENROLLMENT_RESTORE_FAILED: 'ENROLLMENT_RESTORE_FAILED',
+  /** 参数非法或缺失 */
+  INVALID_PARAMS: 'ENROLLMENT_INVALID_PARAMS',
+  /** 操作不允许（权限或业务规则不满足） */
+  OPERATION_NOT_ALLOWED: 'ENROLLMENT_OPERATION_NOT_ALLOWED',
+  /** 容量已满（达到系列的最大报名人数上限） */
+  CAPACITY_EXCEEDED: 'ENROLLMENT_CAPACITY_EXCEEDED',
+  /** 时间冲突（该学员在相同时间段已有有效报名） */
+  SCHEDULE_CONFLICT: 'ENROLLMENT_SCHEDULE_CONFLICT',
+} as const;
+Object.freeze(ENROLLMENT_ERROR);
+
+export type EnrollmentErrorCode = (typeof ENROLLMENT_ERROR)[keyof typeof ENROLLMENT_ERROR];
