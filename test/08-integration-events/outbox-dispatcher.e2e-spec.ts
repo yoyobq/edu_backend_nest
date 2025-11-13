@@ -17,8 +17,73 @@ import { INestApplication } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Test, TestingModule } from '@nestjs/testing';
 import { AppModule } from '@src/app.module';
-import type { App } from 'supertest/types';
 import { initGraphQLSchema } from '../../src/adapters/graphql/schema/schema.init';
+
+/**
+ * 测试辅助：创建覆盖了处理器与配置的局部应用实例
+ * - 通过 configPatch 覆盖部分配置键，减少重复样板代码
+ * - 返回 app 与相关端口，调用 close 以关闭实例
+ */
+async function withApp(input: {
+  readonly handlers: ReadonlyArray<IntegrationEventHandler>;
+  readonly configPatch?: Readonly<Record<string, unknown>>;
+}): Promise<{
+  readonly app: INestApplication;
+  readonly writer: IOutboxWriterPort;
+  readonly store: IOutboxStorePort;
+  readonly dispatcher: IOutboxDispatcherPort;
+  readonly close: () => Promise<void>;
+}> {
+  const moduleFixture: TestingModule = await Test.createTestingModule({
+    imports: [AppModule],
+  })
+    .overrideProvider(INTEGRATION_EVENTS_TOKENS.HANDLERS)
+    .useValue(input.handlers)
+    .overrideProvider(INTEGRATION_EVENTS_TOKENS.OUTBOX_DISPATCHER_PORT)
+    .useFactory({
+      factory: (
+        config: ConfigService,
+        storePort: IOutboxStorePort,
+        handlers: ReadonlyArray<IntegrationEventHandler>,
+      ) => {
+        const proxyConfig: ConfigService = {
+          /**
+           * 配置覆盖：若命中 configPatch，则返回覆写值；否则回退原始配置
+           */
+          get<T = unknown>(key: string, defaultValue?: T): T {
+            const patched = (input.configPatch?.[key] ?? undefined) as T | undefined;
+            if (patched !== undefined) return patched;
+            const v = config.get<T>(key);
+            return (v ?? defaultValue) as T;
+          },
+        } as unknown as ConfigService;
+        return new OutboxDispatcher(proxyConfig, storePort, handlers);
+      },
+      inject: [
+        ConfigService,
+        INTEGRATION_EVENTS_TOKENS.OUTBOX_STORE_PORT,
+        INTEGRATION_EVENTS_TOKENS.HANDLERS,
+      ],
+    })
+    .compile();
+
+  const app = moduleFixture.createNestApplication();
+  await app.init();
+  const writer = app.get<IOutboxWriterPort>(INTEGRATION_EVENTS_TOKENS.OUTBOX_WRITER_PORT);
+  const store = app.get<IOutboxStorePort>(INTEGRATION_EVENTS_TOKENS.OUTBOX_STORE_PORT);
+  const dispatcher = app.get<IOutboxDispatcherPort>(
+    INTEGRATION_EVENTS_TOKENS.OUTBOX_DISPATCHER_PORT,
+  );
+  return {
+    app,
+    writer,
+    store,
+    dispatcher,
+    close: async () => {
+      await app.close();
+    },
+  };
+}
 
 /**
  * 测试用 EnrollmentCreated 事件处理器
@@ -70,9 +135,12 @@ class TestEnrollmentCreatedHandler implements IntegrationEventHandler {
 }
 
 describe('08-Integration-Events Outbox Dispatcher (e2e)', () => {
-  let app: INestApplication<App>;
+  let app: INestApplication;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   let writer: IOutboxWriterPort;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   let store: IOutboxStorePort;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   let dispatcher: IOutboxDispatcherPort;
   const testHandler = new TestEnrollmentCreatedHandler();
 
@@ -114,7 +182,17 @@ describe('08-Integration-Events Outbox Dispatcher (e2e)', () => {
    * 用例：入箱后应在退避一次后成功投递
    */
   it('入箱事件应在一次失败后重试成功并出队', async () => {
-    testHandler.setFailOnce(true);
+    const localHandler = new TestEnrollmentCreatedHandler();
+    localHandler.setFailOnce(true);
+    const {
+      writer: writer2,
+      store: store2,
+      close,
+    } = await withApp({
+      handlers: [localHandler],
+      configPatch: { INTEV_BACKOFF_SERIES: [50, 50], INTEV_DISPATCH_INTERVAL_MS: 50 },
+    });
+
     const env = buildEnvelope({
       type: 'EnrollmentCreated',
       aggregateType: 'Enrollment',
@@ -123,21 +201,15 @@ describe('08-Integration-Events Outbox Dispatcher (e2e)', () => {
       dedupKey: 'e2e-enrollment-001',
     });
 
-    // 入箱一个事件
-    await writer.enqueue({ envelope: env });
-
-    // 等待两次调度周期（默认 1000 ms），确保至少一次重试后成功
-    await sleep(2500);
-
-    // 断言处理器被调用至少两次（一次失败 + 一次成功）
-    expect(testHandler.calls).toBeGreaterThanOrEqual(2);
-
-    // 若实现提供快照，验证队列已清空且无失败归档
-    if ('snapshot' in store && typeof store.snapshot === 'function') {
-      const snap = store.snapshot();
+    await writer2.enqueue({ envelope: env });
+    await sleep(350);
+    expect(localHandler.calls).toBeGreaterThanOrEqual(2);
+    if ('snapshot' in store2 && typeof store2.snapshot === 'function') {
+      const snap = store2.snapshot();
       expect(snap.queued).toBe(0);
       expect(snap.failed).toBe(0);
     }
+    await close();
   });
 
   /**
@@ -145,7 +217,17 @@ describe('08-Integration-Events Outbox Dispatcher (e2e)', () => {
    * - 由于调度周期与退避可配置，这里做宽松时间窗口断言
    */
   it('批量入箱应在有限周期内全部出队', async () => {
-    testHandler.setFailOnce(true);
+    const localHandler = new TestEnrollmentCreatedHandler();
+    localHandler.setFailOnce(true);
+    const {
+      writer: writer2,
+      store: store2,
+      close,
+    } = await withApp({
+      handlers: [localHandler],
+      configPatch: { INTEV_BACKOFF_SERIES: [50, 50], INTEV_DISPATCH_INTERVAL_MS: 50 },
+    });
+
     const envelopes: ReadonlyArray<IntegrationEventEnvelope> = Array.from({ length: 3 }).map(
       (_, i) =>
         buildEnvelope({
@@ -157,24 +239,28 @@ describe('08-Integration-Events Outbox Dispatcher (e2e)', () => {
         }),
     );
 
-    await writer.enqueueMany({ envelopes });
-    await sleep(4000);
-
-    if ('snapshot' in store && typeof store.snapshot === 'function') {
-      const snap = store.snapshot();
+    await writer2.enqueueMany({ envelopes });
+    await sleep(500);
+    if ('snapshot' in store2 && typeof store2.snapshot === 'function') {
+      const snap = store2.snapshot();
       expect(snap.queued).toBe(0);
       expect(snap.failed).toBe(0);
     }
-
-    // 至少每个事件被调用一次（考虑第一次失败的重试，累计更高）
-    expect(testHandler.calls).toBeGreaterThanOrEqual(envelopes.length);
+    expect(localHandler.calls).toBeGreaterThanOrEqual(envelopes.length);
+    await close();
   });
 
   /**
    * 用例：优先级应影响处理顺序（数值越大越先处理）
    */
   it('优先级高的事件应优先处理', async () => {
-    testHandler.setFailOnce(false);
+    const localHandler = new TestEnrollmentCreatedHandler();
+    localHandler.setFailOnce(false);
+    const { writer: writer2, close } = await withApp({
+      handlers: [localHandler],
+      configPatch: { INTEV_DISPATCH_INTERVAL_MS: 50 },
+    });
+
     const high = buildEnvelope({
       type: 'EnrollmentCreated',
       aggregateType: 'Enrollment',
@@ -192,19 +278,31 @@ describe('08-Integration-Events Outbox Dispatcher (e2e)', () => {
       priority: 0,
     });
 
-    await writer.enqueueMany({ envelopes: [low, high] });
-    await sleep(1500);
+    await writer2.enqueueMany({ envelopes: [low, high] });
+    // 等待少量调度周期以完成处理顺序断言
+    await sleep(300);
 
-    expect(testHandler.order.length).toBeGreaterThanOrEqual(2);
-    expect(testHandler.order[0]).toBe('prio-high');
+    expect(localHandler.order.length).toBeGreaterThanOrEqual(2);
+    expect(localHandler.order[0]).toBe('prio-high');
+    await close();
   });
 
   /**
    * 用例：延迟投递（deliverAfter）应在指定时间到达后才处理
    */
   it('延迟投递的事件在 deliverAfter 到达后才处理', async () => {
-    testHandler.setFailOnce(false);
-    const deliverAt = new Date(Date.now() + 1500);
+    const localHandler = new TestEnrollmentCreatedHandler();
+    localHandler.setFailOnce(false);
+    const {
+      writer: writer2,
+      store: store2,
+      close,
+    } = await withApp({
+      handlers: [localHandler],
+      configPatch: { INTEV_DISPATCH_INTERVAL_MS: 50 },
+    });
+
+    const deliverAt = new Date(Date.now() + 200);
     const delayed = buildEnvelope({
       type: 'EnrollmentCreated',
       aggregateType: 'Enrollment',
@@ -214,32 +312,44 @@ describe('08-Integration-Events Outbox Dispatcher (e2e)', () => {
       deliverAfter: deliverAt,
     });
 
-    await writer.enqueue({ envelope: delayed });
+    await writer2.enqueue({ envelope: delayed });
 
-    // 在到达前应未处理，队列仍有项目
-    await sleep(800);
-    expect(testHandler.calls).toBe(0);
-    if ('snapshot' in store && typeof store.snapshot === 'function') {
-      const snapEarly = store.snapshot();
+    // 到达前：未处理，队列仍有项目
+    await sleep(80);
+    expect(localHandler.calls).toBe(0);
+    if ('snapshot' in store2 && typeof store2.snapshot === 'function') {
+      const snapEarly = store2.snapshot();
       expect(snapEarly.queued).toBe(1);
     }
 
-    // 到达后应在下一周期处理
-    await sleep(1500);
-    expect(testHandler.calls).toBeGreaterThanOrEqual(1);
-    if ('snapshot' in store && typeof store.snapshot === 'function') {
-      const snapLate = store.snapshot();
+    // 到达后：处理完成，队列清空
+    await sleep(300);
+    expect(localHandler.calls).toBeGreaterThanOrEqual(1);
+    if ('snapshot' in store2 && typeof store2.snapshot === 'function') {
+      const snapLate = store2.snapshot();
       expect(snapLate.queued).toBe(0);
       expect(snapLate.failed).toBe(0);
     }
+    await close();
   });
 
   /**
    * 用例：显式停止调度后不应处理，重新启动后应继续处理
    */
   it('停止后不处理，启动后继续处理', async () => {
-    testHandler.setFailOnce(false);
-    await dispatcher.stop();
+    const localHandler = new TestEnrollmentCreatedHandler();
+    localHandler.setFailOnce(false);
+    const {
+      writer: writer2,
+      store: store2,
+      dispatcher: dispatcher2,
+      close,
+    } = await withApp({
+      handlers: [localHandler],
+      configPatch: { INTEV_DISPATCH_INTERVAL_MS: 50 },
+    });
+
+    await dispatcher2.stop();
 
     const env = buildEnvelope({
       type: 'EnrollmentCreated',
@@ -249,21 +359,153 @@ describe('08-Integration-Events Outbox Dispatcher (e2e)', () => {
       dedupKey: 'stop-start-01',
     });
 
-    await writer.enqueue({ envelope: env });
-    await sleep(1500);
-    expect(testHandler.calls).toBe(0);
-    if ('snapshot' in store && typeof store.snapshot === 'function') {
-      const snapStop = store.snapshot();
+    await writer2.enqueue({ envelope: env });
+    await sleep(200);
+    expect(localHandler.calls).toBe(0);
+    if ('snapshot' in store2 && typeof store2.snapshot === 'function') {
+      const snapStop = store2.snapshot();
       expect(snapStop.queued).toBe(1);
     }
 
-    await dispatcher.start();
-    await sleep(1500);
-    expect(testHandler.calls).toBeGreaterThanOrEqual(1);
-    if ('snapshot' in store && typeof store.snapshot === 'function') {
-      const snapStart = store.snapshot();
+    await dispatcher2.start();
+    await sleep(250);
+    expect(localHandler.calls).toBeGreaterThanOrEqual(1);
+    if ('snapshot' in store2 && typeof store2.snapshot === 'function') {
+      const snapStart = store2.snapshot();
       expect(snapStart.queued).toBe(0);
     }
+    await close();
+  });
+
+  /**
+   * 用例：deliverAfter 在过去的时间点应立即可处理
+   * - 构造 deliverAfter 为过去时间，验证在短调度周期下快速出队
+   */
+  it('deliverAfter 过去时间点立即处理', async () => {
+    const localHandler = new TestEnrollmentCreatedHandler();
+    localHandler.setFailOnce(false);
+    const {
+      writer: writer2,
+      store: store2,
+      close,
+    } = await withApp({
+      handlers: [localHandler],
+      configPatch: { INTEV_DISPATCH_INTERVAL_MS: 50 },
+    });
+
+    const past = new Date(Date.now() - 500);
+    const env = buildEnvelope({
+      type: 'EnrollmentCreated',
+      aggregateType: 'Enrollment',
+      aggregateId: 'deliver-past-01',
+      payload: { case: 'deliver-past' },
+      dedupKey: 'deliver-past-01',
+      deliverAfter: past,
+    });
+
+    await writer2.enqueue({ envelope: env });
+    // 短暂等待一到两个调度周期
+    await sleep(150);
+    expect(localHandler.calls).toBeGreaterThanOrEqual(1);
+    if ('snapshot' in store2 && typeof store2.snapshot === 'function') {
+      const snap = store2.snapshot();
+      expect(snap.queued).toBe(0);
+      expect(snap.failed).toBe(0);
+    }
+    await close();
+  });
+
+  /**
+   * 用例：同优先级下按 nextAttemptAt 先后顺序处理
+   * - 两个事件优先级相同，deliverAfter 均为过去但先后不同，断言处理顺序
+   */
+  it('同优先级按 nextAttemptAt 先后处理', async () => {
+    const localHandler = new TestEnrollmentCreatedHandler();
+    localHandler.setFailOnce(false);
+    const { writer: writer2, close } = await withApp({
+      handlers: [localHandler],
+      configPatch: { INTEV_DISPATCH_INTERVAL_MS: 50 },
+    });
+
+    const earlier = new Date(Date.now() - 400);
+    const later = new Date(Date.now() - 200);
+    const e1 = buildEnvelope({
+      type: 'EnrollmentCreated',
+      aggregateType: 'Enrollment',
+      aggregateId: 'order-early',
+      payload: { order: 'early' },
+      dedupKey: 'order-early',
+      deliverAfter: earlier,
+      priority: 0,
+    });
+    const e2 = buildEnvelope({
+      type: 'EnrollmentCreated',
+      aggregateType: 'Enrollment',
+      aggregateId: 'order-late',
+      payload: { order: 'late' },
+      dedupKey: 'order-late',
+      deliverAfter: later,
+      priority: 0,
+    });
+
+    await writer2.enqueueMany({ envelopes: [e2, e1] });
+    // 等待处理完成
+    await sleep(300);
+    expect(localHandler.order.length).toBeGreaterThanOrEqual(2);
+    expect(localHandler.order[0]).toBe('order-early');
+    await close();
+  });
+
+  /**
+   * 用例：start() 的幂等性（重复 start 不应产生多个计时器）
+   * - 停止后重复调用 start，再次停止；入队后应保持不处理（若产生多计时器则会误处理）
+   */
+  it('start() 幂等：重复 start 不产生多计时器', async () => {
+    const localHandler = new TestEnrollmentCreatedHandler();
+    localHandler.setFailOnce(false);
+    const {
+      writer: writer2,
+      store: store2,
+      dispatcher: dispatcher2,
+      close,
+    } = await withApp({
+      handlers: [localHandler],
+      configPatch: { INTEV_DISPATCH_INTERVAL_MS: 50 },
+    });
+
+    // 先停止，再重复启动，随后再次停止
+    await dispatcher2.stop();
+    await dispatcher2.start();
+    await dispatcher2.start();
+    await dispatcher2.stop();
+
+    const env = buildEnvelope({
+      type: 'EnrollmentCreated',
+      aggregateType: 'Enrollment',
+      aggregateId: 'start-idem-01',
+      payload: { case: 'start-idempotency' },
+      dedupKey: 'start-idem-01',
+    });
+
+    await writer2.enqueue({ envelope: env });
+    // 停止状态下等待若干周期，不应被处理
+    await sleep(250);
+    expect(localHandler.calls).toBe(0);
+    if ('snapshot' in store2 && typeof store2.snapshot === 'function') {
+      const snapStop = store2.snapshot();
+      expect(snapStop.queued).toBe(1);
+    }
+
+    // 再次启动后应正常处理
+    await dispatcher2.start();
+    await sleep(250);
+    expect(localHandler.calls).toBeGreaterThanOrEqual(1);
+    if ('snapshot' in store2 && typeof store2.snapshot === 'function') {
+      const snapStart = store2.snapshot();
+      expect(snapStart.queued).toBe(0);
+      expect(snapStart.failed).toBe(0);
+    }
+    await close();
   });
 
   /**
@@ -271,40 +513,14 @@ describe('08-Integration-Events Outbox Dispatcher (e2e)', () => {
    * - 通过单独应用实例覆盖配置验证
    */
   it('禁用调度时队列保持不动', async () => {
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
-    })
-      .overrideProvider(INTEGRATION_EVENTS_TOKENS.HANDLERS)
-      .useValue([new TestEnrollmentCreatedHandler()])
-      .overrideProvider(INTEGRATION_EVENTS_TOKENS.OUTBOX_DISPATCHER_PORT)
-      .useFactory({
-        factory: (
-          config: ConfigService,
-          storePort: IOutboxStorePort,
-          handlers: ReadonlyArray<IntegrationEventHandler>,
-        ) => {
-          const proxyConfig: ConfigService = {
-            // 仅覆盖 INTEV_ENABLED，其余委托给原始 ConfigService 并做默认值兜底
-            get<T = unknown>(key: string, defaultValue?: T): T {
-              if (key === 'INTEV_ENABLED') return 'false' as unknown as T;
-              const v = config.get<T>(key);
-              return v ?? (defaultValue as T);
-            },
-          } as unknown as ConfigService;
-          return new OutboxDispatcher(proxyConfig, storePort, handlers);
-        },
-        inject: [
-          ConfigService,
-          INTEGRATION_EVENTS_TOKENS.OUTBOX_STORE_PORT,
-          INTEGRATION_EVENTS_TOKENS.HANDLERS,
-        ],
-      })
-      .compile();
-
-    const app2 = moduleFixture.createNestApplication();
-    await app2.init();
-    const writer2 = app2.get<IOutboxWriterPort>(INTEGRATION_EVENTS_TOKENS.OUTBOX_WRITER_PORT);
-    const store2 = app2.get<IOutboxStorePort>(INTEGRATION_EVENTS_TOKENS.OUTBOX_STORE_PORT);
+    const {
+      writer: writer2,
+      store: store2,
+      close,
+    } = await withApp({
+      handlers: [new TestEnrollmentCreatedHandler()],
+      configPatch: { INTEV_ENABLED: 'false' },
+    });
 
     const env = buildEnvelope({
       type: 'EnrollmentCreated',
@@ -321,7 +537,7 @@ describe('08-Integration-Events Outbox Dispatcher (e2e)', () => {
       expect(snap.queued).toBe(1);
       expect(snap.failed).toBe(0);
     }
-    await app2.close();
+    await close();
   });
 
   /**
@@ -371,42 +587,18 @@ describe('08-Integration-Events Outbox Dispatcher (e2e)', () => {
         throw new Error('always-fail');
       }
     }
-
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
-    })
-      .overrideProvider(INTEGRATION_EVENTS_TOKENS.HANDLERS)
-      .useValue([new AlwaysFailHandler()])
-      .overrideProvider(INTEGRATION_EVENTS_TOKENS.OUTBOX_DISPATCHER_PORT)
-      .useFactory({
-        factory: (
-          config: ConfigService,
-          storePort: IOutboxStorePort,
-          handlers: ReadonlyArray<IntegrationEventHandler>,
-        ) => {
-          const proxyConfig: ConfigService = {
-            get<T = unknown>(key: string, defaultValue?: T): T {
-              if (key === 'INTEV_MAX_ATTEMPTS') return 2 as unknown as T;
-              if (key === 'INTEV_BACKOFF_SERIES') return [50, 50] as unknown as T;
-              if (key === 'INTEV_DISPATCH_INTERVAL_MS') return 50 as unknown as T;
-              const v = config.get<T>(key);
-              return v ?? (defaultValue as T);
-            },
-          } as unknown as ConfigService;
-          return new OutboxDispatcher(proxyConfig, storePort, handlers);
-        },
-        inject: [
-          ConfigService,
-          INTEGRATION_EVENTS_TOKENS.OUTBOX_STORE_PORT,
-          INTEGRATION_EVENTS_TOKENS.HANDLERS,
-        ],
-      })
-      .compile();
-
-    const app2 = moduleFixture.createNestApplication();
-    await app2.init();
-    const writer2 = app2.get<IOutboxWriterPort>(INTEGRATION_EVENTS_TOKENS.OUTBOX_WRITER_PORT);
-    const store2 = app2.get<IOutboxStorePort>(INTEGRATION_EVENTS_TOKENS.OUTBOX_STORE_PORT);
+    const {
+      writer: writer2,
+      store: store2,
+      close,
+    } = await withApp({
+      handlers: [new AlwaysFailHandler()],
+      configPatch: {
+        INTEV_MAX_ATTEMPTS: 2,
+        INTEV_BACKOFF_SERIES: [50, 50],
+        INTEV_DISPATCH_INTERVAL_MS: 50,
+      },
+    });
 
     const env = buildEnvelope({
       type: 'EnrollmentCreated',
@@ -424,7 +616,7 @@ describe('08-Integration-Events Outbox Dispatcher (e2e)', () => {
       expect(snap.failed).toBe(1);
     }
 
-    await app2.close();
+    await close();
   });
 
   /**
@@ -473,40 +665,14 @@ describe('08-Integration-Events Outbox Dispatcher (e2e)', () => {
     const h1 = new FirstRecordHandler();
     const h2 = new SecondFailOnceHandler();
 
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
-    })
-      .overrideProvider(INTEGRATION_EVENTS_TOKENS.HANDLERS)
-      .useValue([h1, h2])
-      .overrideProvider(INTEGRATION_EVENTS_TOKENS.OUTBOX_DISPATCHER_PORT)
-      .useFactory({
-        factory: (
-          config: ConfigService,
-          storePort: IOutboxStorePort,
-          handlers: ReadonlyArray<IntegrationEventHandler>,
-        ) => {
-          const proxyConfig: ConfigService = {
-            get<T = unknown>(key: string, defaultValue?: T): T {
-              if (key === 'INTEV_BACKOFF_SERIES') return [50] as unknown as T;
-              if (key === 'INTEV_DISPATCH_INTERVAL_MS') return 50 as unknown as T;
-              const v = config.get<T>(key);
-              return v ?? (defaultValue as T);
-            },
-          } as unknown as ConfigService;
-          return new OutboxDispatcher(proxyConfig, storePort, handlers);
-        },
-        inject: [
-          ConfigService,
-          INTEGRATION_EVENTS_TOKENS.OUTBOX_STORE_PORT,
-          INTEGRATION_EVENTS_TOKENS.HANDLERS,
-        ],
-      })
-      .compile();
-
-    const app2 = moduleFixture.createNestApplication();
-    await app2.init();
-    const writer2 = app2.get<IOutboxWriterPort>(INTEGRATION_EVENTS_TOKENS.OUTBOX_WRITER_PORT);
-    const store2 = app2.get<IOutboxStorePort>(INTEGRATION_EVENTS_TOKENS.OUTBOX_STORE_PORT);
+    const {
+      writer: writer2,
+      store: store2,
+      close,
+    } = await withApp({
+      handlers: [h1, h2],
+      configPatch: { INTEV_BACKOFF_SERIES: [50], INTEV_DISPATCH_INTERVAL_MS: 50 },
+    });
 
     const env = buildEnvelope({
       type: 'EnrollmentCreated',
@@ -527,7 +693,7 @@ describe('08-Integration-Events Outbox Dispatcher (e2e)', () => {
       expect(snap.failed).toBe(0);
     }
 
-    await app2.close();
+    await close();
   });
 
   /**
@@ -545,43 +711,15 @@ describe('08-Integration-Events Outbox Dispatcher (e2e)', () => {
       }
     }
 
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
-    })
-      .overrideProvider(INTEGRATION_EVENTS_TOKENS.HANDLERS)
-      .useValue([new AlwaysSuccessHandler()])
-      // 覆盖调度器端口，缩短轮询间隔，避免默认 1000 ms 导致断言时间窗不足
-      .overrideProvider(INTEGRATION_EVENTS_TOKENS.OUTBOX_DISPATCHER_PORT)
-      .useFactory({
-        factory: (
-          config: ConfigService,
-          storePort: IOutboxStorePort,
-          handlers: ReadonlyArray<IntegrationEventHandler>,
-        ) => {
-          const proxyConfig: ConfigService = {
-            get<T = unknown>(key: string, defaultValue?: T): T {
-              if (key === 'INTEV_DISPATCH_INTERVAL_MS') return 50 as unknown as T;
-              const v = config.get<T>(key);
-              return (v ?? defaultValue) as T;
-            },
-          } as unknown as ConfigService;
-          return new OutboxDispatcher(proxyConfig, storePort, handlers);
-        },
-        inject: [
-          ConfigService,
-          INTEGRATION_EVENTS_TOKENS.OUTBOX_STORE_PORT,
-          INTEGRATION_EVENTS_TOKENS.HANDLERS,
-        ],
-      })
-      .compile();
-
-    const app2 = moduleFixture.createNestApplication();
-    await app2.init();
-    const writer2 = app2.get<IOutboxWriterPort>(INTEGRATION_EVENTS_TOKENS.OUTBOX_WRITER_PORT);
-    const store2 = app2.get<IOutboxStorePort>(INTEGRATION_EVENTS_TOKENS.OUTBOX_STORE_PORT);
-    const dispatcher2 = app2.get<IOutboxDispatcherPort>(
-      INTEGRATION_EVENTS_TOKENS.OUTBOX_DISPATCHER_PORT,
-    );
+    const {
+      writer: writer2,
+      store: store2,
+      dispatcher: dispatcher2,
+      close,
+    } = await withApp({
+      handlers: [new AlwaysSuccessHandler()],
+      configPatch: { INTEV_DISPATCH_INTERVAL_MS: 50 },
+    });
 
     // 先停止调度器，观察入队层面的去重效果
     await dispatcher2.stop();
@@ -622,6 +760,76 @@ describe('08-Integration-Events Outbox Dispatcher (e2e)', () => {
       expect(snapAfterSecond.failed).toBe(0);
     }
 
-    await app2.close();
+    await close();
+  });
+
+  /**
+   * 用例：非重入护栏（慢处理器在短周期调度下也不并发执行）
+   * - 将 INTEV_DISPATCH_INTERVAL_MS 设为 20 ms
+   * - 构造一个耗时 ~100 ms 的处理器，断言不会并发执行（overlap 为 0）
+   */
+  it('非重入护栏：慢处理器不应被并发处理', async () => {
+    /**
+     * 慢处理器：进入时标记 inProgress，以检测是否存在并发重入
+     * @param input 输入参数对象（只读事件信封）
+     */
+    class SlowNonReentrantHandler implements IntegrationEventHandler {
+      readonly type: IntegrationEventEnvelope['type'] = 'EnrollmentCreated';
+      private inProgress = false;
+      private overlap = 0;
+      private count = 0;
+      async handle(input: { readonly envelope: IntegrationEventEnvelope }): Promise<void> {
+        await Promise.resolve();
+        void input.envelope;
+        if (this.inProgress) this.overlap += 1;
+        this.inProgress = true;
+        // 模拟耗时处理，验证短调度周期下无并发重入
+        await sleep(100);
+        this.count += 1;
+        this.inProgress = false;
+      }
+      /** 获取累计调用次数 */
+      get calls(): number {
+        return this.count;
+      }
+      /** 获取重入计数（应为 0） */
+      get overlaps(): number {
+        return this.overlap;
+      }
+    }
+
+    const h = new SlowNonReentrantHandler();
+
+    const {
+      writer: writer2,
+      store: store2,
+      close,
+    } = await withApp({
+      handlers: [h],
+      configPatch: { INTEV_DISPATCH_INTERVAL_MS: 20, INTEV_BACKOFF_SERIES: [20, 20] },
+    });
+
+    const env = buildEnvelope({
+      type: 'EnrollmentCreated',
+      aggregateType: 'Enrollment',
+      aggregateId: 'non-reentrant-01',
+      payload: { case: 'non-reentrant' },
+      dedupKey: 'non-reentrant-01',
+    });
+
+    await writer2.enqueue({ envelope: env });
+    // 等待若干调度周期以完成一次处理
+    await sleep(250);
+
+    // 不发生并发重入，overlaps 应为 0；至少发生一次调用
+    expect(h.overlaps).toBe(0);
+    expect(h.calls).toBeGreaterThanOrEqual(1);
+    if ('snapshot' in store2 && typeof store2.snapshot === 'function') {
+      const snap = store2.snapshot();
+      expect(snap.queued).toBe(0);
+      expect(snap.failed).toBe(0);
+    }
+
+    await close();
   });
 });

@@ -38,14 +38,40 @@ export class OutboxDispatcher implements OnModuleInit, OnModuleDestroy, IOutboxD
     private readonly handlers: ReadonlyArray<IntegrationEventHandler>,
   ) {
     // 显式归一配置类型，避免隐式类型转换带来的行为偏差
+    /**
+     * 数值归一：将未知输入转换为 number，不可解析则使用默认值
+     * @param v 输入值（可能来源于环境变量或配置中心）
+     * @param d 默认值
+     */
     const toNum = (v: unknown, d: number): number => {
       if (v == null) return d;
       const n = Number(v);
       return Number.isFinite(n) ? n : d;
     };
 
+    /**
+     * 布尔归一：支持 'false'|'0'|'off' → false / 'true'|'1'|'on' → true
+     * 其余无法识别的字符串或类型，回退到默认值
+     * @param v 输入值（可能为 string/number/boolean/undefined）
+     * @param d 默认值
+     */
+    const toBool = (v: unknown, d: boolean): boolean => {
+      if (v == null) return d;
+      if (typeof v === 'boolean') return v;
+      if (typeof v === 'number') return v !== 0;
+      if (typeof v === 'string') {
+        const s = v.trim().toLowerCase();
+        if (s === 'false' || s === '0' || s === 'off' || s === 'no' || s === 'disabled')
+          return false;
+        if (s === 'true' || s === '1' || s === 'on' || s === 'yes' || s === 'enabled') return true;
+        return d;
+      }
+      // 其它类型（object、symbol、bigint、function）一律回退默认值，避免不安全字符串化
+      return d;
+    };
+
     // 显式声明泛型，避免 `any`
-    const rawEnabled = this.config.get<string>('INTEV_ENABLED', 'true');
+    const rawEnabled = this.config.get<unknown>('INTEV_ENABLED', true);
     const rawBatchSize = this.config.get<string | number>('INTEV_BATCH_SIZE');
     const rawMaxAttempts = this.config.get<string | number>('INTEV_MAX_ATTEMPTS');
     const rawIntervalMs = this.config.get<string | number>('INTEV_DISPATCH_INTERVAL_MS');
@@ -53,7 +79,7 @@ export class OutboxDispatcher implements OnModuleInit, OnModuleDestroy, IOutboxD
       'INTEV_BACKOFF_SERIES',
     );
 
-    this.enabled = String(rawEnabled).toLowerCase() !== 'false';
+    this.enabled = toBool(rawEnabled, true);
     this.batchSize = toNum(rawBatchSize, 100);
     this.maxAttempts = toNum(rawMaxAttempts, 5);
     this.intervalMs = toNum(rawIntervalMs, 1000);
