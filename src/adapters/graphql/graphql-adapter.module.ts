@@ -37,6 +37,7 @@ import { CustomerResolver } from './identity-management/customer/customer.resolv
 import { IdentityManagementResolver } from './identity-management/identity-management.resolver';
 import { LearnerResolver } from './identity-management/learner/learner.resolver';
 import { ManagerResolver } from './identity-management/manager/manager.resolver';
+import { CourseSeriesResolver } from './course/series/series.resolver';
 import { PayoutRuleResolver } from './payout/payout-rule.resolver';
 import { RegistrationResolver } from './registration/registration.resolver';
 import { ThirdPartyAuthResolver } from './third-party-auth/third-party-auth.resolver';
@@ -81,6 +82,7 @@ import { RolesGuard } from './guards/roles.guard';
     RegistrationResolver,
     ThirdPartyAuthResolver,
     CourseCatalogResolver, // 注册课程目录 resolver
+    CourseSeriesResolver, // 注册课程系列 resolver
     PayoutRuleResolver, // 注册结算规则 resolver
     VerificationRecordResolver,
     IdentityManagementResolver, // 注册身份管理 resolver
@@ -106,6 +108,7 @@ import { RolesGuard } from './guards/roles.guard';
     RegistrationResolver,
     ThirdPartyAuthResolver,
     CourseCatalogResolver, // 导出课程目录 resolver
+    CourseSeriesResolver, // 导出课程系列 resolver
     PayoutRuleResolver, // 导出结算规则 resolver
     VerificationRecordResolver,
     IdentityManagementResolver, // 导出身份管理 resolver

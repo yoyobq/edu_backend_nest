@@ -12,6 +12,7 @@ import {
   ThirdPartyProviderEnum,
 } from '@app-types/models/account.types';
 import { CourseLevel } from '@app-types/models/course.types';
+import { ClassMode, CourseSeriesStatus, VenueType } from '@app-types/models/course-series.types';
 import { MembershipLevel } from '@app-types/models/training.types';
 import { Gender, UserState } from '@app-types/models/user-info.types';
 import {
@@ -299,6 +300,37 @@ const ENUM_CONFIGS: Record<string, EnumConfig> = {
       DESC: { description: '降序' },
     },
   },
+  // 课程系列相关枚举
+  COURSE_SERIES_CLASS_MODE: {
+    enumType: ClassMode,
+    name: 'ClassMode',
+    description: '课程系列班型',
+    valuesMap: {
+      SMALL_CLASS: { description: '小班课' },
+      LARGE_CLASS: { description: '大班课' },
+    },
+  },
+  COURSE_SERIES_VENUE_TYPE: {
+    enumType: VenueType,
+    name: 'VenueType',
+    description: '上课地点类型',
+    valuesMap: {
+      SANDA_GYM: { description: '散打馆' },
+      TRACK_FIELD: { description: '田径场' },
+      CUSTOMER_HOME: { description: '客户家（上门）' },
+    },
+  },
+  COURSE_SERIES_STATUS: {
+    enumType: CourseSeriesStatus,
+    name: 'CourseSeriesStatus',
+    description: '课程系列状态',
+    valuesMap: {
+      PLANNED: { description: '已建班未发布' },
+      PUBLISHED: { description: '已发布' },
+      CLOSED: { description: '封班' },
+      FINISHED: { description: '已结课' },
+    },
+  },
 };
 
 /**
@@ -327,6 +359,9 @@ const EXPECTED_ENUMS = [
   'OrderDirection',
   'PaginationMode',
   'SortDirection',
+  'ClassMode',
+  'VenueType',
+  'CourseSeriesStatus',
 ];
 
 /**
