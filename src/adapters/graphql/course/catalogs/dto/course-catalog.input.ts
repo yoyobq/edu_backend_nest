@@ -1,5 +1,5 @@
-// src/adapters/graphql/course-catalogs/dto/course-catalog.input.ts
-// src/adapters/graphql/course-catalogs/dto/course-catalog.input.ts
+// src/adapters/graphql/course/catalogs/dto/course-catalog.input.ts
+// 迁移自 src/adapters/graphql/course-catalogs/dto/course-catalog.input.ts
 import { CourseLevel } from '@app-types/models/course.types';
 import { Field, ID, InputType } from '@nestjs/graphql';
 import { PaginationArgs } from '@src/adapters/graphql/pagination.args';

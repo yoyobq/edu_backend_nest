@@ -1,4 +1,5 @@
-// src/adapters/graphql/course-catalogs/dto/course-catalog.dto.ts
+// src/adapters/graphql/course/catalogs/dto/course-catalog.dto.ts
+// 迁移自 src/adapters/graphql/course-catalogs/dto/course-catalog.dto.ts
 import { CourseLevel } from '@app-types/models/course.types';
 import { Field, ID, ObjectType } from '@nestjs/graphql';
 

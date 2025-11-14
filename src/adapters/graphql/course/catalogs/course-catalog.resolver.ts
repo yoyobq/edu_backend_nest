@@ -1,20 +1,20 @@
-// src/adapters/graphql/course-catalogs/course-catalog.resolver.ts
-
-// src/adapters/graphql/course-catalogs/course-catalog.resolver.ts
+// src/adapters/graphql/course/catalogs/course-catalog.resolver.ts
+// 课程目录 GraphQL Resolver（迁移自 src/adapters/graphql/course-catalogs/course-catalog.resolver.ts）
 import { mapJwtToUsecaseSession } from '@app-types/auth/session.types';
 import { JwtPayload } from '@app-types/jwt.types';
+import type { CourseLevel } from '@app-types/models/course.types';
 import { UseGuards } from '@nestjs/common';
 import { Args, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { mapGqlToCoreParams } from '@src/adapters/graphql/pagination.mapper';
-import { GetCatalogByLevelUsecase } from '@src/usecases/course/catalogs/get-catalog-by-level.usecase';
 import { CreateCatalogUsecase } from '@src/usecases/course/catalogs/create-catalog.usecase';
 import { DeactivateCatalogUsecase } from '@src/usecases/course/catalogs/deactivate-catalog.usecase';
+import { GetCatalogByLevelUsecase } from '@src/usecases/course/catalogs/get-catalog-by-level.usecase';
 import { ListCatalogsUsecase } from '@src/usecases/course/catalogs/list-catalogs.usecase';
 import { ReactivateCatalogUsecase } from '@src/usecases/course/catalogs/reactivate-catalog.usecase';
 import { SearchCatalogsUsecase } from '@src/usecases/course/catalogs/search-catalogs.usecase';
 import { UpdateCatalogDetailsUsecase } from '@src/usecases/course/catalogs/update-catalog-details.usecase';
-import { currentUser } from '../decorators/current-user.decorator';
-import { JwtAuthGuard } from '../guards/jwt-auth.guard';
+import { currentUser } from '../../decorators/current-user.decorator';
+import { JwtAuthGuard } from '../../guards/jwt-auth.guard';
 import { CourseCatalogDTO } from './dto/course-catalog.dto';
 import {
   CreateCatalogInput,
@@ -32,6 +32,39 @@ import {
   ReactivateCatalogResult,
   UpdateCatalogDetailsResult,
 } from './dto/course-catalog.result';
+
+// 为了避免不安全的 any/unknown 访问，定义映射所需的最小字段约束
+interface CatalogLike {
+  readonly id: number;
+  readonly courseLevel: CourseLevel;
+  readonly title: string;
+  readonly description?: string | null;
+  readonly createdAt: Date;
+  readonly updatedAt: Date;
+  readonly deactivatedAt?: Date | null;
+  readonly createdBy?: number | null;
+  readonly updatedBy?: number | null;
+}
+
+/**
+ * 将领域模型映射为 GraphQL DTO
+ * @param model 领域模型（满足 CatalogLike 字段约束）
+ * @returns GraphQL DTO 实例
+ */
+function toCatalogDTO<T extends CatalogLike>(model: T): CourseCatalogDTO {
+  const dto = new CourseCatalogDTO();
+  dto.id = model.id;
+  dto.courseLevel = model.courseLevel;
+  dto.title = model.title;
+  dto.description = model.description ?? null;
+  dto.createdAt = model.createdAt;
+  dto.updatedAt = model.updatedAt;
+  dto.deactivatedAt = model.deactivatedAt ?? null;
+  dto.createdBy = model.createdBy ?? null;
+  dto.updatedBy = model.updatedBy ?? null;
+  return dto;
+}
+
 /**
  * 课程目录 GraphQL Resolver
  * 提供课程目录相关的查询和变更操作
@@ -53,21 +86,12 @@ export class CourseCatalogResolver {
    */
   @Query(() => CourseCatalogsListResult, { description: '获取课程目录列表' })
   async courseCatalogsList(): Promise<CourseCatalogsListResult> {
-    const catalogs = await this.listCatalogsUsecase.execute(); // 使用 usecase
-
-    const items: CourseCatalogDTO[] = catalogs.map((catalog) => ({
-      id: catalog.id,
-      courseLevel: catalog.courseLevel,
-      title: catalog.title,
-      description: catalog.description,
-      createdAt: catalog.createdAt,
-      updatedAt: catalog.updatedAt,
-      deactivatedAt: catalog.deactivatedAt,
-      createdBy: catalog.createdBy,
-      updatedBy: catalog.updatedBy,
-    }));
-
-    return { items };
+    // 使用 usecase 返回的实体进行安全映射，不在此处重定义类型
+    const entities = await this.listCatalogsUsecase.execute();
+    const items: CourseCatalogDTO[] = entities.map((e) => toCatalogDTO(e));
+    const result = new CourseCatalogsListResult();
+    result.items = items;
+    return result;
   }
 
   /**
@@ -77,23 +101,14 @@ export class CourseCatalogResolver {
   async courseCatalogByLevel(
     @Args('input') input: GetCatalogByLevelInput,
   ): Promise<CourseCatalogDTO | null> {
-    const catalog = await this.getCatalogByLevelUsecase.execute({ courseLevel: input.courseLevel });
+    const catalog = await this.getCatalogByLevelUsecase.execute({
+      courseLevel: input.courseLevel,
+    });
 
-    if (!catalog) {
+    if (catalog === null) {
       return null;
     }
-
-    return {
-      id: catalog.id,
-      courseLevel: catalog.courseLevel,
-      title: catalog.title,
-      description: catalog.description,
-      createdAt: catalog.createdAt,
-      updatedAt: catalog.updatedAt,
-      deactivatedAt: catalog.deactivatedAt,
-      createdBy: catalog.createdBy,
-      updatedBy: catalog.updatedBy,
-    };
+    return toCatalogDTO(catalog);
   }
 
   /**
@@ -107,28 +122,18 @@ export class CourseCatalogResolver {
     const params = mapGqlToCoreParams(input.pagination);
     const result = await this.searchCatalogsUsecase.execute({ params, query: input.query });
 
-    return {
-      items: result.items.map((catalog) => ({
-        id: catalog.id,
-        courseLevel: catalog.courseLevel,
-        title: catalog.title,
-        description: catalog.description,
-        createdAt: catalog.createdAt,
-        updatedAt: catalog.updatedAt,
-        deactivatedAt: catalog.deactivatedAt,
-        createdBy: catalog.createdBy,
-        updatedBy: catalog.updatedBy,
-      })),
-      total: result.total,
-      page: result.page,
-      pageSize: result.pageSize,
-      pageInfo: result.pageInfo
-        ? {
-            hasNext: result.pageInfo.hasNext ?? false,
-            nextCursor: result.pageInfo.nextCursor,
-          }
-        : undefined,
-    };
+    const output = new PaginatedCourseCatalogsResult();
+    output.items = result.items.map((m) => toCatalogDTO(m));
+    output.total = result.total;
+    output.page = result.page;
+    output.pageSize = result.pageSize;
+    output.pageInfo = result.pageInfo
+      ? {
+          hasNext: result.pageInfo.hasNext ?? false,
+          nextCursor: result.pageInfo.nextCursor,
+        }
+      : undefined;
+    return output;
   }
 
   /**
@@ -142,9 +147,18 @@ export class CourseCatalogResolver {
   ): Promise<UpdateCatalogDetailsResult> {
     // 构建会话信息
     const session = mapJwtToUsecaseSession(user);
-
-    const result = await this.updateCatalogDetailsUsecase.execute(session, input);
-    return result;
+    const params: UpdateCatalogDetailsInput = {
+      id: input.id,
+      title: input.title,
+      description: input.description,
+    };
+    const result = await this.updateCatalogDetailsUsecase.execute(session, params);
+    const output = new UpdateCatalogDetailsResult();
+    output.success = result.success;
+    // usecase 已返回只读 DTO，此处不再重复映射
+    output.data = result.data ?? null;
+    output.message = result.message ?? null;
+    return output;
   }
 
   /**
@@ -162,20 +176,10 @@ export class CourseCatalogResolver {
     const session = mapJwtToUsecaseSession(user);
     const result = await this.deactivateCatalogUsecase.execute(session, { id: input.id });
 
-    return {
-      catalog: {
-        id: result.catalog.id,
-        courseLevel: result.catalog.courseLevel,
-        title: result.catalog.title,
-        description: result.catalog.description,
-        createdAt: result.catalog.createdAt,
-        updatedAt: result.catalog.updatedAt,
-        deactivatedAt: result.catalog.deactivatedAt,
-        createdBy: result.catalog.createdBy,
-        updatedBy: result.catalog.updatedBy,
-      },
-      isUpdated: result.isUpdated,
-    };
+    const output = new DeactivateCatalogResult();
+    output.catalog = toCatalogDTO(result.catalog);
+    output.isUpdated = result.isUpdated;
+    return output;
   }
 
   /**
@@ -193,20 +197,10 @@ export class CourseCatalogResolver {
     const session = mapJwtToUsecaseSession(user);
     const result = await this.reactivateCatalogUsecase.execute(session, { id: input.id });
 
-    return {
-      catalog: {
-        id: result.catalog.id,
-        courseLevel: result.catalog.courseLevel,
-        title: result.catalog.title,
-        description: result.catalog.description,
-        createdAt: result.catalog.createdAt,
-        updatedAt: result.catalog.updatedAt,
-        deactivatedAt: result.catalog.deactivatedAt,
-        createdBy: result.catalog.createdBy,
-        updatedBy: result.catalog.updatedBy,
-      },
-      isUpdated: result.isUpdated,
-    };
+    const output = new ReactivateCatalogResult();
+    output.catalog = toCatalogDTO(result.catalog);
+    output.isUpdated = result.isUpdated;
+    return output;
   }
 
   /**
@@ -220,20 +214,14 @@ export class CourseCatalogResolver {
     @currentUser() user: JwtPayload,
   ): Promise<CreateCatalogResult> {
     const session = mapJwtToUsecaseSession(user);
-    const result = await this.createCatalogUsecase.execute(session, input);
-    return {
-      catalog: {
-        id: result.catalog.id,
-        courseLevel: result.catalog.courseLevel,
-        title: result.catalog.title,
-        description: result.catalog.description,
-        createdAt: result.catalog.createdAt,
-        updatedAt: result.catalog.updatedAt,
-        deactivatedAt: result.catalog.deactivatedAt,
-        createdBy: result.catalog.createdBy,
-        updatedBy: result.catalog.updatedBy,
-      },
-      isNewlyCreated: result.isNewlyCreated,
-    };
+    const result = await this.createCatalogUsecase.execute(session, {
+      courseLevel: input.courseLevel,
+      title: input.title,
+      description: input.description ?? null,
+    });
+    const output = new CreateCatalogResult();
+    output.catalog = toCatalogDTO(result.catalog);
+    output.isNewlyCreated = result.isNewlyCreated;
+    return output;
   }
 }

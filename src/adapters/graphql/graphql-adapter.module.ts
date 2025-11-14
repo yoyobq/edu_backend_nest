@@ -28,7 +28,7 @@ import { IdentityManagementModule } from '@src/modules/identity-management/ident
 // Resolvers
 import { AccountResolver } from './account/account.resolver';
 import { AuthResolver } from './auth/auth.resolver';
-import { CourseCatalogResolver } from './course-catalogs/course-catalog.resolver';
+import { CourseCatalogResolver } from './course/catalogs/course-catalog.resolver';
 import { SessionEnrollmentResolver } from './course/workflows/session-enrollment.resolver';
 import { SessionCancelResolver } from './course/workflows/session-cancel.resolver';
 import { SessionCloseResolver } from './course/workflows/session-close.resolver';

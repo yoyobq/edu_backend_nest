@@ -1,6 +1,6 @@
 // src/usecases/course-catalogs/update-catalog-details.usecase.ts
-import { UpdateCatalogDetailsInput } from '@adapters/graphql/course-catalogs/dto/course-catalog.input';
-import { UpdateCatalogDetailsResult } from '@adapters/graphql/course-catalogs/dto/course-catalog.result';
+import { UpdateCatalogDetailsInput } from '@adapters/graphql/course/catalogs/dto/course-catalog.input';
+import { UpdateCatalogDetailsResult } from '@adapters/graphql/course/catalogs/dto/course-catalog.result';
 import { CATALOG_ERROR, DomainError } from '@core/common/errors/domain-error';
 import { Injectable } from '@nestjs/common';
 import { CourseCatalogEntity } from '@src/modules/course/catalogs/course-catalog.entity';
@@ -52,9 +52,20 @@ export class UpdateCatalogDetailsUsecase {
       throw new DomainError(CATALOG_ERROR.UPDATE_FAILED, '更新课程目录失败');
     }
 
+    // 将实体映射为只读 DTO，避免在上游暴露 ORM 实体
     return {
       success: true,
-      data: savedEntity,
+      data: {
+        id: savedEntity.id,
+        courseLevel: savedEntity.courseLevel,
+        title: savedEntity.title,
+        description: savedEntity.description ?? null,
+        createdAt: savedEntity.createdAt,
+        updatedAt: savedEntity.updatedAt,
+        deactivatedAt: savedEntity.deactivatedAt ?? null,
+        createdBy: savedEntity.createdBy ?? null,
+        updatedBy: savedEntity.updatedBy ?? null,
+      },
       message: '课程目录更新成功',
     };
   }
