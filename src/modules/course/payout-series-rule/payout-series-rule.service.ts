@@ -5,7 +5,13 @@ import type { SearchOptions, SearchParams, SearchResult } from '@core/search/sea
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { TypeOrmSearch } from '@src/infrastructure/typeorm/search/typeorm-search';
-import { IsNull, Repository, type FindOptionsWhere, type SelectQueryBuilder } from 'typeorm';
+import {
+  IsNull,
+  Repository,
+  type EntityManager,
+  type FindOptionsWhere,
+  type SelectQueryBuilder,
+} from 'typeorm';
 import { PayoutSeriesRuleEntity } from './payout-series-rule.entity';
 
 /**
@@ -30,8 +36,16 @@ export class PayoutSeriesRuleService {
   /**
    * 按系列 ID 查询规则（唯一）
    * @param seriesId 系列 ID（课程绑定规则）
+   * @param opts 可选参数，支持传入事务 `manager` 以在本地事务上下文中读取
    */
-  async findBySeriesId(seriesId: number): Promise<PayoutSeriesRuleEntity | null> {
+  async findBySeriesId(
+    seriesId: number,
+    opts?: { readonly manager?: EntityManager },
+  ): Promise<PayoutSeriesRuleEntity | null> {
+    if (opts?.manager) {
+      const repo = opts.manager.getRepository(PayoutSeriesRuleEntity);
+      return repo.findOne({ where: { seriesId } });
+    }
     return this.ruleRepository.findOne({ where: { seriesId } });
   }
 

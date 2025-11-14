@@ -1,7 +1,7 @@
 // src/modules/participation-attendance/participation-attendance.service.ts
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { EntityManager, IsNull, Repository } from 'typeorm';
 import { ParticipationAttendanceRecordEntity } from './participation-attendance-record.entity';
 
 /**
@@ -139,6 +139,41 @@ export class ParticipationAttendanceService {
     const fresh = await this.attendanceRepository.findOne({ where: { id } });
     if (!fresh) throw new Error('更新后的出勤记录未找到');
     return fresh;
+  }
+
+  /**
+   * 判断某节次是否已全部定稿（至少存在一条且无未定稿记录）
+   * @param sessionId 节次 ID
+   */
+  async isFinalizedForSession(sessionId: number): Promise<boolean> {
+    const total = await this.attendanceRepository.count({ where: { sessionId } });
+    if (total === 0) return false;
+    const unfinalized = await this.attendanceRepository.count({
+      where: { sessionId, finalizedAt: IsNull() },
+    });
+    return unfinalized === 0;
+  }
+
+  /**
+   * 将某节次未定稿的出勤记录一并定稿（不可逆）
+   * @param params 参数对象：sessionId、finalizedBy、manager（可选事务）
+   * @returns 受影响行数
+   */
+  async lockForSession(params: {
+    sessionId: number;
+    finalizedBy: number;
+    manager?: EntityManager;
+  }): Promise<number> {
+    const repo = params.manager
+      ? params.manager.getRepository(ParticipationAttendanceRecordEntity)
+      : this.attendanceRepository;
+    const res = await repo
+      .createQueryBuilder()
+      .update(ParticipationAttendanceRecordEntity)
+      .set({ finalizedAt: () => 'CURRENT_TIMESTAMP', finalizedBy: params.finalizedBy })
+      .where('session_id = :sid AND finalized_at IS NULL', { sid: params.sessionId })
+      .execute();
+    return res.affected ?? 0;
   }
 
   /**

@@ -5,6 +5,7 @@ import {
   PublisherType,
   VenueType,
 } from '@app-types/models/course-series.types';
+import { SessionStatus } from '@app-types/models/course-session.types';
 import { CourseLevel } from '@app-types/models/course.types';
 import { type IntegrationEventEnvelope } from '@core/common/integration-events/events.types';
 import type { IOutboxStorePort } from '@core/common/integration-events/outbox.port';
@@ -23,7 +24,10 @@ import { LearnerEntity } from '@src/modules/account/identities/training/learner/
 import { ManagerEntity } from '@src/modules/account/identities/training/manager/account-manager.entity';
 import { CourseCatalogEntity } from '@src/modules/course/catalogs/course-catalog.entity';
 import { CourseSeriesEntity } from '@src/modules/course/series/course-series.entity';
+import { CourseSessionCoachEntity } from '@src/modules/course/session-coaches/course-session-coach.entity';
 import { CourseSessionEntity } from '@src/modules/course/sessions/course-session.entity';
+import { ParticipationAttendanceRecordEntity } from '@src/modules/participation/attendance/participation-attendance-record.entity';
+import { ParticipationEnrollmentEntity } from '@src/modules/participation/enrollment/participation-enrollment.entity';
 import { AudienceTypeEnum, LoginTypeEnum } from '@src/types/models/account.types';
 import request from 'supertest';
 import { DataSource } from 'typeorm';
@@ -69,6 +73,43 @@ class TestRecordHandler implements IntegrationEventHandler {
   /**
    * 获取按顺序记录的 dedupKey 列表
    */
+  get order(): ReadonlyArray<string> {
+    return this.keys;
+  }
+}
+
+/**
+ * 测试处理器：记录 SessionClosed 的调用次数与顺序
+ */
+class TestSessionClosedHandler implements IntegrationEventHandler {
+  readonly type: IntegrationEventEnvelope['type'] = 'SessionClosed';
+  private readonly keys: string[] = [];
+  private count = 0;
+
+  /**
+   * 处理集成事件（记录 dedupKey 与调用次数）
+   * @param input 只读事件信封参数对象
+   */
+  async handle(input: { readonly envelope: IntegrationEventEnvelope }): Promise<void> {
+    await Promise.resolve();
+    if (input.envelope.dedupKey) {
+      this.keys.push(input.envelope.dedupKey);
+    }
+    this.count += 1;
+  }
+
+  /** 重置处理器内部状态 */
+  reset(): void {
+    this.keys.length = 0;
+    this.count = 0;
+  }
+
+  /** 获取累计调用次数 */
+  get calls(): number {
+    return this.count;
+  }
+
+  /** 获取按顺序记录的 dedupKey 列表 */
   get order(): ReadonlyArray<string> {
     return this.keys;
   }
@@ -261,8 +302,10 @@ describe('08-Integration-Events 课程工作流：报名触发与 Outbox 分发 
   let dataSource: DataSource;
   let store: IOutboxStorePort;
   const handler = new TestRecordHandler();
+  const closeHandler = new TestSessionClosedHandler();
 
   let customerToken: string;
+  let managerToken: string;
   let seriesId: number;
   let sessionId: number;
   let learnerId: number;
@@ -275,7 +318,7 @@ describe('08-Integration-Events 课程工作流：报名触发与 Outbox 分发 
       imports: [AppModule],
     })
       .overrideProvider(INTEGRATION_EVENTS_TOKENS.HANDLERS)
-      .useValue([handler])
+      .useValue([handler, closeHandler])
       .overrideProvider(INTEGRATION_EVENTS_TOKENS.OUTBOX_DISPATCHER_PORT)
       .useFactory({
         factory: (
@@ -327,6 +370,13 @@ describe('08-Integration-Events 课程工作流：报名触发与 Outbox 分发 
       loginPassword: testAccountsConfig.customer.loginPassword,
     });
 
+    // 登录经理账号，作为结课授权操作者
+    managerToken = await login({
+      app,
+      loginName: testAccountsConfig.manager.loginName,
+      loginPassword: testAccountsConfig.manager.loginPassword,
+    });
+
     // 准备课程数据：目录 → 系列 → 节次
     const catalogId = await ensureTestCatalog(dataSource);
 
@@ -351,6 +401,7 @@ describe('08-Integration-Events 课程工作流：报名触发与 Outbox 分发 
     learnerId = await getLearnerIdByAccountId(dataSource, learnerAccountId);
 
     handler.reset();
+    closeHandler.reset();
   }, 30000);
 
   afterAll(async () => {
@@ -366,81 +417,164 @@ describe('08-Integration-Events 课程工作流：报名触发与 Outbox 分发 
   });
 
   /**
-   * 用例：新报名触发 IntegrationEvent 并被调度器消费
+   * EnrollLearnerToSessionUsecase 相关用例分组
+   * - 新报名触发 IntegrationEvent 并被调度器消费
+   * - 重复报名幂等：不触发 EnrollmentCreated 事件
    */
-  it('新报名触发 EnrollmentCreated 并被 Outbox 消费', async () => {
-    const mutation = `
-      mutation {
-        enrollLearnerToSession(input: { sessionId: ${sessionId}, learnerId: ${learnerId}, remark: "E2E 首次报名" }) {
-          isNewlyCreated
-          enrollment {
-            id
-            sessionId
-            learnerId
-            customerId
-            isCanceled
-            remark
+  describe('EnrollLearnerToSessionUsecase', () => {
+    it('新报名触发 EnrollmentCreated 并被 Outbox 消费', async () => {
+      const mutation = `
+        mutation {
+          enrollLearnerToSession(input: { sessionId: ${sessionId}, learnerId: ${learnerId}, remark: "E2E 首次报名" }) {
+            isNewlyCreated
+            enrollment {
+              id
+              sessionId
+              learnerId
+              customerId
+              isCanceled
+              remark
+            }
           }
         }
-      }
-    `;
-
-    const res = await executeGql(app, { query: mutation, token: customerToken }).expect(200);
-    const body = res.body as unknown as {
-      data: {
-        enrollLearnerToSession: {
-          isNewlyCreated: boolean;
-          enrollment: {
-            id: number;
-            sessionId: number;
-            learnerId: number;
-            customerId: number;
-            isCanceled: 0 | 1;
-            remark: string | null;
+      `;
+      const res = await executeGql(app, { query: mutation, token: customerToken }).expect(200);
+      const body = res.body as unknown as {
+        data: {
+          enrollLearnerToSession: {
+            isNewlyCreated: boolean;
+            enrollment: {
+              id: number;
+              sessionId: number;
+              learnerId: number;
+              customerId: number;
+              isCanceled: 0 | 1;
+              remark: string | null;
+            };
           };
         };
       };
-    };
 
-    expect(body.data.enrollLearnerToSession.isNewlyCreated).toBe(true);
-    expect(body.data.enrollLearnerToSession.enrollment.sessionId).toBe(sessionId);
-    expect(body.data.enrollLearnerToSession.enrollment.learnerId).toBe(learnerId);
-    // 等待调度器消化事件
-    await sleep(350);
-    if ('snapshot' in store && typeof store.snapshot === 'function') {
-      const snap = store.snapshot();
-      expect(snap.queued).toBe(0);
-      expect(snap.failed).toBe(0);
-    }
-    expect(handler.calls).toBeGreaterThanOrEqual(1);
+      expect(body.data.enrollLearnerToSession.isNewlyCreated).toBe(true);
+      expect(body.data.enrollLearnerToSession.enrollment.sessionId).toBe(sessionId);
+      expect(body.data.enrollLearnerToSession.enrollment.learnerId).toBe(learnerId);
+      // 等待调度器消化事件
+      await sleep(350);
+      if ('snapshot' in store && typeof store.snapshot === 'function') {
+        const snap = store.snapshot();
+        expect(snap.queued).toBe(0);
+        expect(snap.failed).toBe(0);
+      }
+      expect(handler.calls).toBeGreaterThanOrEqual(1);
+    });
+
+    /**
+     * 用例：重复报名幂等返回 isNewlyCreated=false，不触发新事件
+     */
+    it('重复报名幂等：不触发 EnrollmentCreated 事件', async () => {
+      const baselineCalls = handler.calls;
+      const mutation = `
+        mutation {
+          enrollLearnerToSession(input: { sessionId: ${sessionId}, learnerId: ${learnerId}, remark: "E2E 重复报名" }) {
+            isNewlyCreated
+            enrollment { id sessionId learnerId customerId isCanceled remark }
+          }
+        }
+      `;
+      const res = await executeGql(app, { query: mutation, token: customerToken }).expect(200);
+      const body = res.body as unknown as {
+        data: { enrollLearnerToSession: { isNewlyCreated: boolean } };
+      };
+      expect(body.data.enrollLearnerToSession.isNewlyCreated).toBe(false);
+
+      await sleep(250);
+      if ('snapshot' in store && typeof store.snapshot === 'function') {
+        const snap = store.snapshot();
+        expect(snap.queued).toBe(0);
+        expect(snap.failed).toBe(0);
+      }
+      // 调度器无新增消费（用例只在新建报名时入箱）
+      expect(handler.calls).toBe(baselineCalls);
+    });
   });
 
   /**
-   * 用例：重复报名幂等返回 isNewlyCreated=false，不触发新事件
+   * CloseSessionUsecase 相关用例分组
+   * - 满足前置条件后结课成功，触发 SessionClosed 并被 Outbox 消费
+   *   前置条件包含：
+   *   - 节次至少存在一条出勤记录且全部定稿
+   *   - 节次存在至少一条教练结算模板（session_coaches）
    */
-  it('重复报名幂等：不触发 EnrollmentCreated 事件', async () => {
-    const baselineCalls = handler.calls;
-    const mutation = `
-      mutation {
-        enrollLearnerToSession(input: { sessionId: ${sessionId}, learnerId: ${learnerId}, remark: "E2E 重复报名" }) {
-          isNewlyCreated
-          enrollment { id sessionId learnerId customerId isCanceled remark }
-        }
-      }
-    `;
-    const res = await executeGql(app, { query: mutation, token: customerToken }).expect(200);
-    const body = res.body as unknown as {
-      data: { enrollLearnerToSession: { isNewlyCreated: boolean } };
-    };
-    expect(body.data.enrollLearnerToSession.isNewlyCreated).toBe(false);
+  describe('CloseSessionUsecase', () => {
+    it('结课成功触发 SessionClosed 并被 Outbox 消费', async () => {
+      // 1) 查询报名，写入已定稿的出勤记录
+      const enrollmentRepo = dataSource.getRepository(ParticipationEnrollmentEntity);
+      const enrollment = await enrollmentRepo.findOne({ where: { sessionId, learnerId } });
+      if (!enrollment) throw new Error('测试前置失败：未找到报名记录');
 
-    await sleep(250);
-    if ('snapshot' in store && typeof store.snapshot === 'function') {
-      const snap = store.snapshot();
-      expect(snap.queued).toBe(0);
-      expect(snap.failed).toBe(0);
-    }
-    // 调度器无新增消费（用例只在新建报名时入箱）
-    expect(handler.calls).toBe(baselineCalls);
+      const attendRepo = dataSource.getRepository(ParticipationAttendanceRecordEntity);
+      const existingAttend = await attendRepo.findOne({ where: { sessionId, learnerId } });
+      if (!existingAttend) {
+        await attendRepo.save(
+          attendRepo.create({
+            sessionId,
+            learnerId,
+            enrollmentId: enrollment.id,
+            countApplied: '1.00',
+            confirmedByCoachId: null,
+            confirmedAt: null,
+            finalizedBy: null,
+            finalizedAt: new Date(),
+            remark: 'E2E 结课前定稿',
+          }),
+        );
+      } else if (!existingAttend.finalizedAt) {
+        await attendRepo.update({ id: existingAttend.id }, { finalizedAt: new Date() });
+      }
+
+      // 2) 写入至少一条教练结算模板（使用主教练）
+      const sessionRepo = dataSource.getRepository(CourseSessionEntity);
+      const freshSession = await sessionRepo.findOne({ where: { id: sessionId } });
+      if (!freshSession) throw new Error('测试前置失败：未找到节次');
+      const coachRepo = dataSource.getRepository(CourseSessionCoachEntity);
+      const existingCoachTemplate = await coachRepo.findOne({ where: { sessionId } });
+      if (!existingCoachTemplate) {
+        await coachRepo.save(
+          coachRepo.create({
+            sessionId,
+            coachId: freshSession.leadCoachId,
+            teachingFeeAmount: '0.00',
+            bonusAmount: '0.00',
+            payoutNote: null,
+            payoutFinalizedAt: null,
+            createdBy: null,
+            updatedBy: null,
+          }),
+        );
+      }
+
+      // 3) 执行 GraphQL 结课 Mutation（使用经理身份）
+      const mutation = `
+        mutation { closeSession(sessionId: ${sessionId}) }
+      `;
+      const res = await executeGql(app, { query: mutation, token: managerToken }).expect(200);
+      const body = res.body as unknown as { data?: { closeSession?: boolean }; errors?: unknown };
+      if (body.errors) throw new Error(`GraphQL 错误: ${JSON.stringify(body.errors)}`);
+      expect(body.data?.closeSession).toBe(true);
+
+      // 4) 校验节次状态已更新为 FINISHED
+      const closed = await sessionRepo.findOne({ where: { id: sessionId } });
+      if (!closed) throw new Error('结课后未找到节次');
+      expect(closed.status).toBe(SessionStatus.FINISHED);
+
+      // 5) 等待 Outbox 分发，并断言消费情况
+      await sleep(250);
+      if ('snapshot' in store && typeof store.snapshot === 'function') {
+        const snap = store.snapshot();
+        expect(snap.queued).toBe(0);
+        expect(snap.failed).toBe(0);
+      }
+      expect(closeHandler.calls).toBeGreaterThanOrEqual(1);
+    });
   });
 });

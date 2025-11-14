@@ -153,7 +153,7 @@ await uow.withTransaction(async (tx) => {
   2. `session-payout-reconcile.job`
 
      * 条件：`course_sessions.status=FINISHED` 且缺少课酬记录。
-     * 动作：补发 `SessionClosed` 或直接调用结算 usecase（若已有幂等）。
+     * 动作：补发 `SessionClosed`。
 
 ---
 

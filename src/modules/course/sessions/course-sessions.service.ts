@@ -2,7 +2,7 @@
 import { SessionStatus } from '@app-types/models/course-session.types';
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { EntityManager, Repository } from 'typeorm';
 import { CourseSessionEntity } from './course-session.entity';
 
 /**
@@ -81,6 +81,24 @@ export class CourseSessionsService {
     const fresh = await this.sessionRepository.findOne({ where: { id: params.id } });
     if (!fresh) throw new Error('状态更新后的节次未找到');
     return fresh;
+  }
+
+  /**
+   * 将节次标记为 FINISHED（条件更新，防止非法状态切换）
+   * 仅允许从 SCHEDULED 切换到 FINISHED
+   * @param params 参数对象：id、manager（可选事务）
+   */
+  async markCompleted(params: { id: number; manager?: EntityManager }): Promise<boolean> {
+    const repo = params.manager
+      ? params.manager.getRepository(CourseSessionEntity)
+      : this.sessionRepository;
+    const res = await repo
+      .createQueryBuilder()
+      .update(CourseSessionEntity)
+      .set({ status: SessionStatus.FINISHED })
+      .where('id = :id AND status = :from', { id: params.id, from: SessionStatus.SCHEDULED })
+      .execute();
+    return (res.affected ?? 0) > 0;
   }
 
   /**

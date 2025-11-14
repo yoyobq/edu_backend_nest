@@ -11,10 +11,14 @@ import { PayoutSeriesRuleModule } from '@src/modules/course/payout-series-rule/p
 import { CourseSeriesModule } from '@src/modules/course/series/course-series.module';
 import { CourseSessionsModule } from '@src/modules/course/sessions/course-sessions.module';
 import { ParticipationEnrollmentModule } from '@src/modules/participation/enrollment/participation-enrollment.module';
+import { ParticipationAttendanceModule } from '@src/modules/participation/attendance/participation-attendance.module';
+import { CourseSessionCoachesModule } from '@src/modules/course/session-coaches/course-session-coaches.module';
 import { CustomerServiceModule } from '@src/modules/account/identities/training/customer/customer-service.module';
 import { LearnerIdentityModule } from '@src/modules/account/identities/training/learner/learner.module';
+import { CoachServiceModule } from '@src/modules/account/identities/training/coach/coach-service.module';
 import { IntegrationEventsModule } from '@src/modules/common/integration-events/integration-events.module';
 import { EnrollLearnerToSessionUsecase } from '@src/usecases/course/workflows/enroll-learner-to-session.usecase';
+import { CloseSessionUsecase } from '@src/usecases/course/workflows/close-session.usecase';
 
 import { Module } from '@nestjs/common';
 import { AccountInstallerModule } from '@src/modules/account/account-installer.module';
@@ -25,6 +29,7 @@ import { AccountResolver } from './account/account.resolver';
 import { AuthResolver } from './auth/auth.resolver';
 import { CourseCatalogResolver } from './course-catalogs/course-catalog.resolver';
 import { SessionEnrollmentResolver } from './course/workflows/session-enrollment.resolver';
+import { SessionCloseResolver } from './course/workflows/session-close.resolver';
 import { CoachResolver } from './identity-management/coach/coach.resolver';
 import { CustomerResolver } from './identity-management/customer/customer.resolver';
 import { IdentityManagementResolver } from './identity-management/identity-management.resolver';
@@ -57,8 +62,11 @@ import { RolesGuard } from './guards/roles.guard';
     CourseSeriesModule,
     CourseSessionsModule,
     ParticipationEnrollmentModule,
+    ParticipationAttendanceModule, // 结课用例依赖出勤服务（锁定与定稿校验）
+    CourseSessionCoachesModule, // 结课用例依赖节次-教练结算模板服务（存在性校验）
     CustomerServiceModule,
     LearnerIdentityModule,
+    CoachServiceModule, // 结课用例需要校验当前操作者是否为主教练
     IntegrationEventsModule,
     PayoutSeriesRuleModule, // 导入结算规则模块，提供 usecase 与服务
     VerificationRecordModule, // 导入验证记录模块（包含验证流程相关组件）
@@ -79,8 +87,10 @@ import { RolesGuard } from './guards/roles.guard';
     CoachResolver, // 注册教练管理 resolver
     ManagerResolver, // 注册经理管理 resolver
     SessionEnrollmentResolver, // 注册节次报名 resolver
+    SessionCloseResolver, // 注册节次结课 resolver
     // 用例
     EnrollLearnerToSessionUsecase, // 在适配器模块内直接提供报名用例
+    CloseSessionUsecase,
     // Guards
     JwtAuthGuard,
     RolesGuard,
@@ -100,6 +110,7 @@ import { RolesGuard } from './guards/roles.guard';
     CoachResolver, // 导出教练管理 resolver
     ManagerResolver, // 导出经理管理 resolver
     SessionEnrollmentResolver, // 导出节次报名 resolver
+    SessionCloseResolver, // 导出节次结课 resolver
     JwtAuthGuard,
     RolesGuard,
   ],

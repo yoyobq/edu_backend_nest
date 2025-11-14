@@ -1,7 +1,7 @@
 // src/modules/course-session-coaches/course-session-coaches.service.ts
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { EntityManager, Repository } from 'typeorm';
 import { CourseSessionCoachEntity } from './course-session-coach.entity';
 
 /**
@@ -26,6 +26,17 @@ export class CourseSessionCoachesService {
     return this.sessionCoachRepository.findOne({
       where: { sessionId: params.sessionId, coachId: params.coachId },
     });
+  }
+
+  /**
+   * 统计某节次的教练结算记录数量（用于作为“冻结模板快照”的存在性校验）
+   * @param params 参数对象：sessionId、manager（可选事务）
+   */
+  async countBySession(params: { sessionId: number; manager?: EntityManager }): Promise<number> {
+    const repo = params.manager
+      ? params.manager.getRepository(CourseSessionCoachEntity)
+      : this.sessionCoachRepository;
+    return await repo.count({ where: { sessionId: params.sessionId } });
   }
 
   /**
