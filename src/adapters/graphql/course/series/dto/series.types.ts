@@ -73,3 +73,48 @@ export class CourseSeriesDTO {
   @Field(() => Int, { nullable: true })
   updatedBy!: number | null;
 }
+
+@InputType()
+export class PreviewSeriesScheduleInputGql {
+  @Field(() => Int)
+  seriesId!: number;
+
+  @Field(() => Boolean, { nullable: true })
+  enableConflictCheck?: boolean;
+}
+
+@ObjectType()
+export class PreviewConflictDTO {
+  @Field(() => Boolean)
+  hasConflict!: boolean;
+
+  @Field(() => Int)
+  count!: number;
+}
+
+@ObjectType()
+export class PreviewOccurrenceDTO {
+  @Field(() => Date)
+  startDateTime!: Date;
+
+  @Field(() => Date)
+  endDateTime!: Date;
+
+  @Field(() => String)
+  date!: string;
+
+  @Field(() => Int)
+  weekdayIndex!: number;
+
+  @Field(() => PreviewConflictDTO, { nullable: true })
+  conflict!: PreviewConflictDTO | null;
+}
+
+@ObjectType()
+export class PreviewSeriesScheduleResultDTO {
+  @Field(() => CourseSeriesDTO)
+  series!: CourseSeriesDTO;
+
+  @Field(() => [PreviewOccurrenceDTO])
+  occurrences!: PreviewOccurrenceDTO[];
+}

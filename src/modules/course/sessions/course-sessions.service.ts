@@ -25,6 +25,27 @@ export class CourseSessionsService {
   }
 
   /**
+   * 按教练与时间段查询已排期的节次（仅 SCHEDULED）
+   * @param params 查询参数对象：coachId / rangeStart / rangeEnd
+   * @returns 重叠时间段内的节次列表，按开始时间升序
+   */
+  async findScheduledByCoachAndRange(params: {
+    readonly coachId: number;
+    readonly rangeStart: Date;
+    readonly rangeEnd: Date;
+  }): Promise<CourseSessionEntity[]> {
+    return await this.sessionRepository
+      .createQueryBuilder('s')
+      .select('s')
+      .where('s.leadCoachId = :coachId', { coachId: params.coachId })
+      .andWhere('s.status = :status', { status: SessionStatus.SCHEDULED })
+      .andWhere('s.startTime < :rangeEnd', { rangeEnd: params.rangeEnd })
+      .andWhere('s.endTime > :rangeStart', { rangeStart: params.rangeStart })
+      .orderBy('s.startTime', 'ASC')
+      .getMany();
+  }
+
+  /**
    * 创建节次
    * @param data 创建数据
    */

@@ -5,12 +5,14 @@ import { ManagerServiceModule } from '@modules/account/identities/training/manag
 import { CourseCatalogsModule } from '@modules/course/catalogs/course-catalogs.module';
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { CourseSessionsModule } from '@src/modules/course/sessions/course-sessions.module';
 import { CreateSeriesUsecase } from '@src/usecases/course/series/create-series.usecase';
 import { DeleteSeriesUsecase } from '@src/usecases/course/series/delete-series.usecase';
 import { GetSeriesUsecase } from '@src/usecases/course/series/get-series.usecase';
 import { ListSeriesUsecase } from '@src/usecases/course/series/list-series.usecase';
 import { SearchSeriesUsecase } from '@src/usecases/course/series/search-series.usecase';
 import { UpdateSeriesUsecase } from '@src/usecases/course/series/update-series.usecase';
+import { PreviewSeriesScheduleUsecase } from '@src/usecases/course/series/preview-series-schedule.usecase';
 import { CourseSeriesEntity } from './course-series.entity';
 import { CourseSeriesService } from './course-series.service';
 
@@ -23,6 +25,7 @@ import { CourseSeriesService } from './course-series.service';
     TypeOrmModule.forFeature([CourseSeriesEntity]),
     PaginationModule,
     CourseCatalogsModule,
+    CourseSessionsModule,
     CoachServiceModule,
     ManagerServiceModule,
   ],
@@ -35,6 +38,7 @@ import { CourseSeriesService } from './course-series.service';
     GetSeriesUsecase,
     ListSeriesUsecase,
     SearchSeriesUsecase,
+    PreviewSeriesScheduleUsecase,
   ],
   exports: [
     TypeOrmModule,
@@ -45,6 +49,7 @@ import { CourseSeriesService } from './course-series.service';
     GetSeriesUsecase,
     ListSeriesUsecase,
     SearchSeriesUsecase,
+    PreviewSeriesScheduleUsecase,
   ],
 })
 export class CourseSeriesModule {}
