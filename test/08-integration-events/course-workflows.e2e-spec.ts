@@ -116,6 +116,43 @@ class TestSessionClosedHandler implements IntegrationEventHandler {
 }
 
 /**
+ * 测试处理器：记录 EnrollmentCancelled 的调用次数与顺序
+ */
+class TestEnrollmentCancelledHandler implements IntegrationEventHandler {
+  readonly type: IntegrationEventEnvelope['type'] = 'EnrollmentCancelled';
+  private readonly keys: string[] = [];
+  private count = 0;
+
+  /**
+   * 处理集成事件（记录 dedupKey 与调用次数）
+   * @param input 只读事件信封参数对象
+   */
+  async handle(input: { readonly envelope: IntegrationEventEnvelope }): Promise<void> {
+    await Promise.resolve();
+    if (input.envelope.dedupKey) {
+      this.keys.push(input.envelope.dedupKey);
+    }
+    this.count += 1;
+  }
+
+  /** 重置处理器内部状态 */
+  reset(): void {
+    this.keys.length = 0;
+    this.count = 0;
+  }
+
+  /** 获取累计调用次数 */
+  get calls(): number {
+    return this.count;
+  }
+
+  /** 获取按顺序记录的 dedupKey 列表 */
+  get order(): ReadonlyArray<string> {
+    return this.keys;
+  }
+}
+
+/**
  * 局部应用构建：覆盖处理器集合与部分配置键值
  * 返回 app 与 outbox 端口，便于测试控制与断言
  */
@@ -303,6 +340,7 @@ describe('08-Integration-Events 课程工作流：报名触发与 Outbox 分发 
   let store: IOutboxStorePort;
   const handler = new TestRecordHandler();
   const closeHandler = new TestSessionClosedHandler();
+  const cancelHandler = new TestEnrollmentCancelledHandler();
 
   let customerToken: string;
   let managerToken: string;
@@ -318,7 +356,7 @@ describe('08-Integration-Events 课程工作流：报名触发与 Outbox 分发 
       imports: [AppModule],
     })
       .overrideProvider(INTEGRATION_EVENTS_TOKENS.HANDLERS)
-      .useValue([handler, closeHandler])
+      .useValue([handler, closeHandler, cancelHandler])
       .overrideProvider(INTEGRATION_EVENTS_TOKENS.OUTBOX_DISPATCHER_PORT)
       .useFactory({
         factory: (
@@ -402,6 +440,7 @@ describe('08-Integration-Events 课程工作流：报名触发与 Outbox 分发 
 
     handler.reset();
     closeHandler.reset();
+    cancelHandler.reset();
   }, 30000);
 
   afterAll(async () => {
@@ -495,6 +534,141 @@ describe('08-Integration-Events 课程工作流：报名触发与 Outbox 分发 
       }
       // 调度器无新增消费（用例只在新建报名时入箱）
       expect(handler.calls).toBe(baselineCalls);
+    });
+  });
+
+  /**
+   * CancelEnrollmentUsecase 相关用例分组
+   * - 取消报名触发 EnrollmentCancelled 并被 Outbox 消费
+   * - 重复取消幂等：不触发 EnrollmentCancelled 新事件
+   */
+  describe('CancelEnrollmentUsecase', () => {
+    it('超过取消阈值：返回领域错误并不触发事件', async () => {
+      // 读取报名与节次信息（使用前序用例创建的数据）
+      const enrollmentRepo = dataSource.getRepository(ParticipationEnrollmentEntity);
+      const enrollment = await enrollmentRepo.findOne({ where: { sessionId, learnerId } });
+      if (!enrollment) throw new Error('测试前置失败：未找到报名记录');
+
+      const sessionRepo = dataSource.getRepository(CourseSessionEntity);
+      const freshSession = await sessionRepo.findOne({ where: { id: sessionId } });
+      if (!freshSession) throw new Error('测试前置失败：未找到节次');
+
+      // 设置节次的请假阈值覆写：大于距离开始的小时数，以确保 now > cutoffTime
+      const hoursUntilStart = Math.ceil(
+        (freshSession.startTime.getTime() - Date.now()) / (3600 * 1000),
+      );
+      const overrideHours = hoursUntilStart + 1; // 覆写值大于剩余小时，触发超过阈值
+      await sessionRepo.update({ id: sessionId }, { leaveCutoffHoursOverride: overrideHours });
+
+      const baselineCalls = cancelHandler.calls;
+
+      const mutation = `
+        mutation {
+          cancelEnrollment(input: { enrollmentId: ${enrollment.id}, reason: "E2E 超过阈值取消" }) {
+            isUpdated
+            enrollment { id sessionId learnerId customerId isCanceled cancelReason }
+          }
+        }
+      `;
+      const res = await executeGql(app, { query: mutation, token: customerToken }).expect(200);
+      const body = res.body as unknown as {
+        data?: { cancelEnrollment?: { isUpdated: boolean } };
+        errors?: Array<{ message: string }>;
+      };
+
+      // GraphQL 返回错误（DomainError 被直接抛出）
+      expect(Array.isArray(body.errors)).toBe(true);
+      expect(body.errors && body.errors[0]?.message).toContain('取消阈值');
+
+      // 等待调度器，确认无新增入箱与消费
+      await sleep(250);
+      if ('snapshot' in store && typeof store.snapshot === 'function') {
+        const snap = store.snapshot();
+        expect(snap.queued).toBe(0);
+        expect(snap.failed).toBe(0);
+      }
+      expect(cancelHandler.calls).toBe(baselineCalls);
+
+      // 恢复阈值覆写为默认（允许后续正常取消）
+      await sessionRepo.update({ id: sessionId }, { leaveCutoffHoursOverride: null });
+    });
+
+    it('取消报名触发 EnrollmentCancelled 并被 Outbox 消费', async () => {
+      // 前置：读取报名 ID（已由前述用例创建）
+      const enrollmentRepo = dataSource.getRepository(ParticipationEnrollmentEntity);
+      const enrollment = await enrollmentRepo.findOne({ where: { sessionId, learnerId } });
+      if (!enrollment) throw new Error('测试前置失败：未找到报名记录');
+
+      const mutation = `
+        mutation {
+          cancelEnrollment(input: { enrollmentId: ${enrollment.id}, reason: "E2E 首次取消" }) {
+            isUpdated
+            enrollment { id sessionId learnerId customerId isCanceled cancelReason }
+          }
+        }
+      `;
+      const res = await executeGql(app, { query: mutation, token: customerToken }).expect(200);
+      const body = res.body as unknown as {
+        data?: {
+          cancelEnrollment?: {
+            isUpdated: boolean;
+            enrollment: {
+              id: number;
+              sessionId: number;
+              learnerId: number;
+              customerId: number;
+              isCanceled: 0 | 1;
+              cancelReason: string | null;
+            };
+          };
+        };
+        errors?: unknown;
+      };
+      if (body.errors) throw new Error(`GraphQL 错误: ${JSON.stringify(body.errors)}`);
+      expect(body.data?.cancelEnrollment?.isUpdated).toBe(true);
+      expect(body.data?.cancelEnrollment?.enrollment.isCanceled).toBe(1);
+
+      // 等待 Outbox 分发，并断言消费情况
+      await sleep(300);
+      if ('snapshot' in store && typeof store.snapshot === 'function') {
+        const snap = store.snapshot();
+        expect(snap.queued).toBe(0);
+        expect(snap.failed).toBe(0);
+      }
+      expect(cancelHandler.calls).toBeGreaterThanOrEqual(1);
+    });
+
+    it('重复取消幂等：不触发新的 EnrollmentCancelled 事件', async () => {
+      // 再次读取报名 ID
+      const enrollmentRepo = dataSource.getRepository(ParticipationEnrollmentEntity);
+      const enrollment = await enrollmentRepo.findOne({ where: { sessionId, learnerId } });
+      if (!enrollment) throw new Error('测试前置失败：未找到报名记录');
+
+      const baselineCalls = cancelHandler.calls;
+      const mutation = `
+        mutation {
+          cancelEnrollment(input: { enrollmentId: ${enrollment.id}, reason: "E2E 重复取消" }) {
+            isUpdated
+            enrollment { id sessionId learnerId customerId isCanceled cancelReason }
+          }
+        }
+      `;
+      const res = await executeGql(app, { query: mutation, token: customerToken }).expect(200);
+      const body = res.body as unknown as {
+        data?: { cancelEnrollment?: { isUpdated: boolean } };
+        errors?: unknown;
+      };
+      if (body.errors) throw new Error(`GraphQL 错误: ${JSON.stringify(body.errors)}`);
+      expect(body.data?.cancelEnrollment?.isUpdated).toBe(false);
+
+      await sleep(250);
+      if ('snapshot' in store && typeof store.snapshot === 'function') {
+        const snap = store.snapshot();
+        expect(snap.queued).toBe(0);
+        expect(snap.failed).toBe(0);
+      }
+      // 不产生新的事件消费
+      expect(cancelHandler.calls).toBe(baselineCalls);
     });
   });
 

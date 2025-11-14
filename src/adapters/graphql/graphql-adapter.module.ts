@@ -18,6 +18,7 @@ import { LearnerIdentityModule } from '@src/modules/account/identities/training/
 import { CoachServiceModule } from '@src/modules/account/identities/training/coach/coach-service.module';
 import { IntegrationEventsModule } from '@src/modules/common/integration-events/integration-events.module';
 import { EnrollLearnerToSessionUsecase } from '@src/usecases/course/workflows/enroll-learner-to-session.usecase';
+import { CancelEnrollmentUsecase } from '@src/usecases/course/workflows/cancel-enrollment.usecase';
 import { CloseSessionUsecase } from '@src/usecases/course/workflows/close-session.usecase';
 
 import { Module } from '@nestjs/common';
@@ -29,6 +30,7 @@ import { AccountResolver } from './account/account.resolver';
 import { AuthResolver } from './auth/auth.resolver';
 import { CourseCatalogResolver } from './course-catalogs/course-catalog.resolver';
 import { SessionEnrollmentResolver } from './course/workflows/session-enrollment.resolver';
+import { SessionCancelResolver } from './course/workflows/session-cancel.resolver';
 import { SessionCloseResolver } from './course/workflows/session-close.resolver';
 import { CoachResolver } from './identity-management/coach/coach.resolver';
 import { CustomerResolver } from './identity-management/customer/customer.resolver';
@@ -87,9 +89,11 @@ import { RolesGuard } from './guards/roles.guard';
     CoachResolver, // 注册教练管理 resolver
     ManagerResolver, // 注册经理管理 resolver
     SessionEnrollmentResolver, // 注册节次报名 resolver
+    SessionCancelResolver, // 注册取消报名 resolver
     SessionCloseResolver, // 注册节次结课 resolver
     // 用例
     EnrollLearnerToSessionUsecase, // 在适配器模块内直接提供报名用例
+    CancelEnrollmentUsecase, // 在适配器模块内直接提供取消报名用例
     CloseSessionUsecase,
     // Guards
     JwtAuthGuard,
@@ -110,6 +114,7 @@ import { RolesGuard } from './guards/roles.guard';
     CoachResolver, // 导出教练管理 resolver
     ManagerResolver, // 导出经理管理 resolver
     SessionEnrollmentResolver, // 导出节次报名 resolver
+    SessionCancelResolver, // 导出取消报名 resolver
     SessionCloseResolver, // 导出节次结课 resolver
     JwtAuthGuard,
     RolesGuard,
