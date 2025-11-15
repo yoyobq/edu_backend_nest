@@ -93,3 +93,40 @@ export class PreviewSeriesScheduleInput {
   @Field(() => Boolean, { nullable: true, description: '是否启用冲突检测（默认 true）' })
   enableConflictCheck?: boolean;
 }
+
+/**
+ * 发布课程系列 入参 DTO
+ * 与 Usecase 的 PublishSeriesInput 对齐
+ */
+@InputType()
+export class PublishCourseSeriesInput {
+  @Field(() => Int, { description: '课程系列 ID' })
+  @IsInt({ message: '课程系列 ID 必须是整数' })
+  @Min(1, { message: '课程系列 ID 必须大于 0' })
+  seriesId!: number;
+
+  @Field(() => [String], {
+    nullable: true,
+    description: '选择发布的 occurrenceKey 列表（省略表示全量）',
+  })
+  @IsOptional()
+  selectedKeys?: string[];
+
+  @Field(() => String, { description: '预览哈希（防篡改校验）' })
+  @IsString({ message: '预览哈希必须是字符串' })
+  @MaxLength(128, { message: '预览哈希长度过长' })
+  previewHash!: string;
+
+  @Field(() => Boolean, { nullable: true, description: '是否为试发布（不写库）' })
+  @IsOptional()
+  dryRun?: boolean;
+
+  @Field(() => Int, {
+    nullable: true,
+    description: '主教练 ID（manager/admin 必须提供；coach 忽略）',
+  })
+  @IsOptional()
+  @IsInt({ message: '主教练 ID 必须是整数' })
+  @Min(1, { message: '主教练 ID 必须大于 0' })
+  leadCoachId?: number;
+}

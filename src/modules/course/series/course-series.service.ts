@@ -8,7 +8,7 @@ import type {
 import { PaginationService } from '@modules/common/pagination.service';
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository, type SelectQueryBuilder } from 'typeorm';
+import { In, Repository, type SelectQueryBuilder, type EntityManager } from 'typeorm';
 import { CourseSeriesEntity } from './course-series.entity';
 
 /**
@@ -129,6 +129,22 @@ export class CourseSeriesService {
     const merged = this.seriesRepo.merge(existing, data);
     const saved = await this.seriesRepo.save(merged);
     return saved ?? null;
+  }
+
+  /**
+   * 更新系列的起止范围与状态（支持事务）
+   * @param manager 事务管理器
+   * @param input 更新数据对象
+   */
+  async updateRangeAndStatus(
+    manager: EntityManager,
+    input: { id: number; startDate: string; endDate: string; status: CourseSeriesStatus },
+  ): Promise<void> {
+    const repo = manager.getRepository(CourseSeriesEntity);
+    await repo.update(
+      { id: input.id },
+      { startDate: input.startDate, endDate: input.endDate, status: input.status },
+    );
   }
 
   /**

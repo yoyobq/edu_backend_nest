@@ -72,6 +72,49 @@ export class CourseSessionsService {
   }
 
   /**
+   * 批量创建节次（幂等）：
+   * - 依赖唯一约束 `uk_session_series_start` 去重；
+   * - 返回成功创建数与跳过数；
+   * - 可选事务管理器。
+   */
+  async bulkCreate(input: {
+    readonly items: ReadonlyArray<{
+      readonly seriesId: number;
+      readonly startTime: Date;
+      readonly endTime: Date;
+      readonly leadCoachId: number;
+      readonly locationText: string;
+      readonly remark?: string | null;
+    }>;
+    readonly manager?: EntityManager;
+  }): Promise<{ created: number; skipped: number }> {
+    const repo = input.manager
+      ? input.manager.getRepository(CourseSessionEntity)
+      : this.sessionRepository;
+    let created = 0;
+    let skipped = 0;
+    for (const it of input.items) {
+      try {
+        const entity = repo.create({
+          seriesId: it.seriesId,
+          startTime: it.startTime,
+          endTime: it.endTime,
+          leadCoachId: it.leadCoachId,
+          locationText: it.locationText,
+          status: SessionStatus.SCHEDULED,
+          remark: it.remark ?? null,
+        });
+        await repo.save(entity);
+        created++;
+      } catch {
+        // 依赖唯一约束：视为跳过
+        skipped++;
+      }
+    }
+    return { created, skipped };
+  }
+
+  /**
    * 更新节次基本信息
    * @param id 节次 ID
    * @param patch 部分更新数据

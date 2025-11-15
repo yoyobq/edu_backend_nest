@@ -8,20 +8,30 @@ import {
   type CreateSeriesOutput,
 } from '@src/usecases/course/series/create-series.usecase';
 import { PreviewSeriesScheduleUsecase } from '@src/usecases/course/series/preview-series-schedule.usecase';
+import {
+  PublishSeriesUsecase,
+  type PublishSeriesOutput,
+} from '@src/usecases/course/series/publish-series.usecase';
 import { currentUser } from '../../decorators/current-user.decorator';
 import { JwtAuthGuard } from '../../guards/jwt-auth.guard';
 import { CourseSeriesDTO } from './dto/course-series.dto';
 import {
   CreateCourseSeriesDraftInput,
   PreviewSeriesScheduleInput,
+  PublishCourseSeriesInput,
 } from './dto/course-series.input';
-import { PreviewOccurrenceDTO, PreviewSeriesScheduleResultDTO } from './dto/course-series.result';
+import {
+  PreviewOccurrenceDTO,
+  PreviewSeriesScheduleResultDTO,
+  PublishSeriesResultDTO,
+} from './dto/course-series.result';
 
 @Resolver(() => CourseSeriesDTO)
 export class CourseSeriesResolver {
   constructor(
     private readonly createUsecase: CreateSeriesUsecase,
     private readonly previewUsecase: PreviewSeriesScheduleUsecase,
+    private readonly publishUsecase: PublishSeriesUsecase,
   ) {}
 
   @UseGuards(JwtAuthGuard)
@@ -68,11 +78,12 @@ export class CourseSeriesResolver {
     @Args('input') input: PreviewSeriesScheduleInput,
   ): Promise<PreviewSeriesScheduleResultDTO> {
     const session: UsecaseSession = mapJwtToUsecaseSession(user);
-    const { series, occurrences } = await this.previewUsecase.execute({
-      session,
-      seriesId: input.seriesId,
-      options: { enableConflictCheck: input.enableConflictCheck ?? true },
-    });
+    const { series, occurrences, previewHash, defaultLeadCoachId } =
+      await this.previewUsecase.execute({
+        session,
+        seriesId: input.seriesId,
+        options: { enableConflictCheck: input.enableConflictCheck ?? true },
+      });
 
     // 映射 series 到 DTO（复用已定义字段）
     const seriesDto = new CourseSeriesDTO();
@@ -102,6 +113,7 @@ export class CourseSeriesResolver {
       dto.endDateTime = o.endDateTime;
       dto.date = o.date;
       dto.weekdayIndex = o.weekdayIndex;
+      dto.occurrenceKey = o.occurrenceKey;
       dto.conflict = o.conflict
         ? { hasConflict: o.conflict.hasConflict, count: o.conflict.count }
         : null;
@@ -111,6 +123,34 @@ export class CourseSeriesResolver {
     const result = new PreviewSeriesScheduleResultDTO();
     result.series = seriesDto;
     result.occurrences = occDtos;
+    result.previewHash = previewHash;
+    result.defaultLeadCoachId = defaultLeadCoachId;
     return result;
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Mutation(() => PublishSeriesResultDTO, {
+    name: 'publishCourseSeries',
+    description: '发布课程系列（支持 dryRun 试发布，不写库）',
+  })
+  async publishCourseSeries(
+    @currentUser() user: JwtPayload,
+    @Args('input') input: PublishCourseSeriesInput,
+  ): Promise<PublishSeriesResultDTO> {
+    const session: UsecaseSession = mapJwtToUsecaseSession(user);
+    const result: PublishSeriesOutput = await this.publishUsecase.execute({
+      session,
+      seriesId: input.seriesId,
+      selectedKeys: input.selectedKeys,
+      previewHash: input.previewHash,
+      dryRun: input.dryRun,
+      leadCoachId: input.leadCoachId,
+    });
+    const dto = new PublishSeriesResultDTO();
+    dto.seriesId = result.series.id;
+    dto.status = result.series.status;
+    dto.publishedAt = result.series.publishedAt ?? null;
+    dto.createdSessions = result.createdSessions;
+    return dto;
   }
 }

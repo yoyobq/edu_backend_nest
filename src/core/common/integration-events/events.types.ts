@@ -8,7 +8,8 @@ export type IntegrationEventType =
   | 'SessionClosed'
   | 'PayoutGenerated'
   | 'PricingApproved'
-  | 'WaitlistPromoted';
+  | 'WaitlistPromoted'
+  | 'SeriesPublished';
 
 export type ISO8601String = string & { readonly brand: 'ISO8601' };
 export type DedupKey = string & { readonly brand: 'DedupKey' };

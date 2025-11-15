@@ -35,7 +35,7 @@ describe('Course Series (e2e)', () => {
     dataSource = moduleFixture.get<DataSource>(DataSource);
 
     await cleanupTestAccounts(dataSource);
-    await seedTestAccounts({ dataSource, includeKeys: ['manager', 'coach'] });
+    await seedTestAccounts({ dataSource, includeKeys: ['manager', 'coach', 'learner', 'guest'] });
 
     managerToken = await loginAndGetToken(
       testAccountsConfig.manager.loginName,
@@ -841,6 +841,1102 @@ describe('Course Series (e2e)', () => {
       for (const o of occs) {
         expect(o.conflict).toBeNull();
       }
+    });
+  });
+
+  describe('Publish Series', () => {
+    it('manager dryRun：未指定主教练应报错', async () => {
+      const catalogId = await ensureCatalog();
+      const startDateStr = '2025-02-01';
+      const endDateStr = '2025-02-07';
+
+      const createMutation = `
+        mutation {
+          createCourseSeriesDraft(input: {
+            catalogId: ${catalogId},
+            title: "E2E 发布 dryRun 校验",
+            description: "说明",
+            venueType: ${VenueType.SANDA_GYM},
+            classMode: ${ClassMode.SMALL_CLASS},
+            startDate: "${startDateStr}",
+            endDate: "${endDateStr}",
+            recurrenceRule: "BYDAY=MO,WE;BYHOUR=18;BYMINUTE=0",
+            leaveCutoffHours: 12,
+            maxLearners: 4,
+            remark: "E2E 草稿测试"
+          }) { id }
+        }
+      `;
+      const createRes = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', managerTokenWithBearer)
+        .send({ query: createMutation })
+        .expect(200);
+      if (createRes.body.errors)
+        throw new Error(`GraphQL 错误: ${JSON.stringify(createRes.body.errors)}`);
+      const seriesIdRaw = createRes.body.data.createCourseSeriesDraft.id as string | number;
+      const seriesId = typeof seriesIdRaw === 'string' ? Number(seriesIdRaw) : (seriesIdRaw ?? 0);
+      expect(seriesId).toBeGreaterThan(0);
+
+      const previewQuery = `
+        query { previewCourseSeriesSchedule(input: { seriesId: ${seriesId} }) { previewHash } }
+      `;
+      const previewRes = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', managerTokenWithBearer)
+        .send({ query: previewQuery })
+        .expect(200);
+      if (previewRes.body.errors)
+        throw new Error(`GraphQL 错误: ${JSON.stringify(previewRes.body.errors)}`);
+      const previewHash = previewRes.body.data.previewCourseSeriesSchedule.previewHash as string;
+      expect(typeof previewHash).toBe('string');
+
+      const publishMutation = `
+        mutation {
+          publishCourseSeries(input: { seriesId: ${seriesId}, previewHash: "${previewHash}", dryRun: true }) {
+            seriesId
+            status
+            publishedAt
+            createdSessions
+          }
+        }
+      `;
+      const publishRes = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', managerTokenWithBearer)
+        .send({ query: publishMutation })
+        .expect(200);
+      const err = (publishRes.body.errors?.[0] ?? null) as {
+        extensions?: { errorCode?: string };
+      } | null;
+      expect(err?.extensions?.errorCode).toBe('COURSE_SERIES_INVALID_PARAMS');
+    });
+
+    it('manager dryRun：主教练存在时返回 publishedAt=null 与 createdSessions=0', async () => {
+      const catalogId = await ensureCatalog();
+      const startDateStr = '2025-02-01';
+      const endDateStr = '2025-02-07';
+
+      const createMutation = `
+        mutation {
+          createCourseSeriesDraft(input: {
+            catalogId: ${catalogId},
+            title: "E2E 发布 dryRun 成功",
+            description: "说明",
+            venueType: ${VenueType.SANDA_GYM},
+            classMode: ${ClassMode.SMALL_CLASS},
+            startDate: "${startDateStr}",
+            endDate: "${endDateStr}",
+            recurrenceRule: "BYDAY=MO,WE;BYHOUR=18;BYMINUTE=0",
+            leaveCutoffHours: 12,
+            maxLearners: 4,
+            remark: "E2E 草稿测试"
+          }) { id }
+        }
+      `;
+      const createRes = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', managerTokenWithBearer)
+        .send({ query: createMutation })
+        .expect(200);
+      const seriesId = Number(createRes.body.data.createCourseSeriesDraft.id);
+
+      const previewQuery = `
+        query { previewCourseSeriesSchedule(input: { seriesId: ${seriesId} }) { previewHash } }
+      `;
+      const previewRes = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', managerTokenWithBearer)
+        .send({ query: previewQuery })
+        .expect(200);
+      const previewHash = previewRes.body.data.previewCourseSeriesSchedule.previewHash as string;
+
+      // 查找一个 coach 作为主教练
+      const accountRepo = dataSource.getRepository(AccountEntity);
+      const account = await accountRepo.findOne({
+        where: { loginName: testAccountsConfig.coach.loginName },
+      });
+      const coachRepo = dataSource.getRepository(CoachEntity);
+      const coach = await coachRepo.findOne({ where: { accountId: account!.id } });
+      const leadId = coach!.id;
+
+      const publishMutation = `
+        mutation {
+          publishCourseSeries(input: { seriesId: ${seriesId}, previewHash: "${previewHash}", dryRun: true, leadCoachId: ${leadId} }) {
+            seriesId
+            status
+            publishedAt
+            createdSessions
+          }
+        }
+      `;
+      const publishRes = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', managerTokenWithBearer)
+        .send({ query: publishMutation })
+        .expect(200);
+      if (publishRes.body.errors)
+        throw new Error(`GraphQL 错误: ${JSON.stringify(publishRes.body.errors)}`);
+      const result = publishRes.body.data.publishCourseSeries as {
+        seriesId: number;
+        status: string;
+        publishedAt: string | null;
+        createdSessions: number;
+      };
+      expect(result.seriesId).toBe(seriesId);
+      expect(result.publishedAt).toBeNull();
+      expect(result.createdSessions).toBe(0);
+    });
+
+    it('真实发布：返回 PUBLISHED 与 publishedAt 为 ISO 字符串', async () => {
+      const catalogId = await ensureCatalog();
+      const startDateStr = '2025-03-01';
+      const endDateStr = '2025-03-07';
+
+      const createMutation = `
+        mutation {
+          createCourseSeriesDraft(input: {
+            catalogId: ${catalogId},
+            title: "E2E 发布真实",
+            description: "说明",
+            venueType: ${VenueType.SANDA_GYM},
+            classMode: ${ClassMode.SMALL_CLASS},
+            startDate: "${startDateStr}",
+            endDate: "${endDateStr}",
+            recurrenceRule: "BYDAY=MO,WE;BYHOUR=18;BYMINUTE=0",
+            leaveCutoffHours: 12,
+            maxLearners: 4,
+            remark: "E2E 草稿测试"
+          }) { id }
+        }
+      `;
+      const createRes = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', managerTokenWithBearer)
+        .send({ query: createMutation })
+        .expect(200);
+      const seriesId = Number(createRes.body.data.createCourseSeriesDraft.id);
+
+      const previewQuery = `
+        query { previewCourseSeriesSchedule(input: { seriesId: ${seriesId} }) { previewHash } }
+      `;
+      const previewRes = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', managerTokenWithBearer)
+        .send({ query: previewQuery })
+        .expect(200);
+      const previewHash = previewRes.body.data.previewCourseSeriesSchedule.previewHash as string;
+
+      const accountRepo = dataSource.getRepository(AccountEntity);
+      const account = await accountRepo.findOne({
+        where: { loginName: testAccountsConfig.coach.loginName },
+      });
+      const coachRepo = dataSource.getRepository(CoachEntity);
+      const coach = await coachRepo.findOne({ where: { accountId: account!.id } });
+      const leadId = coach!.id;
+
+      const publishMutation = `
+        mutation {
+          publishCourseSeries(input: { seriesId: ${seriesId}, previewHash: "${previewHash}", leadCoachId: ${leadId} }) {
+            seriesId
+            status
+            publishedAt
+            createdSessions
+          }
+        }
+      `;
+      const publishRes = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', managerTokenWithBearer)
+        .send({ query: publishMutation })
+        .expect(200);
+      if (publishRes.body.errors)
+        throw new Error(`GraphQL 错误: ${JSON.stringify(publishRes.body.errors)}`);
+      const result = publishRes.body.data.publishCourseSeries as {
+        seriesId: number;
+        status: string;
+        publishedAt: string | null;
+        createdSessions: number;
+      };
+      expect(result.status).toBe('PUBLISHED');
+      expect(typeof result.publishedAt).toBe('string');
+      expect(result.publishedAt).toMatch(/\d{4}-\d{2}-\d{2}T/);
+      expect(result.createdSessions).toBeGreaterThan(0);
+    });
+
+    it('coach 自己发班：不带 leadCoachId 也能发布为 PUBLISHED，生成节次', async () => {
+      const catalogId = await ensureCatalog();
+      const startDateStr = '2025-04-01';
+      const endDateStr = '2025-04-07';
+
+      // 用 coach 身份创建草稿（publisherType=COACH）
+      const createMutation = `
+        mutation {
+          createCourseSeriesDraft(input: {
+            catalogId: ${catalogId},
+            title: "E2E coach 发布",
+            description: "说明",
+            venueType: ${VenueType.SANDA_GYM},
+            classMode: ${ClassMode.SMALL_CLASS},
+            startDate: "${startDateStr}",
+            endDate: "${endDateStr}",
+            recurrenceRule: "BYDAY=MO,WE;BYHOUR=18;BYMINUTE=0",
+            leaveCutoffHours: 12,
+            maxLearners: 4,
+            remark: "E2E 草稿测试"
+          }) { id }
+        }
+      `;
+      const createRes = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', coachTokenWithBearer)
+        .send({ query: createMutation })
+        .expect(200);
+      if (createRes.body.errors)
+        throw new Error(`GraphQL 错误: ${JSON.stringify(createRes.body.errors)}`);
+      const seriesId = Number(createRes.body.data.createCourseSeriesDraft.id);
+      expect(seriesId).toBeGreaterThan(0);
+
+      // 预览拿到 previewHash
+      const previewQuery = `
+        query { previewCourseSeriesSchedule(input: { seriesId: ${seriesId} }) { previewHash } }
+      `;
+      const previewRes = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', coachTokenWithBearer)
+        .send({ query: previewQuery })
+        .expect(200);
+      if (previewRes.body.errors)
+        throw new Error(`GraphQL 错误: ${JSON.stringify(previewRes.body.errors)}`);
+      const previewHash = previewRes.body.data.previewCourseSeriesSchedule.previewHash as string;
+      expect(typeof previewHash).toBe('string');
+
+      // 发布（不带 leadCoachId）
+      const publishMutation = `
+        mutation {
+          publishCourseSeries(input: { seriesId: ${seriesId}, previewHash: "${previewHash}" }) {
+            seriesId
+            status
+            publishedAt
+            createdSessions
+          }
+        }
+      `;
+      const publishRes = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', coachTokenWithBearer)
+        .send({ query: publishMutation })
+        .expect(200);
+      if (publishRes.body.errors)
+        throw new Error(`GraphQL 错误: ${JSON.stringify(publishRes.body.errors)}`);
+      const result = publishRes.body.data.publishCourseSeries as {
+        seriesId: number;
+        status: string;
+        publishedAt: string | null;
+        createdSessions: number;
+      };
+
+      expect(result.seriesId).toBe(seriesId);
+      expect(result.status).toBe('PUBLISHED');
+      expect(typeof result.publishedAt).toBe('string');
+      expect(result.createdSessions).toBeGreaterThan(0);
+
+      // 进一步确认数据库已生成节次
+      const qb = dataSource
+        .getRepository(CourseSeriesEntity)
+        .createQueryBuilder('s')
+        .leftJoin('course_sessions', 'sess', 'sess.series_id = s.id')
+        .select('COUNT(sess.id)', 'cnt')
+        .where('s.id = :id', { id: seriesId });
+      const sessionCount = (await qb.getRawOne()) as { cnt?: unknown } | null;
+      const cntNum = typeof sessionCount?.cnt === 'string' ? Number(sessionCount?.cnt) : 0;
+      expect(cntNum).toBeGreaterThan(0);
+    });
+
+    it('coach 自己发班：所有生成的节次 lead_coach_id 等于该 coach.id', async () => {
+      const catalogId = await ensureCatalog();
+      const startDateStr = '2025-04-15';
+      const endDateStr = '2025-04-21';
+
+      const createMutation = `
+        mutation {
+          createCourseSeriesDraft(input: {
+            catalogId: ${catalogId},
+            title: "E2E coach 主教练一致性",
+            description: "说明",
+            venueType: ${VenueType.SANDA_GYM},
+            classMode: ${ClassMode.SMALL_CLASS},
+            startDate: "${startDateStr}",
+            endDate: "${endDateStr}",
+            recurrenceRule: "BYDAY=MO,WE;BYHOUR=18;BYMINUTE=0",
+            leaveCutoffHours: 12,
+            maxLearners: 4,
+            remark: "E2E 草稿测试"
+          }) { id }
+        }
+      `;
+      const createRes = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', coachTokenWithBearer)
+        .send({ query: createMutation })
+        .expect(200);
+      const seriesId = Number(createRes.body.data.createCourseSeriesDraft.id);
+
+      const previewQuery = `
+        query { previewCourseSeriesSchedule(input: { seriesId: ${seriesId} }) { previewHash } }
+      `;
+      const previewRes = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', coachTokenWithBearer)
+        .send({ query: previewQuery })
+        .expect(200);
+      const previewHash = previewRes.body.data.previewCourseSeriesSchedule.previewHash as string;
+
+      const publishMutation = `
+        mutation {
+          publishCourseSeries(input: { seriesId: ${seriesId}, previewHash: "${previewHash}" }) {
+            seriesId
+            status
+            publishedAt
+            createdSessions
+          }
+        }
+      `;
+      const publishRes = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', coachTokenWithBearer)
+        .send({ query: publishMutation })
+        .expect(200);
+      if (publishRes.body.errors)
+        throw new Error(`GraphQL 错误: ${JSON.stringify(publishRes.body.errors)}`);
+
+      const accountRepo = dataSource.getRepository(AccountEntity);
+      const account = await accountRepo.findOne({
+        where: { loginName: testAccountsConfig.coach.loginName },
+      });
+      const coachRepo = dataSource.getRepository(CoachEntity);
+      const coach = await coachRepo.findOne({ where: { accountId: account!.id } });
+      const coachId = coach!.id;
+
+      const rows: Array<{ lead_coach_id: number }> = await dataSource.query(
+        'SELECT lead_coach_id FROM course_sessions WHERE series_id = ?',
+        [seriesId],
+      );
+      expect(rows.length).toBeGreaterThan(0);
+      for (const r of rows) {
+        expect(Number(r.lead_coach_id)).toBe(coachId);
+      }
+    });
+
+    it('coach 越权发布他人创建的系列：返回 ACCESS_DENIED，状态不变且无节次生成', async () => {
+      const catalogId = await ensureCatalog();
+      const startDateStr = '2025-05-01';
+      const endDateStr = '2025-05-07';
+
+      const createMutation = `
+        mutation {
+          createCourseSeriesDraft(input: {
+            catalogId: ${catalogId},
+            title: "E2E coach 越权",
+            description: "说明",
+            venueType: ${VenueType.SANDA_GYM},
+            classMode: ${ClassMode.SMALL_CLASS},
+            startDate: "${startDateStr}",
+            endDate: "${endDateStr}",
+            recurrenceRule: "BYDAY=MO,WE;BYHOUR=18;BYMINUTE=0",
+            leaveCutoffHours: 12,
+            maxLearners: 4,
+            remark: "E2E 草稿测试"
+          }) { id }
+        }
+      `;
+      const createRes = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', managerTokenWithBearer)
+        .send({ query: createMutation })
+        .expect(200);
+      const seriesId = Number(createRes.body.data.createCourseSeriesDraft.id);
+
+      const previewQuery = `
+        query { previewCourseSeriesSchedule(input: { seriesId: ${seriesId} }) { previewHash } }
+      `;
+      const previewRes = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', managerTokenWithBearer)
+        .send({ query: previewQuery })
+        .expect(200);
+      const previewHash = previewRes.body.data.previewCourseSeriesSchedule.previewHash as string;
+
+      const publishMutation = `
+        mutation {
+          publishCourseSeries(input: { seriesId: ${seriesId}, previewHash: "${previewHash}" }) {
+            seriesId
+            status
+            publishedAt
+            createdSessions
+          }
+        }
+      `;
+      const publishRes = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', coachTokenWithBearer)
+        .send({ query: publishMutation })
+        .expect(200);
+      const err = (publishRes.body.errors?.[0] ?? null) as {
+        extensions?: { errorCode?: string };
+      } | null;
+      expect(err?.extensions?.errorCode).toBe('ACCESS_DENIED');
+
+      const seriesRepo = dataSource.getRepository(CourseSeriesEntity);
+      const fresh = await seriesRepo.findOne({ where: { id: seriesId } });
+      expect(fresh!.status).toBe(CourseSeriesStatus.PLANNED);
+
+      const rows = await dataSource.query(
+        'SELECT COUNT(1) AS c FROM course_sessions WHERE series_id = ?',
+        [seriesId],
+      );
+      const c = Number(rows?.[0]?.c ?? 0);
+      expect(c).toBe(0);
+    });
+
+    it('非 ADMIN/MANAGER/COACH 身份调用 publish：返回 ACCESS_DENIED，且无写操作', async () => {
+      const learnerToken = await loginAndGetToken(
+        testAccountsConfig.learner.loginName,
+        testAccountsConfig.learner.loginPassword,
+      );
+      const learnerTokenWithBearer = `Bearer ${learnerToken}`;
+
+      const catalogId = await ensureCatalog();
+      const startDateStr = '2025-05-15';
+      const endDateStr = '2025-05-21';
+
+      const createMutation = `
+        mutation {
+          createCourseSeriesDraft(input: {
+            catalogId: ${catalogId},
+            title: "E2E 权限拦截",
+            description: "说明",
+            venueType: ${VenueType.SANDA_GYM},
+            classMode: ${ClassMode.SMALL_CLASS},
+            startDate: "${startDateStr}",
+            endDate: "${endDateStr}",
+            recurrenceRule: "BYDAY=MO,WE;BYHOUR=18;BYMINUTE=0",
+            leaveCutoffHours: 12,
+            maxLearners: 4,
+            remark: "E2E 草稿测试"
+          }) { id }
+        }
+      `;
+      const createRes = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', managerTokenWithBearer)
+        .send({ query: createMutation })
+        .expect(200);
+      const seriesId = Number(createRes.body.data.createCourseSeriesDraft.id);
+
+      const previewQuery = `
+        query { previewCourseSeriesSchedule(input: { seriesId: ${seriesId} }) { previewHash } }
+      `;
+      const previewRes = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', managerTokenWithBearer)
+        .send({ query: previewQuery })
+        .expect(200);
+      const previewHash = previewRes.body.data.previewCourseSeriesSchedule.previewHash as string;
+
+      const publishMutation = `
+        mutation {
+          publishCourseSeries(input: { seriesId: ${seriesId}, previewHash: "${previewHash}" }) {
+            seriesId
+            status
+            publishedAt
+            createdSessions
+          }
+        }
+      `;
+      const publishRes = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', learnerTokenWithBearer)
+        .send({ query: publishMutation })
+        .expect(200);
+      const err = (publishRes.body.errors?.[0] ?? null) as {
+        extensions?: { errorCode?: string };
+      } | null;
+      expect(err?.extensions?.errorCode).toBe('ACCESS_DENIED');
+
+      const rows = await dataSource.query(
+        'SELECT COUNT(1) AS c FROM course_sessions WHERE series_id = ?',
+        [seriesId],
+      );
+      const c = Number(rows?.[0]?.c ?? 0);
+      expect(c).toBe(0);
+    });
+
+    it('manager 发布教练创建的系列：传入不同 leadCoachId，最终主教练仍为 publisherId', async () => {
+      const catalogId = await ensureCatalog();
+      const startDateStr = '2025-06-01';
+      const endDateStr = '2025-06-07';
+
+      const createMutation = `
+        mutation {
+          createCourseSeriesDraft(input: {
+            catalogId: ${catalogId},
+            title: "E2E manager 操作 coach 系列",
+            description: "说明",
+            venueType: ${VenueType.SANDA_GYM},
+            classMode: ${ClassMode.SMALL_CLASS},
+            startDate: "${startDateStr}",
+            endDate: "${endDateStr}",
+            recurrenceRule: "BYDAY=MO,WE;BYHOUR=18;BYMINUTE=0",
+            leaveCutoffHours: 12,
+            maxLearners: 4,
+            remark: "E2E 草稿测试"
+          }) { id }
+        }
+      `;
+      const createRes = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', coachTokenWithBearer)
+        .send({ query: createMutation })
+        .expect(200);
+      const seriesId = Number(createRes.body.data.createCourseSeriesDraft.id);
+
+      const previewQuery = `
+        query { previewCourseSeriesSchedule(input: { seriesId: ${seriesId} }) { previewHash } }
+      `;
+      const previewRes = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', coachTokenWithBearer)
+        .send({ query: previewQuery })
+        .expect(200);
+      const previewHash = previewRes.body.data.previewCourseSeriesSchedule.previewHash as string;
+
+      const badLeadId = 999999;
+      const publishMutation = `
+        mutation {
+          publishCourseSeries(input: { seriesId: ${seriesId}, previewHash: "${previewHash}", leadCoachId: ${badLeadId} }) {
+            seriesId
+            status
+            publishedAt
+            createdSessions
+          }
+        }
+      `;
+      const publishRes = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', managerTokenWithBearer)
+        .send({ query: publishMutation })
+        .expect(200);
+      if (publishRes.body.errors)
+        throw new Error(`GraphQL 错误: ${JSON.stringify(publishRes.body.errors)}`);
+
+      const accountRepo = dataSource.getRepository(AccountEntity);
+      const account = await accountRepo.findOne({
+        where: { loginName: testAccountsConfig.coach.loginName },
+      });
+      const coachRepo = dataSource.getRepository(CoachEntity);
+      const coach = await coachRepo.findOne({ where: { accountId: account!.id } });
+      const publisherCoachId = coach!.id;
+
+      const rows: Array<{ lead_coach_id: number }> = await dataSource.query(
+        'SELECT lead_coach_id FROM course_sessions WHERE series_id = ?',
+        [seriesId],
+      );
+      expect(rows.length).toBeGreaterThan(0);
+      for (const r of rows) {
+        expect(Number(r.lead_coach_id)).toBe(publisherCoachId);
+      }
+    });
+
+    it('非 PLANNED 状态禁止发布：返回 COURSE_SERIES_INVALID_PARAMS，且无写入', async () => {
+      const catalogId = await ensureCatalog();
+      const startDateStr = '2025-06-15';
+      const endDateStr = '2025-06-21';
+
+      const createMutation = `
+        mutation {
+          createCourseSeriesDraft(input: {
+            catalogId: ${catalogId},
+            title: "E2E 非 PLANNED 禁止发布",
+            description: "说明",
+            venueType: ${VenueType.SANDA_GYM},
+            classMode: ${ClassMode.SMALL_CLASS},
+            startDate: "${startDateStr}",
+            endDate: "${endDateStr}",
+            recurrenceRule: "BYDAY=MO,WE;BYHOUR=18;BYMINUTE=0",
+            leaveCutoffHours: 12,
+            maxLearners: 4,
+            remark: "E2E 草稿测试"
+          }) { id }
+        }
+      `;
+      const createRes = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', managerTokenWithBearer)
+        .send({ query: createMutation })
+        .expect(200);
+      const seriesId = Number(createRes.body.data.createCourseSeriesDraft.id);
+
+      const previewQuery = `
+        query { previewCourseSeriesSchedule(input: { seriesId: ${seriesId} }) { previewHash } }
+      `;
+      const previewRes = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', managerTokenWithBearer)
+        .send({ query: previewQuery })
+        .expect(200);
+      const previewHash = previewRes.body.data.previewCourseSeriesSchedule.previewHash as string;
+
+      await dataSource.query('UPDATE course_series SET status = ? WHERE id = ?', [
+        'PUBLISHED',
+        seriesId,
+      ]);
+
+      const publishMutation = `
+        mutation {
+          publishCourseSeries(input: { seriesId: ${seriesId}, previewHash: "${previewHash}" }) {
+            seriesId
+            status
+            publishedAt
+            createdSessions
+          }
+        }
+      `;
+      const publishRes = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', managerTokenWithBearer)
+        .send({ query: publishMutation })
+        .expect(200);
+      const err = (publishRes.body.errors?.[0] ?? null) as {
+        extensions?: { errorCode?: string };
+      } | null;
+      expect(err?.extensions?.errorCode).toBe('COURSE_SERIES_INVALID_PARAMS');
+
+      const rows = await dataSource.query(
+        'SELECT COUNT(1) AS c FROM course_sessions WHERE series_id = ?',
+        [seriesId],
+      );
+      const c = Number(rows?.[0]?.c ?? 0);
+      expect(c).toBe(0);
+    });
+
+    it('重复发布同一个系列：状态校验阻断或更新失败，错误且不重复创建', async () => {
+      const catalogId = await ensureCatalog();
+      const startDateStr = '2025-07-01';
+      const endDateStr = '2025-07-07';
+
+      const createMutation = `
+        mutation {
+          createCourseSeriesDraft(input: {
+            catalogId: ${catalogId},
+            title: "E2E 重复发布",
+            description: "说明",
+            venueType: ${VenueType.SANDA_GYM},
+            classMode: ${ClassMode.SMALL_CLASS},
+            startDate: "${startDateStr}",
+            endDate: "${endDateStr}",
+            recurrenceRule: "BYDAY=MO,WE;BYHOUR=18;BYMINUTE=0",
+            leaveCutoffHours: 12,
+            maxLearners: 4,
+            remark: "E2E 草稿测试"
+          }) { id }
+        }
+      `;
+      const createRes = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', managerTokenWithBearer)
+        .send({ query: createMutation })
+        .expect(200);
+      const seriesId = Number(createRes.body.data.createCourseSeriesDraft.id);
+
+      const previewQuery = `
+        query { previewCourseSeriesSchedule(input: { seriesId: ${seriesId} }) { previewHash } }
+      `;
+      const previewRes = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', managerTokenWithBearer)
+        .send({ query: previewQuery })
+        .expect(200);
+      const previewHash = previewRes.body.data.previewCourseSeriesSchedule.previewHash as string;
+
+      const accountRepo = dataSource.getRepository(AccountEntity);
+      const account = await accountRepo.findOne({
+        where: { loginName: testAccountsConfig.coach.loginName },
+      });
+      const coachRepo = dataSource.getRepository(CoachEntity);
+      const coach = await coachRepo.findOne({ where: { accountId: account!.id } });
+      const leadId = coach!.id;
+
+      const publish1 = `
+        mutation {
+          publishCourseSeries(input: { seriesId: ${seriesId}, previewHash: "${previewHash}", leadCoachId: ${leadId} }) {
+            seriesId
+            status
+            publishedAt
+            createdSessions
+          }
+        }
+      `;
+      const res1 = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', managerTokenWithBearer)
+        .send({ query: publish1 })
+        .expect(200);
+      if (res1.body.errors) throw new Error(`GraphQL 错误: ${JSON.stringify(res1.body.errors)}`);
+
+      const publish2 = `
+        mutation {
+          publishCourseSeries(input: { seriesId: ${seriesId}, previewHash: "${previewHash}", leadCoachId: ${leadId} }) {
+            seriesId
+            status
+            publishedAt
+            createdSessions
+          }
+        }
+      `;
+      const res2 = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', managerTokenWithBearer)
+        .send({ query: publish2 })
+        .expect(200);
+      const err = (res2.body.errors?.[0] ?? null) as { extensions?: { errorCode?: string } } | null;
+      expect(['COURSE_SERIES_INVALID_PARAMS', 'COURSE_SERIES_UPDATE_FAILED']).toContain(
+        String(err?.extensions?.errorCode ?? ''),
+      );
+    });
+
+    it('预览后修改系列导致 hash 失效：返回 COURSE_SERIES_INVALID_PARAMS', async () => {
+      const catalogId = await ensureCatalog();
+      const startDateStr = '2025-07-15';
+      const endDateStr = '2025-07-21';
+
+      const createMutation = `
+        mutation {
+          createCourseSeriesDraft(input: {
+            catalogId: ${catalogId},
+            title: "E2E hash 失效",
+            description: "说明",
+            venueType: ${VenueType.SANDA_GYM},
+            classMode: ${ClassMode.SMALL_CLASS},
+            startDate: "${startDateStr}",
+            endDate: "${endDateStr}",
+            recurrenceRule: "BYDAY=MO,WE;BYHOUR=18;BYMINUTE=0",
+            leaveCutoffHours: 12,
+            maxLearners: 4,
+            remark: "E2E 草稿测试"
+          }) { id }
+        }
+      `;
+      const createRes = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', managerTokenWithBearer)
+        .send({ query: createMutation })
+        .expect(200);
+      const seriesId = Number(createRes.body.data.createCourseSeriesDraft.id);
+
+      const previewQuery = `
+        query { previewCourseSeriesSchedule(input: { seriesId: ${seriesId} }) { previewHash } }
+      `;
+      const previewRes = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', managerTokenWithBearer)
+        .send({ query: previewQuery })
+        .expect(200);
+      const previewHash = previewRes.body.data.previewCourseSeriesSchedule.previewHash as string;
+
+      await dataSource.query('UPDATE course_series SET start_date = ? WHERE id = ?', [
+        '2025-07-16',
+        seriesId,
+      ]);
+
+      const publishMutation = `
+        mutation {
+          publishCourseSeries(input: { seriesId: ${seriesId}, previewHash: "${previewHash}" }) {
+            seriesId
+            status
+            publishedAt
+            createdSessions
+          }
+        }
+      `;
+      const publishRes = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', managerTokenWithBearer)
+        .send({ query: publishMutation })
+        .expect(200);
+      const err = (publishRes.body.errors?.[0] ?? null) as {
+        extensions?: { errorCode?: string };
+      } | null;
+      expect(err?.extensions?.errorCode).toBe('COURSE_SERIES_INVALID_PARAMS');
+    });
+
+    it('recurrenceRule 为空：非 dryRun 发布报「至少 1 节次」错误', async () => {
+      const catalogId = await ensureCatalog();
+      const startDateStr = '2025-08-01';
+      const endDateStr = '2025-08-07';
+
+      const createMutation = `
+        mutation {
+          createCourseSeriesDraft(input: {
+            catalogId: ${catalogId},
+            title: "E2E 空规则",
+            description: "说明",
+            venueType: ${VenueType.SANDA_GYM},
+            classMode: ${ClassMode.SMALL_CLASS},
+            startDate: "${startDateStr}",
+            endDate: "${endDateStr}",
+            recurrenceRule: "",
+            leaveCutoffHours: 12,
+            maxLearners: 4,
+            remark: "E2E 草稿测试"
+          }) { id }
+        }
+      `;
+      const createRes = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', managerTokenWithBearer)
+        .send({ query: createMutation })
+        .expect(200);
+      const seriesId = Number(createRes.body.data.createCourseSeriesDraft.id);
+
+      const previewQuery = `
+        query { previewCourseSeriesSchedule(input: { seriesId: ${seriesId} }) { previewHash } }
+      `;
+      const previewRes = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', managerTokenWithBearer)
+        .send({ query: previewQuery })
+        .expect(200);
+      const previewHash = previewRes.body.data.previewCourseSeriesSchedule.previewHash as string;
+
+      const accountRepo = dataSource.getRepository(AccountEntity);
+      const account = await accountRepo.findOne({
+        where: { loginName: testAccountsConfig.coach.loginName },
+      });
+      const coachRepo = dataSource.getRepository(CoachEntity);
+      const coach = await coachRepo.findOne({ where: { accountId: account!.id } });
+      const leadId = coach!.id;
+
+      const publishMutation = `
+        mutation {
+          publishCourseSeries(input: { seriesId: ${seriesId}, previewHash: "${previewHash}", leadCoachId: ${leadId} }) {
+            seriesId
+            status
+            publishedAt
+            createdSessions
+          }
+        }
+      `;
+      const publishRes = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', managerTokenWithBearer)
+        .send({ query: publishMutation })
+        .expect(200);
+      const err = (publishRes.body.errors?.[0] ?? null) as {
+        extensions?: { errorCode?: string };
+      } | null;
+      expect(err?.extensions?.errorCode).toBe('COURSE_SERIES_INVALID_PARAMS');
+    });
+
+    it('selectedKeys = []：显式一个都不发，应报「至少 1 节次」错误', async () => {
+      const catalogId = await ensureCatalog();
+      const startDateStr = '2025-08-15';
+      const endDateStr = '2025-08-21';
+
+      const createMutation = `
+        mutation {
+          createCourseSeriesDraft(input: {
+            catalogId: ${catalogId},
+            title: "E2E 空选择",
+            description: "说明",
+            venueType: ${VenueType.SANDA_GYM},
+            classMode: ${ClassMode.SMALL_CLASS},
+            startDate: "${startDateStr}",
+            endDate: "${endDateStr}",
+            recurrenceRule: "BYDAY=MO,WE;BYHOUR=18;BYMINUTE=0",
+            leaveCutoffHours: 12,
+            maxLearners: 4,
+            remark: "E2E 草稿测试"
+          }) { id }
+        }
+      `;
+      const createRes = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', managerTokenWithBearer)
+        .send({ query: createMutation })
+        .expect(200);
+      const seriesId = Number(createRes.body.data.createCourseSeriesDraft.id);
+
+      const previewQuery = `
+        query { previewCourseSeriesSchedule(input: { seriesId: ${seriesId} }) { occurrences { occurrenceKey } previewHash } }
+      `;
+      const previewRes = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', managerTokenWithBearer)
+        .send({ query: previewQuery })
+        .expect(200);
+      const previewHash = previewRes.body.data.previewCourseSeriesSchedule.previewHash as string;
+
+      const accountRepo = dataSource.getRepository(AccountEntity);
+      const account = await accountRepo.findOne({
+        where: { loginName: testAccountsConfig.coach.loginName },
+      });
+      const coachRepo = dataSource.getRepository(CoachEntity);
+      const coach = await coachRepo.findOne({ where: { accountId: account!.id } });
+      const leadId = coach!.id;
+
+      const publishMutation = `
+        mutation {
+          publishCourseSeries(input: { seriesId: ${seriesId}, previewHash: "${previewHash}", selectedKeys: [], leadCoachId: ${leadId} }) {
+            seriesId
+            status
+            publishedAt
+            createdSessions
+          }
+        }
+      `;
+      const publishRes = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', managerTokenWithBearer)
+        .send({ query: publishMutation })
+        .expect(200);
+      const err = (publishRes.body.errors?.[0] ?? null) as {
+        extensions?: { errorCode?: string };
+      } | null;
+      expect(err?.extensions?.errorCode).toBe('COURSE_SERIES_INVALID_PARAMS');
+    });
+
+    it('selectedKeys 部分选择：createdSessions 等于选择数量', async () => {
+      const catalogId = await ensureCatalog();
+      const startDateStr = '2025-09-01';
+      const endDateStr = '2025-09-07';
+
+      const createMutation = `
+        mutation {
+          createCourseSeriesDraft(input: {
+            catalogId: ${catalogId},
+            title: "E2E 部分选择",
+            description: "说明",
+            venueType: ${VenueType.SANDA_GYM},
+            classMode: ${ClassMode.SMALL_CLASS},
+            startDate: "${startDateStr}",
+            endDate: "${endDateStr}",
+            recurrenceRule: "BYDAY=MO,WE;BYHOUR=18;BYMINUTE=0",
+            leaveCutoffHours: 12,
+            maxLearners: 4,
+            remark: "E2E 草稿测试"
+          }) { id }
+        }
+      `;
+      const createRes = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', managerTokenWithBearer)
+        .send({ query: createMutation })
+        .expect(200);
+      const seriesId = Number(createRes.body.data.createCourseSeriesDraft.id);
+
+      const previewQuery = `
+        query { previewCourseSeriesSchedule(input: { seriesId: ${seriesId} }) { occurrences { occurrenceKey } previewHash } }
+      `;
+      const previewRes = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', managerTokenWithBearer)
+        .send({ query: previewQuery })
+        .expect(200);
+      const occurrences = (previewRes.body.data.previewCourseSeriesSchedule.occurrences ??
+        []) as Array<{ occurrenceKey: string }>;
+      const previewHash = previewRes.body.data.previewCourseSeriesSchedule.previewHash as string;
+
+      const selected = occurrences.slice(0, Math.max(1, Math.floor(occurrences.length / 2)));
+      const keys = selected.map((o) => o.occurrenceKey);
+
+      const accountRepo = dataSource.getRepository(AccountEntity);
+      const account = await accountRepo.findOne({
+        where: { loginName: testAccountsConfig.coach.loginName },
+      });
+      const coachRepo = dataSource.getRepository(CoachEntity);
+      const coach = await coachRepo.findOne({ where: { accountId: account!.id } });
+      const leadId = coach!.id;
+
+      const publishMutation = `
+        mutation {
+          publishCourseSeries(input: { seriesId: ${seriesId}, previewHash: "${previewHash}", selectedKeys: [${keys.map((k) => `"${k}"`).join(', ')}], leadCoachId: ${leadId} }) {
+            seriesId
+            status
+            publishedAt
+            createdSessions
+          }
+        }
+      `;
+      const publishRes = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', managerTokenWithBearer)
+        .send({ query: publishMutation })
+        .expect(200);
+      if (publishRes.body.errors)
+        throw new Error(`GraphQL 错误: ${JSON.stringify(publishRes.body.errors)}`);
+      const result = publishRes.body.data.publishCourseSeries as { createdSessions: number };
+      expect(result.createdSessions).toBe(keys.length);
+    });
+
+    it('manager 指定不存在的主教练 ID：返回 COURSE_SERIES_INVALID_PARAMS', async () => {
+      const catalogId = await ensureCatalog();
+      const startDateStr = '2025-09-15';
+      const endDateStr = '2025-09-21';
+
+      const createMutation = `
+        mutation {
+          createCourseSeriesDraft(input: {
+            catalogId: ${catalogId},
+            title: "E2E 主教练不存在",
+            description: "说明",
+            venueType: ${VenueType.SANDA_GYM},
+            classMode: ${ClassMode.SMALL_CLASS},
+            startDate: "${startDateStr}",
+            endDate: "${endDateStr}",
+            recurrenceRule: "BYDAY=MO,WE;BYHOUR=18;BYMINUTE=0",
+            leaveCutoffHours: 12,
+            maxLearners: 4,
+            remark: "E2E 草稿测试"
+          }) { id }
+        }
+      `;
+      const createRes = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', managerTokenWithBearer)
+        .send({ query: createMutation })
+        .expect(200);
+      const seriesId = Number(createRes.body.data.createCourseSeriesDraft.id);
+
+      const previewQuery = `
+        query { previewCourseSeriesSchedule(input: { seriesId: ${seriesId} }) { previewHash } }
+      `;
+      const previewRes = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', managerTokenWithBearer)
+        .send({ query: previewQuery })
+        .expect(200);
+      const previewHash = previewRes.body.data.previewCourseSeriesSchedule.previewHash as string;
+
+      const publishMutation = `
+        mutation {
+          publishCourseSeries(input: { seriesId: ${seriesId}, previewHash: "${previewHash}", leadCoachId: 999999 }) {
+            seriesId
+            status
+            publishedAt
+            createdSessions
+          }
+        }
+      `;
+      const publishRes = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', managerTokenWithBearer)
+        .send({ query: publishMutation })
+        .expect(200);
+      const err = (publishRes.body.errors?.[0] ?? null) as {
+        extensions?: { errorCode?: string };
+      } | null;
+      expect(err?.extensions?.errorCode).toBe('COURSE_SERIES_INVALID_PARAMS');
     });
   });
 });
