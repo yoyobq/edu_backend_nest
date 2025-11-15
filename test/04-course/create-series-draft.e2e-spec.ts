@@ -195,7 +195,8 @@ describe('Course Series (e2e)', () => {
         .expect(200);
       if (createRes.body.errors)
         throw new Error(`GraphQL 错误: ${JSON.stringify(createRes.body.errors)}`);
-      const seriesId = (createRes.body.data.createCourseSeriesDraft.id as number) ?? 0;
+      const seriesIdRaw = createRes.body.data.createCourseSeriesDraft.id as string | number;
+      const seriesId = typeof seriesIdRaw === 'string' ? Number(seriesIdRaw) : (seriesIdRaw ?? 0);
       expect(seriesId).toBeGreaterThan(0);
 
       // 执行预览查询
@@ -227,18 +228,59 @@ describe('Course Series (e2e)', () => {
         }>;
       };
 
-      expect(result.series.id).toBe(seriesId);
+      expect(Number(result.series.id)).toBe(seriesId);
       expect(result.series.status).toBe(CourseSeriesStatus.PLANNED);
       expect(Array.isArray(result.occurrences)).toBe(true);
-      // 根据规则，至少应生成 1 条（取决于起始日期到结束日期包含的周一/周三数量）
-      expect(result.occurrences.length).toBeGreaterThan(0);
-      // 每条 occurrence 字段基本合法性
+
+      const startStr = start.toISOString().slice(0, 10);
+      const endStr = end.toISOString().slice(0, 10);
+      const fmt = (d: Date) => d.toISOString().slice(0, 10);
+      const expectedDates: string[] = [];
+      {
+        const cur = new Date(startStr);
+        const endD = new Date(endStr);
+        while (cur.getTime() <= endD.getTime()) {
+          const wd = cur.getDay();
+          // 映射：周一=1、周三=3（GraphQL 返回 weekdayIndex 的规则）
+          if (wd === 1 || wd === 3) expectedDates.push(fmt(cur));
+          cur.setDate(cur.getDate() + 1);
+        }
+      }
+      // 至少应生成 1 条，且数量与预期一致
+      expect(result.occurrences.length).toBe(expectedDates.length);
+
+      // 验证排序与日期范围
+      const actualDates = result.occurrences.map((o) => o.date);
+      const sortedActual = [...actualDates].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+      expect(actualDates).toEqual(sortedActual);
+      for (const d of actualDates) {
+        expect(d >= startStr && d <= endStr).toBe(true);
+      }
+
+      // 每条 occurrence 的详细校验
       for (const occ of result.occurrences) {
-        expect(typeof occ.date).toBe('string');
-        expect(typeof occ.weekdayIndex).toBe('number');
-        expect(typeof occ.startDateTime).toBe('string');
-        expect(typeof occ.endDateTime).toBe('string');
-        expect(occ.conflict === null || typeof occ.conflict.hasConflict === 'boolean').toBe(true);
+        // 日期与星期对齐
+        const dt = new Date(occ.date);
+        const weekdayIndexFromDate = dt.getDay() === 0 ? 7 : dt.getDay();
+        expect([1, 3].includes(occ.weekdayIndex)).toBe(true);
+        expect(
+          occ.weekdayIndex === weekdayIndexFromDate || [1, 3].includes(weekdayIndexFromDate),
+        ).toBe(true);
+
+        // 时间与规则一致
+        const sdt = new Date(occ.startDateTime);
+        const edt = new Date(occ.endDateTime);
+        expect(sdt.getHours()).toBe(18);
+        expect(sdt.getMinutes()).toBe(0);
+        expect(edt.getTime()).toBeGreaterThan(sdt.getTime());
+        expect(fmt(sdt)).toBe(occ.date);
+
+        // 冲突字段语义校验
+        if (occ.conflict) {
+          expect(typeof occ.conflict.hasConflict).toBe('boolean');
+          if (occ.conflict.hasConflict) expect(occ.conflict.count).toBeGreaterThan(0);
+          else expect(occ.conflict.count).toBe(0);
+        }
       }
     });
 
@@ -459,13 +501,15 @@ describe('Course Series (e2e)', () => {
         .expect(200);
       if (createRes.body.errors)
         throw new Error(`GraphQL 错误: ${JSON.stringify(createRes.body.errors)}`);
-      const seriesId = (createRes.body.data.createCourseSeriesDraft.id as number) ?? 0;
-      expect(seriesId).toBeGreaterThan(0);
+      const seriesIdRaw2 = createRes.body.data.createCourseSeriesDraft.id as string | number;
+      const seriesId2 =
+        typeof seriesIdRaw2 === 'string' ? Number(seriesIdRaw2) : (seriesIdRaw2 ?? 0);
+      expect(seriesId2).toBeGreaterThan(0);
 
       // 执行预览查询
       const previewQuery = `
         query {
-          previewCourseSeriesSchedule(input: { seriesId: ${seriesId}, enableConflictCheck: true }) {
+          previewCourseSeriesSchedule(input: { seriesId: ${seriesId2}, enableConflictCheck: true }) {
             series { id title status }
             occurrences { date weekdayIndex startDateTime endDateTime conflict { hasConflict count } }
           }
@@ -491,7 +535,7 @@ describe('Course Series (e2e)', () => {
         }>;
       };
 
-      expect(result.series.id).toBe(seriesId);
+      expect(Number(result.series.id)).toBe(seriesId2);
       expect(result.series.status).toBe(CourseSeriesStatus.PLANNED);
       expect(Array.isArray(result.occurrences)).toBe(true);
       expect(result.occurrences.length).toBeGreaterThan(0);
@@ -534,12 +578,14 @@ describe('Course Series (e2e)', () => {
         .expect(200);
       if (createRes.body.errors)
         throw new Error(`GraphQL 错误: ${JSON.stringify(createRes.body.errors)}`);
-      const seriesId = (createRes.body.data.createCourseSeriesDraft.id as number) ?? 0;
-      expect(seriesId).toBeGreaterThan(0);
+      const seriesIdRaw3 = createRes.body.data.createCourseSeriesDraft.id as string | number;
+      const seriesId3 =
+        typeof seriesIdRaw3 === 'string' ? Number(seriesIdRaw3) : (seriesIdRaw3 ?? 0);
+      expect(seriesId3).toBeGreaterThan(0);
 
       const previewQuery = `
         query {
-          previewCourseSeriesSchedule(input: { seriesId: ${seriesId}, enableConflictCheck: true }) {
+          previewCourseSeriesSchedule(input: { seriesId: ${seriesId3}, enableConflictCheck: true }) {
             occurrences { date weekdayIndex startDateTime endDateTime }
           }
         }
@@ -602,12 +648,14 @@ describe('Course Series (e2e)', () => {
         .expect(200);
       if (createRes.body.errors)
         throw new Error(`GraphQL 错误: ${JSON.stringify(createRes.body.errors)}`);
-      const seriesId = (createRes.body.data.createCourseSeriesDraft.id as number) ?? 0;
-      expect(seriesId).toBeGreaterThan(0);
+      const seriesIdRaw4 = createRes.body.data.createCourseSeriesDraft.id as string | number;
+      const seriesId4 =
+        typeof seriesIdRaw4 === 'string' ? Number(seriesIdRaw4) : (seriesIdRaw4 ?? 0);
+      expect(seriesId4).toBeGreaterThan(0);
 
       const previewQuery = `
         query {
-          previewCourseSeriesSchedule(input: { seriesId: ${seriesId}, enableConflictCheck: true }) {
+          previewCourseSeriesSchedule(input: { seriesId: ${seriesId4}, enableConflictCheck: true }) {
             occurrences { date weekdayIndex startDateTime endDateTime }
           }
         }
@@ -670,12 +718,14 @@ describe('Course Series (e2e)', () => {
         .expect(200);
       if (createRes.body.errors)
         throw new Error(`GraphQL 错误: ${JSON.stringify(createRes.body.errors)}`);
-      const seriesId = (createRes.body.data.createCourseSeriesDraft.id as number) ?? 0;
-      expect(seriesId).toBeGreaterThan(0);
+      const seriesIdRaw5 = createRes.body.data.createCourseSeriesDraft.id as string | number;
+      const seriesId5 =
+        typeof seriesIdRaw5 === 'string' ? Number(seriesIdRaw5) : (seriesIdRaw5 ?? 0);
+      expect(seriesId5).toBeGreaterThan(0);
 
       const previewQuery = `
         query {
-          previewCourseSeriesSchedule(input: { seriesId: ${seriesId}, enableConflictCheck: false }) {
+          previewCourseSeriesSchedule(input: { seriesId: ${seriesId5}, enableConflictCheck: false }) {
             occurrences { date conflict { hasConflict count } }
           }
         }

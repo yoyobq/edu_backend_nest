@@ -10,13 +10,12 @@ import {
 import { PreviewSeriesScheduleUsecase } from '@src/usecases/course/series/preview-series-schedule.usecase';
 import { currentUser } from '../../decorators/current-user.decorator';
 import { JwtAuthGuard } from '../../guards/jwt-auth.guard';
+import { CourseSeriesDTO } from './dto/course-series.dto';
 import {
-  CourseSeriesDTO,
-  CreateSeriesInputGql,
-  PreviewSeriesScheduleInputGql,
-  PreviewSeriesScheduleResultDTO,
-  PreviewOccurrenceDTO,
-} from './dto/series.types';
+  CreateCourseSeriesDraftInput,
+  PreviewSeriesScheduleInput,
+} from './dto/course-series.input';
+import { PreviewOccurrenceDTO, PreviewSeriesScheduleResultDTO } from './dto/course-series.result';
 
 @Resolver(() => CourseSeriesDTO)
 export class CourseSeriesResolver {
@@ -32,7 +31,7 @@ export class CourseSeriesResolver {
   })
   async createCourseSeriesDraft(
     @currentUser() user: JwtPayload,
-    @Args('input') input: CreateSeriesInputGql,
+    @Args('input') input: CreateCourseSeriesDraftInput,
   ): Promise<CourseSeriesDTO> {
     const session: UsecaseSession = mapJwtToUsecaseSession(user);
     const { series }: CreateSeriesOutput = await this.createUsecase.execute({ session, input });
@@ -66,7 +65,7 @@ export class CourseSeriesResolver {
   })
   async previewCourseSeriesSchedule(
     @currentUser() user: JwtPayload,
-    @Args('input') input: PreviewSeriesScheduleInputGql,
+    @Args('input') input: PreviewSeriesScheduleInput,
   ): Promise<PreviewSeriesScheduleResultDTO> {
     const session: UsecaseSession = mapJwtToUsecaseSession(user);
     const { series, occurrences } = await this.previewUsecase.execute({
