@@ -6,7 +6,7 @@ import type { ISortResolver } from '@core/sort/sort.ports';
 import { Inject, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { PaginationService } from '@src/modules/common/pagination.service';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { LearnerEntity } from './account-learner.entity';
 
 /**
@@ -178,6 +178,17 @@ export class LearnerService {
       .where('learner.name LIKE :name', { name: `%${name}%` })
       .orderBy('learner.createdAt', 'DESC')
       .getMany();
+  }
+
+  /**
+   * 根据学员 ID 列表批量查询
+   * @param params 查询参数：学员 ID 列表
+   * @returns 学员实体列表
+   */
+  async findManyByIds(params: { ids: ReadonlyArray<number> }): Promise<LearnerEntity[]> {
+    const ids = Array.from(new Set(params.ids));
+    if (ids.length === 0) return [];
+    return await this.learnerRepository.find({ where: { id: In(ids) } });
   }
 
   /**

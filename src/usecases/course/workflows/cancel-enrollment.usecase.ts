@@ -142,7 +142,7 @@ export class CancelEnrollmentUsecase {
         },
         priority: 5,
       });
-      await this.outboxWriter.enqueue({ tx: { kind: 'tx' }, envelope });
+      await this.outboxWriter.enqueue({ envelope });
       return u;
     });
 

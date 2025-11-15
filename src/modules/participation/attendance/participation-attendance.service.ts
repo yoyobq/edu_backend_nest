@@ -1,7 +1,8 @@
 // src/modules/participation-attendance/participation-attendance.service.ts
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { EntityManager, IsNull, Repository } from 'typeorm';
+import { ParticipationAttendanceStatus } from '@src/types/models/attendance.types';
+import { EntityManager, In, IsNull, Repository } from 'typeorm';
 import { ParticipationAttendanceRecordEntity } from './participation-attendance-record.entity';
 
 /**
@@ -12,6 +13,7 @@ type UpsertSessionLearnerInput = {
   learnerId: number;
   enrollmentId: number;
   countApplied?: string;
+  status?: ParticipationAttendanceStatus;
   confirmedByCoachId?: number | null;
   confirmedAt?: Date | null;
   finalizedBy?: number | null;
@@ -27,6 +29,7 @@ type UpsertEnrollmentInput = {
   sessionId: number;
   learnerId: number;
   countApplied?: string;
+  status?: ParticipationAttendanceStatus;
   confirmedByCoachId?: number | null;
   confirmedAt?: Date | null;
   finalizedBy?: number | null;
@@ -80,6 +83,15 @@ export class ParticipationAttendanceService {
   }
 
   /**
+   * 按节次查询所有出勤记录
+   * @param sessionId 节次 ID
+   * @returns 出勤记录实体列表
+   */
+  async listBySession(sessionId: number): Promise<ParticipationAttendanceRecordEntity[]> {
+    return await this.attendanceRepository.find({ where: { sessionId } });
+  }
+
+  /**
    * 创建或更新出勤记录（通过 session + learner 识别，幂等）
    * @param data 创建或更新数据
    */
@@ -127,6 +139,7 @@ export class ParticipationAttendanceService {
       Pick<
         ParticipationAttendanceRecordEntity,
         | 'countApplied'
+        | 'status'
         | 'confirmedByCoachId'
         | 'confirmedAt'
         | 'finalizedBy'
@@ -142,7 +155,9 @@ export class ParticipationAttendanceService {
   }
 
   /**
-   * 判断某节次是否已全部定稿（至少存在一条且无未定稿记录）
+   * 判断某节次是否已全部定稿
+   * 语义：当且仅当该 session 至少存在一条出勤记录，且所有出勤记录都已写入 finalizedAt，视为已定稿；
+   *      不强制 enrollment 全员都有出勤记录（允许课后补录）。
    * @param sessionId 节次 ID
    */
   async isFinalizedForSession(sessionId: number): Promise<boolean> {
@@ -188,6 +203,7 @@ export class ParticipationAttendanceService {
     return {
       enrollmentId: data.enrollmentId ?? existing.enrollmentId,
       countApplied: data.countApplied ?? existing.countApplied,
+      status: data.status ?? existing.status,
       confirmedByCoachId: data.confirmedByCoachId ?? existing.confirmedByCoachId,
       confirmedAt: data.confirmedAt ?? existing.confirmedAt,
       finalizedBy: data.finalizedBy ?? existing.finalizedBy,
@@ -209,6 +225,7 @@ export class ParticipationAttendanceService {
       sessionId: data.sessionId ?? existing.sessionId,
       learnerId: data.learnerId ?? existing.learnerId,
       countApplied: data.countApplied ?? existing.countApplied,
+      status: data.status ?? existing.status,
       confirmedByCoachId: data.confirmedByCoachId ?? existing.confirmedByCoachId,
       confirmedAt: data.confirmedAt ?? existing.confirmedAt,
       finalizedBy: data.finalizedBy ?? existing.finalizedBy,
@@ -229,6 +246,7 @@ export class ParticipationAttendanceService {
       learnerId: data.learnerId,
       enrollmentId: data.enrollmentId,
       countApplied: data.countApplied ?? '0.00',
+      status: data.status ?? ParticipationAttendanceStatus.NO_SHOW,
       confirmedByCoachId: data.confirmedByCoachId ?? null,
       confirmedAt: data.confirmedAt ?? null,
       finalizedBy: data.finalizedBy ?? null,
@@ -249,6 +267,7 @@ export class ParticipationAttendanceService {
       sessionId: data.sessionId,
       learnerId: data.learnerId,
       countApplied: data.countApplied ?? '0.00',
+      status: data.status ?? ParticipationAttendanceStatus.NO_SHOW,
       confirmedByCoachId: data.confirmedByCoachId ?? null,
       confirmedAt: data.confirmedAt ?? null,
       finalizedBy: data.finalizedBy ?? null,
@@ -256,4 +275,143 @@ export class ParticipationAttendanceService {
       remark: data.remark ?? null,
     };
   }
+
+  /**
+   * 批量幂等写入出勤记录（按 enrollment 维度）
+   * @param params 批量写入参数（可选事务管理器）
+   * @returns 更新与未变更计数
+   */
+  async bulkUpsert(params: {
+    readonly items: ReadonlyArray<UpsertEnrollmentInput>;
+    readonly manager?: EntityManager;
+  }): Promise<{ updatedCount: number; unchangedCount: number }> {
+    const repo = params.manager
+      ? params.manager.getRepository(ParticipationAttendanceRecordEntity)
+      : this.attendanceRepository;
+
+    const ids = Array.from(new Set(params.items.map((it) => it.enrollmentId)));
+    const existingList = ids.length ? await repo.find({ where: { enrollmentId: In(ids) } }) : [];
+    const existingMap = new Map<number, ParticipationAttendanceRecordEntity>();
+    for (const r of existingList) existingMap.set(r.enrollmentId, r);
+
+    let updated = 0;
+    let unchanged = 0;
+    const updates: { id: number; patch: Partial<ParticipationAttendanceRecordEntity> }[] = [];
+    const inserts: Partial<ParticipationAttendanceRecordEntity>[] = [];
+
+    for (const item of params.items) {
+      const existing = existingMap.get(item.enrollmentId) ?? null;
+      if (!existing) {
+        inserts.push(this.buildCreateForEnrollment(item));
+        updated++;
+        continue;
+      }
+      const prevSig = this.makeSignature(existing);
+      const patch = this.buildPatchForEnrollment(existing, item);
+      const nextSig = this.makeNextSignature(existing, patch);
+      if (prevSig === nextSig) {
+        unchanged++;
+      } else {
+        updates.push({ id: existing.id, patch });
+        updated++;
+      }
+    }
+
+    // 批量写入：先插入，再更新（减少往返与避免二次查询）
+    if (inserts.length) {
+      const entities = inserts.map((p) => repo.create(p));
+      await repo.save(entities);
+    }
+    for (const u of updates) {
+      // 每条更新字段不同，逐条执行
+      await repo.update({ id: u.id }, u.patch);
+    }
+
+    return { updatedCount: updated, unchangedCount: unchanged };
+  }
+
+  /**
+   * 生成出勤记录的幂等签名（用于“是否有任何变动”的判断）
+   * @param rec 出勤记录实体
+   * @returns 签名字符串（稳定拼接）
+   */
+  private makeSignature(
+    rec: Pick<
+      ParticipationAttendanceRecordEntity,
+      | 'status'
+      | 'countApplied'
+      | 'confirmedByCoachId'
+      | 'confirmedAt'
+      | 'finalizedBy'
+      | 'finalizedAt'
+      | 'remark'
+    >,
+  ): string {
+    return [
+      String(rec.status),
+      String(rec.countApplied),
+      String(rec.confirmedByCoachId ?? ''),
+      rec.confirmedAt ? rec.confirmedAt.toISOString() : '',
+      String(rec.finalizedBy ?? ''),
+      rec.finalizedAt ? rec.finalizedAt.toISOString() : '',
+      String(rec.remark ?? ''),
+    ].join('|');
+  }
+
+  /**
+   * 基于现有记录与补丁预测更新后的签名（避免二次查询）
+   * @param prev 现有记录
+   * @param patch 更新补丁（可能为空字段）
+   * @returns 预测的下一签名
+   */
+  private makeNextSignature(
+    prev: ParticipationAttendanceRecordEntity,
+    patch: Partial<
+      Pick<
+        ParticipationAttendanceRecordEntity,
+        | 'status'
+        | 'countApplied'
+        | 'confirmedByCoachId'
+        | 'confirmedAt'
+        | 'finalizedBy'
+        | 'finalizedAt'
+        | 'remark'
+      >
+    >,
+  ): string {
+    const next = {
+      status: patch.status ?? prev.status,
+      countApplied: patch.countApplied ?? prev.countApplied,
+      confirmedByCoachId: patch.confirmedByCoachId ?? prev.confirmedByCoachId,
+      confirmedAt: patch.confirmedAt ?? prev.confirmedAt,
+      finalizedBy: patch.finalizedBy ?? prev.finalizedBy,
+      finalizedAt: patch.finalizedAt ?? prev.finalizedAt,
+      remark: patch.remark ?? prev.remark,
+    };
+    return this.makeSignature(next);
+  }
 }
+
+/**
+ * 点名表行（供 usecase 输出复用）
+ * 注意：该类型仅承载最小展示字段，避免泄漏 ORM 实体
+ */
+export type AttendanceSheetRow = {
+  enrollmentId: number;
+  learnerId: number;
+  status: ParticipationAttendanceStatus;
+  countApplied: string;
+  confirmedByCoachId: number | null;
+  confirmedAt: Date | null;
+  finalized: boolean;
+  isCanceled: 0 | 1;
+};
+
+/**
+ * 点名表（供 usecase 输出复用）
+ */
+export type AttendanceSheet = {
+  sessionId: number;
+  isFinalized: boolean;
+  rows: ReadonlyArray<AttendanceSheetRow>;
+};

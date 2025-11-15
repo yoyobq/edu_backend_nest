@@ -24,6 +24,15 @@ export class ParticipationEnrollmentService {
   }
 
   /**
+   * 按节次查询报名列表（含取消项）
+   * @param params 查询参数对象：sessionId
+   */
+  async findBySession(params: { sessionId: number }): Promise<ParticipationEnrollmentEntity[]> {
+    const { sessionId } = params;
+    return await this.enrollmentRepository.find({ where: { sessionId } });
+  }
+
+  /**
    * 按复合唯一键查询报名（sessionId + learnerId）
    * @param params 查询参数
    */
