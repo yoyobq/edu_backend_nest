@@ -109,7 +109,7 @@ export class EnrollLearnerToSessionUsecase {
         priority: 8,
         // 无延迟投递；correlationId 暂无法从 UsecaseSession 映射，留空
       });
-      await this.outboxWriter.enqueue({ envelope });
+      await this.outboxWriter.enqueue({ tx: { kind: 'tx' }, envelope });
     }
 
     return result;
