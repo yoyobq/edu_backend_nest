@@ -212,7 +212,7 @@ export class CreateSeriesUsecase {
     if (!start || !end || start > end) {
       throw new DomainError(COURSE_SERIES_ERROR.SERIES_DATE_INVALID, '系列日期非法');
     }
-    const maxSpanDays = 365;
+    const maxSpanDays = 365 * 2;
     if (this.daysBetween(start, end) > maxSpanDays) {
       throw new DomainError(COURSE_SERIES_ERROR.SERIES_DATE_INVALID, '系列跨度过长');
     }
