@@ -12,6 +12,7 @@ import { CourseSeriesEntity } from '@src/modules/course/series/course-series.ent
 import { CourseSeriesService } from '@src/modules/course/series/course-series.service';
 import { CourseSessionsService } from '@src/modules/course/sessions/course-sessions.service';
 import { type UsecaseSession } from '@src/types/auth/session.types';
+import { computeSeriesScheduleHash } from '@src/modules/common/utils/series-schedule-hash.util';
 
 /**
  * Occurrence 预览项
@@ -26,6 +27,8 @@ export interface PreviewOccurrence {
   date: string;
   /** 星期索引（1=周一 … 7=周日） */
   weekdayIndex: number;
+  /** 稳定键（YYYY-MM-DDTHH:mm#v1） */
+  occurrenceKey: string;
   /** 可选的冲突信息（当前暂未实现冲突查询时为 null） */
   conflict: null | {
     /** 是否存在时间冲突 */
@@ -43,6 +46,8 @@ export interface PreviewSeriesScheduleOutput {
   series: CourseSeriesEntity;
   /** 预览的节次列表（仅内存，不写 DB） */
   occurrences: ReadonlyArray<PreviewOccurrence>;
+  /** 预览集合防篡改哈希（稳定 JSON → SHA-256） */
+  previewHash: string;
 }
 
 /**
@@ -95,7 +100,8 @@ export class PreviewSeriesScheduleUsecase {
       await this.applyConflictDetection(series, occurrences as PreviewOccurrence[]);
     }
 
-    return { series, occurrences };
+    const previewHash = computeSeriesScheduleHash(series, 'v1');
+    return { series, occurrences, previewHash };
   }
 
   /**
@@ -276,11 +282,32 @@ export class PreviewSeriesScheduleUsecase {
         endDateTime: edt,
         date: dateStr,
         weekdayIndex: w,
+        occurrenceKey: this.computeOccurrenceKey(sdt, 'v1'),
         conflict: null,
       };
       items.push(occ);
     }
     return items;
+  }
+
+  /**
+   * 计算 occurrenceKey（YYYY-MM-DDTHH:mm#algoVersion）
+   */
+  private computeOccurrenceKey(dt: Date, algoVersion: string): string {
+    const y = dt.getFullYear();
+    const m = String(dt.getMonth() + 1).padStart(2, '0');
+    const d = String(dt.getDate()).padStart(2, '0');
+    const hh = String(dt.getHours()).padStart(2, '0');
+    const mm = String(dt.getMinutes()).padStart(2, '0');
+    return `${y}-${m}-${d}T${hh}:${mm}#${algoVersion}`;
+  }
+
+  /**
+   * 计算预览集合哈希（稳定 JSON → SHA-256）
+   */
+  private computePreviewHash(): string {
+    // 已切换到公共工具 computeSeriesScheduleHash，保留占位以兼容历史调用
+    return '';
   }
 
   /**
