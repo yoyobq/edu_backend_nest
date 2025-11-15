@@ -8,6 +8,8 @@ import request from 'supertest';
 import { DataSource } from 'typeorm';
 import { initGraphQLSchema } from '../../src/adapters/graphql/schema/schema.init';
 import { AppModule } from '../../src/app.module';
+import { AccountEntity } from '../../src/modules/account/base/entities/account.entity';
+import { CoachEntity } from '../../src/modules/account/identities/training/coach/account-coach.entity';
 import { CourseCatalogEntity } from '../../src/modules/course/catalogs/course-catalog.entity';
 import { CourseSeriesEntity } from '../../src/modules/course/series/course-series.entity';
 import { cleanupTestAccounts, seedTestAccounts, testAccountsConfig } from '../utils/test-accounts';
@@ -17,6 +19,8 @@ describe('Course Series (e2e)', () => {
   let dataSource: DataSource;
   let managerToken: string;
   let managerTokenWithBearer: string;
+  let coachToken: string;
+  let coachTokenWithBearer: string;
 
   beforeAll(async () => {
     initGraphQLSchema();
@@ -31,13 +35,19 @@ describe('Course Series (e2e)', () => {
     dataSource = moduleFixture.get<DataSource>(DataSource);
 
     await cleanupTestAccounts(dataSource);
-    await seedTestAccounts({ dataSource, includeKeys: ['manager'] });
+    await seedTestAccounts({ dataSource, includeKeys: ['manager', 'coach'] });
 
     managerToken = await loginAndGetToken(
       testAccountsConfig.manager.loginName,
       testAccountsConfig.manager.loginPassword,
     );
     managerTokenWithBearer = `Bearer ${managerToken}`;
+
+    coachToken = await loginAndGetToken(
+      testAccountsConfig.coach.loginName,
+      testAccountsConfig.coach.loginPassword,
+    );
+    coachTokenWithBearer = `Bearer ${coachToken}`;
   }, 30000);
 
   afterAll(async () => {
@@ -205,6 +215,7 @@ describe('Course Series (e2e)', () => {
         previewCourseSeriesSchedule(input: { seriesId: ${seriesId}, enableConflictCheck: true }) {
           series { id title status }
           occurrences { date weekdayIndex startDateTime endDateTime conflict { hasConflict count } }
+          defaultLeadCoachId
         }
       }
     `;
@@ -226,6 +237,7 @@ describe('Course Series (e2e)', () => {
           endDateTime: string;
           conflict: { hasConflict: boolean; count: number } | null;
         }>;
+        defaultLeadCoachId: number | null;
       };
 
       expect(Number(result.series.id)).toBe(seriesId);
@@ -282,6 +294,90 @@ describe('Course Series (e2e)', () => {
           else expect(occ.conflict.count).toBe(0);
         }
       }
+    });
+
+    it('coach 身份预览：默认主教练为当前 coach', async () => {
+      const catalogId = await ensureCatalog();
+      const start = new Date();
+      const end = new Date(start.getTime() + 7 * 24 * 3600 * 1000);
+
+      // 使用 coach 身份创建草稿系列（发布者为该 coach）
+      const createMutation = `
+        mutation { 
+          createCourseSeriesDraft(input: {
+            catalogId: ${catalogId},
+            title: "E2E 预览系列 (coach)",
+            description: "说明",
+            venueType: ${VenueType.SANDA_GYM},
+            classMode: ${ClassMode.SMALL_CLASS},
+            startDate: "${start.toISOString().slice(0, 10)}",
+            endDate: "${end.toISOString().slice(0, 10)}",
+            recurrenceRule: "BYDAY=MO,WE;BYHOUR=18;BYMINUTE=0",
+            leaveCutoffHours: 12,
+            maxLearners: 4,
+            remark: "E2E 草稿测试"
+          }) { id }
+        }
+      `;
+
+      const createRes = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', coachTokenWithBearer)
+        .send({ query: createMutation })
+        .expect(200);
+      if (createRes.body.errors)
+        throw new Error(`GraphQL 错误: ${JSON.stringify(createRes.body.errors)}`);
+      const seriesIdRaw = createRes.body.data.createCourseSeriesDraft.id as string | number;
+      const seriesId = typeof seriesIdRaw === 'string' ? Number(seriesIdRaw) : (seriesIdRaw ?? 0);
+      expect(seriesId).toBeGreaterThan(0);
+
+      const previewQuery = `
+        query {
+          previewCourseSeriesSchedule(input: { seriesId: ${seriesId}, enableConflictCheck: true }) {
+            series { id title status }
+            occurrences { date weekdayIndex startDateTime endDateTime conflict { hasConflict count } }
+            defaultLeadCoachId
+          }
+        }
+      `;
+
+      const previewRes = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', coachTokenWithBearer)
+        .send({ query: previewQuery })
+        .expect(200);
+
+      if (previewRes.body.errors)
+        throw new Error(`GraphQL 错误: ${JSON.stringify(previewRes.body.errors)}`);
+
+      const result = previewRes.body.data.previewCourseSeriesSchedule as {
+        series: { id: number; title: string; status: CourseSeriesStatus };
+        occurrences: Array<{
+          date: string;
+          weekdayIndex: number;
+          startDateTime: string;
+          endDateTime: string;
+          conflict: { hasConflict: boolean; count: number } | null;
+        }>;
+        defaultLeadCoachId: number | null;
+      };
+
+      // 通过登录名查询当前 coach 的实体，校验默认主教练 ID
+      const accountRepo = dataSource.getRepository(AccountEntity);
+      const account = await accountRepo.findOne({
+        where: { loginName: testAccountsConfig.coach.loginName },
+      });
+      expect(account).toBeTruthy();
+      const coachRepo = dataSource.getRepository(CoachEntity);
+      const coach = await coachRepo.findOne({ where: { accountId: account!.id } });
+      expect(coach).toBeTruthy();
+
+      expect(result.defaultLeadCoachId).toBe(coach!.id);
+
+      // 继续做基本结构断言
+      expect(result.series.status).toBe(CourseSeriesStatus.PLANNED);
+      expect(Array.isArray(result.occurrences)).toBe(true);
+      expect(result.occurrences.length).toBeGreaterThan(0);
     });
 
     it('未登录用户不允许创建系列，返回 UNAUTHENTICATED', async () => {

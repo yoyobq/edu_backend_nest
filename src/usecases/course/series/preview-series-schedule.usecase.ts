@@ -48,6 +48,8 @@ export interface PreviewSeriesScheduleOutput {
   occurrences: ReadonlyArray<PreviewOccurrence>;
   /** 预览集合防篡改哈希（稳定 JSON → SHA-256） */
   previewHash: string;
+  /** 默认主教练 ID（coach 请求时为当前 coach；manager/admin 请求时为空） */
+  defaultLeadCoachId: number | null;
 }
 
 /**
@@ -101,7 +103,8 @@ export class PreviewSeriesScheduleUsecase {
     }
 
     const previewHash = computeSeriesScheduleHash(series, 'v1');
-    return { series, occurrences, previewHash };
+    const defaultLeadCoachId = await this.resolveDefaultLeadCoachId(session);
+    return { series, occurrences, previewHash, defaultLeadCoachId };
   }
 
   /**
@@ -439,5 +442,17 @@ export class PreviewSeriesScheduleUsecase {
       }
       it.conflict = { hasConflict: count > 0, count };
     }
+  }
+  /**
+   * 解析默认主教练 ID：
+   * - 当请求者为 coach：返回当前 coach 的 ID；
+   * - 当请求者为 manager/admin：返回 null，由前端选择并在发布时校验。
+   */
+  private async resolveDefaultLeadCoachId(session: UsecaseSession): Promise<number | null> {
+    if (this.isCoach(session)) {
+      const coach = await this.coachService.findByAccountId(session.accountId);
+      return coach ? coach.id : null;
+    }
+    return null;
   }
 }

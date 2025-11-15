@@ -8,6 +8,7 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
+import { ParticipationAttendanceStatus } from '@src/types/models/attendance.types';
 
 /**
  * 出勤记录实体（每节计入次数）
@@ -19,7 +20,12 @@ import {
 @Index('uk_attend_enrollment', ['enrollmentId'], { unique: true })
 @Index('idx_attend_confirmed_coach', ['confirmedByCoachId'])
 @Index('idx_attend_session', ['sessionId'])
+@Index('idx_attend_session_status', ['sessionId', 'status'])
 @Check('ck_attend_count_nonneg', 'count_applied >= 0')
+@Check(
+  'ck_attend_count_by_status',
+  "(((`status` IN ('PRESENT','LATE_CANCEL') AND `count_applied` > 0) OR (`status` IN ('NO_SHOW','EXCUSED','CANCELLED') AND `count_applied` = 0)))",
+)
 export class ParticipationAttendanceRecordEntity {
   /** 主键 ID */
   @PrimaryGeneratedColumn({ type: 'int' })
@@ -63,6 +69,17 @@ export class ParticipationAttendanceRecordEntity {
     comment: '本节计入次数（可为 0.00；校验非负）',
   })
   countApplied!: string; // 使用字符串承载 decimal，避免 JS 精度问题
+
+  @Column({
+    name: 'status',
+    type: 'enum',
+    enum: ParticipationAttendanceStatus,
+    default: ParticipationAttendanceStatus.NO_SHOW,
+    nullable: false,
+    comment:
+      '出勤状态：PRESENT=出勤(>0)；NO_SHOW=未到(0)；EXCUSED=请假(0)；LATE_CANCEL=迟退(>0)；CANCELLED=报名已撤销(0)',
+  })
+  status!: ParticipationAttendanceStatus;
 
   /** 最后一次点名的教练账号 ID */
   @Column({
