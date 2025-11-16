@@ -62,8 +62,12 @@ export class CloseSessionUsecase {
       }
     }
 
-    if (s.status === SessionStatus.CANCELED || s.status === SessionStatus.FINISHED) {
+    if (s.status === SessionStatus.CANCELED) {
       throw new DomainError(SESSION_ERROR.SESSION_STATUS_INVALID, '当前状态不允许结课');
+    }
+    // 幂等：若已结课则直接返回
+    if (s.status === SessionStatus.FINISHED) {
+      return { sessionId: s.id, status: s.status };
     }
 
     const isFinal = await this.attendanceService.isFinalizedForSession(s.id);

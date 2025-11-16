@@ -46,7 +46,7 @@ export class LoadSessionAttendanceSheetUsecase {
     if (!s) throw new DomainError(SESSION_ERROR.SESSION_NOT_FOUND, '节次不存在');
     await this.ensurePermissions({ session, sessionId, leadCoachId: s.leadCoachId });
 
-    // 1) 报名列表（含取消），稳定排序：createdAt ASC, id ASC（内存排序）
+    // 1) 报名列表（含取消项），稳定排序：createdAt ASC, id ASC（内存排序）
     const enrollments = await this.enrollmentService.findBySession({ sessionId });
     enrollments.sort((a, b) => {
       const c = a.createdAt.getTime() - b.createdAt.getTime();
@@ -191,11 +191,11 @@ export class LoadSessionAttendanceSheetUsecase {
         return 1;
       case ParticipationAttendanceStatus.EXCUSED:
         return 2;
-      case ParticipationAttendanceStatus.NO_SHOW_WAIVED:
-        return 3;
       case ParticipationAttendanceStatus.LATE_CANCEL:
-        return 4;
+        return 3;
       case ParticipationAttendanceStatus.CANCELLED:
+        return 4;
+      case ParticipationAttendanceStatus.NO_SHOW_WAIVED:
         return 5;
       default:
         return 99;

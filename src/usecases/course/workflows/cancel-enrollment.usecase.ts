@@ -10,6 +10,8 @@ import { Inject, Injectable } from '@nestjs/common';
 import { CustomerService } from '@src/modules/account/identities/training/customer/account-customer.service';
 import { CourseSeriesService } from '@src/modules/course/series/course-series.service';
 import { CourseSessionsService } from '@src/modules/course/sessions/course-sessions.service';
+import { ParticipationAttendanceService } from '@src/modules/participation/attendance/participation-attendance.service';
+import { ParticipationAttendanceStatus } from '@src/types/models/attendance.types';
 import { ParticipationEnrollmentService } from '@src/modules/participation/enrollment/participation-enrollment.service';
 import { type UsecaseSession } from '@src/types/auth/session.types';
 import { buildEnvelope } from '@core/common/integration-events/events.types';
@@ -50,6 +52,7 @@ export class CancelEnrollmentUsecase {
     private readonly seriesService: CourseSeriesService,
     private readonly enrollmentService: ParticipationEnrollmentService,
     private readonly customerService: CustomerService,
+    private readonly attendanceService: ParticipationAttendanceService,
     @Inject(INTEGRATION_EVENTS_TOKENS.OUTBOX_WRITER_PORT)
     private readonly outboxWriter: IOutboxWriterPort,
   ) {}
@@ -80,7 +83,15 @@ export class CancelEnrollmentUsecase {
     }
 
     // 幂等：已取消则直接返回（无需继续检查状态或截止规则）
+    // 同步出勤记录为 CANCELLED/0（不清理，只置为 0 & CANCELLED）
     if ((enrollment.isCanceled ?? 0) === 1) {
+      await this.attendanceService.upsertByEnrollment({
+        enrollmentId: enrollment.id,
+        sessionId: enrollment.sessionId,
+        learnerId: enrollment.learnerId,
+        status: ParticipationAttendanceStatus.CANCELLED,
+        countApplied: '0.00',
+      });
       return {
         enrollment: {
           id: enrollment.id,
@@ -124,6 +135,15 @@ export class CancelEnrollmentUsecase {
       const u = await this.enrollmentService.cancel(enrollment.id, {
         canceledBy: session.accountId,
         cancelReason: input.reason ?? null,
+      });
+
+      // 出勤记录置为 CANCELLED/0（幂等）
+      await this.attendanceService.upsertByEnrollment({
+        enrollmentId: u.id,
+        sessionId: u.sessionId,
+        learnerId: u.learnerId,
+        status: ParticipationAttendanceStatus.CANCELLED,
+        countApplied: '0.00',
       });
 
       const envelope = buildEnvelope({

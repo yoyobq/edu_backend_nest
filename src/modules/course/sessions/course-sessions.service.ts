@@ -25,6 +25,25 @@ export class CourseSessionsService {
   }
 
   /**
+   * 按系列与截止日期列出节次（按开始时间升序）
+   * @param params 查询参数：seriesId、untilDate（可选）
+   */
+  async listBySeriesAndUntilDate(params: {
+    readonly seriesId: number;
+    readonly untilDate?: Date;
+  }): Promise<CourseSessionEntity[]> {
+    const qb = this.sessionRepository
+      .createQueryBuilder('s')
+      .select('s')
+      .where('s.seriesId = :seriesId', { seriesId: params.seriesId })
+      .orderBy('s.startTime', 'ASC');
+    if (params.untilDate) {
+      qb.andWhere('s.startTime <= :untilDate', { untilDate: params.untilDate });
+    }
+    return await qb.getMany();
+  }
+
+  /**
    * 按教练与时间段查询已排期的节次（仅 SCHEDULED）
    * @param params 查询参数对象：coachId / rangeStart / rangeEnd
    * @returns 重叠时间段内的节次列表，按开始时间升序
