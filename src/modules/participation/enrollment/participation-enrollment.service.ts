@@ -1,7 +1,7 @@
 // src/modules/participation-enrollment/participation-enrollment.service.ts
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { EntityManager, In, Repository } from 'typeorm';
 import { ParticipationEnrollmentEntity } from './participation-enrollment.entity';
 
 /**
@@ -21,6 +21,22 @@ export class ParticipationEnrollmentService {
    */
   async findById(id: number): Promise<ParticipationEnrollmentEntity | null> {
     return this.enrollmentRepository.findOne({ where: { id } });
+  }
+
+  /**
+   * 按 ID 列表批量查询报名
+   * @param params 查询参数对象：ids（唯一 ID 列表）、manager（可选事务管理器）
+   * @returns 报名实体列表
+   */
+  async findManyByIds(params: {
+    readonly ids: ReadonlyArray<number>;
+    readonly manager?: EntityManager;
+  }): Promise<ParticipationEnrollmentEntity[]> {
+    const repo = params.manager
+      ? params.manager.getRepository(ParticipationEnrollmentEntity)
+      : this.enrollmentRepository;
+    if (params.ids.length === 0) return [];
+    return await repo.find({ where: { id: In(params.ids) } });
   }
 
   /**

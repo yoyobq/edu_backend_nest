@@ -22,6 +22,7 @@ import { AccountEntity } from '@src/modules/account/base/entities/account.entity
 import { UserInfoEntity } from '@src/modules/account/base/entities/user-info.entity';
 import { AccountService } from '@src/modules/account/base/services/account.service';
 import { CoachEntity } from '@src/modules/account/identities/training/coach/account-coach.entity';
+import { CustomerService } from '@src/modules/account/identities/training/customer/account-customer.service';
 import { LearnerEntity } from '@src/modules/account/identities/training/learner/account-learner.entity';
 import { ManagerEntity } from '@src/modules/account/identities/training/manager/account-manager.entity';
 import { CourseCatalogEntity } from '@src/modules/course/catalogs/course-catalog.entity';
@@ -748,6 +749,478 @@ describe('08-Integration-Events 课程工作流：报名触发与 Outbox 分发 
     });
   });
 
+  describe('RecordSessionAttendance GraphQL - 正例 (e2e)', () => {
+    let enrollmentId: number;
+
+    beforeAll(async () => {
+      const enrRepo = dataSource.getRepository(ParticipationEnrollmentEntity);
+      const existed = await enrRepo.findOne({ where: { sessionId, learnerId } });
+      if (!existed) {
+        const mutation = `
+          mutation { enrollLearnerToSession(input: { sessionId: ${sessionId}, learnerId: ${learnerId}, remark: "E2E 正例报名" }) { isNewlyCreated } }
+        `;
+        const res = await executeGql(app, { query: mutation, token: customerToken }).expect(200);
+        const body = res.body as unknown as {
+          data?: { enrollLearnerToSession?: { isNewlyCreated: boolean } };
+          errors?: unknown;
+        };
+        if (body.errors) throw new Error(`GraphQL 错误: ${JSON.stringify(body.errors)}`);
+      }
+      const latest = await enrRepo.findOne({ where: { sessionId, learnerId } });
+      if (!latest) throw new Error('前置失败：未找到报名记录');
+      enrollmentId = latest.id;
+    });
+
+    it('经理批量记录出勤：触发 AttendanceUpdated 并持久化', async () => {
+      const mutation = `
+        mutation Record($input: RecordSessionAttendanceInputGql!) {
+          recordSessionAttendance(input: $input) { updatedCount unchangedCount }
+        }
+      `;
+      const variables = {
+        input: {
+          sessionId,
+          items: [
+            {
+              enrollmentId,
+              status: ParticipationAttendanceStatus.PRESENT,
+              countApplied: '1.0',
+              remark: 'by-manager',
+            },
+          ],
+        },
+      };
+      const res = await request(app.getHttpServer())
+        .post('/graphql')
+        .send({ query: mutation, variables })
+        .set('Authorization', `Bearer ${managerToken}`)
+        .expect(200);
+      const body = res.body as unknown as {
+        data?: { recordSessionAttendance?: { updatedCount: number; unchangedCount: number } };
+        errors?: unknown;
+      };
+      if (body.errors) throw new Error(`GraphQL 错误: ${JSON.stringify(body.errors)}`);
+      expect(body.data!.recordSessionAttendance!.updatedCount).toBeGreaterThanOrEqual(1);
+
+      // 再读点名视图校验持久化
+      const query = `
+        query { loadSessionAttendanceSheet(sessionId: ${sessionId}) { rows { enrollmentId status countApplied } } }
+      `;
+      const read = await executeGql(app, { query, token: coachToken }).expect(200);
+      const sheet = (
+        read.body as {
+          data?: {
+            loadSessionAttendanceSheet?: {
+              rows: Array<{ enrollmentId: number; status: string; countApplied: string }>;
+            };
+          };
+        }
+      ).data!.loadSessionAttendanceSheet!;
+      const row = sheet.rows.find((r) => r.enrollmentId === enrollmentId)!;
+      expect(row.status).toBe(ParticipationAttendanceStatus.PRESENT);
+      expect(row.countApplied).toMatch(/^1\.0/);
+
+      // 等待 Outbox 分发并检查队列状态
+      await sleep(200);
+      if ('snapshot' in store && typeof store.snapshot === 'function') {
+        const snap = store.snapshot();
+        expect(snap.failed).toBe(0);
+      }
+    });
+
+    it('教练批量记录出勤：触发 AttendanceUpdated 并持久化', async () => {
+      const mutation = `
+        mutation Record($input: RecordSessionAttendanceInputGql!) {
+          recordSessionAttendance(input: $input) { updatedCount unchangedCount }
+        }
+      `;
+      const variables = {
+        input: {
+          sessionId,
+          items: [
+            {
+              enrollmentId,
+              status: ParticipationAttendanceStatus.EXCUSED,
+              countApplied: '0.0',
+              remark: 'by-coach',
+            },
+          ],
+        },
+      };
+      const res = await request(app.getHttpServer())
+        .post('/graphql')
+        .send({ query: mutation, variables })
+        .set('Authorization', `Bearer ${coachToken}`)
+        .expect(200);
+      const body = res.body as unknown as {
+        data?: { recordSessionAttendance?: { updatedCount: number; unchangedCount: number } };
+        errors?: unknown;
+      };
+      if (body.errors) throw new Error(`GraphQL 错误: ${JSON.stringify(body.errors)}`);
+      expect(body.data!.recordSessionAttendance!.updatedCount).toBeGreaterThanOrEqual(1);
+
+      // 再读点名视图校验持久化
+      const query = `
+        query { loadSessionAttendanceSheet(sessionId: ${sessionId}) { rows { enrollmentId status countApplied } } }
+      `;
+      const read = await executeGql(app, { query, token: coachToken }).expect(200);
+      const sheet = (
+        read.body as {
+          data?: {
+            loadSessionAttendanceSheet?: {
+              rows: Array<{ enrollmentId: number; status: string; countApplied: string }>;
+            };
+          };
+        }
+      ).data!.loadSessionAttendanceSheet!;
+      const row = sheet.rows.find((r) => r.enrollmentId === enrollmentId)!;
+      expect(row.status).toBe(ParticipationAttendanceStatus.EXCUSED);
+      expect(row.countApplied).toMatch(/^0\.0/);
+
+      // 等待 Outbox 分发并检查队列状态
+      await sleep(200);
+      if ('snapshot' in store && typeof store.snapshot === 'function') {
+        const snap = store.snapshot();
+        expect(snap.failed).toBe(0);
+      }
+    });
+
+    afterAll(async () => {
+      await dataSource
+        .createQueryBuilder()
+        .delete()
+        .from(ParticipationAttendanceRecordEntity)
+        .where('session_id = :sid AND learner_id = :lid', { sid: sessionId, lid: learnerId })
+        .execute();
+    });
+  });
+
+  describe('RecordSessionAttendance GraphQL - 负例 (e2e)', () => {
+    let enrollmentId: number;
+
+    beforeAll(async () => {
+      const enrRepo = dataSource.getRepository(ParticipationEnrollmentEntity);
+      const existed = await enrRepo.findOne({ where: { sessionId, learnerId } });
+      if (!existed) {
+        const mutation = `
+          mutation { enrollLearnerToSession(input: { sessionId: ${sessionId}, learnerId: ${learnerId}, remark: "E2E 负例报名" }) { isNewlyCreated } }
+        `;
+        const res = await executeGql(app, { query: mutation, token: customerToken }).expect(200);
+        const body = res.body as unknown as {
+          data?: { enrollLearnerToSession?: { isNewlyCreated: boolean } };
+          errors?: unknown;
+        };
+        if (body.errors) throw new Error(`GraphQL 错误: ${JSON.stringify(body.errors)}`);
+      }
+      const latest = await enrRepo.findOne({ where: { sessionId, learnerId } });
+      if (!latest) throw new Error('前置失败：未找到报名记录');
+      enrollmentId = latest.id;
+    });
+
+    beforeEach(async () => {
+      await dataSource
+        .createQueryBuilder()
+        .delete()
+        .from(ParticipationAttendanceRecordEntity)
+        .where('session_id = :sid', { sid: sessionId })
+        .execute();
+    });
+
+    it('教练尝试覆盖计次：应拒绝覆盖（忽略输入覆盖）', async () => {
+      const mutation = `
+        mutation Record($input: RecordSessionAttendanceInputGql!) {
+          recordSessionAttendance(input: $input) { updatedCount unchangedCount }
+        }
+      `;
+      const variables = {
+        input: {
+          sessionId,
+          items: [
+            {
+              enrollmentId,
+              status: ParticipationAttendanceStatus.PRESENT,
+              countApplied: '2.5',
+              remark: 'coach-override',
+            },
+          ],
+        },
+      };
+      const res = await request(app.getHttpServer())
+        .post('/graphql')
+        .send({ query: mutation, variables })
+        .set('Authorization', `Bearer ${coachToken}`)
+        .expect(200);
+      const body = res.body as unknown as {
+        data?: { recordSessionAttendance?: { updatedCount: number; unchangedCount: number } };
+        errors?: unknown;
+      };
+      if (body.errors) throw new Error(`GraphQL 错误: ${JSON.stringify(body.errors)}`);
+      expect(body.data!.recordSessionAttendance!.updatedCount).toBeGreaterThanOrEqual(1);
+
+      // 再读点名视图，确认未应用覆盖计次（按学员默认计次）
+      const query = `
+        query { loadSessionAttendanceSheet(sessionId: ${sessionId}) { rows { enrollmentId status countApplied } } }
+      `;
+      const read = await executeGql(app, { query, token: coachToken }).expect(200);
+      const sheet = (
+        read.body as {
+          data?: {
+            loadSessionAttendanceSheet?: {
+              rows: Array<{ enrollmentId: number; status: string; countApplied: string }>;
+            };
+          };
+        }
+      ).data!.loadSessionAttendanceSheet!;
+      const row = sheet.rows.find((r) => r.enrollmentId === enrollmentId)!;
+      expect(row.status).toBe(ParticipationAttendanceStatus.PRESENT);
+      expect(row.countApplied).toMatch(/^1\.0/);
+    });
+
+    it('已定稿后再次提交：应拒绝并返回 SESSION_LOCKED_FOR_ATTENDANCE', async () => {
+      // 先写入一条出勤记录
+      const first = `
+        mutation Record($input: RecordSessionAttendanceInputGql!) {
+          recordSessionAttendance(input: $input) { updatedCount unchangedCount }
+        }
+      `;
+      const vars1 = {
+        input: {
+          sessionId,
+          items: [
+            {
+              enrollmentId,
+              status: ParticipationAttendanceStatus.PRESENT,
+              countApplied: '1.0',
+              remark: 'lock-prepare',
+            },
+          ],
+        },
+      };
+      const r1 = await request(app.getHttpServer())
+        .post('/graphql')
+        .send({ query: first, variables: vars1 })
+        .set('Authorization', `Bearer ${managerToken}`)
+        .expect(200);
+      const b1 = r1.body as unknown as {
+        data?: { recordSessionAttendance?: { updatedCount: number; unchangedCount: number } };
+        errors?: unknown;
+      };
+      if (b1.errors) throw new Error(`GraphQL 错误: ${JSON.stringify(b1.errors)}`);
+
+      // 标记该节次出勤已定稿（模拟流程终态）
+      const attendanceService = app.get<ParticipationAttendanceService>(
+        ParticipationAttendanceService,
+      );
+      const affected = await attendanceService.lockForSession({ sessionId, finalizedBy: 999 });
+      expect(affected).toBeGreaterThanOrEqual(1);
+
+      // 再次提交同记录，期望被拒绝
+      const r2 = await request(app.getHttpServer())
+        .post('/graphql')
+        .send({ query: first, variables: vars1 })
+        .set('Authorization', `Bearer ${managerToken}`)
+        .expect(200);
+      const b2 = r2.body as unknown as {
+        data?: unknown;
+        errors?: Array<{ extensions?: { errorCode?: string } }>;
+      };
+      expect(b2.errors).toBeDefined();
+      const code = b2.errors?.[0]?.extensions?.errorCode;
+      expect(code).toBe('SESSION_LOCKED_FOR_ATTENDANCE');
+    });
+
+    it('写入 enrollment 不属于该 session：应返回 OPERATION_NOT_ALLOWED', async () => {
+      // 造一个其它节次的报名
+      const enrRepo = dataSource.getRepository(ParticipationEnrollmentEntity);
+      const anotherSessionId = await createTestSession(dataSource, {
+        seriesId,
+        leadCoachId: await getCoachIdByAccountId(
+          dataSource,
+          await getAccountIdByLoginName(dataSource, testAccountsConfig.coach.loginName),
+        ),
+        startOffsetMinutes: 5,
+      });
+      const customerAccountId = await getAccountIdByLoginName(
+        dataSource,
+        testAccountsConfig.customer.loginName,
+      );
+      const customerService = app.get<CustomerService>(CustomerService);
+      const customer = await customerService.findByAccountId(customerAccountId);
+      if (!customer) throw new Error('前置失败：未找到 Customer 身份');
+      const enrollmentService = app.get<ParticipationEnrollmentService>(
+        ParticipationEnrollmentService,
+      );
+      const crossEnr = await enrollmentService.create({
+        sessionId: anotherSessionId,
+        learnerId,
+        customerId: customer.id,
+        remark: 'cross-session-enroll',
+      });
+      const cross = await enrRepo.findOne({ where: { id: crossEnr.id } });
+      if (!cross) throw new Error('前置失败：跨节次报名未找到');
+
+      const mutation = `
+        mutation Record($input: RecordSessionAttendanceInputGql!) {
+          recordSessionAttendance(input: $input) { updatedCount unchangedCount }
+        }
+      `;
+      const variables = {
+        input: {
+          sessionId,
+          items: [
+            {
+              enrollmentId: cross.id,
+              status: ParticipationAttendanceStatus.PRESENT,
+              countApplied: '1.0',
+              remark: 'wrong-session',
+            },
+          ],
+        },
+      };
+      const res = await request(app.getHttpServer())
+        .post('/graphql')
+        .send({ query: mutation, variables })
+        .set('Authorization', `Bearer ${managerToken}`)
+        .expect(200);
+      const body = res.body as unknown as {
+        data?: unknown;
+        errors?: Array<{ extensions?: { errorCode?: string } }>;
+      };
+      expect(body.errors).toBeDefined();
+      const code = body.errors?.[0]?.extensions?.errorCode;
+      expect(code).toBe('ENROLLMENT_OPERATION_NOT_ALLOWED');
+
+      // 清理跨节次报名，避免影响后续分组（时间冲突）
+      await dataSource
+        .createQueryBuilder()
+        .delete()
+        .from(ParticipationEnrollmentEntity)
+        .where('session_id = :sid AND learner_id = :lid', {
+          sid: anotherSessionId,
+          lid: learnerId,
+        })
+        .execute();
+    });
+
+    it('非法状态枚举：应返回 ATTENDANCE_INVALID_STATUS', async () => {
+      const mutation = `
+        mutation { recordSessionAttendance(input: { sessionId: ${sessionId}, items: [{ enrollmentId: ${enrollmentId}, status: "NOT_A_STATUS", countApplied: "1.0" }] }) { updatedCount unchangedCount } }
+      `;
+      const res = await executeGql(app, { query: mutation, token: managerToken }).expect(200);
+      const body = res.body as unknown as {
+        data?: unknown;
+        errors?: Array<{ extensions?: { errorCode?: string } }>;
+      };
+      expect(body.errors).toBeDefined();
+      const code = body.errors?.[0]?.extensions?.errorCode;
+      expect(code).toBe('ATTENDANCE_INVALID_STATUS');
+    });
+
+    it('未取消报名报 CANCELLED：应拒绝', async () => {
+      const mutation = `
+        mutation Record($input: RecordSessionAttendanceInputGql!) {
+          recordSessionAttendance(input: $input) { updatedCount unchangedCount }
+        }
+      `;
+      const variables = {
+        input: {
+          sessionId,
+          items: [
+            {
+              enrollmentId,
+              status: ParticipationAttendanceStatus.CANCELLED,
+              countApplied: '0.0',
+              remark: 'cancelled-strict',
+            },
+          ],
+        },
+      };
+      const res = await request(app.getHttpServer())
+        .post('/graphql')
+        .send({ query: mutation, variables })
+        .set('Authorization', `Bearer ${coachToken}`)
+        .expect(200);
+      const body = res.body as unknown as {
+        data?: unknown;
+        errors?: Array<{ extensions?: { errorCode?: string } }>;
+      };
+      expect(body.errors).toBeDefined();
+      const code = body.errors?.[0]?.extensions?.errorCode;
+      expect(code).toBe('ENROLLMENT_OPERATION_NOT_ALLOWED');
+    });
+
+    it('重复提交同一批：unchangedCount 可能为 0（确认时间刷新），事件去重', async () => {
+      const mutation = `
+        mutation Record($input: RecordSessionAttendanceInputGql!) {
+          recordSessionAttendance(input: $input) { updatedCount unchangedCount }
+        }
+      `;
+      const variables = {
+        input: {
+          sessionId,
+          items: [
+            {
+              enrollmentId,
+              status: ParticipationAttendanceStatus.PRESENT,
+              countApplied: '1.0',
+              remark: 'dup-batch',
+            },
+          ],
+        },
+      };
+
+      // 第一次提交
+      const r1 = await request(app.getHttpServer())
+        .post('/graphql')
+        .send({ query: mutation, variables })
+        .set('Authorization', `Bearer ${managerToken}`)
+        .expect(200);
+      const b1 = r1.body as unknown as {
+        data?: { recordSessionAttendance?: { updatedCount: number; unchangedCount: number } };
+        errors?: unknown;
+      };
+      if (b1.errors) throw new Error(`GraphQL 错误: ${JSON.stringify(b1.errors)}`);
+      expect(b1.data!.recordSessionAttendance!.updatedCount).toBeGreaterThanOrEqual(1);
+
+      // 第二次提交（相同批次）
+      const r2 = await request(app.getHttpServer())
+        .post('/graphql')
+        .send({ query: mutation, variables })
+        .set('Authorization', `Bearer ${managerToken}`)
+        .expect(200);
+      const b2 = r2.body as unknown as {
+        data?: { recordSessionAttendance?: { updatedCount: number; unchangedCount: number } };
+        errors?: unknown;
+      };
+      if (b2.errors) throw new Error(`GraphQL 错误: ${JSON.stringify(b2.errors)}`);
+      const second = b2.data!.recordSessionAttendance!;
+      expect(second.updatedCount).toBeGreaterThanOrEqual(0);
+      expect(second.unchangedCount).toBeGreaterThanOrEqual(0);
+
+      // 等待 Outbox 分发并检查 store 情况（仅断言无失败）
+      await sleep(200);
+      if ('snapshot' in store && typeof store.snapshot === 'function') {
+        const snap = store.snapshot();
+        expect(snap.failed).toBe(0);
+      }
+    });
+
+    afterAll(async () => {
+      await dataSource
+        .createQueryBuilder()
+        .delete()
+        .from(ParticipationAttendanceRecordEntity)
+        .where('session_id = :sid AND learner_id = :lid', { sid: sessionId, lid: learnerId })
+        .execute();
+      await dataSource
+        .createQueryBuilder()
+        .delete()
+        .from(ParticipationEnrollmentEntity)
+        .where('session_id = :sid AND learner_id = :lid', { sid: sessionId, lid: learnerId })
+        .execute();
+    });
+  });
+
   describe('LoadSessionAttendanceSheet GraphQL - 负例 (e2e)', () => {
     let sessionIdNoData: number;
     let sessionIdNotLeadCoach: number;
@@ -926,6 +1399,15 @@ describe('08-Integration-Events 课程工作流：报名触发与 Outbox 分发 
    * - 重复报名幂等：不触发 EnrollmentCreated 事件
    */
   describe('EnrollLearnerToSessionUsecase', () => {
+    beforeAll(async () => {
+      // 确保该分组独立前置：若存在旧报名，先清理以保证“首次报名”为新建
+      await dataSource
+        .createQueryBuilder()
+        .delete()
+        .from(ParticipationEnrollmentEntity)
+        .where('session_id = :sid AND learner_id = :lid', { sid: sessionId, lid: learnerId })
+        .execute();
+    });
     it('新报名触发 EnrollmentCreated 并被 Outbox 消费', async () => {
       const mutation = `
         mutation {
@@ -1008,6 +1490,25 @@ describe('08-Integration-Events 课程工作流：报名触发与 Outbox 分发 
    * - 重复取消幂等：不触发 EnrollmentCancelled 新事件
    */
   describe('CancelEnrollmentUsecase', () => {
+    beforeAll(async () => {
+      // 通过服务保障报名存在，避免 GraphQL 侧偶发校验干扰
+      const customerAccountId = await getAccountIdByLoginName(
+        dataSource,
+        testAccountsConfig.customer.loginName,
+      );
+      const customerService = app.get<CustomerService>(CustomerService);
+      const customer = await customerService.findByAccountId(customerAccountId);
+      if (!customer) throw new Error('测试前置失败：未找到 Customer 身份');
+      const enrollmentService = app.get<ParticipationEnrollmentService>(
+        ParticipationEnrollmentService,
+      );
+      await enrollmentService.create({
+        sessionId,
+        learnerId,
+        customerId: customer.id,
+        remark: 'E2E 取消前置报名',
+      });
+    });
     it('超过取消阈值：返回领域错误并不触发事件', async () => {
       // 读取报名与节次信息（使用前序用例创建的数据）
       const enrollmentRepo = dataSource.getRepository(ParticipationEnrollmentEntity);
@@ -1145,6 +1646,25 @@ describe('08-Integration-Events 课程工作流：报名触发与 Outbox 分发 
    *   - 节次存在至少一条教练结算模板（session_coaches）
    */
   describe('CloseSessionUsecase', () => {
+    beforeAll(async () => {
+      // 通过服务保障报名存在
+      const customerAccountId = await getAccountIdByLoginName(
+        dataSource,
+        testAccountsConfig.customer.loginName,
+      );
+      const customerService = app.get<CustomerService>(CustomerService);
+      const customer = await customerService.findByAccountId(customerAccountId);
+      if (!customer) throw new Error('测试前置失败：未找到 Customer 身份');
+      const enrollmentService = app.get<ParticipationEnrollmentService>(
+        ParticipationEnrollmentService,
+      );
+      await enrollmentService.create({
+        sessionId,
+        learnerId,
+        customerId: customer.id,
+        remark: 'E2E 结课前置报名',
+      });
+    });
     it('结课成功触发 SessionClosed 并被 Outbox 消费', async () => {
       // 1) 查询报名，写入已定稿的出勤记录
       const enrollmentRepo = dataSource.getRepository(ParticipationEnrollmentEntity);

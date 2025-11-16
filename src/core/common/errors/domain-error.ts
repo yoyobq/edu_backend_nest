@@ -238,6 +238,8 @@ export const SESSION_ERROR = {
   SESSION_STATUS_INVALID: 'SESSION_STATUS_INVALID',
   /** 出勤尚未定稿，不能执行当前操作 */
   ATTENDANCE_NOT_FINALIZED: 'ATTENDANCE_NOT_FINALIZED',
+  /** 出勤已锁定（已定稿或结课），不允许更新 */
+  SESSION_LOCKED_FOR_ATTENDANCE: 'SESSION_LOCKED_FOR_ATTENDANCE',
   /** course-session已关闭或已结算，无法重复关闭 */
   SESSION_ALREADY_CLOSED: 'SESSION_ALREADY_CLOSED',
   /** course-session已取消，无法执行该操作 */
@@ -287,3 +289,14 @@ export const ENROLLMENT_ERROR = {
 Object.freeze(ENROLLMENT_ERROR);
 
 export type EnrollmentErrorCode = (typeof ENROLLMENT_ERROR)[keyof typeof ENROLLMENT_ERROR];
+
+// 出勤相关错误码（集中定义）
+export const ATTENDANCE_ERROR = {
+  /** 出勤状态非法（不在合法枚举内） */
+  ATTENDANCE_INVALID_STATUS: 'ATTENDANCE_INVALID_STATUS',
+  /** 出勤参数非法（如计次格式/精度/非负规则不满足） */
+  ATTENDANCE_INVALID_PARAMS: 'ATTENDANCE_INVALID_PARAMS',
+} as const;
+Object.freeze(ATTENDANCE_ERROR);
+
+export type AttendanceErrorCode = (typeof ATTENDANCE_ERROR)[keyof typeof ATTENDANCE_ERROR];

@@ -4,6 +4,7 @@ import { Injectable } from '@nestjs/common';
 import { CoachService } from '@src/modules/account/identities/training/coach/coach.service';
 import { LearnerService } from '@src/modules/account/identities/training/learner/account-learner.service';
 import { CourseSessionsService } from '@src/modules/course/sessions/course-sessions.service';
+import { CourseSessionCoachesService } from '@src/modules/course/session-coaches/course-session-coaches.service';
 import {
   ParticipationAttendanceService,
   type AttendanceSheet,
@@ -28,6 +29,7 @@ export class LoadSessionAttendanceSheetUsecase {
     private readonly attendanceService: ParticipationAttendanceService,
     private readonly learnerService: LearnerService,
     private readonly coachService: CoachService,
+    private readonly sessionCoachesService: CourseSessionCoachesService,
   ) {}
 
   /**
@@ -42,7 +44,7 @@ export class LoadSessionAttendanceSheetUsecase {
     const { session, sessionId } = params;
     const s = await this.sessionsService.findById(sessionId);
     if (!s) throw new DomainError(SESSION_ERROR.SESSION_NOT_FOUND, '节次不存在');
-    await this.ensurePermissions(session, s.leadCoachId);
+    await this.ensurePermissions({ session, sessionId, leadCoachId: s.leadCoachId });
 
     // 1) 报名列表（含取消），稳定排序：createdAt ASC, id ASC（内存排序）
     const enrollments = await this.enrollmentService.findBySession({ sessionId });
@@ -141,11 +143,15 @@ export class LoadSessionAttendanceSheetUsecase {
   }
 
   /**
-   * 权限校验：允许 admin / manager / 本节次 leadCoach 查看
-   * @param session 当前会话
-   * @param leadCoachId 节次主教练 ID
+   * 权限校验：允许 admin / manager / 本节次 leadCoach / coCoach 查看
+   * @param params 会话与节次上下文
    */
-  private async ensurePermissions(session: UsecaseSession, leadCoachId: number): Promise<void> {
+  private async ensurePermissions(params: {
+    readonly session: UsecaseSession;
+    readonly sessionId: number;
+    readonly leadCoachId: number;
+  }): Promise<void> {
+    const { session, sessionId, leadCoachId } = params;
     const roles = (session.roles ?? []).map((r) => String(r).toLowerCase());
     const isAdmin = roles.includes('admin');
     const isManager = roles.includes('manager');
@@ -154,7 +160,12 @@ export class LoadSessionAttendanceSheetUsecase {
       throw new DomainError(PERMISSION_ERROR.ACCESS_DENIED, '无权查看该节次点名表');
     }
     const coach = await this.coachService.findByAccountId(session.accountId);
-    if (!coach || coach.id !== leadCoachId) {
+    if (!coach) {
+      throw new DomainError(PERMISSION_ERROR.ACCESS_DENIED, '无权查看该节次点名表');
+    }
+    if (coach.id === leadCoachId) return;
+    const bound = await this.sessionCoachesService.findByUnique({ sessionId, coachId: coach.id });
+    if (!bound) {
       throw new DomainError(PERMISSION_ERROR.ACCESS_DENIED, '无权查看该节次点名表');
     }
   }

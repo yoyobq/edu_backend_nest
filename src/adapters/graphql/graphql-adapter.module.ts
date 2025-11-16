@@ -21,6 +21,7 @@ import { EnrollLearnerToSessionUsecase } from '@src/usecases/course/workflows/en
 import { CancelEnrollmentUsecase } from '@src/usecases/course/workflows/cancel-enrollment.usecase';
 import { CloseSessionUsecase } from '@src/usecases/course/workflows/close-session.usecase';
 import { LoadSessionAttendanceSheetUsecase } from '@src/usecases/course/workflows/load-session-attendance-sheet.usecase';
+import { BatchRecordAttendanceUsecase } from '@src/usecases/course/workflows/batch-record-attendance.usecase';
 
 import { Module } from '@nestjs/common';
 import { AccountInstallerModule } from '@src/modules/account/account-installer.module';
@@ -101,6 +102,7 @@ import { RolesGuard } from './guards/roles.guard';
     CancelEnrollmentUsecase, // 在适配器模块内直接提供取消报名用例
     CloseSessionUsecase,
     LoadSessionAttendanceSheetUsecase,
+    BatchRecordAttendanceUsecase,
     // Guards
     JwtAuthGuard,
     RolesGuard,
