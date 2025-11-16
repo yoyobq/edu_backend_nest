@@ -13,6 +13,7 @@ import { IdentityTypeEnum, LoginTypeEnum } from '@src/types/models/account.types
 import { CreateAccountUsecase } from '@src/usecases/account/create-account.usecase';
 // 添加身份实体导入
 import request from 'supertest';
+import { executeGql as executeGqlUtils } from '../utils/e2e-graphql-utils';
 import { App } from 'supertest/types';
 import { DataSource } from 'typeorm';
 // 导入全局测试账户工具
@@ -188,15 +189,8 @@ describe('RolesGuard (e2e)', () => {
   /**
    * 执行 GraphQL 查询
    */
-  const executeQuery = (query: string, token?: string): request.Test => {
-    const req = request(app.getHttpServer()).post('/graphql').send({ query });
-
-    if (token) {
-      req.set('Authorization', `Bearer ${token}`);
-    }
-
-    return req;
-  };
+  const executeQuery = (query: string, token?: string): request.Test =>
+    executeGqlUtils({ app, query, token });
 
   // 只用到 manager 的用例组
   describe('无 @Roles 装饰器场景', () => {

@@ -3,19 +3,16 @@ import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
 import { App } from 'supertest/types';
+import { postGql as postGqlUtils } from '../utils/e2e-graphql-utils';
 import { DataSource, In } from 'typeorm';
 
 /**
  * GraphQL 请求辅助函数
  * 不先 .expect(200)，方便拿到 400 的 body
  */
-async function postGql(app: INestApplication, query: string, variables: any, bearer?: string) {
-  const http = request(app.getHttpServer() as App).post('/graphql');
-  if (bearer) http.set('Authorization', `Bearer ${bearer}`);
-  const res = await http.send({ query, variables });
+async function postGql(app: INestApplication, query: string, variables: unknown, bearer?: string) {
+  const res = await postGqlUtils({ app, query, variables, token: bearer });
   if (res.status !== 200) {
-    // 打印原始 body 便于定位 schema 报错
-    // 常见信息类似：Unknown argument "token" on field "Mutation.findVerificationRecord"
     throw new Error(`GraphQL 请求失败: ${res.status} - ${res.text || JSON.stringify(res.body)}`);
   }
   return res;

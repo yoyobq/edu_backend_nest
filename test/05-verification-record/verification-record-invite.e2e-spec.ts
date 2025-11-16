@@ -3,6 +3,7 @@ import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
 import { App } from 'supertest/types';
+import { postGql as postGqlUtils } from '../utils/e2e-graphql-utils';
 import { DataSource } from 'typeorm';
 
 import { TokenHelper } from '@core/common/token/token.helper';
@@ -17,10 +18,8 @@ import { initGraphQLSchema } from '../../src/adapters/graphql/schema/schema.init
 /**
  * GraphQL 请求辅助函数
  */
-async function postGql(app: INestApplication, query: string, variables: any, bearer?: string) {
-  const http = request(app.getHttpServer() as App).post('/graphql');
-  if (bearer) http.set('Authorization', `Bearer ${bearer}`);
-  return await http.send({ query, variables });
+async function postGql(app: INestApplication, query: string, variables: unknown, bearer?: string) {
+  return await postGqlUtils({ app, query, variables, token: bearer });
 }
 
 /**

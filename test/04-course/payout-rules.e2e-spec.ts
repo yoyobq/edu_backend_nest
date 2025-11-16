@@ -10,6 +10,7 @@ import { CourseLevel } from '@app-types/models/course.types';
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
+import { executeGql as executeGqlUtils } from '../utils/e2e-graphql-utils';
 import { DataSource } from 'typeorm';
 import { initGraphQLSchema } from '../../src/adapters/graphql/schema/schema.init';
 import { AppModule } from '../../src/app.module';
@@ -270,11 +271,8 @@ describe('Payout Rules (e2e)', () => {
    * @param query GraphQL 文本
    * @param token 可选 access token
    */
-  const executeGQL = (query: string, token?: string): request.Test => {
-    const req = request(app.getHttpServer()).post('/graphql').send({ query });
-    if (token) req.set('Authorization', `Bearer ${token}`);
-    return req;
-  };
+  const executeGQL = (query: string, token?: string): request.Test =>
+    executeGqlUtils({ app, query, token });
 
   describe('创建与查询结算规则', () => {
     let templateRuleId: number;

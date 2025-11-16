@@ -6,6 +6,7 @@ import { AppModule } from '@src/app.module';
 import { AccountEntity } from '@src/modules/account/base/entities/account.entity';
 import { CourseCatalogEntity } from '@src/modules/course/catalogs/course-catalog.entity';
 import { AudienceTypeEnum, LoginTypeEnum } from '@src/types/models/account.types';
+import { executeGql as executeGqlUtils } from '../utils/e2e-graphql-utils';
 import request from 'supertest';
 import { DataSource } from 'typeorm';
 // 导入统一账号配置
@@ -235,15 +236,8 @@ describe('课程目录模块 (e2e)', () => {
   /**
    * 执行 GraphQL 查询
    */
-  const executeQuery = (query: string, token?: string): request.Test => {
-    const req = request(app.getHttpServer()).post('/graphql').send({ query });
-
-    if (token) {
-      req.set('Authorization', `Bearer ${token}`);
-    }
-
-    return req;
-  };
+  const executeQuery = (query: string, token?: string): request.Test =>
+    executeGqlUtils({ app, query, token });
 
   describe('获取课程目录列表', () => {
     it('应该返回所有有效的课程目录', async () => {

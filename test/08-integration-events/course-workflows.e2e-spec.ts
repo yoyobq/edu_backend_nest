@@ -33,17 +33,13 @@ import { ParticipationAttendanceRecordEntity } from '@src/modules/participation/
 import { ParticipationAttendanceService } from '@src/modules/participation/attendance/participation-attendance.service';
 import { ParticipationEnrollmentEntity } from '@src/modules/participation/enrollment/participation-enrollment.entity';
 import { ParticipationEnrollmentService } from '@src/modules/participation/enrollment/participation-enrollment.service';
-import {
-  AccountStatus,
-  AudienceTypeEnum,
-  IdentityTypeEnum,
-  LoginTypeEnum,
-} from '@src/types/models/account.types';
+import { AccountStatus, IdentityTypeEnum } from '@src/types/models/account.types';
 import { ParticipationAttendanceStatus } from '@src/types/models/attendance.types';
 import { UserState } from '@src/types/models/user-info.types';
 import request from 'supertest';
 import { DataSource } from 'typeorm';
 import { initGraphQLSchema } from '../../src/adapters/graphql/schema/schema.init';
+import { executeGql as executeGqlUtils, login as loginUtils } from '../utils/e2e-graphql-utils';
 import { cleanupTestAccounts, seedTestAccounts, testAccountsConfig } from '../utils/test-accounts';
 
 /**
@@ -179,28 +175,11 @@ async function login(opts: {
   readonly loginName: string;
   readonly loginPassword: string;
 }): Promise<string> {
-  const res = await request(opts.app.getHttpServer())
-    .post('/graphql')
-    .send({
-      query: `
-        mutation Login($input: AuthLoginInput!) {
-          login(input: $input) {
-            accessToken
-          }
-        }
-      `,
-      variables: {
-        input: {
-          loginName: opts.loginName,
-          loginPassword: opts.loginPassword,
-          type: LoginTypeEnum.PASSWORD,
-          audience: AudienceTypeEnum.DESKTOP,
-        },
-      },
-    })
-    .expect(200);
-  const body = res.body as unknown as { data: { login: { accessToken: string } } };
-  return body.data.login.accessToken;
+  return await loginUtils({
+    app: opts.app,
+    loginName: opts.loginName,
+    loginPassword: opts.loginPassword,
+  });
 }
 
 /**
@@ -338,9 +317,7 @@ function executeGql(
   app: INestApplication,
   params: { readonly query: string; readonly token?: string },
 ): request.Test {
-  const req = request(app.getHttpServer()).post('/graphql').send({ query: params.query });
-  if (params.token) req.set('Authorization', `Bearer ${params.token}`);
-  return req;
+  return executeGqlUtils({ app, query: params.query, token: params.token });
 }
 
 /**
