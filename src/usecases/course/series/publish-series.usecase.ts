@@ -111,7 +111,7 @@ export class PublishSeriesUsecase {
         type: 'SeriesPublished',
         aggregateType: 'series',
         aggregateId: series.id,
-        dedupKey: `SeriesPublished:${series.id}:v1`,
+        dedupKey: `SeriesPublished:${series.id}`,
         priority: 6,
         payload: {
           seriesId: series.id,

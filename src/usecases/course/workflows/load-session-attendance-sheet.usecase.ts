@@ -180,10 +180,12 @@ export class LoadSessionAttendanceSheetUsecase {
         return 1;
       case ParticipationAttendanceStatus.EXCUSED:
         return 2;
-      case ParticipationAttendanceStatus.LATE_CANCEL:
+      case ParticipationAttendanceStatus.NO_SHOW_WAIVED:
         return 3;
-      case ParticipationAttendanceStatus.CANCELLED:
+      case ParticipationAttendanceStatus.LATE_CANCEL:
         return 4;
+      case ParticipationAttendanceStatus.CANCELLED:
+        return 5;
       default:
         return 99;
     }
