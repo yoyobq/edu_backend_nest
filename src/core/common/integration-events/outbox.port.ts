@@ -7,6 +7,7 @@ import type { IntegrationEventEnvelope } from './events.types';
  */
 export interface TxRef {
   readonly kind: 'tx';
+  readonly opaque?: unknown;
 }
 
 /**

@@ -6,7 +6,7 @@ import type { ISortResolver } from '@core/sort/sort.ports';
 import { Inject, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { PaginationService } from '@src/modules/common/pagination.service';
-import { In, Repository } from 'typeorm';
+import { EntityManager, In, Repository } from 'typeorm';
 import { LearnerEntity } from './account-learner.entity';
 
 /**
@@ -185,10 +185,16 @@ export class LearnerService {
    * @param params 查询参数：学员 ID 列表
    * @returns 学员实体列表
    */
-  async findManyByIds(params: { ids: ReadonlyArray<number> }): Promise<LearnerEntity[]> {
+  async findManyByIds(params: {
+    ids: ReadonlyArray<number>;
+    manager?: EntityManager;
+  }): Promise<LearnerEntity[]> {
     const ids = Array.from(new Set(params.ids));
     if (ids.length === 0) return [];
-    return await this.learnerRepository.find({ where: { id: In(ids) } });
+    const repo = params.manager
+      ? params.manager.getRepository(LearnerEntity)
+      : this.learnerRepository;
+    return await repo.find({ where: { id: In(ids) } });
   }
 
   /**

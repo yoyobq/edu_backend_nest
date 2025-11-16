@@ -24,7 +24,7 @@ import { ParticipationAttendanceStatus } from '@src/types/models/attendance.type
 @Check('ck_attend_count_nonneg', 'count_applied >= 0')
 @Check(
   'ck_attend_count_by_status',
-  "(((`status` IN ('PRESENT','LATE_CANCEL') AND `count_applied` > 0) OR (`status` IN ('NO_SHOW','EXCUSED','CANCELLED') AND `count_applied` = 0)))",
+  "(((`status` IN ('PRESENT','LATE_CANCEL','NO_SHOW') AND `count_applied` > 0) OR (`status` IN ('NO_SHOW_WAIVED','EXCUSED','CANCELLED') AND `count_applied` = 0)))",
 )
 export class ParticipationAttendanceRecordEntity {
   /** 主键 ID */
@@ -77,7 +77,7 @@ export class ParticipationAttendanceRecordEntity {
     default: ParticipationAttendanceStatus.NO_SHOW,
     nullable: false,
     comment:
-      '出勤状态：PRESENT=出勤(>0)；NO_SHOW=未到(0)；EXCUSED=请假(0)；LATE_CANCEL=迟退(>0)；CANCELLED=报名已撤销(0)',
+      '出勤状态：PRESENT=出勤(>0)；NO_SHOW=未到计次(>0)；NO_SHOW_WAIVED=未到免计(0)；EXCUSED=请假(0)；LATE_CANCEL=迟退(>0)；CANCELLED=报名已撤销(0)',
   })
   status!: ParticipationAttendanceStatus;
 
