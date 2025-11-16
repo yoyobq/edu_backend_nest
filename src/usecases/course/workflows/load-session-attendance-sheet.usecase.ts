@@ -127,11 +127,17 @@ export class LoadSessionAttendanceSheetUsecase {
   private deriveCountApplied(input: {
     readonly a: { countApplied?: string } | null;
     readonly isCanceled: 0 | 1;
-    readonly defaultCount: number;
+    readonly defaultCount: number | string;
   }): string {
     const v = input.a?.countApplied;
     if (v != null) return v;
-    return input.isCanceled === 1 ? '0.00' : input.defaultCount.toFixed(2);
+    if (input.isCanceled === 1) return '0.00';
+    const num =
+      typeof input.defaultCount === 'number'
+        ? input.defaultCount
+        : Number.parseFloat(String(input.defaultCount));
+    const safe = Number.isFinite(num) ? num : 0;
+    return safe.toFixed(2);
   }
 
   /**

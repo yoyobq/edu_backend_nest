@@ -20,6 +20,7 @@ import { IntegrationEventsModule } from '@src/modules/common/integration-events/
 import { EnrollLearnerToSessionUsecase } from '@src/usecases/course/workflows/enroll-learner-to-session.usecase';
 import { CancelEnrollmentUsecase } from '@src/usecases/course/workflows/cancel-enrollment.usecase';
 import { CloseSessionUsecase } from '@src/usecases/course/workflows/close-session.usecase';
+import { LoadSessionAttendanceSheetUsecase } from '@src/usecases/course/workflows/load-session-attendance-sheet.usecase';
 
 import { Module } from '@nestjs/common';
 import { AccountInstallerModule } from '@src/modules/account/account-installer.module';
@@ -32,6 +33,7 @@ import { CourseCatalogResolver } from './course/catalogs/course-catalog.resolver
 import { SessionEnrollmentResolver } from './course/workflows/session-enrollment.resolver';
 import { SessionCancelResolver } from './course/workflows/session-cancel.resolver';
 import { SessionCloseResolver } from './course/workflows/session-close.resolver';
+import { SessionAttendanceResolver } from './course/workflows/session-attendance.resolver';
 import { CoachResolver } from './identity-management/coach/coach.resolver';
 import { CustomerResolver } from './identity-management/customer/customer.resolver';
 import { IdentityManagementResolver } from './identity-management/identity-management.resolver';
@@ -93,10 +95,12 @@ import { RolesGuard } from './guards/roles.guard';
     SessionEnrollmentResolver, // 注册节次报名 resolver
     SessionCancelResolver, // 注册取消报名 resolver
     SessionCloseResolver, // 注册节次结课 resolver
+    SessionAttendanceResolver, // 注册节次点名视图 resolver
     // 用例
     EnrollLearnerToSessionUsecase, // 在适配器模块内直接提供报名用例
     CancelEnrollmentUsecase, // 在适配器模块内直接提供取消报名用例
     CloseSessionUsecase,
+    LoadSessionAttendanceSheetUsecase,
     // Guards
     JwtAuthGuard,
     RolesGuard,
@@ -119,6 +123,7 @@ import { RolesGuard } from './guards/roles.guard';
     SessionEnrollmentResolver, // 导出节次报名 resolver
     SessionCancelResolver, // 导出取消报名 resolver
     SessionCloseResolver, // 导出节次结课 resolver
+    SessionAttendanceResolver, // 导出节次点名视图 resolver
     JwtAuthGuard,
     RolesGuard,
   ],
