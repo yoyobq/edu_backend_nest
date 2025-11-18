@@ -1,4 +1,3 @@
-/* eslint-disable no-console */
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 /* eslint-disable @typescript-eslint/unbound-method */
 /* eslint-disable max-lines-per-function */
@@ -9,11 +8,11 @@ import {
   GenerateRefreshTokenParams,
   JwtPayload,
 } from '@app-types/jwt.types';
+import { AudienceTypeEnum } from '@app-types/models/account.types';
 import { JsonWebTokenError, JwtService, NotBeforeError, TokenExpiredError } from '@nestjs/jwt';
 import { Test, TestingModule } from '@nestjs/testing';
 import { PinoLogger } from 'nestjs-pino';
 import { TokenHelper } from './token.helper';
-import { AudienceTypeEnum } from '@app-types/models/account.types';
 
 describe('TokenHelper', () => {
   let tokenHelper: TokenHelper;
@@ -504,7 +503,6 @@ describe('TokenHelper', () => {
 
       // Act
       const result = tokenHelper.isTokenExpiringSoon({ token: 'invalid-token' });
-      console.log(result);
 
       // Assert
       expect(result).toBe(false);

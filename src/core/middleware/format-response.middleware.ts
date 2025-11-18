@@ -1,10 +1,10 @@
-/* eslint-disable no-console */
 // src/core/middleware/format-response.middleware.ts
 
 import { ApiResponse, ShowType } from '@app-types/response.types';
 import { Injectable, NestMiddleware } from '@nestjs/common';
 import { NextFunction, Request, Response } from 'express';
 import { GraphQLError } from 'graphql';
+import { PinoLogger } from 'nestjs-pino';
 
 /**
  * HTTP 响应格式化中间件
@@ -13,6 +13,9 @@ import { GraphQLError } from 'graphql';
  */
 @Injectable()
 export class FormatResponseMiddleware implements NestMiddleware {
+  constructor(private readonly logger: PinoLogger) {
+    this.logger.setContext(FormatResponseMiddleware.name);
+  }
   /**
    * 中间件处理函数
    */
@@ -21,20 +24,30 @@ export class FormatResponseMiddleware implements NestMiddleware {
       // 拦截原始的 res.json 方法
       const originalJson = res.json.bind(res);
       res.json = (body: unknown): Response => {
-        console.log(req);
-        console.log('📦 JSON 响应被中间件拦截');
         try {
           const formattedBody = this.formatToAntdProResponse(req, body);
           return originalJson(formattedBody);
         } catch (error) {
-          console.error('响应格式化过程中发生错误:', error);
-          return originalJson(body); // 发生错误时返回原始响应
+          this.logger.error(
+            {
+              error: error instanceof Error ? error.message : String(error),
+              path: req.url,
+              method: req.method,
+            },
+            '响应格式化过程中发生错误',
+          );
+          return originalJson(body);
         }
       };
 
       next();
     } catch (error) {
-      console.error('中间件处理过程中发生错误:', error);
+      this.logger.error(
+        {
+          error: error instanceof Error ? error.message : String(error),
+        },
+        '中间件处理过程中发生错误',
+      );
       next();
     }
   }

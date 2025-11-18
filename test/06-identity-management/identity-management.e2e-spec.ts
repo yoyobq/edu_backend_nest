@@ -155,7 +155,7 @@ describe('IdentityManagement (e2e)', () => {
 
       const response = await performUpgradeToCustomer(upgradeInput, learnerToken);
 
-      console.log('升级响应:', JSON.stringify(response.body, null, 2));
+      // 调试输出移除
 
       expect(response.status).toBe(200);
       expect(response.body.data).toBeDefined();
@@ -294,7 +294,7 @@ describe('IdentityManagement (e2e)', () => {
 
       const response = await performUpgradeToCustomer(invalidInput as any, learnerToken);
 
-      console.log('验证错误响应:', JSON.stringify(response.body, null, 2));
+      // 调试输出移除
 
       // GraphQL 变量验证错误返回 200 状态码，错误信息在 errors 字段中
       expect(response.status).toBe(200);
@@ -314,7 +314,7 @@ describe('IdentityManagement (e2e)', () => {
 
       const response = await performUpgradeToCustomer(invalidInput, learnerToken);
 
-      console.log('audience 验证错误响应:', JSON.stringify(response.body, null, 2));
+      // 调试输出移除
 
       // GraphQL 会在变量解析阶段把非法枚举拦掉，属于 BAD_USER_INPUT
       expect(response.status).toBe(200);
@@ -352,7 +352,7 @@ describe('IdentityManagement (e2e)', () => {
           },
         });
 
-      console.log('未认证响应:', JSON.stringify(response.body, null, 2));
+      // 调试输出移除
 
       expect(response.status).toBe(200);
       expect(response.body.errors).toBeDefined();

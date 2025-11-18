@@ -567,7 +567,7 @@ describe('Register (e2e)', () => {
       // 直接查询数据库获取原始加密数据
       const rawQuery = `SELECT meta_digest FROM base_user_info WHERE account_id = ?`;
       const rawResult = await dataSource.query(rawQuery, [accountId]);
-      console.log('rawResult', rawResult);
+      // 调试输出移除
 
       expect(rawResult).toBeDefined();
       expect(rawResult.length).toBe(1);
