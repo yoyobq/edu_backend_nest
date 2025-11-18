@@ -1,6 +1,4 @@
 // src/adapters/graphql/identity-management/customer/dto/customer.input.update.ts
-
-import { MembershipLevel } from '@app-types/models/training.types';
 import { Field, InputType, Int } from '@nestjs/graphql';
 import { IsInt, IsOptional, IsString, MaxLength } from 'class-validator';
 
@@ -38,7 +36,7 @@ export class UpdateCustomerInput {
   @MaxLength(255, { message: '备注长度不能超过 255' })
   remark?: string | null;
 
-  @Field(() => MembershipLevel, { nullable: true, description: '会员等级（仅 manager 可更新）' })
+  @Field(() => Int, { nullable: true, description: '会员等级 ID（仅 manager 可更新）' })
   @IsOptional()
-  membershipLevel?: MembershipLevel;
+  membershipLevel?: number;
 }

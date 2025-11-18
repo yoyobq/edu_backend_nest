@@ -1,6 +1,4 @@
 // src/adapters/graphql/account/dto/identity/customer.dto.ts
-
-import { MembershipLevel } from '@app-types/models/training.types';
 import { UserState } from '@app-types/models/user-info.types';
 import { Field, Int, ObjectType } from '@nestjs/graphql';
 import { LoginHistoryItem } from '../../enums/login-history.types';
@@ -26,8 +24,8 @@ export class CustomerType {
   @Field(() => String, { description: '联络偏好时间', nullable: true })
   preferredContactTime!: string | null;
 
-  @Field(() => MembershipLevel, { description: '会员等级', nullable: true })
-  membershipLevel!: MembershipLevel | null;
+  @Field(() => Int, { description: '会员等级 ID', nullable: true })
+  membershipLevel!: number | null;
 
   @Field(() => MembershipLevelType, {
     description: '会员等级详信息（按 membershipLevelId 解析）',

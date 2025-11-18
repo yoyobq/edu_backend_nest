@@ -13,7 +13,7 @@ import {
 } from '@app-types/models/account.types';
 import { CourseLevel } from '@app-types/models/course.types';
 import { ClassMode, CourseSeriesStatus, VenueType } from '@app-types/models/course-series.types';
-import { MembershipLevel } from '@app-types/models/training.types';
+// import { MembershipLevel } from '@app-types/models/training.types';
 import { Gender, UserState } from '@app-types/models/user-info.types';
 import {
   SubjectType,
@@ -173,19 +173,7 @@ const ENUM_CONFIGS: Record<string, EnumConfig> = {
     },
   },
 
-  // 训练相关枚举
-  MEMBERSHIP_LEVEL: {
-    enumType: MembershipLevel,
-    name: 'MembershipLevel',
-    description: '会员等级枚举',
-    valuesMap: {
-      NORMAL: { description: '普通会员' },
-      VIP: { description: 'VIP 会员' },
-      GOLD: { description: '黄金会员' },
-      PLATINUM: { description: '白金会员' },
-      DIAMOND: { description: '钻石会员' },
-    },
-  },
+  // 训练相关枚举（移除固定枚举注册，改由类型字段承载动态值）
 
   // 验证记录相关枚举
   SUBJECT_TYPE: {
@@ -348,7 +336,7 @@ const EXPECTED_ENUMS = [
   'Gender',
   'UserState',
   'CourseLevel',
-  'MembershipLevel',
+  // MembershipLevel 枚举改为数据库驱动后不再静态注册
   'SubjectType',
   'VerificationRecordStatus',
   'VerificationRecordType',

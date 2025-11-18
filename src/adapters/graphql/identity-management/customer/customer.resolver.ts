@@ -86,7 +86,6 @@ export class CustomerResolver {
       sortBy: input.sortBy ?? undefined,
       sortOrder: input.sortOrder ?? undefined,
     });
-
     const customers = await Promise.all(
       result.items.map((item) =>
         this.mapCustomerEntityToType(item.entity, item.userState, item.loginHistory),
@@ -155,7 +154,7 @@ export class CustomerResolver {
       name: entity.name,
       contactPhone: entity.contactPhone,
       preferredContactTime: entity.preferredContactTime,
-      membershipLevel: entity.membershipLevel ?? null,
+      membershipLevel: (entity.membershipLevel ?? null) as number | null,
       remark: entity.remark,
       userState: userState ?? null,
       createdAt: entity.createdAt,

@@ -1,6 +1,4 @@
 // src/modules/account/identities/training/customer/customer.entity.ts
-
-import { MembershipLevel } from '@app-types/models/training.types';
 import {
   Column,
   CreateDateColumn,
@@ -89,17 +87,17 @@ export class CustomerEntity {
   preferredContactTime!: string | null;
 
   /**
-   * 会员等级
-   * 整型，1=普通，2=VIP，3=黄金，4=白金，5=钻石
-   * 默认值为 1（普通会员）
+   * 会员等级主键 ID
+   * 整型，来源于 member_membership_levels 表的主键
+   * 默认值为 1（按数据库初始化记录）
    */
   @Column({
     name: 'membership_level_id',
     type: 'int',
-    default: MembershipLevel.NORMAL,
-    comment: '会员等级,1=普通，2=VIP，3=黄金，4=白金，5=钻石',
+    default: 1,
+    comment: '会员等级主键 ID（由 member_membership_levels 表记录决定）',
   })
-  membershipLevel!: MembershipLevel;
+  membershipLevel!: number;
 
   /**
    * 内部备注

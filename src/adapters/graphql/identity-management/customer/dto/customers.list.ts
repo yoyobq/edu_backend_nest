@@ -1,5 +1,4 @@
 // src/adapters/graphql/identity-management/customer/dto/customers.list.ts
-
 import { Field, ObjectType } from '@nestjs/graphql';
 import { CustomerType } from '@src/adapters/graphql/account/dto/identity/customer.dto';
 import { PaginationInfo } from '@src/adapters/graphql/identity-management/learner/dto/learners.list';

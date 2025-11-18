@@ -1,6 +1,5 @@
 // src/usecases/identity-management/customer/update-customer.usecase.ts
 
-import { MembershipLevel } from '@app-types/models/training.types';
 import { ACCOUNT_ERROR, DomainError, PERMISSION_ERROR } from '@core/common/errors/domain-error';
 import { CustomerEntity } from '@modules/account/identities/training/customer/account-customer.entity';
 import { CustomerService } from '@modules/account/identities/training/customer/account-customer.service';
@@ -25,8 +24,8 @@ export interface UpdateCustomerUsecaseParams {
   preferredContactTime?: string | null;
   /** 备注（可选） */
   remark?: string | null;
-  /** 会员等级（仅 manager 可修改） */
-  membershipLevel?: MembershipLevel;
+  /** 会员等级 ID（仅 manager 可修改） */
+  membershipLevel?: number;
 }
 
 /**
@@ -242,7 +241,7 @@ export class UpdateCustomerUsecase {
   private applyMembershipLevel(
     updateData: Partial<CustomerEntity>,
     isManager: boolean,
-    membershipLevel: MembershipLevel | undefined,
+    membershipLevel: number | undefined,
   ): void {
     /**
      * 处理会员等级更新
@@ -257,6 +256,9 @@ export class UpdateCustomerUsecase {
     }
 
     if (typeof membershipLevel === 'undefined') return;
+    if (!Number.isInteger(membershipLevel) || membershipLevel <= 0) {
+      throw new DomainError(ACCOUNT_ERROR.OPERATION_NOT_SUPPORTED, '会员等级 ID 非法');
+    }
     updateData.membershipLevel = membershipLevel;
   }
 }
