@@ -18,7 +18,6 @@ import {
   IdentityTypeEnum,
   LoginTypeEnum,
 } from '../../src/types/models/account.types';
-import { MembershipLevel } from '../../src/types/models/training.types';
 import { Gender, UserState } from '../../src/types/models/user-info.types';
 
 type ApiLearner = Pick<LearnerOutput, 'id' | 'name' | 'customerId' | 'remark'>;
@@ -196,7 +195,7 @@ describe('学员管理 E2E 测试 - 全面权限控制', () => {
         name: '测试客户A',
         contactPhone: '13800138001',
         preferredContactTime: '工作日 9:00-18:00',
-        membershipLevel: MembershipLevel.NORMAL,
+        membershipLevel: 1,
         deactivatedAt: null,
         remark: '测试客户 A',
         createdBy: null,
@@ -219,7 +218,7 @@ describe('学员管理 E2E 测试 - 全面权限控制', () => {
         name: '测试客户B',
         contactPhone: '13800138002',
         preferredContactTime: '周末 10:00-16:00',
-        membershipLevel: MembershipLevel.VIP,
+        membershipLevel: 2,
         deactivatedAt: null,
         remark: '测试客户 B',
         createdBy: null,
