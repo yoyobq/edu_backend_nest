@@ -5,7 +5,9 @@ import { CustomerEntity } from '@modules/account/identities/training/customer/ac
 import { CustomerService } from '@modules/account/identities/training/customer/account-customer.service';
 import { ManagerService } from '@modules/account/identities/training/manager/manager.service';
 import { Injectable } from '@nestjs/common';
-import type { OrderDirection } from '@src/types/common/sort.types';
+import { AccountService } from '@src/modules/account/base/services/account.service';
+import { CustomerSortField, type OrderDirection } from '@src/types/common/sort.types';
+import { UserState } from '@src/types/models/user-info.types';
 
 /**
  * 列出客户列表的输入参数
@@ -16,7 +18,7 @@ export interface ListCustomersParams {
   /** 每页数量，默认 10，最大 100 */
   limit?: number;
   /** 排序字段 */
-  sortBy?: 'createdAt' | 'updatedAt' | 'name';
+  sortBy?: import('@src/types/common/sort.types').CustomerSortField;
   /** 排序方向 */
   sortOrder?: OrderDirection;
 }
@@ -24,9 +26,21 @@ export interface ListCustomersParams {
 /**
  * 客户分页结果
  */
+export interface CustomerLoginHistoryItem {
+  ip: string;
+  timestamp: string;
+  audience?: string;
+}
+
+export interface CustomerListItem {
+  entity: CustomerEntity;
+  userState: UserState | null;
+  loginHistory: CustomerLoginHistoryItem[] | null;
+}
+
 export interface PaginatedCustomers {
   /** 列表项 */
-  items: CustomerEntity[];
+  items: CustomerListItem[];
   /** 总数 */
   total: number;
   /** 页码 */
@@ -45,6 +59,7 @@ export class ListCustomersUsecase {
   constructor(
     private readonly customerService: CustomerService,
     private readonly managerService: ManagerService,
+    private readonly accountService: AccountService,
   ) {}
 
   /**
@@ -65,13 +80,27 @@ export class ListCustomersUsecase {
     const result = await this.customerService.findPaginated({
       page: params.page ?? 1,
       limit: params.limit ?? 10,
-      sortBy: params.sortBy ?? 'createdAt',
-      sortOrder: (params.sortOrder ?? 'DESC') as 'ASC' | 'DESC',
+      sortBy: params.sortBy ?? CustomerSortField.ACCOUNT_ID,
+      sortOrder: (params.sortOrder ?? 'ASC') as 'ASC' | 'DESC',
       includeDeleted: false,
     });
 
+    const items: CustomerListItem[] = await Promise.all(
+      result.customers.map(async (entity) => {
+        const ui = entity.accountId
+          ? await this.accountService.findUserInfoByAccountId(entity.accountId)
+          : null;
+        const acc = entity.accountId
+          ? await this.accountService.findOneById(entity.accountId)
+          : null;
+        const state: UserState | null = ui?.userState ?? null;
+        const history: CustomerLoginHistoryItem[] | null = acc?.recentLoginHistory ?? null;
+        return { entity, userState: state, loginHistory: history };
+      }),
+    );
+
     return {
-      items: result.customers,
+      items,
       total: result.total,
       page: result.page,
       limit: result.limit,

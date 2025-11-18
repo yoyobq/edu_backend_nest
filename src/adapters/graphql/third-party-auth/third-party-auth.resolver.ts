@@ -247,98 +247,105 @@ export class ThirdPartyAuthResolver {
     role: IdentityTypeEnum,
   ): IdentityUnionType {
     switch (role) {
-      case IdentityTypeEnum.MANAGER: {
-        const manager = identity as ManagerEntity;
-        return {
-          id: manager.id,
-          accountId: manager.accountId,
-          name: manager.name,
-          departmentId: null,
-          remark: manager.remark,
-          jobTitle: null,
-          employmentStatus: 'ACTIVE',
-          createdAt: manager.createdAt,
-          updatedAt: manager.updatedAt,
-          managerId: manager.id,
-          deactivatedAt: manager.deactivatedAt,
-        } as ManagerType;
-      }
-
-      case IdentityTypeEnum.COACH: {
-        const coach = identity as CoachEntity;
-        return {
-          id: coach.id,
-          accountId: coach.accountId,
-          name: coach.name,
-          departmentId: null,
-          remark: coach.remark,
-          jobTitle: null,
-          employmentStatus: 'ACTIVE',
-          createdAt: coach.createdAt,
-          updatedAt: coach.updatedAt,
-          coachId: coach.id,
-          level: coach.level,
-          description: coach.description,
-          avatarUrl: coach.avatarUrl,
-          specialty: coach.specialty,
-          deactivatedAt: coach.deactivatedAt,
-        } as CoachType;
-      }
-
-      case IdentityTypeEnum.STAFF: {
-        const staff = identity as StaffEntity;
-        return {
-          id: parseStaffId({ id: staff.id as unknown as number | string }),
-          accountId: staff.accountId,
-          name: staff.name,
-          departmentId: staff.departmentId,
-          remark: staff.remark,
-          jobTitle: staff.jobTitle,
-          employmentStatus: staff.employmentStatus,
-          createdAt: staff.createdAt,
-          updatedAt: staff.updatedAt,
-          jobId: parseStaffId({ id: staff.id as unknown as number | string }),
-        } as StaffType;
-      }
-
-      case IdentityTypeEnum.CUSTOMER: {
-        const customer = identity as CustomerEntity;
-        return {
-          id: customer.id,
-          accountId: customer.accountId,
-          name: customer.name,
-          contactPhone: customer.contactPhone,
-          preferredContactTime: customer.preferredContactTime,
-          membershipLevel: customer.membershipLevel,
-          remark: customer.remark,
-          createdAt: customer.createdAt,
-          updatedAt: customer.updatedAt,
-          deactivatedAt: customer.deactivatedAt,
-          customerId: customer.id,
-        } as CustomerType;
-      }
-
-      case IdentityTypeEnum.LEARNER: {
-        const learner = identity as LearnerEntity;
-        return {
-          id: learner.id,
-          accountId: learner.accountId,
-          customerId: learner.customerId,
-          name: learner.name,
-          gender: learner.gender,
-          birthDate: learner.birthDate,
-          avatarUrl: learner.avatarUrl,
-          specialNeeds: learner.specialNeeds,
-          countPerSession: learner.countPerSession,
-          remark: learner.remark,
-          createdAt: learner.createdAt,
-          updatedAt: learner.updatedAt,
-          deactivatedAt: learner.deactivatedAt,
-        } as LearnerType;
-      }
-
+      case IdentityTypeEnum.MANAGER:
+        return this.mapManagerIdentity(identity as ManagerEntity);
+      case IdentityTypeEnum.COACH:
+        return this.mapCoachIdentity(identity as CoachEntity);
+      case IdentityTypeEnum.STAFF:
+        return this.mapStaffIdentity(identity as StaffEntity);
+      case IdentityTypeEnum.CUSTOMER:
+        return this.mapCustomerIdentity(identity as CustomerEntity);
+      case IdentityTypeEnum.LEARNER:
+        return this.mapLearnerIdentity(identity as LearnerEntity);
       default:
         throw new Error(`不支持的身份类型: ${role}`);
     }
+  }
+
+  private mapManagerIdentity(manager: ManagerEntity): ManagerType {
+    return {
+      id: manager.id,
+      accountId: manager.accountId,
+      name: manager.name,
+      departmentId: null,
+      remark: manager.remark,
+      jobTitle: null,
+      employmentStatus: 'ACTIVE',
+      createdAt: manager.createdAt,
+      updatedAt: manager.updatedAt,
+      managerId: manager.id,
+      deactivatedAt: manager.deactivatedAt,
+    } as ManagerType;
+  }
+
+  private mapCoachIdentity(coach: CoachEntity): CoachType {
+    return {
+      id: coach.id,
+      accountId: coach.accountId,
+      name: coach.name,
+      departmentId: null,
+      remark: coach.remark,
+      jobTitle: null,
+      employmentStatus: 'ACTIVE',
+      createdAt: coach.createdAt,
+      updatedAt: coach.updatedAt,
+      coachId: coach.id,
+      level: coach.level,
+      description: coach.description,
+      avatarUrl: coach.avatarUrl,
+      specialty: coach.specialty,
+      deactivatedAt: coach.deactivatedAt,
+    } as CoachType;
+  }
+
+  private mapStaffIdentity(staff: StaffEntity): StaffType {
+    return {
+      id: parseStaffId({ id: staff.id as unknown as number | string }),
+      accountId: staff.accountId,
+      name: staff.name,
+      departmentId: staff.departmentId,
+      remark: staff.remark,
+      jobTitle: staff.jobTitle,
+      employmentStatus: staff.employmentStatus,
+      createdAt: staff.createdAt,
+      updatedAt: staff.updatedAt,
+      jobId: parseStaffId({ id: staff.id as unknown as number | string }),
+    } as StaffType;
+  }
+
+  private mapCustomerIdentity(customer: CustomerEntity): CustomerType {
+    return {
+      id: customer.id,
+      accountId: customer.accountId,
+      name: customer.name,
+      contactPhone: customer.contactPhone,
+      preferredContactTime: customer.preferredContactTime,
+      membershipLevel: customer.membershipLevel,
+      remark: customer.remark,
+      userState: null,
+      loginHistory: null,
+      createdAt: customer.createdAt,
+      updatedAt: customer.updatedAt,
+      deactivatedAt: customer.deactivatedAt,
+      customerId: customer.id,
+    } as CustomerType;
+  }
+
+  private mapLearnerIdentity(learner: LearnerEntity): LearnerType {
+    return {
+      id: learner.id,
+      accountId: learner.accountId,
+      customerId: learner.customerId,
+      name: learner.name,
+      gender: learner.gender,
+      birthDate: learner.birthDate,
+      avatarUrl: learner.avatarUrl,
+      specialNeeds: learner.specialNeeds,
+      countPerSession: learner.countPerSession,
+      remark: learner.remark,
+      createdAt: learner.createdAt,
+      updatedAt: learner.updatedAt,
+      deactivatedAt: learner.deactivatedAt,
+    } as LearnerType;
   }
 }

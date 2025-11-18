@@ -29,18 +29,18 @@ export class ListCustomersInput {
   @Field(() => CustomerSortField, {
     nullable: true,
     description: '排序字段',
-    defaultValue: CustomerSortField.CREATED_AT,
+    defaultValue: CustomerSortField.ACCOUNT_ID,
   })
   @IsOptional()
   @IsEnum(CustomerSortField, { message: '排序字段不合法' })
-  sortBy?: CustomerSortField = CustomerSortField.CREATED_AT;
+  sortBy?: CustomerSortField = CustomerSortField.ACCOUNT_ID;
 
   @Field(() => OrderDirection, {
     nullable: true,
     description: '排序方向',
-    defaultValue: OrderDirection.DESC,
+    defaultValue: OrderDirection.ASC,
   })
   @IsOptional()
   @IsEnum(OrderDirection, { message: '排序方向不合法' })
-  sortOrder?: OrderDirection = OrderDirection.DESC;
+  sortOrder?: OrderDirection = OrderDirection.ASC;
 }

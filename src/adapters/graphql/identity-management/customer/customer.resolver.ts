@@ -1,6 +1,7 @@
 // src/adapters/graphql/identity-management/customer/customer.resolver.ts
 
 import { JwtPayload } from '@app-types/jwt.types';
+import { UserState } from '@app-types/models/user-info.types';
 import { UseGuards } from '@nestjs/common';
 import { Args, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { currentUser } from '@src/adapters/graphql/decorators/current-user.decorator';
@@ -82,12 +83,14 @@ export class CustomerResolver {
     const result: PaginatedCustomers = await this.listCustomersUsecase.execute(Number(user.sub), {
       page: input.page,
       limit: input.limit,
-      sortBy: input.sortBy,
-      sortOrder: input.sortOrder,
+      sortBy: input.sortBy ?? undefined,
+      sortOrder: input.sortOrder ?? undefined,
     });
 
     const customers = await Promise.all(
-      result.items.map((entity: CustomerEntity) => this.mapCustomerEntityToType(entity)),
+      result.items.map((item) =>
+        this.mapCustomerEntityToType(item.entity, item.userState, item.loginHistory),
+      ),
     );
     return {
       customers,
@@ -141,7 +144,11 @@ export class CustomerResolver {
    * @param entity 客户实体
    * @returns GraphQL 输出 DTO
    */
-  private async mapCustomerEntityToType(entity: CustomerEntity): Promise<CustomerType> {
+  private async mapCustomerEntityToType(
+    entity: CustomerEntity,
+    userState?: UserState | null,
+    loginHistory?: { ip: string; timestamp: string; audience?: string }[] | null,
+  ): Promise<CustomerType> {
     const base: CustomerType = {
       id: entity.id,
       accountId: entity.accountId,
@@ -150,9 +157,11 @@ export class CustomerResolver {
       preferredContactTime: entity.preferredContactTime,
       membershipLevel: entity.membershipLevel ?? null,
       remark: entity.remark,
+      userState: userState ?? null,
       createdAt: entity.createdAt,
       updatedAt: entity.updatedAt,
       deactivatedAt: entity.deactivatedAt ?? null,
+      loginHistory: loginHistory ?? null,
     };
 
     // 根据实体中的 membershipLevel（数值枚举）去等级表读取详细信息

@@ -19,11 +19,12 @@ import { CustomerService } from './account-customer.service';
     {
       provide: 'CUSTOMER_SORT_RESOLVER',
       useFactory: () =>
-        new TypeOrmSort(['name', 'id', 'createdAt', 'updatedAt'], {
+        new TypeOrmSort(['name', 'id', 'createdAt', 'updatedAt', 'accountId'], {
           name: 'customer.name',
           id: 'customer.id',
           createdAt: 'customer.createdAt',
           updatedAt: 'customer.updatedAt',
+          accountId: 'customer.accountId',
         }),
     },
   ],

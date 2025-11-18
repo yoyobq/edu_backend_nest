@@ -153,100 +153,131 @@ export class AuthResolver {
     identity: ManagerEntity | CoachEntity | StaffEntity | CustomerEntity | LearnerEntity,
     role: IdentityTypeEnum,
   ): IdentityUnionType {
-    // 根据角色返回对应的 DTO 类型
     switch (role) {
-      case IdentityTypeEnum.MANAGER: {
-        const manager = identity as ManagerEntity;
-        return {
-          id: manager.id,
-          accountId: manager.accountId,
-          name: manager.name,
-          departmentId: null, // Manager 实体没有 departmentId
-          remark: manager.remark,
-          jobTitle: null, // Manager 实体没有 jobTitle
-          employmentStatus: 'ACTIVE', // Manager 实体没有 employmentStatus
-          createdAt: manager.createdAt,
-          updatedAt: manager.updatedAt,
-          managerId: manager.id, // Union 类型解析标识符
-          deactivatedAt: manager.deactivatedAt,
-        } as ManagerType;
-      }
-
-      case IdentityTypeEnum.COACH: {
-        const coach = identity as CoachEntity;
-        return {
-          id: coach.id,
-          accountId: coach.accountId,
-          name: coach.name,
-          departmentId: null, // Coach 实体没有 departmentId
-          remark: coach.remark,
-          jobTitle: null, // Coach 实体没有 jobTitle
-          employmentStatus: 'ACTIVE', // Coach 实体没有 employmentStatus
-          createdAt: coach.createdAt,
-          updatedAt: coach.updatedAt,
-          coachId: coach.id, // Union 类型解析标识符
-          level: coach.level,
-          description: coach.description,
-          avatarUrl: coach.avatarUrl,
-          specialty: coach.specialty,
-          deactivatedAt: coach.deactivatedAt,
-        } as CoachType;
-      }
-
-      case IdentityTypeEnum.STAFF: {
-        const staff = identity as StaffEntity;
-        return {
-          id: parseStaffId({ id: staff.id as unknown as number | string }),
-          accountId: staff.accountId,
-          name: staff.name,
-          departmentId: staff.departmentId,
-          remark: staff.remark,
-          jobTitle: staff.jobTitle,
-          employmentStatus: staff.employmentStatus,
-          createdAt: staff.createdAt,
-          updatedAt: staff.updatedAt,
-          jobId: parseStaffId({ id: staff.id as unknown as number | string }), // Union 类型解析标识符
-        } as StaffType;
-      }
-
-      case IdentityTypeEnum.CUSTOMER: {
-        const customer = identity as CustomerEntity;
-        return {
-          id: customer.id,
-          accountId: customer.accountId,
-          name: customer.name,
-          contactPhone: customer.contactPhone,
-          preferredContactTime: customer.preferredContactTime,
-          membershipLevel: customer.membershipLevel,
-          remark: customer.remark,
-          createdAt: customer.createdAt,
-          updatedAt: customer.updatedAt,
-          deactivatedAt: customer.deactivatedAt,
-          customerId: customer.id, // Union 类型解析标识符
-        } as CustomerType;
-      }
-
-      case IdentityTypeEnum.LEARNER: {
-        const learner = identity as LearnerEntity;
-        return {
-          id: learner.id,
-          accountId: learner.accountId,
-          customerId: learner.customerId,
-          name: learner.name,
-          gender: learner.gender,
-          birthDate: learner.birthDate,
-          avatarUrl: learner.avatarUrl,
-          specialNeeds: learner.specialNeeds,
-          countPerSession: learner.countPerSession,
-          remark: learner.remark,
-          createdAt: learner.createdAt,
-          updatedAt: learner.updatedAt,
-          deactivatedAt: learner.deactivatedAt,
-        } as LearnerType;
-      }
-
+      case IdentityTypeEnum.MANAGER:
+        return this.mapManagerIdentity(identity as ManagerEntity);
+      case IdentityTypeEnum.COACH:
+        return this.mapCoachIdentity(identity as CoachEntity);
+      case IdentityTypeEnum.STAFF:
+        return this.mapStaffIdentity(identity as StaffEntity);
+      case IdentityTypeEnum.CUSTOMER:
+        return this.mapCustomerIdentity(identity as CustomerEntity);
+      case IdentityTypeEnum.LEARNER:
+        return this.mapLearnerIdentity(identity as LearnerEntity);
       default:
         throw new Error(`不支持的身份类型: ${role}`);
     }
+  }
+
+  /**
+   * 映射 Manager 身份为 GraphQL DTO
+   * @param manager Manager 实体
+   * @returns ManagerType DTO
+   */
+  private mapManagerIdentity(manager: ManagerEntity): ManagerType {
+    return {
+      id: manager.id,
+      accountId: manager.accountId,
+      name: manager.name,
+      departmentId: null,
+      remark: manager.remark,
+      jobTitle: null,
+      employmentStatus: 'ACTIVE',
+      createdAt: manager.createdAt,
+      updatedAt: manager.updatedAt,
+      managerId: manager.id,
+      deactivatedAt: manager.deactivatedAt,
+    } as ManagerType;
+  }
+
+  /**
+   * 映射 Coach 身份为 GraphQL DTO
+   * @param coach Coach 实体
+   * @returns CoachType DTO
+   */
+  private mapCoachIdentity(coach: CoachEntity): CoachType {
+    return {
+      id: coach.id,
+      accountId: coach.accountId,
+      name: coach.name,
+      departmentId: null,
+      remark: coach.remark,
+      jobTitle: null,
+      employmentStatus: 'ACTIVE',
+      createdAt: coach.createdAt,
+      updatedAt: coach.updatedAt,
+      coachId: coach.id,
+      level: coach.level,
+      description: coach.description,
+      avatarUrl: coach.avatarUrl,
+      specialty: coach.specialty,
+      deactivatedAt: coach.deactivatedAt,
+    } as CoachType;
+  }
+
+  /**
+   * 映射 Staff 身份为 GraphQL DTO
+   * @param staff Staff 实体
+   * @returns StaffType DTO
+   */
+  private mapStaffIdentity(staff: StaffEntity): StaffType {
+    return {
+      id: parseStaffId({ id: staff.id as unknown as number | string }),
+      accountId: staff.accountId,
+      name: staff.name,
+      departmentId: staff.departmentId,
+      remark: staff.remark,
+      jobTitle: staff.jobTitle,
+      employmentStatus: staff.employmentStatus,
+      createdAt: staff.createdAt,
+      updatedAt: staff.updatedAt,
+      jobId: parseStaffId({ id: staff.id as unknown as number | string }),
+    } as StaffType;
+  }
+
+  /**
+   * 映射 Customer 身份为 GraphQL DTO
+   * @param customer Customer 实体
+   * @returns CustomerType DTO
+   */
+  private mapCustomerIdentity(customer: CustomerEntity): CustomerType {
+    return {
+      id: customer.id,
+      accountId: customer.accountId,
+      name: customer.name,
+      contactPhone: customer.contactPhone,
+      preferredContactTime: customer.preferredContactTime,
+      membershipLevel: customer.membershipLevel,
+      remark: customer.remark,
+      userState: null,
+      loginHistory: null,
+      createdAt: customer.createdAt,
+      updatedAt: customer.updatedAt,
+      deactivatedAt: customer.deactivatedAt,
+      customerId: customer.id,
+    } as CustomerType;
+  }
+
+  /**
+   * 映射 Learner 身份为 GraphQL DTO
+   * @param learner Learner 实体
+   * @returns LearnerType DTO
+   */
+  private mapLearnerIdentity(learner: LearnerEntity): LearnerType {
+    return {
+      id: learner.id,
+      accountId: learner.accountId,
+      customerId: learner.customerId,
+      name: learner.name,
+      gender: learner.gender,
+      birthDate: learner.birthDate,
+      avatarUrl: learner.avatarUrl,
+      specialNeeds: learner.specialNeeds,
+      countPerSession: learner.countPerSession,
+      remark: learner.remark,
+      createdAt: learner.createdAt,
+      updatedAt: learner.updatedAt,
+      deactivatedAt: learner.deactivatedAt,
+    } as LearnerType;
   }
 }

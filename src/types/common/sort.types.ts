@@ -35,6 +35,8 @@ export enum CustomerSortField {
   UPDATED_AT = 'updatedAt',
   /** 按客户姓名排序 */
   NAME = 'name',
+  /** 按账户 ID 排序 */
+  ACCOUNT_ID = 'accountId',
 }
 
 /**

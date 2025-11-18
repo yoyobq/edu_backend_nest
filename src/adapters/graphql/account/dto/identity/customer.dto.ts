@@ -1,7 +1,9 @@
 // src/adapters/graphql/account/dto/identity/customer.dto.ts
 
 import { MembershipLevel } from '@app-types/models/training.types';
+import { UserState } from '@app-types/models/user-info.types';
 import { Field, Int, ObjectType } from '@nestjs/graphql';
+import { LoginHistoryItem } from '../../enums/login-history.types';
 import { MembershipLevelType } from './membership-level.dto';
 
 /**
@@ -36,6 +38,9 @@ export class CustomerType {
   @Field(() => String, { description: '备注信息', nullable: true })
   remark!: string | null; // 修正：从 remarks 改为 remark，与实体字段名保持一致
 
+  @Field(() => UserState, { description: '用户状态（来自 user_info）', nullable: true })
+  userState!: UserState | null;
+
   @Field(() => Date, { description: '创建时间' })
   createdAt!: Date;
 
@@ -44,4 +49,7 @@ export class CustomerType {
 
   @Field(() => Date, { description: '停用时间', nullable: true })
   deactivatedAt!: Date | null;
+
+  @Field(() => [LoginHistoryItem], { description: '最近登录历史（最多 5 条）', nullable: true })
+  loginHistory!: LoginHistoryItem[] | null;
 }

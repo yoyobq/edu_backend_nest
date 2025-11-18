@@ -169,7 +169,7 @@ export class CustomerService {
   async findPaginated(params: {
     readonly page?: number;
     readonly limit?: number;
-    readonly sortBy?: 'createdAt' | 'updatedAt' | 'name';
+    readonly sortBy?: import('@src/types/common/sort.types').CustomerSortField;
     readonly sortOrder?: 'ASC' | 'DESC';
     readonly includeDeleted?: boolean;
   }): Promise<{
@@ -182,8 +182,8 @@ export class CustomerService {
     const {
       page = 1,
       limit = 10,
-      sortBy = 'createdAt',
-      sortOrder = 'DESC',
+      sortBy = 'accountId',
+      sortOrder = 'ASC',
       includeDeleted = false,
     } = params;
 
@@ -198,7 +198,7 @@ export class CustomerService {
     // 排序（使用域解析器，防注入；并补充稳定副键）
     const primaryColumn =
       this.customerSortResolver.resolveColumn(sortBy) ??
-      this.customerSortResolver.resolveColumn('createdAt');
+      this.customerSortResolver.resolveColumn('accountId');
     if (primaryColumn) qb.orderBy(primaryColumn, sortOrder);
     const tieBreaker = this.customerSortResolver.resolveColumn('id');
     if (tieBreaker) qb.addOrderBy(tieBreaker, sortOrder);
