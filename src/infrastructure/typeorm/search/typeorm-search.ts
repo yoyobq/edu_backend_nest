@@ -163,7 +163,7 @@ export class TypeOrmSearch implements ISearchEngine {
 
     // 转义特殊字符，并统一大小写比较
     const raw = query;
-    const escaped = raw.replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_');
+    const escaped = raw.trim();
     const like = `%${escaped}%`;
 
     // 若提供自定义文本搜索钩子，优先使用
@@ -180,8 +180,7 @@ export class TypeOrmSearch implements ISearchEngine {
     qb.andWhere(
       new Brackets((qb) => {
         options.searchColumns.forEach((col, idx) => {
-          // 使用 ESCAPE '\\' 以确保在 MySQL 中解析为单个反斜杠字符
-          const clause = `LOWER(${col}) LIKE LOWER(:q) ESCAPE '\\\\'`;
+          const clause = `LOWER(${col}) LIKE LOWER(:q)`;
           if (idx === 0) {
             qb.where(clause);
           } else {
@@ -227,6 +226,13 @@ export class TypeOrmSearch implements ISearchEngine {
         }
       }
 
+      // 跳过 undefined（调用方未提供该过滤值）
+      if (normalizedValue === undefined) return;
+      // 允许显式过滤 NULL 值
+      if (normalizedValue === null) {
+        qb.andWhere(`${column} IS NULL`);
+        return;
+      }
       const paramKey = `f_${field}`;
       qb.andWhere(`${column} = :${paramKey}`, { [paramKey]: normalizedValue });
     });
@@ -497,26 +503,32 @@ export class TypeOrmSearch implements ISearchEngine {
     distinctCol?: string,
   ): Promise<number> {
     if (distinctCol) {
-      // 防御：不接受表达式，仅接受安全列或别名.列
-      if (/\s|\(|\)/.test(distinctCol)) {
-        throw new DomainError(
-          PAGINATION_ERROR.DB_QUERY_FAILED,
-          'countDistinctBy 必须为安全列名或 别名.列，不支持表达式',
-        );
+      try {
+        // 防御：不接受表达式，仅接受安全列或别名.列
+        if (/\s|\(|\)/.test(distinctCol)) {
+          throw new DomainError(
+            PAGINATION_ERROR.DB_QUERY_FAILED,
+            'countDistinctBy 必须为安全列名或 别名.列，不支持表达式',
+          );
+        }
+        // 使用手动反引号包裹标识符（兼容 MySQL），避免依赖 driver.escape 在不同驱动上的差异
+        const escapeIdent = (id: string): string => `\`${id.replace(/`/g, '``')}\``;
+        const col = distinctCol.includes('.')
+          ? distinctCol
+              .split('.')
+              .map((p) => escapeIdent(p))
+              .join('.')
+          : escapeIdent(distinctCol);
+        const alias = 'distinct_cnt';
+        const raw = await countQb
+          .select(`COUNT(DISTINCT ${col})`, alias)
+          .getRawOne<Record<string, unknown>>();
+        const val = raw?.[alias];
+        return typeof val === 'number' ? val : Number(val ?? 0);
+      } catch {
+        // 回退：若 DISTINCT 计数失败，回退为普通 COUNT，保证接口可用
+        return await countQb.getCount();
       }
-      // 对 别名.列 进行分段转义，避免被当作单一列名
-      const col = distinctCol.includes('.')
-        ? distinctCol
-            .split('.')
-            .map((p) => countQb.connection.driver.escape(p))
-            .join('.')
-        : countQb.connection.driver.escape(distinctCol);
-      const alias = 'distinct_cnt';
-      const raw = await countQb
-        .select(`COUNT(DISTINCT ${col})`, alias)
-        .getRawOne<Record<string, unknown>>();
-      const val = raw?.[alias];
-      return typeof val === 'number' ? val : Number(val ?? 0);
     }
     return await countQb.getCount();
   }

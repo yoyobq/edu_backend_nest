@@ -43,4 +43,24 @@ export class ListCustomersInput {
   @IsOptional()
   @IsEnum(OrderDirection, { message: '排序方向不合法' })
   sortOrder?: OrderDirection = OrderDirection.ASC;
+
+  @Field(() => String, { nullable: true, description: '搜索关键词（姓名/手机号）' })
+  @IsOptional()
+  query?: string;
+
+  @Field(() => String, { nullable: true, description: '按姓名过滤' })
+  @IsOptional()
+  name?: string;
+
+  @Field(() => String, { nullable: true, description: '按手机号过滤' })
+  @IsOptional()
+  contactPhone?: string;
+
+  @Field(() => Int, { nullable: true, description: '按会员等级 ID 过滤' })
+  @IsOptional()
+  membershipLevel?: number;
+
+  @Field(() => String, { nullable: true, description: '按状态过滤（来自 user_info）' })
+  @IsOptional()
+  userState?: string;
 }

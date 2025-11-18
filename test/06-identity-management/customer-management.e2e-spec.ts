@@ -119,7 +119,7 @@ describe('Customer Management (e2e)', () => {
   };
 
   describe('更新客户信息', () => {
-    it('初始会员等级应为 NORMAL（客户查看）', async () => {
+    it('初始会员等级应为数值 ID（客户查看）', async () => {
       const response = await request(app.getHttpServer())
         .post('/graphql')
         .set('Authorization', `Bearer ${customerAccessToken}`)
@@ -140,7 +140,9 @@ describe('Customer Management (e2e)', () => {
 
       const customer = response.body.data.updateCustomer.customer;
       expect(customer.id).toBeDefined();
-      expect(customer.membershipLevel === 'NORMAL' || customer.membershipLevel === null).toBe(true);
+      expect(
+        customer.membershipLevel === null || typeof customer.membershipLevel === 'number',
+      ).toBe(true);
     });
     it('客户用户应该可以更新 name / phone / time / remark', async () => {
       const response = await request(app.getHttpServer())
@@ -174,13 +176,13 @@ describe('Customer Management (e2e)', () => {
       expect(customer.contactPhone).toBe('1234567890');
       expect(customer.preferredContactTime).toBe('周一 9:00-12:00');
       expect(customer.remark).toBe('E2E 客户自更新');
-      // 客户身份无权更新 membershipLevel，应保持不变或为 null（GraphQL 枚举以字符串返回）
+      // 客户身份无权更新 membershipLevel，类型为数值或 null
       expect(
-        customer.membershipLevel === null || typeof customer.membershipLevel === 'string',
+        customer.membershipLevel === null || typeof customer.membershipLevel === 'number',
       ).toBe(true);
     });
 
-    it('管理员应该可以更新指定客户的 membershipLevel', async () => {
+    it('管理员应该可以更新指定客户的 membershipLevel（数值 ID）', async () => {
       const response = await request(app.getHttpServer())
         .post('/graphql')
         .set('Authorization', `Bearer ${managerAccessToken}`)
@@ -195,7 +197,7 @@ describe('Customer Management (e2e)', () => {
           variables: {
             input: {
               customerId,
-              membershipLevel: 'VIP',
+              membershipLevel: 2,
               remark: 'E2E 管理员更新会员等级',
             },
           },
@@ -207,14 +209,14 @@ describe('Customer Management (e2e)', () => {
 
       const customer = response.body.data.updateCustomer.customer;
       expect(customer.id).toBe(customerId);
-      // GraphQL CustomerType 现已定义 membershipLevel 为枚举
+      // GraphQL CustomerType membershipLevel 为数值或 null
       expect(
-        customer.membershipLevel === null || typeof customer.membershipLevel === 'string',
+        customer.membershipLevel === null || typeof customer.membershipLevel === 'number',
       ).toBe(true);
       expect(customer.remark).toBe('E2E 管理员更新会员等级');
     });
 
-    it('管理员传入非法枚举值应报错', async () => {
+    it('管理员传入非法会员等级 ID 应报错', async () => {
       const response = await request(app.getHttpServer())
         .post('/graphql')
         .set('Authorization', `Bearer ${managerAccessToken}`)
@@ -229,7 +231,7 @@ describe('Customer Management (e2e)', () => {
           variables: {
             input: {
               customerId,
-              membershipLevel: 'INVALID',
+              membershipLevel: 0,
             },
           },
         })
@@ -237,8 +239,7 @@ describe('Customer Management (e2e)', () => {
 
       expect(response.body.errors).toBeDefined();
       const msg = response.body.errors?.[0]?.message ?? '';
-      // GraphQL 对非法枚举值的错误信息可能包含枚举名与值
-      expect(msg).toMatch(/MembershipLevel|枚举|INVALID/);
+      expect(msg).toMatch(/会员等级 ID 非法|非法/);
     });
 
     it('客户尝试更新 membershipLevel 应该报错（GraphQL 错误）', async () => {
@@ -255,7 +256,7 @@ describe('Customer Management (e2e)', () => {
           `,
           variables: {
             input: {
-              membershipLevel: 'GOLD',
+              membershipLevel: 3,
             },
           },
         })
@@ -303,7 +304,7 @@ describe('Customer Management (e2e)', () => {
           `,
           variables: {
             input: {
-              membershipLevel: 'PLATINUM',
+              membershipLevel: 2,
             },
           },
         })
@@ -329,7 +330,7 @@ describe('Customer Management (e2e)', () => {
           variables: {
             input: {
               customerId: 999999,
-              membershipLevel: 'VIP',
+              membershipLevel: 2,
             },
           },
         })
@@ -348,6 +349,21 @@ describe('Customer Management (e2e)', () => {
    * - 验证排序与翻页参数生效
    */
   describe('分页查询客户列表', () => {
+    beforeEach(async () => {
+      const mutation = `
+        mutation UpdateCustomer($input: UpdateCustomerInput!) {
+          updateCustomer(input: $input) {
+            customer { id contactPhone }
+          }
+        }
+      `;
+      const res = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', `Bearer ${customerAccessToken}`)
+        .send({ query: mutation, variables: { input: { contactPhone: '13800138000' } } })
+        .expect(200);
+      if (res.body.errors) throw new Error(`GraphQL 错误: ${JSON.stringify(res.body.errors)}`);
+    });
     /**
      * 测试未授权访问 customers 查询
      * 期望：返回 200 且包含 GraphQL 错误数组
@@ -453,6 +469,97 @@ describe('Customer Management (e2e)', () => {
       const pagination = res.body.data.customers.pagination;
       expect(pagination.page).toBeGreaterThanOrEqual(1);
       expect(pagination.limit).toBe(2);
+    });
+
+    it('管理员支持 query 搜索（按姓名/手机号）', async () => {
+      const queryGql = `
+        query ListCustomers($input: ListCustomersInput!) {
+          customers(input: $input) {
+            customers { id name contactPhone }
+            pagination { page limit total totalPages }
+          }
+        }
+      `;
+
+      const byName = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', `Bearer ${managerAccessToken}`)
+        .send({
+          query: queryGql,
+          variables: { input: { page: 1, limit: 10, query: 'testcustomer' } },
+        })
+        .expect(200);
+      expect(byName.body.errors).toBeUndefined();
+      const nameList = byName.body.data.customers.customers as Array<{ name: string }>;
+      expect(Array.isArray(nameList)).toBe(true);
+      expect(nameList.some((c) => typeof c.name === 'string')).toBe(true);
+
+      const byPhone = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', `Bearer ${managerAccessToken}`)
+        .send({
+          query: queryGql,
+          variables: { input: { page: 1, limit: 10, query: '1380013' } },
+        })
+        .expect(200);
+      expect(byPhone.body.errors).toBeUndefined();
+      const phoneList = byPhone.body.data.customers.customers as Array<{
+        contactPhone: string | null;
+      }>;
+      expect(Array.isArray(phoneList)).toBe(true);
+      // 调试输出移除
+      expect(phoneList.some((c) => typeof c.contactPhone === 'string')).toBe(true);
+    });
+
+    it('管理员支持 filters 精确过滤（membershipLevel / userState / contactPhone）', async () => {
+      const queryGql = `
+        query ListCustomers($input: ListCustomersInput!) {
+          customers(input: $input) {
+            customers { id name membershipLevel contactPhone }
+            pagination { page limit total totalPages }
+          }
+        }
+      `;
+
+      const byLevel = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', `Bearer ${managerAccessToken}`)
+        .send({
+          query: queryGql,
+          variables: { input: { page: 1, limit: 10, membershipLevel: 1 } },
+        })
+        .expect(200);
+      expect(byLevel.body.errors).toBeUndefined();
+      const lvList = byLevel.body.data.customers.customers as Array<{
+        membershipLevel: number | null;
+      }>;
+      expect(Array.isArray(lvList)).toBe(true);
+
+      const byState = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', `Bearer ${managerAccessToken}`)
+        .send({
+          query: queryGql,
+          variables: { input: { page: 1, limit: 10, userState: 'ACTIVE' } },
+        })
+        .expect(200);
+      expect(byState.body.errors).toBeUndefined();
+      const stList = byState.body.data.customers.customers as Array<{ id: number }>;
+      expect(Array.isArray(stList)).toBe(true);
+
+      const byContactPhone = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', `Bearer ${managerAccessToken}`)
+        .send({
+          query: queryGql,
+          variables: { input: { page: 1, limit: 10, contactPhone: '13800138000' } },
+        })
+        .expect(200);
+      expect(byContactPhone.body.errors).toBeUndefined();
+      const cpList = byContactPhone.body.data.customers.customers as Array<{
+        contactPhone: string | null;
+      }>;
+      expect(Array.isArray(cpList)).toBe(true);
     });
   });
 

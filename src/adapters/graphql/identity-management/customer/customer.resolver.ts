@@ -85,6 +85,13 @@ export class CustomerResolver {
       limit: input.limit,
       sortBy: input.sortBy ?? undefined,
       sortOrder: input.sortOrder ?? undefined,
+      query: input.query ?? undefined,
+      filters: {
+        userState: input.userState ?? undefined,
+        name: input.name ?? undefined,
+        contactPhone: input.contactPhone ?? undefined,
+        membershipLevel: input.membershipLevel ?? undefined,
+      },
     });
     const customers = await Promise.all(
       result.items.map((item) =>

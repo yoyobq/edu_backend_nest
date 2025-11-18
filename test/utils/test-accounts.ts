@@ -289,7 +289,7 @@ const createCustomerIdentity = async (
     const p = cfg.customerProfile ?? {
       contactPhone: '13800138000',
       preferredContactTime: '09:00-18:00',
-      membershipLevel: MembershipLevel.NORMAL,
+      membershipLevel: 1,
     };
     await repo.save(
       repo.create({
@@ -375,7 +375,7 @@ const ensureCustomerExists = async (
   const p = customerCfg.customerProfile ?? {
     contactPhone: '13800138000',
     preferredContactTime: '09:00-18:00',
-    membershipLevel: MembershipLevel.NORMAL,
+    membershipLevel: 1,
   };
 
   return customerRepo.save(

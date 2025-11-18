@@ -2,7 +2,7 @@
 // 顶层可复用 Search 模块：绑定 TypeORM 搜索实现并导出服务
 
 import { Module } from '@nestjs/common';
-import type { SelectQueryBuilder } from 'typeorm';
+// 移除对具体驱动类型的输入约束，保持端口抽象一致
 
 import type { ISearchEngine } from '@core/search/search.ports';
 import { TypeOrmSearch } from '@src/infrastructure/typeorm/search/typeorm-search';
@@ -26,7 +26,7 @@ export class SearchService {
    * @param options 搜索选项（列解析/排序白名单等）
    */
   async search<T>(input: {
-    readonly qb: SelectQueryBuilder<Record<string, unknown>>;
+    readonly qb: unknown;
     readonly params: import('@core/search/search.types').SearchParams;
     readonly options: import('@core/search/search.types').SearchOptions;
   }): Promise<import('@core/search/search.types').SearchResult<T>> {

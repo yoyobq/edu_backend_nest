@@ -21,6 +21,15 @@ export interface ListCustomersParams {
   sortBy?: import('@src/types/common/sort.types').CustomerSortField;
   /** 排序方向 */
   sortOrder?: OrderDirection;
+  /** 搜索关键词（按姓名/手机号） */
+  query?: string;
+  /** 过滤条件：状态/会员等级等 */
+  filters?: {
+    userState?: string;
+    name?: string;
+    contactPhone?: string;
+    membershipLevel?: number;
+  };
 }
 
 /**
@@ -83,6 +92,8 @@ export class ListCustomersUsecase {
       sortBy: params.sortBy ?? CustomerSortField.ACCOUNT_ID,
       sortOrder: (params.sortOrder ?? 'ASC') as 'ASC' | 'DESC',
       includeDeleted: false,
+      query: params.query,
+      filters: params.filters,
     });
 
     const items: CustomerListItem[] = await Promise.all(

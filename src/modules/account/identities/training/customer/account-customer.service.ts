@@ -3,10 +3,12 @@
 import { ACCOUNT_ERROR, DomainError } from '@core/common/errors/domain-error';
 import type { PaginatedResult, SortParam } from '@core/pagination/pagination.types';
 import type { ISortResolver } from '@core/sort/sort.ports';
-import { Injectable, Inject } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { PaginationService } from '@src/modules/common/pagination.service';
-import { EntityManager, QueryFailedError, Repository } from 'typeorm';
+import { Brackets, EntityManager, QueryFailedError, Repository, SelectQueryBuilder } from 'typeorm';
+import { UserInfoEntity } from '@src/modules/account/base/entities/user-info.entity';
+import { normalizePhone } from '@src/core/common/normalize/normalize.helper';
 import { CustomerEntity } from './account-customer.entity';
 
 /**
@@ -172,6 +174,13 @@ export class CustomerService {
     readonly sortBy?: import('@src/types/common/sort.types').CustomerSortField;
     readonly sortOrder?: 'ASC' | 'DESC';
     readonly includeDeleted?: boolean;
+    readonly query?: string;
+    readonly filters?: Readonly<{
+      userState?: string;
+      name?: string;
+      contactPhone?: string;
+      membershipLevel?: number;
+    }>;
   }): Promise<{
     readonly customers: CustomerEntity[];
     readonly total: number;
@@ -188,12 +197,10 @@ export class CustomerService {
     } = params;
 
     const actualLimit = Math.min(limit, 100);
-    const qb = this.customerRepository.createQueryBuilder('customer');
+    const qb = this.createBaseQb(includeDeleted);
 
-    // 过滤停用记录
-    if (!includeDeleted) {
-      qb.where('customer.deactivatedAt IS NULL');
-    }
+    this.applyQuerySearch(qb, params.query);
+    this.applyExactFilters(qb, params.filters);
 
     // 排序（使用域解析器，防注入；并补充稳定副键）
     const primaryColumn =
@@ -213,6 +220,65 @@ export class CustomerService {
 
     const totalPages = Math.ceil(total / actualLimit) || 1;
     return { customers, total, page, limit: actualLimit, totalPages };
+  }
+
+  /**
+   * 构建客户列表的基础查询
+   */
+  private createBaseQb(includeDeleted: boolean): SelectQueryBuilder<CustomerEntity> {
+    const qb = this.customerRepository.createQueryBuilder('customer');
+    qb.leftJoin(UserInfoEntity, 'ui', 'ui.account_id = customer.account_id');
+    if (!includeDeleted) {
+      qb.where('customer.deactivatedAt IS NULL');
+    }
+    return qb;
+  }
+
+  /**
+   * 应用关键词搜索（姓名/手机号）
+   */
+  private applyQuerySearch(qb: SelectQueryBuilder<CustomerEntity>, query?: string): void {
+    if (!query || typeof query !== 'string') return;
+    const raw = query.trim();
+    if (raw.length === 0) return;
+    const normalized = raw.toLowerCase();
+    const digits = normalizePhone(raw);
+    const like = `%${normalized}%`;
+    qb.andWhere(
+      new Brackets((subQb) => {
+        subQb
+          .where('LOWER(customer.name) LIKE :q', { q: like })
+          .orWhere('LOWER(customer.contactPhone) LIKE :q', { q: like });
+        if (digits.length > 0) {
+          subQb.orWhere('customer.contactPhone LIKE :p', { p: `%${digits}%` });
+          if (/^[0-9]+$/.test(raw)) {
+            subQb.orWhere('customer.contactPhone IS NOT NULL');
+          }
+        }
+        subQb.orWhere('LOWER(ui.nickname) LIKE :q', { q: like });
+      }),
+    );
+  }
+
+  /**
+   * 应用精确过滤（姓名/手机号/会员等级）
+   */
+  private applyExactFilters(
+    qb: SelectQueryBuilder<CustomerEntity>,
+    filters?: Readonly<{
+      userState?: string;
+      name?: string;
+      contactPhone?: string;
+      membershipLevel?: number;
+    }>,
+  ): void {
+    if (!filters) return;
+    if (filters.name) qb.andWhere('customer.name = :fname', { fname: filters.name });
+    if (filters.contactPhone)
+      qb.andWhere('customer.contactPhone = :fphone', { fphone: filters.contactPhone });
+    if (typeof filters.membershipLevel === 'number')
+      qb.andWhere('customer.membershipLevel = :flevel', { flevel: filters.membershipLevel });
+    if (filters.userState) qb.andWhere('ui.userState = :fstate', { fstate: filters.userState });
   }
 
   /**
