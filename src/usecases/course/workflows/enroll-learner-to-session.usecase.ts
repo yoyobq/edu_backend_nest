@@ -7,16 +7,16 @@ import {
   PERMISSION_ERROR,
   SESSION_ERROR,
 } from '@core/common/errors/domain-error';
-import { buildEnvelope } from '@core/common/integration-events/events.types';
-import { type IOutboxWriterPort } from '@core/common/integration-events/outbox.port';
 import { Inject, Injectable } from '@nestjs/common';
 import { CustomerService } from '@src/modules/account/identities/training/customer/account-customer.service';
 import { LearnerService } from '@src/modules/account/identities/training/learner/account-learner.service';
-import { INTEGRATION_EVENTS_TOKENS } from '@src/modules/common/integration-events/events.tokens';
 import { CourseSeriesService } from '@src/modules/course/series/course-series.service';
 import { CourseSessionsService } from '@src/modules/course/sessions/course-sessions.service';
 import { ParticipationEnrollmentService } from '@src/modules/participation/enrollment/participation-enrollment.service';
 import { type UsecaseSession } from '@src/types/auth/session.types';
+import { buildEnvelope } from '@core/common/integration-events/events.types';
+import { type IOutboxWriterPort } from '@core/common/integration-events/outbox.port';
+import { INTEGRATION_EVENTS_TOKENS } from '@src/modules/common/integration-events/events.tokens';
 
 /**
  * 为学员报名到节次用例
@@ -95,7 +95,7 @@ export class EnrollLearnerToSessionUsecase {
     if (result.isNewlyCreated) {
       const envelope = buildEnvelope({
         type: 'EnrollmentCreated',
-        aggregateType: 'enrollment',
+        aggregateType: 'Enrollment',
         aggregateId: result.enrollment.id,
         // 默认 schemaVersion = 1，dedupKey = type:aggregateId:schemaVersion
         // 载荷包含必要只读数据，避免泄露 ORM 实体

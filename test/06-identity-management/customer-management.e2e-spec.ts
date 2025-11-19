@@ -4,11 +4,11 @@ import { AudienceTypeEnum, IdentityTypeEnum, LoginTypeEnum } from '@app-types/mo
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
-import { DataSource } from 'typeorm';
+import { Brackets, DataSource } from 'typeorm';
 import { initGraphQLSchema } from '../../src/adapters/graphql/schema/schema.init';
 import { AppModule } from '../../src/app.module';
-import { cleanupTestAccounts, seedTestAccounts, testAccountsConfig } from '../utils/test-accounts';
 import { UserInfoEntity } from '../../src/modules/account/base/entities/user-info.entity';
+import { cleanupTestAccounts, seedTestAccounts, testAccountsConfig } from '../utils/test-accounts';
 
 /**
  * 客户管理 E2E 测试
@@ -510,6 +510,210 @@ describe('Customer Management (e2e)', () => {
       expect(Array.isArray(phoneList)).toBe(true);
       // 调试输出移除
       expect(phoneList.some((c) => typeof c.contactPhone === 'string')).toBe(true);
+
+      // 当手机号关键字不足 3 位时，不触发电话搜索，仅按姓名/昵称模糊
+      const shortPhone = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', `Bearer ${managerAccessToken}`)
+        .send({
+          query: queryGql,
+          variables: { input: { page: 1, limit: 10, query: '13' } },
+        })
+        .expect(200);
+      expect(shortPhone.body.errors).toBeUndefined();
+      const shortList = shortPhone.body.data.customers.customers as Array<{ name: string }>;
+      expect(Array.isArray(shortList)).toBe(true);
+      // 不作严格断言数量，只验证查询成功
+      expect(shortList.every((c) => typeof c.name === 'string')).toBe(true);
+    });
+
+    it('管理员支持 query 搜索（多手机号比对）', async () => {
+      const setBase = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', `Bearer ${customerAccessToken}`)
+        .send({
+          query: `
+            mutation UpdateCustomer($input: UpdateCustomerInput!) {
+              updateCustomer(input: $input) { customer { id contactPhone } }
+            }
+          `,
+          variables: { input: { contactPhone: '13911110000' } },
+        })
+        .expect(200);
+      if (setBase.body.errors)
+        throw new Error(`GraphQL 错误: ${JSON.stringify(setBase.body.errors)}`);
+
+      const guestToken = await loginAndGetToken(
+        testAccountsConfig.guest.loginName,
+        testAccountsConfig.guest.loginPassword,
+      );
+      const coachToken = await loginAndGetToken(
+        testAccountsConfig.coach.loginName,
+        testAccountsConfig.coach.loginPassword,
+      );
+      const adminToken = await loginAndGetToken(
+        testAccountsConfig.admin.loginName,
+        testAccountsConfig.admin.loginPassword,
+      );
+
+      const upgrade = async (token: string, name: string, phone: string) => {
+        const resp = await request(app.getHttpServer())
+          .post('/graphql')
+          .set('Authorization', `Bearer ${token}`)
+          .send({
+            query: `
+              mutation UpgradeToCustomer($input: UpgradeToCustomerInput!) {
+                upgradeToCustomer(input: $input) { upgraded customerId role }
+              }
+            `,
+            variables: {
+              input: {
+                name,
+                contactPhone: phone,
+                preferredContactTime: 'ANY',
+                remark: 'E2E',
+                audience: AudienceTypeEnum.DESKTOP,
+              },
+            },
+          })
+          .expect(200);
+        if (resp.body.errors) throw new Error(`GraphQL 错误: ${JSON.stringify(resp.body.errors)}`);
+      };
+
+      await upgrade(guestToken, 'guest-customer', '13922220000');
+      await upgrade(coachToken, 'coach-customer', '13933330000');
+      await upgrade(adminToken, 'admin-customer', '15688887777');
+
+      const queryGql = `
+        query ListCustomers($input: ListCustomersInput!) {
+          customers(input: $input) {
+            customers { id name contactPhone }
+            pagination { page limit total totalPages }
+          }
+        }
+      `;
+
+      const res = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', `Bearer ${managerAccessToken}`)
+        .send({ query: queryGql, variables: { input: { page: 1, limit: 20, query: '139' } } })
+        .expect(200);
+      expect(res.body.errors).toBeUndefined();
+      const list = res.body.data.customers.customers as Array<{ contactPhone: string | null }>;
+      const total = res.body.data.customers.pagination.total as number;
+      const phones = list.map((x) => x.contactPhone).filter((x) => typeof x === 'string');
+      const expected = ['13911110000', '13922220000', '13933330000'];
+      expect(total).toBeGreaterThanOrEqual(expected.length);
+      expect(expected.every((p) => phones.includes(p))).toBe(true);
+      expect(phones.includes('15688887777')).toBe(false);
+    });
+
+    it('管理员支持 filters.contactPhone 前后缀匹配（customer.contactPhone/userinfo.phone）', async () => {
+      // 先设置 customer.contactPhone
+      const setContact = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', `Bearer ${customerAccessToken}`)
+        .send({
+          query: `
+            mutation UpdateCustomer($input: UpdateCustomerInput!) {
+              updateCustomer(input: $input) { customer { id contactPhone } }
+            }
+          `,
+          variables: { input: { contactPhone: '13988880000' } },
+        })
+        .expect(200);
+      if (setContact.body.errors)
+        throw new Error(`GraphQL 错误: ${JSON.stringify(setContact.body.errors)}`);
+
+      // 再设置 userinfo.phone
+      const loginResp = await request(app.getHttpServer())
+        .post('/graphql')
+        .send({
+          query: `
+            mutation Login($input: AuthLoginInput!) { login(input: $input) { accountId } }
+          `,
+          variables: {
+            input: {
+              loginName: testAccountsConfig.customer.loginName,
+              loginPassword: testAccountsConfig.customer.loginPassword,
+              type: LoginTypeEnum.PASSWORD,
+              audience: AudienceTypeEnum.DESKTOP,
+            },
+          },
+        })
+        .expect(200);
+      const accountId = loginResp.body.data.login.accountId as number;
+      const repo = dataSource.getRepository(UserInfoEntity);
+      await repo.update({ accountId }, { phone: '13677770000' });
+
+      const queryGql = `
+        query ListCustomers($input: ListCustomersInput!) {
+          customers(input: $input) {
+            customers { id name contactPhone }
+            pagination { page limit total totalPages }
+          }
+        }
+      `;
+
+      // 前缀匹配（customer.contactPhone）
+      const prefixRes = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', `Bearer ${managerAccessToken}`)
+        .send({
+          query: queryGql,
+          variables: { input: { page: 1, limit: 10, contactPhone: '1398' } },
+        })
+        .expect(200);
+      expect(prefixRes.body.errors).toBeUndefined();
+      const prefixList = prefixRes.body.data.customers.customers as Array<{ id: number }>;
+      expect(Array.isArray(prefixList)).toBe(true);
+      expect(prefixList.length).toBeGreaterThan(0);
+      const prefixTotal = prefixRes.body.data.customers.pagination.total as number;
+      const dbPrefixCount = await dataSource
+        .createQueryBuilder()
+        .select('COUNT(DISTINCT c.id)', 'cnt')
+        .from('member_customers', 'c')
+        .leftJoin('base_user_info', 'ui', 'ui.account_id = c.account_id')
+        .where('c.deactivated_at IS NULL')
+        .andWhere(
+          new Brackets((qb) => {
+            qb.where('c.contact_phone LIKE :p', { p: `%1398%` }).orWhere('ui.phone LIKE :p', {
+              p: `%1398%`,
+            });
+          }),
+        )
+        .getRawOne<{ cnt: number }>();
+      expect(prefixTotal).toBe(Number(dbPrefixCount?.cnt ?? 0));
+
+      // 后缀匹配（userinfo.phone）
+      const suffixRes = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', `Bearer ${managerAccessToken}`)
+        .send({
+          query: queryGql,
+          variables: { input: { page: 1, limit: 10, contactPhone: '0000' } },
+        })
+        .expect(200);
+      expect(suffixRes.body.errors).toBeUndefined();
+      const suffixList = suffixRes.body.data.customers.customers as Array<{ id: number }>;
+      expect(Array.isArray(suffixList)).toBe(true);
+      expect(suffixList.length).toBeGreaterThan(0);
+      const suffixTotal = suffixRes.body.data.customers.pagination.total as number;
+      const dbSuffixCount = await dataSource
+        .createQueryBuilder()
+        .select('COUNT(DISTINCT c.id)', 'cnt')
+        .from('member_customers', 'c')
+        .leftJoin('base_user_info', 'ui', 'ui.account_id = c.account_id')
+        .where('c.deactivated_at IS NULL')
+        .andWhere(
+          new Brackets((qb) => {
+            qb.where('c.contact_phone LIKE :p', { p: `%0000%` }).orWhere('ui.phone LIKE :p', {
+              p: `%0000%`,
+            });
+          }),
+        )
+        .getRawOne<{ cnt: number }>();
+      expect(suffixTotal).toBe(Number(dbSuffixCount?.cnt ?? 0));
     });
 
     it('管理员支持 query 搜索（按 userinfo.phone 手机号）', async () => {

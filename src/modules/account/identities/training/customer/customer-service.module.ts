@@ -3,10 +3,10 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { TypeOrmSort } from '@src/infrastructure/typeorm/sort/typeorm-sort';
+import { UserInfoEntity } from '@src/modules/account/base/entities/user-info.entity';
 import { PaginationModule } from '@src/modules/common/pagination.module';
 import { SearchModule } from '@src/modules/common/search.module';
 import { CustomerEntity } from './account-customer.entity';
-import { UserInfoEntity } from '@src/modules/account/base/entities/user-info.entity';
 import { CustomerService } from './account-customer.service';
 
 /**

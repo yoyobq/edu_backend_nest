@@ -256,15 +256,15 @@ export class CustomerService {
     const like = `%${normalized}%`;
     qb.andWhere(
       new Brackets((subQb) => {
-        subQb
-          .where('LOWER(customer.name) LIKE :q', { q: like })
-          .orWhere('LOWER(customer.contactPhone) LIKE :q', { q: like })
-          .orWhere('LOWER(ui.phone) LIKE :q', { q: like });
-        if (digits.length > 0) {
+        subQb.where('LOWER(customer.name) LIKE :q', { q: like });
+        subQb.orWhere('LOWER(ui.nickname) LIKE :q', { q: like });
+        if (raw.length >= 3) {
+          subQb.orWhere('LOWER(customer.contactPhone) LIKE :q', { q: like });
+        }
+        if (digits.length >= 3) {
           subQb.orWhere('customer.contactPhone LIKE :p', { p: `%${digits}%` });
           subQb.orWhere('ui.phone LIKE :p', { p: `%${digits}%` });
         }
-        subQb.orWhere('LOWER(ui.nickname) LIKE :q', { q: like });
       }),
     );
   }
@@ -282,9 +282,33 @@ export class CustomerService {
     }>,
   ): void {
     if (!filters) return;
-    if (filters.name) qb.andWhere('customer.name = :fname', { fname: filters.name });
-    if (filters.contactPhone)
-      qb.andWhere('customer.contactPhone = :fphone', { fphone: filters.contactPhone });
+    if (filters.name) {
+      const v = String(filters.name).trim();
+      const like = `%${v.toLowerCase()}%`;
+      qb.andWhere(
+        new Brackets((b) => {
+          b.where('LOWER(customer.name) LIKE :fnameLike', { fnameLike: like }).orWhere(
+            'LOWER(ui.nickname) LIKE :fnameLike',
+            { fnameLike: like },
+          );
+        }),
+      );
+    }
+    if (filters.contactPhone) {
+      const raw = String(filters.contactPhone).trim();
+      const digits = normalizePhone(raw);
+      if (digits.length >= 3) {
+        const likeDigits = `%${digits}%`;
+        qb.andWhere(
+          new Brackets((b) => {
+            b.where('customer.contactPhone LIKE :fphoneLike', { fphoneLike: likeDigits }).orWhere(
+              'ui.phone LIKE :fphoneLike',
+              { fphoneLike: likeDigits },
+            );
+          }),
+        );
+      }
+    }
     if (typeof filters.membershipLevel === 'number')
       qb.andWhere('customer.membership_level_id = :flevel', { flevel: filters.membershipLevel });
     if (filters.userState) qb.andWhere('ui.user_state = :fstate', { fstate: filters.userState });
