@@ -1,6 +1,6 @@
 // src/usecases/identity-management/customer/upgrade-to-customer.usecase.ts
 
-import { AudienceTypeEnum, IdentityTypeEnum } from '@app-types/models/account.types';
+import { AccountStatus, AudienceTypeEnum, IdentityTypeEnum } from '@app-types/models/account.types';
 import { Injectable } from '@nestjs/common';
 import { ACCOUNT_ERROR, DomainError } from '@src/core/common/errors/domain-error';
 import { TokenHelper } from '@src/core/common/token/token.helper';
@@ -141,10 +141,10 @@ export class UpgradeToCustomerUsecase {
     // 4. 更新用户信息（移除 REGISTRANT 并确保包含 CUSTOMER）
     const updatedAccessGroup = await this.updateUserInfoAccessGroup(accountId, manager);
 
-    // 同步更新账户的身份提示为 CUSTOMER
+    // 同步更新账户身份提示为 CUSTOMER，并激活账户状态
     await this.accountService.updateAccount(
       accountId,
-      { identityHint: IdentityTypeEnum.CUSTOMER },
+      { identityHint: IdentityTypeEnum.CUSTOMER, status: AccountStatus.ACTIVE },
       manager,
     );
 
@@ -196,6 +196,9 @@ export class UpgradeToCustomerUsecase {
       userInfo.metaDigest = cleanedAccessGroup;
       await manager.getRepository(UserInfoEntity).save(userInfo);
     }
+
+    // 幂等情况下也确保账户状态为 ACTIVE，以允许正常登录
+    await this.accountService.updateAccount(accountId, { status: AccountStatus.ACTIVE }, manager);
 
     return {
       success: false,
