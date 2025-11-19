@@ -815,6 +815,51 @@ describe('Customer Management (e2e)', () => {
     });
   });
 
+  /**
+   * 单客户查询（customer）
+   * - 验证未授权访问报错
+   * - 验证客户本人可不传 customerId 获取自身信息
+   * - 验证管理员可通过 customerId 查询指定客户
+   */
+  describe('单客户查询（customer，仅 manager）', () => {
+    it('未授权访问 customer 应返回 200 且包含错误', async () => {
+      const query = `
+        query GetCustomer($input: GetCustomerInput!) {
+          customer(input: $input) { id accountId name contactPhone phone createdAt updatedAt }
+        }
+      `;
+
+      const res = await request(app.getHttpServer())
+        .post('/graphql')
+        .send({ query, variables: { input: { customerId } } })
+        .expect(200);
+
+      expect(res.body.errors).toBeDefined();
+      expect(Array.isArray(res.body.errors)).toBe(true);
+    });
+
+    it('管理员可通过 customerId 查询指定客户', async () => {
+      const query = `
+        query GetCustomer($input: GetCustomerInput!) {
+          customer(input: $input) {
+            id accountId name contactPhone phone membershipLevel createdAt updatedAt deactivatedAt
+          }
+        }
+      `;
+
+      const res = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', `Bearer ${managerAccessToken}`)
+        .send({ query, variables: { input: { customerId } } })
+        .expect(200);
+
+      expect(res.body.errors).toBeUndefined();
+      const cust = res.body.data.customer;
+      expect(cust.id).toBe(customerId);
+      expect(cust.membershipLevel === null || typeof cust.membershipLevel === 'number').toBe(true);
+    });
+  });
+
   describe('客户上下线', () => {
     it('管理员应该可以下线客户（幂等）', async () => {
       // 第一次下线

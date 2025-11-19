@@ -8,6 +8,7 @@ import { currentUser } from '@src/adapters/graphql/decorators/current-user.decor
 import { JwtAuthGuard } from '@src/adapters/graphql/guards/jwt-auth.guard';
 import { CustomerEntity } from '@src/modules/account/identities/training/customer/account-customer.entity';
 import { DeactivateCustomerUsecase } from '@src/usecases/identity-management/customer/deactivate-customer.usecase';
+import { GetCustomerUsecase } from '@src/usecases/identity-management/customer/get-customer.usecase';
 import {
   ListCustomersUsecase,
   PaginatedCustomers,
@@ -18,6 +19,7 @@ import { GetMembershipLevelByIdUsecase } from '@src/usecases/membership-levels/g
 import { CustomerType } from '../../account/dto/identity/customer.dto';
 import { MembershipLevelType } from '../../account/dto/identity/membership-level.dto';
 import { DeactivateCustomerInput } from './dto/customer.input.deactivate';
+import { GetCustomerInput } from './dto/customer.input.get';
 import { ListCustomersInput } from './dto/customer.input.list';
 import { ReactivateCustomerInput } from './dto/customer.input.reactivate';
 import { UpdateCustomerInput } from './dto/customer.input.update';
@@ -40,6 +42,7 @@ export class CustomerResolver {
     private readonly deactivateCustomerUsecase: DeactivateCustomerUsecase,
     private readonly reactivateCustomerUsecase: ReactivateCustomerUsecase,
     private readonly listCustomersUsecase: ListCustomersUsecase,
+    private readonly getCustomerUsecase: GetCustomerUsecase,
     private readonly getMembershipLevelByIdUsecase: GetMembershipLevelByIdUsecase,
   ) {}
 
@@ -114,6 +117,34 @@ export class CustomerResolver {
         hasPrev: result.page > 1,
       },
     };
+  }
+
+  /**
+   * 获取客户信息（支持客户本人与 manager）
+   * @param input 查询输入参数
+   * @param user 当前用户
+   */
+  @UseGuards(JwtAuthGuard)
+  @Query(() => CustomerType, { description: '获取单个客户信息（仅 manager）' })
+  async customer(
+    @Args('input') input: GetCustomerInput,
+    @currentUser() user: JwtPayload,
+  ): Promise<CustomerType> {
+    const safeCustomerId: number | undefined = (() => {
+      const obj: { customerId?: unknown } = input ?? {};
+      const val = obj.customerId;
+      return typeof val === 'number' ? val : undefined;
+    })();
+    const result = await this.getCustomerUsecase.execute({
+      currentAccountId: Number(user.sub),
+      customerId: safeCustomerId,
+    });
+    return await this.mapCustomerEntityToType(
+      result.entity,
+      result.userState,
+      result.loginHistory,
+      result.userPhone,
+    );
   }
 
   /**

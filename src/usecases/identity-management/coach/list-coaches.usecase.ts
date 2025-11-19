@@ -55,9 +55,9 @@ export class ListCoachesUsecase {
    */
   async execute(currentAccountId: number, params: ListCoachesParams): Promise<PaginatedCoaches> {
     // 仅允许 manager 身份执行教练列表查询
-    const manager = await this.managerService.findByAccountId(currentAccountId);
-    if (!manager) {
-      throw new DomainError(PERMISSION_ERROR.ACCESS_DENIED, '仅管理员可查看教练列表');
+    const isActive = await this.managerService.isActiveManager(currentAccountId);
+    if (!isActive) {
+      throw new DomainError(PERMISSION_ERROR.ACCESS_DENIED, '仅活跃的 manager 可查看教练列表');
     }
 
     const result = await this.coachService.findPaginated({
