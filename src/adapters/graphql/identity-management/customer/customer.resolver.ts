@@ -206,6 +206,7 @@ export class CustomerResolver {
       updatedAt: entity.updatedAt,
       deactivatedAt: entity.deactivatedAt ?? null,
       loginHistory: loginHistory ?? null,
+      remainingSessions: entity.remainingSessions,
     };
 
     // 根据实体中的 membershipLevel（数值枚举）去等级表读取详细信息

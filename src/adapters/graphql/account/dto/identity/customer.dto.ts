@@ -1,6 +1,6 @@
 // src/adapters/graphql/account/dto/identity/customer.dto.ts
 import { UserState } from '@app-types/models/user-info.types';
-import { Field, Int, ObjectType } from '@nestjs/graphql';
+import { Field, Float, Int, ObjectType } from '@nestjs/graphql';
 import { LoginHistoryItem } from '../../enums/login-history.types';
 import { MembershipLevelType } from './membership-level.dto';
 
@@ -53,4 +53,7 @@ export class CustomerType {
 
   @Field(() => [LoginHistoryItem], { description: '最近登录历史（最多 5 条）', nullable: true })
   loginHistory!: LoginHistoryItem[] | null;
+
+  @Field(() => Float, { description: '剩余课次（精确到 0.01）' })
+  remainingSessions!: number;
 }

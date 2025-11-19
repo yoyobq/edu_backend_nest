@@ -45,6 +45,7 @@ export type RawIdentity =
         | 'remark'
         | 'createdAt'
         | 'updatedAt'
+        | 'remainingSessions'
       > & { id: number };
     }
   | {
@@ -150,8 +151,9 @@ export class FetchIdentityByRoleUsecase {
     membershipLevel: number | null;
     remark: string | null;
     deactivatedAt: Date | null;
-    createdAt: Date; // 添加缺失的字段
-    updatedAt: Date; // 添加缺失的字段
+    createdAt: Date;
+    updatedAt: Date;
+    remainingSessions: number;
   }): Pick<
     CustomerType,
     | 'accountId'
@@ -162,6 +164,7 @@ export class FetchIdentityByRoleUsecase {
     | 'remark'
     | 'createdAt'
     | 'updatedAt'
+    | 'remainingSessions'
   > & { id: number } {
     return {
       id: entity.id,
@@ -173,6 +176,7 @@ export class FetchIdentityByRoleUsecase {
       remark: entity.remark,
       createdAt: entity.createdAt,
       updatedAt: entity.updatedAt,
+      remainingSessions: entity.remainingSessions,
     };
   }
 

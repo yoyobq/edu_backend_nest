@@ -327,6 +327,7 @@ export class ThirdPartyAuthResolver {
       createdAt: customer.createdAt,
       updatedAt: customer.updatedAt,
       deactivatedAt: customer.deactivatedAt,
+      remainingSessions: customer.remainingSessions,
       customerId: customer.id,
     } as CustomerType;
   }

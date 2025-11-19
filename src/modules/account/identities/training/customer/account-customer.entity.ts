@@ -125,6 +125,20 @@ export class CustomerEntity {
   deactivatedAt!: Date | null;
 
   /**
+   * 剩余课次（精确到 0.01）
+   * decimal(6,2)，默认 0.00
+   */
+  @Column({
+    name: 'remaining_sessions',
+    type: 'decimal',
+    precision: 6,
+    scale: 2,
+    default: 0.0,
+    comment: '剩余课次（精确到 0.1）',
+  })
+  remainingSessions!: number;
+
+  /**
    * 创建时间
    * 自动设置为当前时间戳
    */
