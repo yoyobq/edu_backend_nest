@@ -45,6 +45,7 @@ export interface CustomerListItem {
   entity: CustomerEntity;
   userState: UserState | null;
   loginHistory: CustomerLoginHistoryItem[] | null;
+  userPhone: string | null;
 }
 
 export interface PaginatedCustomers {
@@ -106,7 +107,7 @@ export class ListCustomersUsecase {
           : null;
         const state: UserState | null = ui?.userState ?? null;
         const history: CustomerLoginHistoryItem[] | null = acc?.recentLoginHistory ?? null;
-        return { entity, userState: state, loginHistory: history };
+        return { entity, userState: state, loginHistory: history, userPhone: ui?.phone ?? null };
       }),
     );
 

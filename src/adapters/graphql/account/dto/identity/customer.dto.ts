@@ -21,6 +21,9 @@ export class CustomerType {
   @Field(() => String, { description: '备用联系电话', nullable: true })
   contactPhone!: string | null;
 
+  @Field(() => String, { description: '用户手机号（来自 user_info）', nullable: true })
+  phone?: string | null;
+
   @Field(() => String, { description: '联络偏好时间', nullable: true })
   preferredContactTime!: string | null;
 

@@ -95,7 +95,12 @@ export class CustomerResolver {
     });
     const customers = await Promise.all(
       result.items.map((item) =>
-        this.mapCustomerEntityToType(item.entity, item.userState, item.loginHistory),
+        this.mapCustomerEntityToType(
+          item.entity,
+          item.userState,
+          item.loginHistory,
+          item.userPhone,
+        ),
       ),
     );
     return {
@@ -154,12 +159,14 @@ export class CustomerResolver {
     entity: CustomerEntity,
     userState?: UserState | null,
     loginHistory?: { ip: string; timestamp: string; audience?: string }[] | null,
+    userPhone?: string | null,
   ): Promise<CustomerType> {
     const base: CustomerType = {
       id: entity.id,
       accountId: entity.accountId,
       name: entity.name,
       contactPhone: entity.contactPhone,
+      phone: userPhone ?? null,
       preferredContactTime: entity.preferredContactTime,
       membershipLevel: (entity.membershipLevel ?? null) as number | null,
       remark: entity.remark,

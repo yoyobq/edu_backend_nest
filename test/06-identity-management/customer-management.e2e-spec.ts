@@ -373,7 +373,7 @@ describe('Customer Management (e2e)', () => {
       const query = `
         query ListCustomers($input: ListCustomersInput!) {
           customers(input: $input) {
-            customers { id accountId name membershipLevel createdAt updatedAt }
+            customers { id accountId name membershipLevel phone createdAt updatedAt }
             pagination { page limit total totalPages hasNext hasPrev }
           }
         }
@@ -399,7 +399,7 @@ describe('Customer Management (e2e)', () => {
       const query = `
         query ListCustomers($input: ListCustomersInput!) {
           customers(input: $input) {
-            customers { id accountId name membershipLevel createdAt updatedAt }
+            customers { id accountId name membershipLevel phone createdAt updatedAt }
             pagination { page limit total totalPages hasNext hasPrev }
           }
         }
@@ -432,6 +432,7 @@ describe('Customer Management (e2e)', () => {
         expect(typeof first.name).toBe('string');
         // accountId 允许为 null（DTO 定义），这里只做存在性断言
         expect(first.accountId === null || typeof first.accountId === 'number').toBe(true);
+        expect(first.phone === null || typeof first.phone === 'string').toBe(true);
       }
     });
 
@@ -444,7 +445,7 @@ describe('Customer Management (e2e)', () => {
       const query = `
         query ListCustomers($input: ListCustomersInput!) {
           customers(input: $input) {
-            customers { id name createdAt updatedAt }
+            customers { id name phone createdAt updatedAt }
             pagination { page limit total totalPages hasNext hasPrev }
           }
         }
@@ -476,7 +477,7 @@ describe('Customer Management (e2e)', () => {
       const queryGql = `
         query ListCustomers($input: ListCustomersInput!) {
           customers(input: $input) {
-            customers { id name contactPhone }
+            customers { id name contactPhone phone }
             pagination { page limit total totalPages }
           }
         }
@@ -587,7 +588,7 @@ describe('Customer Management (e2e)', () => {
       const queryGql = `
         query ListCustomers($input: ListCustomersInput!) {
           customers(input: $input) {
-            customers { id name contactPhone }
+            customers { id name contactPhone phone }
             pagination { page limit total totalPages }
           }
         }
@@ -649,7 +650,7 @@ describe('Customer Management (e2e)', () => {
       const queryGql = `
         query ListCustomers($input: ListCustomersInput!) {
           customers(input: $input) {
-            customers { id name contactPhone }
+            customers { id name contactPhone phone }
             pagination { page limit total totalPages }
           }
         }
@@ -743,7 +744,7 @@ describe('Customer Management (e2e)', () => {
       const queryGql = `
         query ListCustomers($input: ListCustomersInput!) {
           customers(input: $input) {
-            customers { id name contactPhone }
+            customers { id name contactPhone phone }
             pagination { page limit total totalPages }
           }
         }
@@ -766,7 +767,7 @@ describe('Customer Management (e2e)', () => {
       const queryGql = `
         query ListCustomers($input: ListCustomersInput!) {
           customers(input: $input) {
-            customers { id name membershipLevel contactPhone }
+            customers { id name membershipLevel contactPhone phone }
             pagination { page limit total totalPages }
           }
         }
