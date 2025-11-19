@@ -32,6 +32,14 @@ export class MembershipLevelsService {
   }
 
   /**
+   * 列出所有会员等级（按 ID 升序）
+   * 仅提供只读列表，用于前端下拉或多选数据源。
+   */
+  async findAll(): Promise<MembershipLevelEntity[]> {
+    return this.levelRepository.find({ order: { id: 'ASC' } });
+  }
+
+  /**
    * 创建会员等级
    * @param data 创建数据
    */
