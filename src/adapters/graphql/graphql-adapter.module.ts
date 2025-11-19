@@ -45,6 +45,7 @@ import { PayoutRuleResolver } from './payout/payout-rule.resolver';
 import { RegistrationResolver } from './registration/registration.resolver';
 import { ThirdPartyAuthResolver } from './third-party-auth/third-party-auth.resolver';
 import { VerificationRecordResolver } from './verification-record/verification-record.resolver';
+import { UserInfoResolver } from './account/user-info.resolver';
 
 // Guards
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
@@ -93,6 +94,7 @@ import { RolesGuard } from './guards/roles.guard';
     CustomerResolver, // 注册客户管理 resolver
     CoachResolver, // 注册教练管理 resolver
     ManagerResolver, // 注册经理管理 resolver
+    UserInfoResolver,
     SessionEnrollmentResolver, // 注册节次报名 resolver
     SessionCancelResolver, // 注册取消报名 resolver
     SessionCloseResolver, // 注册节次结课 resolver
@@ -122,6 +124,7 @@ import { RolesGuard } from './guards/roles.guard';
     CustomerResolver, // 导出客户管理 resolver
     CoachResolver, // 导出教练管理 resolver
     ManagerResolver, // 导出经理管理 resolver
+    UserInfoResolver,
     SessionEnrollmentResolver, // 导出节次报名 resolver
     SessionCancelResolver, // 导出取消报名 resolver
     SessionCloseResolver, // 导出节次结课 resolver
