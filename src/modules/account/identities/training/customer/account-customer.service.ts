@@ -210,9 +210,19 @@ export class CustomerService {
     const tieBreaker = this.customerSortResolver.resolveColumn('id');
     if (tieBreaker) qb.addOrderBy(tieBreaker, sortOrder);
 
-    // 统计总数（克隆一个用于 COUNT 的查询，避免 ORDER BY 干扰）
+    // 统计总数（克隆一个用于 COUNT 的查询，避免 ORDER BY 干扰；JOIN 下使用 DISTINCT 防重复）
     const countQb = qb.clone();
-    const total = await countQb.getCount();
+    try {
+      (countQb as unknown as SelectQueryBuilder<CustomerEntity>).orderBy();
+    } catch {
+      // ignore
+    }
+    const cntAlias = 'cnt';
+    const raw = await countQb
+      .select('COUNT(DISTINCT customer.id)', cntAlias)
+      .getRawOne<Record<string, unknown>>();
+    const total =
+      typeof raw?.[cntAlias] === 'number' ? raw[cntAlias] : Number(raw?.[cntAlias] ?? 0);
 
     // 应用分页
     qb.take(actualLimit).skip((page - 1) * actualLimit);
@@ -229,7 +239,7 @@ export class CustomerService {
     const qb = this.customerRepository.createQueryBuilder('customer');
     qb.leftJoin(UserInfoEntity, 'ui', 'ui.account_id = customer.account_id');
     if (!includeDeleted) {
-      qb.where('customer.deactivatedAt IS NULL');
+      qb.where('customer.deactivated_at IS NULL');
     }
     return qb;
   }
@@ -248,12 +258,11 @@ export class CustomerService {
       new Brackets((subQb) => {
         subQb
           .where('LOWER(customer.name) LIKE :q', { q: like })
-          .orWhere('LOWER(customer.contactPhone) LIKE :q', { q: like });
+          .orWhere('LOWER(customer.contactPhone) LIKE :q', { q: like })
+          .orWhere('LOWER(ui.phone) LIKE :q', { q: like });
         if (digits.length > 0) {
           subQb.orWhere('customer.contactPhone LIKE :p', { p: `%${digits}%` });
-          if (/^[0-9]+$/.test(raw)) {
-            subQb.orWhere('customer.contactPhone IS NOT NULL');
-          }
+          subQb.orWhere('ui.phone LIKE :p', { p: `%${digits}%` });
         }
         subQb.orWhere('LOWER(ui.nickname) LIKE :q', { q: like });
       }),
@@ -277,8 +286,8 @@ export class CustomerService {
     if (filters.contactPhone)
       qb.andWhere('customer.contactPhone = :fphone', { fphone: filters.contactPhone });
     if (typeof filters.membershipLevel === 'number')
-      qb.andWhere('customer.membershipLevel = :flevel', { flevel: filters.membershipLevel });
-    if (filters.userState) qb.andWhere('ui.userState = :fstate', { fstate: filters.userState });
+      qb.andWhere('customer.membership_level_id = :flevel', { flevel: filters.membershipLevel });
+    if (filters.userState) qb.andWhere('ui.user_state = :fstate', { fstate: filters.userState });
   }
 
   /**
@@ -295,7 +304,7 @@ export class CustomerService {
   }): Promise<PaginatedResult<CustomerEntity>> {
     const qb = this.customerRepository.createQueryBuilder('customer');
 
-    if (!args.includeDeleted) qb.where('customer.deactivatedAt IS NULL');
+    if (!args.includeDeleted) qb.where('customer.deactivated_at IS NULL');
 
     const allowedSorts: ReadonlyArray<string> = ['name', 'id', 'createdAt', 'updatedAt'];
     const defaultSorts: ReadonlyArray<SortParam> = [

@@ -8,6 +8,7 @@ import { DataSource } from 'typeorm';
 import { initGraphQLSchema } from '../../src/adapters/graphql/schema/schema.init';
 import { AppModule } from '../../src/app.module';
 import { cleanupTestAccounts, seedTestAccounts, testAccountsConfig } from '../utils/test-accounts';
+import { UserInfoEntity } from '../../src/modules/account/base/entities/user-info.entity';
 
 /**
  * 客户管理 E2E 测试
@@ -509,6 +510,52 @@ describe('Customer Management (e2e)', () => {
       expect(Array.isArray(phoneList)).toBe(true);
       // 调试输出移除
       expect(phoneList.some((c) => typeof c.contactPhone === 'string')).toBe(true);
+    });
+
+    it('管理员支持 query 搜索（按 userinfo.phone 手机号）', async () => {
+      const loginResp = await request(app.getHttpServer())
+        .post('/graphql')
+        .send({
+          query: `
+            mutation Login($input: AuthLoginInput!) {
+              login(input: $input) { accountId }
+            }
+          `,
+          variables: {
+            input: {
+              loginName: testAccountsConfig.customer.loginName,
+              loginPassword: testAccountsConfig.customer.loginPassword,
+              type: LoginTypeEnum.PASSWORD,
+              audience: AudienceTypeEnum.DESKTOP,
+            },
+          },
+        })
+        .expect(200);
+      const accountId = loginResp.body.data.login.accountId as number;
+
+      const repo = dataSource.getRepository(UserInfoEntity);
+      await repo.update({ accountId }, { phone: '15500008888' });
+
+      const queryGql = `
+        query ListCustomers($input: ListCustomersInput!) {
+          customers(input: $input) {
+            customers { id name contactPhone }
+            pagination { page limit total totalPages }
+          }
+        }
+      `;
+      const byUiPhone = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', `Bearer ${managerAccessToken}`)
+        .send({
+          query: queryGql,
+          variables: { input: { page: 1, limit: 10, query: '1550000' } },
+        })
+        .expect(200);
+      expect(byUiPhone.body.errors).toBeUndefined();
+      const uiPhoneList = byUiPhone.body.data.customers.customers as Array<{ id: number }>;
+      expect(Array.isArray(uiPhoneList)).toBe(true);
+      expect(uiPhoneList.length).toBeGreaterThan(0);
     });
 
     it('管理员支持 filters 精确过滤（membershipLevel / userState / contactPhone）', async () => {
