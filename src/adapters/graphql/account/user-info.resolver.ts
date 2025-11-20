@@ -1,14 +1,17 @@
 // 文件位置：src/adapters/graphql/account/user-info.resolver.ts
 import { UseGuards } from '@nestjs/common';
-import { Args, Int, Query, Resolver } from '@nestjs/graphql';
+import { Args, Int, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { mapJwtToUsecaseSession, type UsecaseSession } from '@src/types/auth/session.types';
 import { JwtPayload } from '@src/types/jwt.types';
 import { GetVisibleUserInfoUsecase } from '@src/usecases/account/get-visible-user-info.usecase';
+import { UpdateVisibleUserInfoUsecase } from '@src/usecases/account/update-visible-user-info.usecase';
 import { UserInfoView } from '@app-types/models/auth.types';
 import { currentUser } from '../decorators/current-user.decorator';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 import { BasicUserInfoDTO } from './dto/basic-user-info.dto';
 import { UserInfoDTO } from './dto/user-info.dto';
+import { UpdateUserInfoInput, UpdateUserInfoResult } from './dto/user-info.update.input';
+import { type GeographicInfo } from '@app-types/models/user-info.types';
 
 /**
  * 用户信息 GraphQL 解析器
@@ -16,7 +19,10 @@ import { UserInfoDTO } from './dto/user-info.dto';
  */
 @Resolver()
 export class UserInfoResolver {
-  constructor(private readonly getVisibleUserInfoUsecase: GetVisibleUserInfoUsecase) {}
+  constructor(
+    private readonly getVisibleUserInfoUsecase: GetVisibleUserInfoUsecase,
+    private readonly updateVisibleUserInfoUsecase: UpdateVisibleUserInfoUsecase,
+  ) {}
 
   /**
    * 按可见性读取用户信息（完整）
@@ -106,5 +112,47 @@ export class UserInfoResolver {
     if (geo.province) parts.push(geo.province);
     if (geo.city) parts.push(geo.city);
     return parts.length > 0 ? parts.join(', ') : null;
+  }
+
+  /**
+   * 更新用户信息（按可见性与权限策略）
+   * @param user 当前登录用户
+   * @param input 更新输入
+   */
+  @UseGuards(JwtAuthGuard)
+  @Mutation(() => UpdateUserInfoResult, { name: 'updateUserInfo' })
+  async updateUserInfo(
+    @currentUser() user: JwtPayload,
+    @Args('input') input: UpdateUserInfoInput,
+  ): Promise<UpdateUserInfoResult> {
+    const session: UsecaseSession = mapJwtToUsecaseSession(user);
+    const targetAccountId =
+      typeof input.accountId === 'number' ? input.accountId : session.accountId;
+    const geoPatch: GeographicInfo | null = input.geographic
+      ? {
+          province: input.geographic.province ?? undefined,
+          city: input.geographic.city ?? undefined,
+        }
+      : null;
+    const { view, isUpdated } = await this.updateVisibleUserInfoUsecase.execute({
+      session,
+      targetAccountId,
+      patch: {
+        nickname: input.nickname,
+        gender: input.gender,
+        birthDate: input.birthDate ?? null,
+        avatarUrl: input.avatarUrl ?? null,
+        email: input.email ?? null,
+        signature: input.signature ?? null,
+        address: input.address ?? null,
+        phone: input.phone ?? null,
+        tags: input.tags ?? null,
+        geographic: geoPatch,
+      },
+    });
+    return {
+      isUpdated,
+      userInfo: this.mapViewToDTO(view),
+    };
   }
 }

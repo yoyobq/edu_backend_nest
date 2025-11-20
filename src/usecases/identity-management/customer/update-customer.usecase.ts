@@ -100,7 +100,22 @@ export class UpdateCustomerUsecase {
     currentAccountId: number,
     params: UpdateCustomerUsecaseParams,
   ): Promise<{ targetCustomerId: number; isManager: boolean }> {
-    // 尝试以 customer 身份解析
+    // 先判定是否为 manager（优先级更高，避免同时具备 customer 身份时误判）
+    const asManager = await this.managerService.findByAccountId(currentAccountId);
+    if (asManager) {
+      if (!params.customerId) {
+        throw new DomainError(PERMISSION_ERROR.ACCESS_DENIED, 'Manager 必须指定目标客户 ID');
+      }
+
+      const target = await this.customerService.findById(params.customerId);
+      if (!target) {
+        throw new DomainError(PERMISSION_ERROR.ACCESS_DENIED, '目标客户不存在');
+      }
+
+      return { targetCustomerId: params.customerId, isManager: true };
+    }
+
+    // 其次判定是否为 customer（仅允许编辑自身客户记录）
     const asCustomer = await this.customerService.findByAccountId(currentAccountId);
     if (asCustomer) {
       if (params.customerId && params.customerId !== asCustomer.id) {
@@ -109,25 +124,8 @@ export class UpdateCustomerUsecase {
       return { targetCustomerId: asCustomer.id, isManager: false };
     }
 
-    // 验证 manager 身份
-    const asManager = await this.managerService.findByAccountId(currentAccountId);
-    if (!asManager) {
-      throw new DomainError(PERMISSION_ERROR.ACCESS_DENIED, '用户身份验证失败');
-    }
-
-    // manager 必须指定目标客户 ID
-    if (!params.customerId) {
-      throw new DomainError(PERMISSION_ERROR.ACCESS_DENIED, 'Manager 必须指定目标客户 ID');
-    }
-
-    // 验证目标客户是否存在
-    const target = await this.customerService.findById(params.customerId);
-    if (!target) {
-      throw new DomainError(PERMISSION_ERROR.ACCESS_DENIED, '目标客户不存在');
-    }
-
-    // TODO: 如需验证 manager 是否有权限管理该客户，可在此补充业务逻辑
-    return { targetCustomerId: params.customerId, isManager: true };
+    // 两种身份均不匹配
+    throw new DomainError(PERMISSION_ERROR.ACCESS_DENIED, '用户身份验证失败');
   }
 
   /**

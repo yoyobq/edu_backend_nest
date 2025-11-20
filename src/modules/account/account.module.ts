@@ -28,6 +28,7 @@ import '@src/adapters/graphql/account/enums/login-history.types';
 import { FetchIdentityByRoleUsecase } from '@usecases/account/fetch-identity-by-role.usecase';
 import { FetchUserInfoUsecase } from '@usecases/account/fetch-user-info.usecase';
 import { GetVisibleUserInfoUsecase } from '@usecases/account/get-visible-user-info.usecase';
+import { UpdateVisibleUserInfoUsecase } from '@usecases/account/update-visible-user-info.usecase';
 
 // 身份包模块
 import { AccountSecurityService } from './base/services/account-security.service';
@@ -137,6 +138,7 @@ export class AccountModule {
         FetchIdentityByRoleUsecase,
         FetchUserInfoUsecase, // 添加这一行
         GetVisibleUserInfoUsecase,
+        UpdateVisibleUserInfoUsecase,
         providerMapFactory, // 聚合 Map
       ],
       exports: [
@@ -145,6 +147,7 @@ export class AccountModule {
         FetchIdentityByRoleUsecase,
         FetchUserInfoUsecase, // 添加这一行
         GetVisibleUserInfoUsecase,
+        UpdateVisibleUserInfoUsecase,
         PROFILE_PROVIDER_MAP_TOKEN, // 对外只暴露聚合后的 Map
       ],
     };
