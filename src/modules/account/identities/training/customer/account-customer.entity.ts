@@ -134,7 +134,7 @@ export class CustomerEntity {
     precision: 6,
     scale: 2,
     default: 0.0,
-    comment: '剩余课次（精确到 0.1）',
+    comment: '剩余课次（精确到 0.01）',
   })
   remainingSessions!: number;
 
