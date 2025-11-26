@@ -1,4 +1,5 @@
 // src/modules/payout/session-adjustments/payout-session-adjustments.service.ts
+import { decimalCompute } from '@core/common/numeric/decimal';
 import type { CursorToken } from '@core/pagination/pagination.types';
 import type { SearchOptions, SearchParams, SearchResult } from '@core/search/search.types';
 import { Injectable } from '@nestjs/common';
@@ -13,8 +14,8 @@ import {
 export type AppendAdjustmentInput = {
   customerId: number;
   deltaSessions: number;
-  beforeSessions: string;
-  afterSessions: string;
+  beforeSessions: number;
+  afterSessions: number;
   reasonType: SessionAdjustmentReasonType;
   reasonNote?: string | null;
   operatorAccountId?: number | null;
@@ -40,6 +41,7 @@ export class PayoutSessionAdjustmentsService {
 
   /**
    * 追加一条课次调整日志（不负责更新余额）
+   * 将 delta / before / after 统一按两位小数规约为字符串入库
    * @param input 输入参数对象
    */
   async appendAdjustment(input: AppendAdjustmentInput): Promise<PayoutSessionAdjustmentEntity> {
@@ -47,11 +49,29 @@ export class PayoutSessionAdjustmentsService {
       ? input.manager.getRepository(PayoutSessionAdjustmentEntity)
       : this.adjustmentRepo;
 
+    const beforeStr = decimalCompute({
+      op: 'add',
+      a: 0,
+      b: Number(input.beforeSessions),
+      outScale: 2,
+    }).toFixed(2);
+    const afterStr = decimalCompute({
+      op: 'add',
+      a: 0,
+      b: Number(input.afterSessions),
+      outScale: 2,
+    }).toFixed(2);
+
     const entity = aRepo.create({
       customerId: input.customerId,
-      deltaSessions: Number(input.deltaSessions).toFixed(2),
-      beforeSessions: input.beforeSessions,
-      afterSessions: input.afterSessions,
+      deltaSessions: decimalCompute({
+        op: 'add',
+        a: 0,
+        b: Number(input.deltaSessions),
+        outScale: 2,
+      }).toFixed(2),
+      beforeSessions: beforeStr,
+      afterSessions: afterStr,
       reasonType: input.reasonType,
       reasonNote: input.reasonNote ?? null,
       operatorAccountId: input.operatorAccountId ?? null,
@@ -73,8 +93,13 @@ export class PayoutSessionAdjustmentsService {
     >;
 
     const options: SearchOptions = {
-      searchColumns: ['psa.customer_id', 'psa.reason_type', 'psa.operator_account_id'],
-      allowedFilters: ['customerId', 'reasonType', 'operatorAccountId'],
+      searchColumns: [
+        'psa.customer_id',
+        'psa.reason_type',
+        'psa.operator_account_id',
+        'psa.order_ref',
+      ],
+      allowedFilters: ['customerId', 'reasonType', 'operatorAccountId', 'orderRef'],
       resolveColumn: (field: string): string | null => {
         switch (field) {
           case 'id':
@@ -85,6 +110,8 @@ export class PayoutSessionAdjustmentsService {
             return 'psa.operator_account_id';
           case 'reasonType':
             return 'psa.reason_type';
+          case 'orderRef':
+            return 'psa.order_ref';
           case 'deltaSessions':
             return 'psa.delta_sessions';
           case 'createdAt':
@@ -99,6 +126,7 @@ export class PayoutSessionAdjustmentsService {
         'customerId',
         'operatorAccountId',
         'reasonType',
+        'orderRef',
         'deltaSessions',
       ],
       defaultSorts: [
@@ -117,7 +145,7 @@ export class PayoutSessionAdjustmentsService {
           };
         }
         return {
-          clause: 'LOWER(psa.reason_type) LIKE LOWER(:q)',
+          clause: 'LOWER(psa.reason_type) LIKE LOWER(:q) OR LOWER(psa.order_ref) LIKE LOWER(:q)',
           params: { q: `%${raw}%` },
         };
       },
