@@ -225,473 +225,464 @@ describe('Session Adjustments Search (e2e)', () => {
     if (app) await app.close();
   });
 
-  it('未登录访问 searchSessionAdjustments 返回 200 且包含错误', async () => {
-    const query = `
-      query Search($input: SearchSessionAdjustmentsInputGql!) {
-        searchSessionAdjustments(input: $input) { items { id customerId deltaSessions orderRef } }
-      }`;
-    const res = await request(app.getHttpServer())
-      .post('/graphql')
-      .send({
-        query,
-        variables: { input: { pagination: { mode: 'OFFSET', page: 1, pageSize: 10 } } },
-      })
-      .expect(200);
-    expect(res.body.errors).toBeDefined();
-  });
+  describe('正例', () => {
+    it('MANAGER 正常查询，返回可包含不同 customerId 的记录', async () => {
+      const query = `
+        query Search($input: SearchSessionAdjustmentsInputGql!) {
+          searchSessionAdjustments(input: $input) {
+            items { id customerId orderRef }
+            page pageSize total
+          }
+        }`;
+      const res = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', `Bearer ${managerToken}`)
+        .send({
+          query,
+          variables: { input: { pagination: { mode: 'OFFSET', page: 1, pageSize: 50 } } },
+        })
+        .expect(200);
+      expect(res.body.errors).toBeUndefined();
+      const items = res.body.data.searchSessionAdjustments.items as Array<{ customerId: number }>;
+      const customerIds = Array.from(new Set(items.map((x) => x.customerId)));
+      expect(customerIds.length).toBeGreaterThan(1);
+    });
 
-  // 1.1 MANAGER 正常查询（不带 filters，不被强制限制）
-  it('MANAGER 正常查询，返回可包含不同 customerId 的记录', async () => {
-    const query = `
-      query Search($input: SearchSessionAdjustmentsInputGql!) {
-        searchSessionAdjustments(input: $input) {
-          items { id customerId orderRef }
-          page pageSize total
-        }
-      }`;
-    const res = await request(app.getHttpServer())
-      .post('/graphql')
-      .set('Authorization', `Bearer ${managerToken}`)
-      .send({
-        query,
-        variables: { input: { pagination: { mode: 'OFFSET', page: 1, pageSize: 50 } } },
-      })
-      .expect(200);
-    expect(res.body.errors).toBeUndefined();
-    const items = res.body.data.searchSessionAdjustments.items as Array<{ customerId: number }>;
-    const customerIds = Array.from(new Set(items.map((x) => x.customerId)));
-    expect(customerIds.length).toBeGreaterThan(1);
-  });
-
-  // 1.2 非活跃 MANAGER 被拒绝
-  it('非活跃 MANAGER 被拒绝', async () => {
-    const deactivate = app.get(DeactivateManagerUsecase);
-    const result = await deactivate.execute(inactiveManagerAccountId, { id: inactiveManagerId });
-    expect(result.isUpdated || result.manager.deactivatedAt).toBeTruthy();
-
-    const query = `
-      query Search($input: SearchSessionAdjustmentsInputGql!) {
-        searchSessionAdjustments(input: $input) { items { id } }
-      }`;
-    const res = await request(app.getHttpServer())
-      .post('/graphql')
-      .set('Authorization', `Bearer ${inactiveManagerToken}`)
-      .send({
-        query,
-        variables: { input: { pagination: { mode: 'OFFSET', page: 1, pageSize: 10 } } },
-      })
-      .expect(200);
-    expect(res.body.errors).toBeDefined();
-    const msg = res.body.errors?.[0]?.message ?? '';
-    expect(msg).toMatch(/仅活跃的 manager 可访问|ACCESS_DENIED/);
-  });
-
-  // 1.3 CUSTOMER 只能查自己名下记录（无 filters）
-  it('客户身份只能看到自己的调整记录', async () => {
-    const query = `
-      query Search($input: SearchSessionAdjustmentsInputGql!) {
-        searchSessionAdjustments(input: $input) {
-          items { id customerId deltaSessions reasonType orderRef }
-          page pageSize total
-        }
-      }`;
-    const res = await request(app.getHttpServer())
-      .post('/graphql')
-      .set('Authorization', `Bearer ${customerToken}`)
-      .send({
-        query,
-        variables: {
-          input: {
-            pagination: { mode: 'OFFSET', page: 1, pageSize: 10 },
-            sorts: [{ field: 'createdAt', direction: 'DESC' }],
+    it('客户身份只能看到自己的调整记录', async () => {
+      const query = `
+        query Search($input: SearchSessionAdjustmentsInputGql!) {
+          searchSessionAdjustments(input: $input) {
+            items { id customerId deltaSessions reasonType orderRef }
+            page pageSize total
+          }
+        }`;
+      const res = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', `Bearer ${customerToken}`)
+        .send({
+          query,
+          variables: {
+            input: {
+              pagination: { mode: 'OFFSET', page: 1, pageSize: 10 },
+              sorts: [{ field: 'createdAt', direction: 'DESC' }],
+            },
           },
-        },
-      })
-      .expect(200);
-    expect(res.body.errors).toBeUndefined();
-    const items = res.body.data.searchSessionAdjustments.items;
-    expect(Array.isArray(items)).toBe(true);
-    if (items.length > 0) {
+        })
+        .expect(200);
+      expect(res.body.errors).toBeUndefined();
+      const items = res.body.data.searchSessionAdjustments.items;
+      expect(Array.isArray(items)).toBe(true);
+      if (items.length > 0) {
+        expect(items.every((x: any) => x.customerId === customerId)).toBe(true);
+      }
+    });
+
+    it('Customer 恶意传入别人 customerId 也只能看到自己的', async () => {
+      const query = `
+        query Search($input: SearchSessionAdjustmentsInputGql!) {
+          searchSessionAdjustments(input: $input) { items { customerId } }
+        }`;
+      const res = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', `Bearer ${customerToken}`)
+        .send({
+          query,
+          variables: {
+            input: {
+              customerId: anotherCustomerId,
+              pagination: { mode: 'OFFSET', page: 1, pageSize: 10 },
+            },
+          },
+        })
+        .expect(200);
+      expect(res.body.errors).toBeUndefined();
+      const items = res.body.data.searchSessionAdjustments.items;
       expect(items.every((x: any) => x.customerId === customerId)).toBe(true);
-    }
-  });
+    });
 
-  // 1.4 CUSTOMER 恶意传入别人 customerId 也只能看到自己的
-  it('Customer 恶意传入别人 customerId 也只能看到自己的', async () => {
-    const query = `
-      query Search($input: SearchSessionAdjustmentsInputGql!) {
-        searchSessionAdjustments(input: $input) { items { customerId } }
-      }`;
-    const res = await request(app.getHttpServer())
-      .post('/graphql')
-      .set('Authorization', `Bearer ${customerToken}`)
-      .send({
-        query,
-        variables: {
-          input: {
-            customerId: anotherCustomerId,
-            pagination: { mode: 'OFFSET', page: 1, pageSize: 10 },
+    it('支持文本搜索 orderRef 与 reasonType', async () => {
+      const query = `
+        query Search($input: SearchSessionAdjustmentsInputGql!) {
+          searchSessionAdjustments(input: $input) { items { orderRef reasonType } }
+        }`;
+      const res = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', `Bearer ${managerToken}`)
+        .send({
+          query,
+          variables: {
+            input: { query: 'promo', pagination: { mode: 'OFFSET', page: 1, pageSize: 10 } },
           },
-        },
-      })
-      .expect(200);
-    expect(res.body.errors).toBeUndefined();
-    const items = res.body.data.searchSessionAdjustments.items;
-    expect(items.every((x: any) => x.customerId === customerId)).toBe(true);
-  });
+        })
+        .expect(200);
+      expect(res.body.errors).toBeUndefined();
+      const items = res.body.data.searchSessionAdjustments.items;
+      expect(items.some((x: any) => String(x.orderRef).toLowerCase().includes('promo'))).toBe(true);
+    });
 
-  // 1.5 非 MANAGER/非 CUSTOMER 拒绝
-  it('纯 COACH / 纯 LEARNER / guest 调用被拒绝', async () => {
-    const query = `
-      query Search($input: SearchSessionAdjustmentsInputGql!) {
-        searchSessionAdjustments(input: $input) { items { id } }
-      }`;
-    const coachRes = await request(app.getHttpServer())
-      .post('/graphql')
-      .set('Authorization', `Bearer ${coachToken}`)
-      .send({
-        query,
-        variables: { input: { pagination: { mode: 'OFFSET', page: 1, pageSize: 10 } } },
-      })
-      .expect(200);
-    expect(coachRes.body.errors).toBeDefined();
-    const learnerRes = await request(app.getHttpServer())
-      .post('/graphql')
-      .set('Authorization', `Bearer ${learnerToken}`)
-      .send({
-        query,
-        variables: { input: { pagination: { mode: 'OFFSET', page: 1, pageSize: 10 } } },
-      })
-      .expect(200);
-    expect(learnerRes.body.errors).toBeDefined();
-  });
-
-  // 1.6 CUSTOMER 账号但未绑定 CustomerEntity
-  it('Customer 账号但未绑定 CustomerEntity 被拒绝', async () => {
-    const query = `
-      query Search($input: SearchSessionAdjustmentsInputGql!) {
-        searchSessionAdjustments(input: $input) { items { id } }
-      }`;
-    const res = await request(app.getHttpServer())
-      .post('/graphql')
-      .set('Authorization', `Bearer ${customerUnboundToken}`)
-      .send({
-        query,
-        variables: { input: { pagination: { mode: 'OFFSET', page: 1, pageSize: 10 } } },
-      })
-      .expect(200);
-    expect(res.body.errors).toBeDefined();
-    const msg = res.body.errors?.[0]?.message ?? '';
-    expect(msg).toMatch(/未绑定客户身份|ACCESS_DENIED/);
-  });
-
-  // 5.1 Manager 用 query 搜 reasonType / orderRef
-  it('支持文本搜索 orderRef 与 reasonType', async () => {
-    const query = `
-      query Search($input: SearchSessionAdjustmentsInputGql!) {
-        searchSessionAdjustments(input: $input) { items { orderRef reasonType } }
-      }`;
-    const res = await request(app.getHttpServer())
-      .post('/graphql')
-      .set('Authorization', `Bearer ${managerToken}`)
-      .send({
-        query,
-        variables: {
-          input: { query: 'promo', pagination: { mode: 'OFFSET', page: 1, pageSize: 10 } },
-        },
-      })
-      .expect(200);
-    expect(res.body.errors).toBeUndefined();
-    const items = res.body.data.searchSessionAdjustments.items;
-    expect(items.some((x: any) => String(x.orderRef).toLowerCase().includes('promo'))).toBe(true);
-  });
-
-  // 3.1 Manager 按 customerId 筛选 + 2.4 orderRef 清洗验证
-  it('支持精确过滤 orderRef 与排序 orderRef', async () => {
-    const query = `
-      query Search($input: SearchSessionAdjustmentsInputGql!) {
-        searchSessionAdjustments(input: $input) { items { orderRef } }
-      }`;
-    const res = await request(app.getHttpServer())
-      .post('/graphql')
-      .set('Authorization', `Bearer ${managerToken}`)
-      .send({
-        query,
-        variables: {
-          input: {
-            orderRef: 'ORDER-AAA-001',
-            pagination: { mode: 'OFFSET', page: 1, pageSize: 10 },
-            sorts: [{ field: 'orderRef', direction: 'ASC' }],
+    it('支持精确过滤 orderRef 与排序 orderRef', async () => {
+      const query = `
+        query Search($input: SearchSessionAdjustmentsInputGql!) {
+          searchSessionAdjustments(input: $input) { items { orderRef } }
+        }`;
+      const res = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', `Bearer ${managerToken}`)
+        .send({
+          query,
+          variables: {
+            input: {
+              orderRef: 'ORDER-AAA-001',
+              pagination: { mode: 'OFFSET', page: 1, pageSize: 10 },
+              sorts: [{ field: 'orderRef', direction: 'ASC' }],
+            },
           },
-        },
-      })
-      .expect(200);
-    expect(res.body.errors).toBeUndefined();
-    const items = res.body.data.searchSessionAdjustments.items;
-    expect(items.every((x: any) => x.orderRef === 'ORDER-AAA-001')).toBe(true);
-  });
+        })
+        .expect(200);
+      expect(res.body.errors).toBeUndefined();
+      const items = res.body.data.searchSessionAdjustments.items;
+      expect(items.every((x: any) => x.orderRef === 'ORDER-AAA-001')).toBe(true);
+    });
 
-  it('orderRef 输入包含空格应被清理并正常过滤', async () => {
-    const query = `
-      query Search($input: SearchSessionAdjustmentsInputGql!) {
-        searchSessionAdjustments(input: $input) { items { orderRef } }
-      }`;
-    const res = await request(app.getHttpServer())
-      .post('/graphql')
-      .set('Authorization', `Bearer ${managerToken}`)
-      .send({
-        query,
-        variables: {
-          input: {
-            orderRef: '   ORDER-AAA-001   ',
-            pagination: { mode: 'OFFSET', page: 1, pageSize: 10 },
-            sorts: [{ field: 'orderRef', direction: 'ASC' }],
+    it('orderRef 输入包含空格应被清理并正常过滤', async () => {
+      const query = `
+        query Search($input: SearchSessionAdjustmentsInputGql!) {
+          searchSessionAdjustments(input: $input) { items { orderRef } }
+        }`;
+      const res = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', `Bearer ${managerToken}`)
+        .send({
+          query,
+          variables: {
+            input: {
+              orderRef: '   ORDER-AAA-001   ',
+              pagination: { mode: 'OFFSET', page: 1, pageSize: 10 },
+              sorts: [{ field: 'orderRef', direction: 'ASC' }],
+            },
           },
-        },
-      })
-      .expect(200);
-    expect(res.body.errors).toBeUndefined();
-    const items = res.body.data.searchSessionAdjustments.items as Array<{ orderRef: string }>;
-    expect(items.every((x) => x.orderRef === 'ORDER-AAA-001')).toBe(true);
-  });
+        })
+        .expect(200);
+      expect(res.body.errors).toBeUndefined();
+      const items = res.body.data.searchSessionAdjustments.items as Array<{ orderRef: string }>;
+      expect(items.every((x) => x.orderRef === 'ORDER-AAA-001')).toBe(true);
+    });
 
-  it('orderRef 超长应触发输入验证错误', async () => {
-    const tooLong = 'A'.repeat(65);
-    const query = `
-      query Search($input: SearchSessionAdjustmentsInputGql!) {
-        searchSessionAdjustments(input: $input) { items { id } }
-      }`;
-    const res = await request(app.getHttpServer())
-      .post('/graphql')
-      .set('Authorization', `Bearer ${managerToken}`)
-      .send({
-        query,
-        variables: {
-          input: { orderRef: tooLong, pagination: { mode: 'OFFSET', page: 1, pageSize: 10 } },
-        },
-      })
-      .expect(200);
-    expect(res.body.errors).toBeDefined();
-  });
+    it('CURSOR 模式：当未提供游标字符串时不抛错', async () => {
+      const query = `
+        query Search($input: SearchSessionAdjustmentsInputGql!) {
+          searchSessionAdjustments(input: $input) { items { id } pageInfo { hasNext nextCursor } }
+        }`;
+      const res = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', `Bearer ${managerToken}`)
+        .send({
+          query,
+          variables: { input: { pagination: { mode: 'CURSOR', limit: 2 } } },
+        })
+        .expect(200);
+      expect(res.body.errors).toBeUndefined();
+      const pageInfo = res.body.data.searchSessionAdjustments.pageInfo;
+      expect(pageInfo).toBeDefined();
+    });
 
-  // 4.3 CURSOR 模式 + 无 after/before → 当无 cursor
-  it('CURSOR 模式：当未提供游标字符串时不抛错', async () => {
-    const query = `
-      query Search($input: SearchSessionAdjustmentsInputGql!) {
-        searchSessionAdjustments(input: $input) { items { id } pageInfo { hasNext nextCursor } }
-      }`;
-    const res = await request(app.getHttpServer())
-      .post('/graphql')
-      .set('Authorization', `Bearer ${managerToken}`)
-      .send({
-        query,
-        variables: { input: { pagination: { mode: 'CURSOR', limit: 2 } } },
-      })
-      .expect(200);
-    expect(res.body.errors).toBeUndefined();
-    const pageInfo = res.body.data.searchSessionAdjustments.pageInfo;
-    expect(pageInfo).toBeDefined();
-  });
-
-  // 2.1 非法 customerId 触发输入验证错误
-  it('非法 customerId 触发输入验证错误', async () => {
-    const query = `
-      query Search($input: SearchSessionAdjustmentsInputGql!) {
-        searchSessionAdjustments(input: $input) { items { id customerId } }
-      }`;
-    const res = await request(app.getHttpServer())
-      .post('/graphql')
-      .set('Authorization', `Bearer ${managerToken}`)
-      .send({
-        query,
-        variables: {
-          input: {
-            customerId: -1,
-            pagination: { mode: 'OFFSET', page: 1, pageSize: 10 },
+    it('reasonType 非法枚举被丢弃；合法值生效', async () => {
+      const query = `
+        query Search($input: SearchSessionAdjustmentsInputGql!) {
+          searchSessionAdjustments(input: $input) { items { reasonType } }
+        }`;
+      const bad = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', `Bearer ${managerToken}`)
+        .send({
+          query,
+          variables: {
+            input: { reasonType: 'FOO', pagination: { mode: 'OFFSET', page: 1, pageSize: 50 } },
           },
-        },
-      })
-      .expect(200);
-    expect(res.body.errors).toBeDefined();
-    const msg = res.body.errors?.[0]?.message ?? '';
-    expect(msg).toMatch(/customerId must not be less than 1/);
-  });
+        })
+        .expect(200);
+      expect(bad.body.errors).toBeUndefined();
 
-  // 2.2 operatorAccountId 非法触发输入验证；合法正整数生效
-  it('operatorAccountId 非法触发输入验证；合法生效', async () => {
-    const query = `
-      query Search($input: SearchSessionAdjustmentsInputGql!) {
-        searchSessionAdjustments(input: $input) { items { operatorAccountId } }
-      }`;
-    const bad = await request(app.getHttpServer())
-      .post('/graphql')
-      .set('Authorization', `Bearer ${managerToken}`)
-      .send({
-        query,
-        variables: {
-          input: { operatorAccountId: 0, pagination: { mode: 'OFFSET', page: 1, pageSize: 10 } },
-        },
-      })
-      .expect(200);
-    expect(bad.body.errors).toBeDefined();
-    const badMsg = bad.body.errors?.[0]?.message ?? '';
-    expect(badMsg).toMatch(/operatorAccountId must not be less than 1/);
-
-    const good = await request(app.getHttpServer())
-      .post('/graphql')
-      .set('Authorization', `Bearer ${managerToken}`)
-      .send({
-        query,
-        variables: {
-          input: {
-            operatorAccountId: managerAccountId,
-            pagination: { mode: 'OFFSET', page: 1, pageSize: 10 },
+      const good = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', `Bearer ${managerToken}`)
+        .send({
+          query,
+          variables: {
+            input: { reasonType: 'GIFT', pagination: { mode: 'OFFSET', page: 1, pageSize: 50 } },
           },
-        },
-      })
-      .expect(200);
-    expect(good.body.errors).toBeUndefined();
-    const items = good.body.data.searchSessionAdjustments.items;
-    expect(items.every((x: any) => x.operatorAccountId === managerAccountId)).toBe(true);
+        })
+        .expect(200);
+      expect(good.body.errors).toBeUndefined();
+      const items = good.body.data.searchSessionAdjustments.items;
+      expect(items.every((x: any) => x.reasonType === 'GIFT')).toBe(true);
+    });
+
+    it('Manager 按 customerId 精确筛选', async () => {
+      const query = `
+        query Search($input: SearchSessionAdjustmentsInputGql!) {
+          searchSessionAdjustments(input: $input) { items { customerId } }
+        }`;
+      const res = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', `Bearer ${managerToken}`)
+        .send({
+          query,
+          variables: {
+            input: { customerId, pagination: { mode: 'OFFSET', page: 1, pageSize: 50 } },
+          },
+        })
+        .expect(200);
+      expect(res.body.errors).toBeUndefined();
+      const items = res.body.data.searchSessionAdjustments.items;
+      expect(items.every((x: any) => x.customerId === customerId)).toBe(true);
+    });
+
+    it('Customer 叠加 reasonType 过滤仅返回自己名下匹配记录', async () => {
+      const query = `
+        query Search($input: SearchSessionAdjustmentsInputGql!) {
+          searchSessionAdjustments(input: $input) { items { customerId reasonType } }
+        }`;
+      const res = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', `Bearer ${customerToken}`)
+        .send({
+          query,
+          variables: {
+            input: { reasonType: 'GIFT', pagination: { mode: 'OFFSET', page: 1, pageSize: 50 } },
+          },
+        })
+        .expect(200);
+      expect(res.body.errors).toBeUndefined();
+      const items = res.body.data.searchSessionAdjustments.items as any[];
+      if (items.length > 0) {
+        expect(items.every((x) => x.customerId === customerId && x.reasonType === 'GIFT')).toBe(
+          true,
+        );
+      }
+    });
+
+    it('OFFSET 模式不解析 cursor（不抛错）', async () => {
+      const query = `
+        query Search($input: SearchSessionAdjustmentsInputGql!) {
+          searchSessionAdjustments(input: $input) { items { id } }
+        }`;
+      const res = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', `Bearer ${managerToken}`)
+        .send({
+          query,
+          variables: { input: { pagination: { mode: 'OFFSET', page: 1, pageSize: 10 } } },
+        })
+        .expect(200);
+      expect(res.body.errors).toBeUndefined();
+    });
+
+    it('CURSOR 模式 + 有效 after（烟雾测试）', async () => {
+      const query = `
+        query Search($input: SearchSessionAdjustmentsInputGql!) {
+          searchSessionAdjustments(input: $input) { items { id } pageInfo { nextCursor hasNext } }
+        }`;
+      const first = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', `Bearer ${managerToken}`)
+        .send({ query, variables: { input: { pagination: { mode: 'CURSOR', limit: 2 } } } })
+        .expect(200);
+      expect(first.body.errors).toBeUndefined();
+      const cursor = first.body.data.searchSessionAdjustments.pageInfo?.nextCursor as
+        | string
+        | undefined;
+      const second = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', `Bearer ${managerToken}`)
+        .send({
+          query,
+          variables: { input: { pagination: { mode: 'CURSOR', limit: 2, after: cursor } } },
+        })
+        .expect(200);
+      expect(second.body.errors).toBeUndefined();
+    });
   });
 
-  // 2.3 reasonType 非法枚举被丢弃；合法值生效
-  it('reasonType 非法枚举被丢弃；合法值生效', async () => {
-    const query = `
-      query Search($input: SearchSessionAdjustmentsInputGql!) {
-        searchSessionAdjustments(input: $input) { items { reasonType } }
-      }`;
-    const bad = await request(app.getHttpServer())
-      .post('/graphql')
-      .set('Authorization', `Bearer ${managerToken}`)
-      .send({
-        query,
-        variables: {
-          input: { reasonType: 'FOO', pagination: { mode: 'OFFSET', page: 1, pageSize: 50 } },
-        },
-      })
-      .expect(200);
-    expect(bad.body.errors).toBeUndefined();
+  describe('负例', () => {
+    it('未登录访问 searchSessionAdjustments 返回 200 且包含错误', async () => {
+      const query = `
+        query Search($input: SearchSessionAdjustmentsInputGql!) {
+          searchSessionAdjustments(input: $input) { items { id customerId deltaSessions orderRef } }
+        }`;
+      const res = await request(app.getHttpServer())
+        .post('/graphql')
+        .send({
+          query,
+          variables: { input: { pagination: { mode: 'OFFSET', page: 1, pageSize: 10 } } },
+        })
+        .expect(200);
+      expect(res.body.errors).toBeDefined();
+    });
 
-    const good = await request(app.getHttpServer())
-      .post('/graphql')
-      .set('Authorization', `Bearer ${managerToken}`)
-      .send({
-        query,
-        variables: {
-          input: { reasonType: 'GIFT', pagination: { mode: 'OFFSET', page: 1, pageSize: 50 } },
-        },
-      })
-      .expect(200);
-    expect(good.body.errors).toBeUndefined();
-    const items = good.body.data.searchSessionAdjustments.items;
-    expect(items.every((x: any) => x.reasonType === 'GIFT')).toBe(true);
-  });
+    it('非活跃 MANAGER 被拒绝', async () => {
+      const deactivate = app.get(DeactivateManagerUsecase);
+      const result = await deactivate.execute(inactiveManagerAccountId, { id: inactiveManagerId });
+      expect(result.isUpdated || result.manager.deactivatedAt).toBeTruthy();
 
-  // 3.1 Manager 按 customerId 精确筛选
-  it('Manager 按 customerId 精确筛选', async () => {
-    const query = `
-      query Search($input: SearchSessionAdjustmentsInputGql!) {
-        searchSessionAdjustments(input: $input) { items { customerId } }
-      }`;
-    const res = await request(app.getHttpServer())
-      .post('/graphql')
-      .set('Authorization', `Bearer ${managerToken}`)
-      .send({
-        query,
-        variables: { input: { customerId, pagination: { mode: 'OFFSET', page: 1, pageSize: 50 } } },
-      })
-      .expect(200);
-    expect(res.body.errors).toBeUndefined();
-    const items = res.body.data.searchSessionAdjustments.items;
-    expect(items.every((x: any) => x.customerId === customerId)).toBe(true);
-  });
+      const query = `
+        query Search($input: SearchSessionAdjustmentsInputGql!) {
+          searchSessionAdjustments(input: $input) { items { id } }
+        }`;
+      const res = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', `Bearer ${inactiveManagerToken}`)
+        .send({
+          query,
+          variables: { input: { pagination: { mode: 'OFFSET', page: 1, pageSize: 10 } } },
+        })
+        .expect(200);
+      expect(res.body.errors).toBeDefined();
+      const msg = res.body.errors?.[0]?.message ?? '';
+      expect(msg).toMatch(/仅活跃的 manager 可访问|ACCESS_DENIED/);
+    });
 
-  // 3.2 Customer 叠加 reasonType 过滤
-  it('Customer 叠加 reasonType 过滤仅返回自己名下匹配记录', async () => {
-    const query = `
-      query Search($input: SearchSessionAdjustmentsInputGql!) {
-        searchSessionAdjustments(input: $input) { items { customerId reasonType } }
-      }`;
-    const res = await request(app.getHttpServer())
-      .post('/graphql')
-      .set('Authorization', `Bearer ${customerToken}`)
-      .send({
-        query,
-        variables: {
-          input: { reasonType: 'GIFT', pagination: { mode: 'OFFSET', page: 1, pageSize: 50 } },
-        },
-      })
-      .expect(200);
-    expect(res.body.errors).toBeUndefined();
-    const items = res.body.data.searchSessionAdjustments.items as any[];
-    if (items.length > 0) {
-      expect(items.every((x) => x.customerId === customerId && x.reasonType === 'GIFT')).toBe(true);
-    }
-  });
+    it('纯 COACH / 纯 LEARNER / guest 调用被拒绝', async () => {
+      const query = `
+        query Search($input: SearchSessionAdjustmentsInputGql!) {
+          searchSessionAdjustments(input: $input) { items { id } }
+        }`;
+      const coachRes = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', `Bearer ${coachToken}`)
+        .send({
+          query,
+          variables: { input: { pagination: { mode: 'OFFSET', page: 1, pageSize: 10 } } },
+        })
+        .expect(200);
+      expect(coachRes.body.errors).toBeDefined();
+      const learnerRes = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', `Bearer ${learnerToken}`)
+        .send({
+          query,
+          variables: { input: { pagination: { mode: 'OFFSET', page: 1, pageSize: 10 } } },
+        })
+        .expect(200);
+      expect(learnerRes.body.errors).toBeDefined();
+    });
 
-  // 4.1 OFFSET 模式不解析 cursor（无法直接 spy 验证，观察无错误即可）
-  it('OFFSET 模式不解析 cursor（不抛错）', async () => {
-    const query = `
-      query Search($input: SearchSessionAdjustmentsInputGql!) {
-        searchSessionAdjustments(input: $input) { items { id } }
-      }`;
-    const res = await request(app.getHttpServer())
-      .post('/graphql')
-      .set('Authorization', `Bearer ${managerToken}`)
-      .send({
-        query,
-        variables: { input: { pagination: { mode: 'OFFSET', page: 1, pageSize: 10 } } },
-      })
-      .expect(200);
-    expect(res.body.errors).toBeUndefined();
-  });
+    it('Customer 账号但未绑定 CustomerEntity 被拒绝', async () => {
+      const query = `
+        query Search($input: SearchSessionAdjustmentsInputGql!) {
+          searchSessionAdjustments(input: $input) { items { id } }
+        }`;
+      const res = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', `Bearer ${customerUnboundToken}`)
+        .send({
+          query,
+          variables: { input: { pagination: { mode: 'OFFSET', page: 1, pageSize: 10 } } },
+        })
+        .expect(200);
+      expect(res.body.errors).toBeDefined();
+      const msg = res.body.errors?.[0]?.message ?? '';
+      expect(msg).toMatch(/未绑定客户身份|ACCESS_DENIED/);
+    });
 
-  // 4.2 CURSOR 模式 + after 流程（烟雾）
-  it('CURSOR 模式 + 有效 after（烟雾测试）', async () => {
-    const query = `
-      query Search($input: SearchSessionAdjustmentsInputGql!) {
-        searchSessionAdjustments(input: $input) { items { id } pageInfo { nextCursor hasNext } }
-      }`;
-    const first = await request(app.getHttpServer())
-      .post('/graphql')
-      .set('Authorization', `Bearer ${managerToken}`)
-      .send({ query, variables: { input: { pagination: { mode: 'CURSOR', limit: 2 } } } })
-      .expect(200);
-    expect(first.body.errors).toBeUndefined();
-    const cursor = first.body.data.searchSessionAdjustments.pageInfo?.nextCursor as
-      | string
-      | undefined;
-    const second = await request(app.getHttpServer())
-      .post('/graphql')
-      .set('Authorization', `Bearer ${managerToken}`)
-      .send({
-        query,
-        variables: { input: { pagination: { mode: 'CURSOR', limit: 2, after: cursor } } },
-      })
-      .expect(200);
-    expect(second.body.errors).toBeUndefined();
-  });
+    it('orderRef 超长应触发输入验证错误', async () => {
+      const tooLong = 'A'.repeat(65);
+      const query = `
+        query Search($input: SearchSessionAdjustmentsInputGql!) {
+          searchSessionAdjustments(input: $input) { items { id } }
+        }`;
+      const res = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', `Bearer ${managerToken}`)
+        .send({
+          query,
+          variables: {
+            input: { orderRef: tooLong, pagination: { mode: 'OFFSET', page: 1, pageSize: 10 } },
+          },
+        })
+        .expect(200);
+      expect(res.body.errors).toBeDefined();
+    });
 
-  // 4.4 非法游标字符串 → INVALID_CURSOR
-  it('非法游标字符串触发 INVALID_CURSOR', async () => {
-    const query = `
-      query Search($input: SearchSessionAdjustmentsInputGql!) {
-        searchSessionAdjustments(input: $input) { items { id } }
-      }`;
-    const res = await request(app.getHttpServer())
-      .post('/graphql')
-      .set('Authorization', `Bearer ${managerToken}`)
-      .send({
-        query,
-        variables: {
-          input: { pagination: { mode: 'CURSOR', limit: 2, after: 'obviously-broken-token' } },
-        },
-      })
-      .expect(200);
-    expect(res.body.errors).toBeDefined();
-    const msg = res.body.errors?.[0]?.message ?? '';
-    expect(msg).toMatch(/无效的游标字符串|INVALID_CURSOR/);
+    it('非法 customerId 触发输入验证错误', async () => {
+      const query = `
+        query Search($input: SearchSessionAdjustmentsInputGql!) {
+          searchSessionAdjustments(input: $input) { items { id customerId } }
+        }`;
+      const res = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', `Bearer ${managerToken}`)
+        .send({
+          query,
+          variables: {
+            input: {
+              customerId: -1,
+              pagination: { mode: 'OFFSET', page: 1, pageSize: 10 },
+            },
+          },
+        })
+        .expect(200);
+      expect(res.body.errors).toBeDefined();
+      const msg = res.body.errors?.[0]?.message ?? '';
+      expect(msg).toMatch(/customerId must not be less than 1/);
+    });
+
+    it('operatorAccountId 非法触发输入验证；合法生效', async () => {
+      const query = `
+        query Search($input: SearchSessionAdjustmentsInputGql!) {
+          searchSessionAdjustments(input: $input) { items { operatorAccountId } }
+        }`;
+      const bad = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', `Bearer ${managerToken}`)
+        .send({
+          query,
+          variables: {
+            input: { operatorAccountId: 0, pagination: { mode: 'OFFSET', page: 1, pageSize: 10 } },
+          },
+        })
+        .expect(200);
+      expect(bad.body.errors).toBeDefined();
+      const badMsg = bad.body.errors?.[0]?.message ?? '';
+      expect(badMsg).toMatch(/operatorAccountId must not be less than 1/);
+
+      const good = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', `Bearer ${managerToken}`)
+        .send({
+          query,
+          variables: {
+            input: {
+              operatorAccountId: managerAccountId,
+              pagination: { mode: 'OFFSET', page: 1, pageSize: 10 },
+            },
+          },
+        })
+        .expect(200);
+      expect(good.body.errors).toBeUndefined();
+      const items = good.body.data.searchSessionAdjustments.items;
+      expect(items.every((x: any) => x.operatorAccountId === managerAccountId)).toBe(true);
+    });
+
+    it('非法游标字符串触发 INVALID_CURSOR', async () => {
+      const query = `
+        query Search($input: SearchSessionAdjustmentsInputGql!) {
+          searchSessionAdjustments(input: $input) { items { id } }
+        }`;
+      const res = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', `Bearer ${managerToken}`)
+        .send({
+          query,
+          variables: {
+            input: { pagination: { mode: 'CURSOR', limit: 2, after: 'obviously-broken-token' } },
+          },
+        })
+        .expect(200);
+      expect(res.body.errors).toBeDefined();
+      const msg = res.body.errors?.[0]?.message ?? '';
+      expect(msg).toMatch(/无效的游标字符串|INVALID_CURSOR/);
+    });
   });
 
   const loginAndGetToken = async (loginName: string, loginPassword: string): Promise<string> => {
