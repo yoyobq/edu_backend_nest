@@ -145,8 +145,8 @@ describe('Register (e2e)', () => {
       // 检查数据库连接状态，只有在连接有效时才进行清理
       if (dataSource && dataSource.isInitialized) {
         // 清理测试数据
-        await dataSource.getRepository(AccountEntity).delete({});
-        await dataSource.getRepository(UserInfoEntity).delete({});
+        await dataSource.getRepository(UserInfoEntity).clear();
+        await dataSource.getRepository(AccountEntity).clear();
       }
     } catch (error) {
       console.error('afterAll 清理失败:', error);

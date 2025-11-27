@@ -7,7 +7,6 @@ import { LearnerEntity } from '@src/modules/account/identities/training/learner/
 import { ManagerEntity } from '@src/modules/account/identities/training/manager/account-manager.entity';
 import { StaffEntity } from '@src/modules/account/identities/school/staff/account-staff.entity';
 import { IdentityTypeEnum, LoginTypeEnum } from '@src/types/models/account.types';
-import { MembershipLevel } from '@src/types/models/training.types';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { DataSource } from 'typeorm';
@@ -489,7 +488,7 @@ describe('Auth Identity (e2e)', () => {
       expect(data?.login.identity.name).toContain('customer_name');
       expect(data?.login.identity.contactPhone).toBe('13800138000');
       expect(data?.login.identity.preferredContactTime).toBe('09:00-18:00');
-      expect(data?.login.identity.membershipLevel).toBe(MembershipLevel.NORMAL);
+      expect(data?.login.identity.membershipLevel).toBe(1);
       expect(data?.login.identity.remark).toContain('测试用 customer 身份记录');
     });
 
