@@ -659,6 +659,62 @@ describe('学员管理 E2E 测试 - 全面权限控制', () => {
     });
   });
 
+  describe('manager 通过 customerId 过滤查询学员', () => {
+    beforeEach(async () => {
+      await createTestLearner(customerAEntity.id, 'A-learner-1', customerAEntity.accountId);
+      await createTestLearner(customerAEntity.id, 'A-learner-2', customerAEntity.accountId);
+      await createTestLearner(customerBEntity.id, 'B-learner-1', customerBEntity.accountId);
+    });
+
+    it('Manager 使用 customerId 仅返回该客户的学员', async () => {
+      const response = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', `Bearer ${managerToken}`)
+        .send({
+          query: `
+            query Learners($input: ListLearnersInput!) {
+              learners(input: $input) {
+                learners { id name customerId }
+                pagination { total }
+              }
+            }
+          `,
+          variables: {
+            input: { page: 1, limit: 10, customerId: customerAEntity.id },
+          },
+        })
+        .expect(200);
+
+      expect(response.body.errors).toBeUndefined();
+      const payload = response.body.data.learners;
+      const items: ApiLearner[] = payload.learners as ApiLearner[];
+      expect(payload.pagination.total).toBe(2);
+      expect(items.every((l) => l.customerId === customerAEntity.id)).toBe(true);
+    });
+
+    it('Manager 使用不存在的 customerId 返回错误', async () => {
+      const response = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', `Bearer ${managerToken}`)
+        .send({
+          query: `
+            query Learners($input: ListLearnersInput!) {
+              learners(input: $input) {
+                learners { id }
+                pagination { total }
+              }
+            }
+          `,
+          variables: { input: { page: 1, limit: 10, customerId: 999999 } },
+        })
+        .expect(200);
+
+      expect(response.body.errors).toBeDefined();
+      const msg = response.body.errors?.[0]?.message ?? '';
+      expect(msg).toMatch(/目标客户不存在|不存在/);
+    });
+  });
+
   describe('业务场景测试', () => {
     describe('数据隔离验证', () => {
       beforeEach(async () => {
