@@ -144,6 +144,7 @@ export class LearnerResolver {
       limit: input.limit,
       sortBy: input.sortBy,
       sortOrder: input.sortOrder || OrderDirection.DESC,
+      customerId: input.customerId,
     });
 
     return {

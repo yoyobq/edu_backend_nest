@@ -20,6 +20,8 @@ export interface PaginationInput {
   sortBy?: LearnerSortField;
   /** 排序方向，默认 DESC */
   sortOrder?: OrderDirection;
+  /** 可选：按指定客户过滤（仅 manager 可用） */
+  customerId?: number;
 }
 
 /**
@@ -111,9 +113,16 @@ export class ListLearnersUsecase {
     const manager = await this.managerService.findByAccountId(accountId);
 
     if (manager) {
-      // 如果是 Manager：允许查询所有的 learner
+      // 如果是 Manager：允许查询所有的 learner，或按 customerId 过滤
+      if (input.customerId) {
+        const targetCustomer = await this.customerService.findById(input.customerId);
+        if (!targetCustomer) {
+          throw new DomainError(PERMISSION_ERROR.ACCESS_DENIED, '目标客户不存在');
+        }
+      }
+
       const result = await this.learnerService.findPaginated({
-        customerId: undefined, // 不限制 customerId，查询所有学员
+        customerId: input.customerId ?? undefined,
         page,
         limit,
         sortBy,
