@@ -75,15 +75,7 @@ export class UpdateVisibleUserInfoUsecase {
         if (Object.keys(sanitized).length === 0) {
           const view = await this.fetchUserInfoUsecase.executeStrict({
             accountId: targetAccountId,
-          });
-          return { view, isUpdated: false };
-        }
-
-        // 幂等检查
-        const hasChanges = this.hasDataChanges(sanitized, current);
-        if (!hasChanges) {
-          const view = await this.fetchUserInfoUsecase.executeStrict({
-            accountId: targetAccountId,
+            manager,
           });
           return { view, isUpdated: false };
         }
@@ -92,7 +84,10 @@ export class UpdateVisibleUserInfoUsecase {
         this.applyPatchToEntity(current, sanitized);
         await manager.getRepository(UserInfoEntity).save(current);
 
-        const view = await this.fetchUserInfoUsecase.executeStrict({ accountId: targetAccountId });
+        const view = await this.fetchUserInfoUsecase.executeStrict({
+          accountId: targetAccountId,
+          manager,
+        });
         return { view, isUpdated: true };
       },
     );
@@ -192,103 +187,127 @@ export class UpdateVisibleUserInfoUsecase {
   ): Promise<Partial<UserInfoEntity>> {
     const out: Partial<UserInfoEntity> = {};
 
-    // nickname（需要唯一性）
+    const assignIfChanged = <K extends keyof UserInfoEntity>(key: K, next: UserInfoEntity[K]) => {
+      if (next !== current[key]) out[key] = next as never;
+    };
+
     if (typeof patch.nickname !== 'undefined') {
-      const val = (patch.nickname ?? '').trim();
-      if (val.length === 0) {
-        throw new DomainError(ACCOUNT_ERROR.OPERATION_NOT_SUPPORTED, '昵称不可为空');
-      }
-      if (val.length > 50) {
-        throw new DomainError(ACCOUNT_ERROR.OPERATION_NOT_SUPPORTED, '昵称长度不能超过 50');
-      }
-      if (val !== current.nickname) {
-        const exists = await this.accountService.checkNicknameExists(val);
-        if (exists) throw new DomainError(ACCOUNT_ERROR.NICKNAME_TAKEN, '昵称已被占用');
-      }
-      out.nickname = val;
+      assignIfChanged('nickname', await this.sanitizeNickname(patch.nickname, current));
     }
-
-    // gender
     if (typeof patch.gender !== 'undefined') {
-      out.gender = patch.gender ?? Gender.SECRET;
+      assignIfChanged('gender', this.sanitizeGender(patch.gender));
     }
-
-    // birthDate（YYYY-MM-DD 或 null）
     if (typeof patch.birthDate !== 'undefined') {
-      const val = patch.birthDate ?? null;
-      if (val !== null && !/^\d{4}-\d{2}-\d{2}$/.test(val)) {
-        throw new DomainError(
-          ACCOUNT_ERROR.OPERATION_NOT_SUPPORTED,
-          '出生日期格式必须为 YYYY-MM-DD',
-        );
-      }
-      out.birthDate = val;
+      assignIfChanged('birthDate', this.sanitizeBirthDate(patch.birthDate));
     }
-
-    // avatarUrl（<= 255）
     if (typeof patch.avatarUrl !== 'undefined') {
-      const val = patch.avatarUrl ?? null;
-      if (val && val.length > 255) {
-        throw new DomainError(ACCOUNT_ERROR.OPERATION_NOT_SUPPORTED, '头像 URL 长度不能超过 255');
-      }
-      out.avatarUrl = val;
+      assignIfChanged(
+        'avatarUrl',
+        this.sanitizeNullableString(patch.avatarUrl, 255, '头像 URL 长度不能超过 255'),
+      );
     }
-
-    // email（<= 50）
     if (typeof patch.email !== 'undefined') {
-      const val = patch.email ?? null;
-      if (val && val.length > 50) {
-        throw new DomainError(ACCOUNT_ERROR.OPERATION_NOT_SUPPORTED, '邮箱长度不能超过 50');
-      }
-      out.email = val;
+      assignIfChanged('email', this.sanitizeNullableString(patch.email, 50, '邮箱长度不能超过 50'));
     }
-
-    // signature（<= 100）
     if (typeof patch.signature !== 'undefined') {
-      const val = patch.signature ?? null;
-      if (val && val.length > 100) {
-        throw new DomainError(ACCOUNT_ERROR.OPERATION_NOT_SUPPORTED, '个性签名长度不能超过 100');
-      }
-      out.signature = val;
+      assignIfChanged(
+        'signature',
+        this.sanitizeNullableString(patch.signature, 100, '个性签名长度不能超过 100'),
+      );
     }
-
-    // address（<= 255）
     if (typeof patch.address !== 'undefined') {
-      const val = patch.address ?? null;
-      if (val && val.length > 255) {
-        throw new DomainError(ACCOUNT_ERROR.OPERATION_NOT_SUPPORTED, '地址长度不能超过 255');
-      }
-      out.address = val;
+      assignIfChanged(
+        'address',
+        this.sanitizeNullableString(patch.address, 255, '地址长度不能超过 255'),
+      );
     }
-
-    // phone（<= 20）
     if (typeof patch.phone !== 'undefined') {
-      const val = patch.phone ?? null;
-      if (val && val.length > 20) {
-        throw new DomainError(ACCOUNT_ERROR.OPERATION_NOT_SUPPORTED, '电话长度不能超过 20');
-      }
-      out.phone = val;
+      assignIfChanged('phone', this.sanitizeNullableString(patch.phone, 20, '电话长度不能超过 20'));
     }
-
-    // tags（数组或 null）
     if (typeof patch.tags !== 'undefined') {
-      const val = patch.tags ?? null;
-      if (val !== null && !Array.isArray(val)) {
-        throw new DomainError(
-          ACCOUNT_ERROR.OPERATION_NOT_SUPPORTED,
-          '标签必须是字符串数组或为 null',
-        );
-      }
-      out.tags = val ? val.map((v) => String(v)) : null;
+      const v = this.sanitizeTags(patch.tags);
+      const eq = JSON.stringify(v) === JSON.stringify(current.tags);
+      if (!eq) out.tags = v;
     }
-
-    // geographic（对象或 null）
     if (typeof patch.geographic !== 'undefined') {
-      const val = patch.geographic ?? null;
-      out.geographic = val;
+      const v = this.sanitizeGeographic(patch.geographic);
+      const eq = JSON.stringify(v) === JSON.stringify(current.geographic);
+      if (!eq) out.geographic = v;
     }
 
     return out;
+  }
+
+  /**
+   * 清洗昵称：去空格、非空、长度限制、唯一性校验
+   */
+  private async sanitizeNickname(
+    value: string | null | undefined,
+    current: UserInfoEntity,
+  ): Promise<string> {
+    const val = (value ?? '').trim();
+    if (val.length === 0) {
+      throw new DomainError(ACCOUNT_ERROR.OPERATION_NOT_SUPPORTED, '昵称不可为空');
+    }
+    if (val.length > 50) {
+      throw new DomainError(ACCOUNT_ERROR.OPERATION_NOT_SUPPORTED, '昵称长度不能超过 50');
+    }
+    if (val !== current.nickname) {
+      const exists = await this.accountService.checkNicknameExists(val);
+      if (exists) throw new DomainError(ACCOUNT_ERROR.NICKNAME_TAKEN, '昵称已被占用');
+    }
+    return val;
+  }
+
+  /**
+   * 清洗性别枚举：未提供时回退为 SECRET
+   */
+  private sanitizeGender(value: Gender | null | undefined): Gender {
+    return value ?? Gender.SECRET;
+  }
+
+  /**
+   * 清洗出生日期：YYYY-MM-DD 或 null
+   */
+  private sanitizeBirthDate(value: string | null | undefined): string | null {
+    const val = value ?? null;
+    if (val !== null && !/^\d{4}-\d{2}-\d{2}$/.test(val)) {
+      throw new DomainError(ACCOUNT_ERROR.OPERATION_NOT_SUPPORTED, '出生日期格式必须为 YYYY-MM-DD');
+    }
+    return val;
+  }
+
+  /**
+   * 清洗可空字符串：长度限制
+   */
+  private sanitizeNullableString(
+    value: string | null | undefined,
+    maxLen: number,
+    tooLongMsg: string,
+  ): string | null {
+    const val = value ?? null;
+    if (val && val.length > maxLen) {
+      throw new DomainError(ACCOUNT_ERROR.OPERATION_NOT_SUPPORTED, tooLongMsg);
+    }
+    return val;
+  }
+
+  /**
+   * 清洗标签：必须为字符串数组或 null
+   */
+  private sanitizeTags(value: string[] | null | undefined): string[] | null {
+    const val = value ?? null;
+    if (val !== null && !Array.isArray(val)) {
+      throw new DomainError(ACCOUNT_ERROR.OPERATION_NOT_SUPPORTED, '标签必须是字符串数组或为 null');
+    }
+    return val ? val.map((v) => String(v)) : null;
+  }
+
+  /**
+   * 清洗地理信息：对象或 null 原样通过
+   */
+  private sanitizeGeographic(value: GeographicInfo | null | undefined): GeographicInfo | null {
+    return value ?? null;
   }
 
   /**

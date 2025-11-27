@@ -6,8 +6,8 @@ import { Gender, UserState } from '@app-types/models/user-info.types';
 import { ACCOUNT_ERROR, DomainError } from '@core/common/errors';
 import { UserInfoEntity } from '@modules/account/base/entities/user-info.entity';
 import { AccountSecurityService } from '@modules/account/base/services/account-security.service';
-import { AccountService } from '@src/modules/account/base/services/account.service';
 import { Injectable } from '@nestjs/common';
+import { AccountService } from '@src/modules/account/base/services/account.service';
 
 // 移除本地的 UserInfoView 定义，使用统一的类型定义
 
@@ -59,7 +59,11 @@ export class FetchUserInfoUsecase {
    * - 适用于资料管理页等强一致场景
    * - accessGroup 可选：同上
    */
-  async executeStrict(params: { accountId: number; accessGroup?: IdentityTypeEnum[] }): Promise<
+  async executeStrict(params: {
+    accountId: number;
+    accessGroup?: IdentityTypeEnum[];
+    manager?: import('typeorm').EntityManager;
+  }): Promise<
     UserInfoView & {
       nickname: string;
       userState: UserState;
@@ -71,7 +75,7 @@ export class FetchUserInfoUsecase {
   > {
     const { accountId } = params;
 
-    const base = await this.accountService.findUserInfoByAccountId(accountId);
+    const base = await this.accountService.findUserInfoByAccountId(accountId, params.manager);
     if (!base) {
       throw new DomainError(
         ACCOUNT_ERROR.USER_INFO_NOT_FOUND,

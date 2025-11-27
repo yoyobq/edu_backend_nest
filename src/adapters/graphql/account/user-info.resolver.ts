@@ -1,17 +1,17 @@
 // 文件位置：src/adapters/graphql/account/user-info.resolver.ts
+import { UserInfoView } from '@app-types/models/auth.types';
+import { type GeographicInfo } from '@app-types/models/user-info.types';
 import { UseGuards } from '@nestjs/common';
 import { Args, Int, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { mapJwtToUsecaseSession, type UsecaseSession } from '@src/types/auth/session.types';
 import { JwtPayload } from '@src/types/jwt.types';
 import { GetVisibleUserInfoUsecase } from '@src/usecases/account/get-visible-user-info.usecase';
 import { UpdateVisibleUserInfoUsecase } from '@src/usecases/account/update-visible-user-info.usecase';
-import { UserInfoView } from '@app-types/models/auth.types';
 import { currentUser } from '../decorators/current-user.decorator';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 import { BasicUserInfoDTO } from './dto/basic-user-info.dto';
 import { UserInfoDTO } from './dto/user-info.dto';
 import { UpdateUserInfoInput, UpdateUserInfoResult } from './dto/user-info.update.input';
-import { type GeographicInfo } from '@app-types/models/user-info.types';
 
 /**
  * 用户信息 GraphQL 解析器
@@ -128,25 +128,28 @@ export class UserInfoResolver {
     const session: UsecaseSession = mapJwtToUsecaseSession(user);
     const targetAccountId =
       typeof input.accountId === 'number' ? input.accountId : session.accountId;
-    const geoPatch: GeographicInfo | null = input.geographic
-      ? {
-          province: input.geographic.province ?? undefined,
-          city: input.geographic.city ?? undefined,
-        }
-      : null;
+    const geoPatch: GeographicInfo | null | undefined =
+      typeof input.geographic === 'undefined'
+        ? undefined
+        : input.geographic === null
+          ? null
+          : {
+              province: input.geographic.province ?? undefined,
+              city: input.geographic.city ?? undefined,
+            };
     const { view, isUpdated } = await this.updateVisibleUserInfoUsecase.execute({
       session,
       targetAccountId,
       patch: {
         nickname: input.nickname,
         gender: input.gender,
-        birthDate: input.birthDate ?? null,
-        avatarUrl: input.avatarUrl ?? null,
-        email: input.email ?? null,
-        signature: input.signature ?? null,
-        address: input.address ?? null,
-        phone: input.phone ?? null,
-        tags: input.tags ?? null,
+        birthDate: input.birthDate,
+        avatarUrl: input.avatarUrl,
+        email: input.email,
+        signature: input.signature,
+        address: input.address,
+        phone: input.phone,
+        tags: input.tags,
         geographic: geoPatch,
       },
     });
