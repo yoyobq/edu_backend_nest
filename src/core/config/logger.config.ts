@@ -2,6 +2,31 @@
 import { ConfigFactory } from '@nestjs/config';
 import { IncomingMessage, ServerResponse } from 'http';
 
+const customPropsFor4xx = (req: IncomingMessage, res: ServerResponse): Record<string, unknown> => {
+  const statusCode = res.statusCode ?? 0;
+  if (statusCode >= 400 && statusCode < 500) {
+    const forwardedRaw = req.headers?.['x-forwarded-for'];
+    const xForwardedFor = Array.isArray(forwardedRaw) ? forwardedRaw.join(',') : forwardedRaw;
+    const userAgentRaw = req.headers?.['user-agent'];
+    const userAgent = Array.isArray(userAgentRaw) ? userAgentRaw.join(',') : userAgentRaw;
+
+    const remoteAddress = req.socket?.remoteAddress ?? null;
+    const method = req.method ?? null;
+    const url = req.url ?? null;
+    const originalUrl = (req as unknown as { originalUrl?: string }).originalUrl ?? url;
+
+    return {
+      remoteAddress,
+      xForwardedFor: xForwardedFor ?? null,
+      method,
+      url,
+      originalUrl,
+      userAgent: userAgent ?? null,
+    };
+  }
+  return {};
+};
+
 const loggerConfig: ConfigFactory = () => {
   const isDev = process.env.NODE_ENV !== 'production';
   // 实际上 ./logs 并不会被用到，因为 dev 环境不要求输出 log，但保留配置待用
@@ -16,13 +41,7 @@ const loggerConfig: ConfigFactory = () => {
         path: logPath,
       },
       // 不自动展开 req/res，但允许你手动 logger.debug({ req, res }, ...)
-      // customProps: (req: Request, res: Response) => ({
-      //   method: req.method,
-      //   url: req.url,
-      // userAgent: req.headers['user-agent'],
-      // response: res,
-      //   statusCode: res.statusCode,
-      // }),
+      customProps: customPropsFor4xx,
       // 自定义日志级别函数
       customLogLevel: (req: IncomingMessage, res: ServerResponse, err?: Error) => {
         // 忽略 favicon 请求
