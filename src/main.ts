@@ -2,10 +2,11 @@ import 'reflect-metadata';
 
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
-import { Logger } from 'nestjs-pino';
-import { useContainer } from 'class-validator';
-import { AppModule } from './app.module';
 import { initGraphQLSchema } from '@src/adapters/graphql/schema/schema.init';
+import { useContainer } from 'class-validator';
+import type { Express } from 'express';
+import { Logger } from 'nestjs-pino';
+import { AppModule } from './app.module';
 
 /**
  * 应用程序启动函数
@@ -18,11 +19,34 @@ async function bootstrap() {
 
   const app = await NestFactory.create(AppModule);
 
+  // 隐匿技术栈：移除 Express 默认的 X-Powered-By 响应头
+  const expressApp = app.getHttpAdapter().getInstance() as unknown as Express;
+  expressApp.disable('x-powered-by');
+
   // 启用 class-validator 的依赖注入支持
   useContainer(app.select(AppModule), { fallbackOnErrors: true });
 
   // 获取 ConfigService 实例
   const configService = app.get<ConfigService>(ConfigService);
+
+  // 全局启用 CORS（按配置限制来源与凭据）
+  const corsEnabled = configService.get<boolean>('server.cors.enabled', true);
+  if (corsEnabled) {
+    const originsStr = configService.get<string>('server.cors.origins', '');
+    const origins = originsStr
+      .split(',')
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0);
+
+    app.enableCors({
+      origin: origins.length > 0 ? origins : true,
+      credentials: configService.get<boolean>('server.cors.credentials', true),
+      methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+      exposedHeaders: ['Content-Length', 'ETag'],
+      maxAge: 600,
+    });
+  }
 
   // 获取 PinoLogger 实例
   const logger = app.get(Logger);
