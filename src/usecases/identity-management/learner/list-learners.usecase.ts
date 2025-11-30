@@ -75,6 +75,147 @@ export class ListLearnersUsecase {
     }
   }
 
+  private normalizeActiveRole(
+    activeRole?: IdentityTypeEnum | string | null,
+  ): 'CUSTOMER' | 'MANAGER' | null {
+    if (activeRole == null) return null;
+    const v =
+      typeof activeRole === 'string' ? activeRole.toUpperCase() : String(activeRole).toUpperCase();
+    return v === 'CUSTOMER' ? 'CUSTOMER' : v === 'MANAGER' ? 'MANAGER' : null;
+  }
+
+  private resolvePagination(input: PaginationInput): {
+    page: number;
+    limit: number;
+    sortBy: 'createdAt' | 'updatedAt' | 'name';
+    sortOrder: 'ASC' | 'DESC';
+  } {
+    const page = input.page ?? 1;
+    const limit = Math.min(input.limit ?? 10, 100);
+    const sortBy = this.mapSortFieldToDbField(input.sortBy ?? LearnerSortField.CREATED_AT);
+    const sortOrder = (input.sortOrder ?? OrderDirection.DESC) as 'ASC' | 'DESC';
+    return { page, limit, sortBy, sortOrder };
+  }
+
+  private toOutput(result: {
+    learners: LearnerEntity[];
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  }): PaginatedLearners {
+    return {
+      items: result.learners,
+      total: result.total,
+      page: result.page,
+      limit: result.limit,
+      totalPages: result.totalPages,
+    };
+  }
+
+  private async listForCustomer(
+    accountId: number,
+    params: {
+      page: number;
+      limit: number;
+      sortBy: 'createdAt' | 'updatedAt' | 'name';
+      sortOrder: 'ASC' | 'DESC';
+    },
+  ): Promise<PaginatedLearners> {
+    const customer = await this.customerService.findByAccountId(accountId);
+    if (!customer) {
+      throw new DomainError(PERMISSION_ERROR.ACCESS_DENIED, '当前账户未绑定客户身份');
+    }
+    const result = await this.learnerService.findPaginated({
+      customerId: customer.id,
+      page: params.page,
+      limit: params.limit,
+      sortBy: params.sortBy,
+      sortOrder: params.sortOrder,
+      includeDeleted: false,
+    });
+    return this.toOutput(result);
+  }
+
+  private async listForManager(
+    accountId: number,
+    customerId: number | undefined,
+    params: {
+      page: number;
+      limit: number;
+      sortBy: 'createdAt' | 'updatedAt' | 'name';
+      sortOrder: 'ASC' | 'DESC';
+    },
+  ): Promise<PaginatedLearners> {
+    const isActive = await this.managerService.isActiveManager(accountId);
+    if (!isActive) {
+      throw new DomainError(PERMISSION_ERROR.ACCESS_DENIED, '仅活跃的 manager 可访问学员列表');
+    }
+    if (customerId) {
+      const targetCustomer = await this.customerService.findById(customerId);
+      if (!targetCustomer) {
+        throw new DomainError(PERMISSION_ERROR.ACCESS_DENIED, '目标客户不存在');
+      }
+    }
+    const result = await this.learnerService.findPaginated({
+      customerId: customerId ?? undefined,
+      page: params.page,
+      limit: params.limit,
+      sortBy: params.sortBy,
+      sortOrder: params.sortOrder,
+      includeDeleted: false,
+    });
+    return this.toOutput(result);
+  }
+
+  private async fallbackByIdentities(
+    accountId: number,
+    customerId: number | undefined,
+    params: {
+      page: number;
+      limit: number;
+      sortBy: 'createdAt' | 'updatedAt' | 'name';
+      sortOrder: 'ASC' | 'DESC';
+    },
+  ): Promise<PaginatedLearners> {
+    const customer = await this.customerService.findByAccountId(accountId);
+    if (customer) {
+      const result = await this.learnerService.findPaginated({
+        customerId: customer.id,
+        page: params.page,
+        limit: params.limit,
+        sortBy: params.sortBy,
+        sortOrder: params.sortOrder,
+        includeDeleted: false,
+      });
+      return this.toOutput(result);
+    }
+
+    const manager = await this.managerService.findByAccountId(accountId);
+    if (manager) {
+      if (customerId) {
+        const targetCustomer = await this.customerService.findById(customerId);
+        if (!targetCustomer) {
+          throw new DomainError(PERMISSION_ERROR.ACCESS_DENIED, '目标客户不存在');
+        }
+      }
+      const result = await this.learnerService.findPaginated({
+        customerId: customerId ?? undefined,
+        page: params.page,
+        limit: params.limit,
+        sortBy: params.sortBy,
+        sortOrder: params.sortOrder,
+        includeDeleted: false,
+      });
+      return this.toOutput(result);
+    }
+
+    throw new DomainError(
+      PERMISSION_ERROR.ACCESS_DENIED,
+      '用户身份验证失败：该账户既不是客户也不是管理员',
+    );
+  }
+
   /**
    * 执行分页查询学员列表
    * @param accountId 当前用户的账户 ID（从 JWT token 解析）
@@ -86,131 +227,21 @@ export class ListLearnersUsecase {
     input: PaginationInput,
     activeRole?: IdentityTypeEnum | string,
   ): Promise<PaginatedLearners> {
-    const page = input.page || 1;
-    const limit = Math.min(input.limit || 10, 100);
-    const sortBy = this.mapSortFieldToDbField(input.sortBy || LearnerSortField.CREATED_AT);
-    const sortOrder = input.sortOrder || OrderDirection.DESC;
+    const { page, limit, sortBy, sortOrder } = this.resolvePagination(input);
+    const role = this.normalizeActiveRole(activeRole);
 
-    // 若提供 activeRole，则优先按 activeRole 进行权限分支判定
-    const normalizedActiveRole =
-      typeof activeRole === 'string'
-        ? activeRole.toUpperCase()
-        : activeRole != null
-          ? String(activeRole).toUpperCase()
-          : null;
-
-    if (normalizedActiveRole === 'CUSTOMER') {
-      const customer = await this.customerService.findByAccountId(accountId);
-      if (!customer) {
-        throw new DomainError(PERMISSION_ERROR.ACCESS_DENIED, '当前账户未绑定客户身份');
-      }
-
-      const result = await this.learnerService.findPaginated({
-        customerId: customer.id,
-        page,
-        limit,
-        sortBy,
-        sortOrder: sortOrder as 'ASC' | 'DESC',
-        includeDeleted: false,
-      });
-
-      return {
-        items: result.learners,
-        total: result.total,
-        page: result.page,
-        limit: result.limit,
-        totalPages: result.totalPages,
-      };
+    if (role === 'CUSTOMER') {
+      return this.listForCustomer(accountId, { page, limit, sortBy, sortOrder });
+    }
+    if (role === 'MANAGER') {
+      return this.listForManager(accountId, input.customerId, { page, limit, sortBy, sortOrder });
     }
 
-    if (normalizedActiveRole === 'MANAGER') {
-      const isActive = await this.managerService.isActiveManager(accountId);
-      if (!isActive) {
-        throw new DomainError(PERMISSION_ERROR.ACCESS_DENIED, '仅活跃的 manager 可访问学员列表');
-      }
-
-      if (input.customerId) {
-        const targetCustomer = await this.customerService.findById(input.customerId);
-        if (!targetCustomer) {
-          throw new DomainError(PERMISSION_ERROR.ACCESS_DENIED, '目标客户不存在');
-        }
-      }
-
-      const result = await this.learnerService.findPaginated({
-        customerId: input.customerId ?? undefined,
-        page,
-        limit,
-        sortBy,
-        sortOrder: sortOrder as 'ASC' | 'DESC',
-        includeDeleted: false,
-      });
-
-      return {
-        items: result.learners,
-        total: result.total,
-        page: result.page,
-        limit: result.limit,
-        totalPages: result.totalPages,
-      };
-    }
-
-    // 未提供 activeRole 时按既有身份存在逻辑回退
-    const customer = await this.customerService.findByAccountId(accountId);
-
-    if (customer) {
-      // 如果是 Customer：只能查询该 Customer 的学员
-      const result = await this.learnerService.findPaginated({
-        customerId: customer.id,
-        page,
-        limit,
-        sortBy,
-        sortOrder: sortOrder as 'ASC' | 'DESC',
-        includeDeleted: false,
-      });
-
-      return {
-        items: result.learners,
-        total: result.total,
-        page: result.page,
-        limit: result.limit,
-        totalPages: result.totalPages,
-      };
-    }
-
-    // 然后尝试查找 Manager
-    const manager = await this.managerService.findByAccountId(accountId);
-
-    if (manager) {
-      // 如果是 Manager：允许查询所有的 learner，或按 customerId 过滤
-      if (input.customerId) {
-        const targetCustomer = await this.customerService.findById(input.customerId);
-        if (!targetCustomer) {
-          throw new DomainError(PERMISSION_ERROR.ACCESS_DENIED, '目标客户不存在');
-        }
-      }
-
-      const result = await this.learnerService.findPaginated({
-        customerId: input.customerId ?? undefined,
-        page,
-        limit,
-        sortBy,
-        sortOrder: sortOrder as 'ASC' | 'DESC',
-        includeDeleted: false,
-      });
-
-      return {
-        items: result.learners,
-        total: result.total,
-        page: result.page,
-        limit: result.limit,
-        totalPages: result.totalPages,
-      };
-    }
-
-    // 如果既不是 Customer 也不是 Manager，抛出权限错误
-    throw new DomainError(
-      PERMISSION_ERROR.ACCESS_DENIED,
-      '用户身份验证失败：该账户既不是客户也不是管理员',
-    );
+    return this.fallbackByIdentities(accountId, input.customerId, {
+      page,
+      limit,
+      sortBy,
+      sortOrder,
+    });
   }
 }

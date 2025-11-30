@@ -3,9 +3,9 @@
 import { ACCOUNT_ERROR, DomainError } from '@core/common/errors/domain-error';
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { OrderDirection } from '@src/types/common/sort.types';
 import { EntityManager, Repository } from 'typeorm';
 import { ManagerEntity } from './account-manager.entity';
-import { OrderDirection } from '@src/types/common/sort.types';
 
 /**
  * Manager 服务层
@@ -165,6 +165,24 @@ export class ManagerService {
       ...updateData,
       updatedAt: new Date(),
     });
+  }
+
+  /**
+   * 检查 Manager 是否对目标 Customer 有授权
+   * @param managerId Manager ID
+   * @param customerId Customer ID
+   * @param manager 事务管理器（可选）
+   * @returns 是否有权限
+   */
+  async hasPermissionForCustomer(
+    managerId: number,
+    customerId: number,
+    manager?: EntityManager,
+  ): Promise<boolean> {
+    const me = await this.findById(managerId, manager);
+    if (!me) return false;
+    if (me.deactivatedAt) return false;
+    return true;
   }
 
   /**

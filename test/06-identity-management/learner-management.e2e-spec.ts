@@ -40,6 +40,7 @@ describe('学员管理 E2E 测试 - 全面权限控制', () => {
   // 测试实体
   let customerAEntity: CustomerEntity;
   let customerBEntity: CustomerEntity;
+  let managerEntityId: number;
 
   // 测试数据追踪
   let createdLearnerIds: number[] = [];
@@ -168,7 +169,7 @@ describe('学员管理 E2E 测试 - 全面权限控制', () => {
     });
 
     const managerRepo = dataSource.getRepository(ManagerEntity);
-    await managerRepo.save(
+    const savedManager = await managerRepo.save(
       managerRepo.create({
         accountId: managerAccount.id,
         name: '测试管理员',
@@ -178,6 +179,7 @@ describe('学员管理 E2E 测试 - 全面权限控制', () => {
         updatedBy: null,
       }),
     );
+    managerEntityId = savedManager.id;
 
     // 创建 Customer A 账户和身份
     const customerAAccount = await createTestAccount({
@@ -573,6 +575,118 @@ describe('学员管理 E2E 测试 - 全面权限控制', () => {
 
         expect(response.body.errors).toBeDefined();
         expect(response.body.errors[0].message).toContain('无权限访问该学员');
+      });
+
+      /**
+       * 设置 Manager 激活/停用状态
+       * @param active 是否激活
+       */
+      const setManagerActive = async (active: boolean) => {
+        const repo = dataSource.getRepository(ManagerEntity);
+        await repo.update(managerEntityId, { deactivatedAt: active ? null : new Date() });
+      };
+
+      it('Manager 未提供 customerId 也应成功更新（自动解析）', async () => {
+        const updateInput = {
+          learnerId: learnerA.id,
+          name: '缺少 customerId 也可更新',
+        };
+
+        const response = await request(app.getHttpServer())
+          .post('/graphql')
+          .set('Authorization', `Bearer ${managerToken}`)
+          .send({
+            query: `
+              mutation UpdateLearner($input: UpdateLearnerInput!) {
+                updateLearner(input: $input) { id name }
+              }
+            `,
+            variables: { input: updateInput },
+          })
+          .expect(200);
+
+        expect(response.body.errors).toBeUndefined();
+        expect(response.body.data.updateLearner.id).toBe(learnerA.id);
+        expect(response.body.data.updateLearner.name).toBe(updateInput.name);
+      });
+
+      it('Manager 指定不存在的 customerId 应报错', async () => {
+        const updateInput = {
+          learnerId: learnerA.id,
+          customerId: 999999,
+          name: '不存在客户应失败',
+        };
+
+        const response = await request(app.getHttpServer())
+          .post('/graphql')
+          .set('Authorization', `Bearer ${managerToken}`)
+          .send({
+            query: `
+              mutation UpdateLearner($input: UpdateLearnerInput!) {
+                updateLearner(input: $input) { id name }
+              }
+            `,
+            variables: { input: updateInput },
+          })
+          .expect(200);
+
+        expect(response.body.errors).toBeDefined();
+        const msg = String(response.body.errors?.[0]?.message ?? '');
+        expect(msg).toMatch(/目标客户不存在|不存在/);
+      });
+
+      it('Manager 指定与学员不匹配的 customerId 应报错', async () => {
+        const updateInput = {
+          learnerId: learnerA.id,
+          customerId: customerBEntity.id,
+          name: '跨客户更新应失败',
+        };
+
+        const response = await request(app.getHttpServer())
+          .post('/graphql')
+          .set('Authorization', `Bearer ${managerToken}`)
+          .send({
+            query: `
+              mutation UpdateLearner($input: UpdateLearnerInput!) {
+                updateLearner(input: $input) { id name }
+              }
+            `,
+            variables: { input: updateInput },
+          })
+          .expect(200);
+
+        expect(response.body.errors).toBeDefined();
+        expect(String(response.body.errors?.[0]?.message ?? '')).toContain('无权限访问该学员');
+      });
+
+      it('停用 Manager 后更新学员应被拒绝', async () => {
+        await setManagerActive(false);
+        const updateInput = {
+          learnerId: learnerA.id,
+          customerId: customerAEntity.id,
+          name: '停用管理员更新应失败',
+        };
+
+        const response = await request(app.getHttpServer())
+          .post('/graphql')
+          .set('Authorization', `Bearer ${managerToken}`)
+          .send({
+            query: `
+              mutation UpdateLearner($input: UpdateLearnerInput!) {
+                updateLearner(input: $input) { id name }
+              }
+            `,
+            variables: { input: updateInput },
+          })
+          .expect(200);
+
+        // 恢复为激活状态以不影响后续测试
+        await setManagerActive(true);
+
+        expect(response.body.errors).toBeDefined();
+        expect(String(response.body.errors?.[0]?.message ?? '')).toContain(
+          'Manager 无权限管理该客户',
+        );
       });
     });
 

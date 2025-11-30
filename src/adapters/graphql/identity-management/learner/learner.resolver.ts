@@ -14,7 +14,8 @@ import {
   ListLearnersUsecase,
   PaginatedLearners,
 } from '@src/usecases/identity-management/learner/list-learners.usecase';
-import { UpdateLearnerUsecase } from '@src/usecases/identity-management/learner/update-learner.usecase';
+import { UpdateLearnerByCustomerUsecase } from '@src/usecases/identity-management/learner/update-learner-by-customer.usecase';
+import { UpdateLearnerByManagerUsecase } from '@src/usecases/identity-management/learner/update-learner-by-manager.usecase';
 import { LearnerOutput } from './dto/learner.arg';
 import { CreateLearnerInput } from './dto/learner.input.create';
 import { DeleteLearnerInput } from './dto/learner.input.delete';
@@ -31,7 +32,8 @@ import { ListLearnersOutput } from './dto/learners.list';
 export class LearnerResolver {
   constructor(
     private readonly createLearnerUsecase: CreateLearnerUsecase,
-    private readonly updateLearnerUsecase: UpdateLearnerUsecase,
+    private readonly updateLearnerByCustomerUsecase: UpdateLearnerByCustomerUsecase,
+    private readonly updateLearnerByManagerUsecase: UpdateLearnerByManagerUsecase,
     private readonly deleteLearnerUsecase: DeleteLearnerUsecase,
     private readonly getLearnerUsecase: GetLearnerUsecase,
     private readonly listLearnersUsecase: ListLearnersUsecase,
@@ -75,17 +77,34 @@ export class LearnerResolver {
     @Args('input') input: UpdateLearnerInput,
     @currentUser() user: JwtPayload,
   ): Promise<LearnerOutput> {
-    const result = await this.updateLearnerUsecase.execute(Number(user.sub), {
-      id: input.learnerId,
-      customerId: input.customerId,
-      name: input.name,
-      gender: input.gender,
-      birthDate: input.birthDate,
-      avatarUrl: input.avatarUrl,
-      specialNeeds: input.specialNeeds,
-      remark: input.remark,
-      countPerSession: input.countPerSession,
-    });
+    const accountId = Number(user.sub);
+    const activeRole = String(user.activeRole ?? '').toUpperCase();
+    const result: LearnerEntity =
+      activeRole === 'MANAGER'
+        ? await this.updateLearnerByManagerUsecase.execute(accountId, {
+            id: input.learnerId,
+            customerId: input.customerId,
+            name: input.name,
+            gender: input.gender,
+            birthDate: input.birthDate,
+            avatarUrl: input.avatarUrl,
+            specialNeeds: input.specialNeeds,
+            remark: input.remark,
+            countPerSession: input.countPerSession,
+            targetCustomerId: input.targetCustomerId,
+            deactivate: input.deactivate,
+          })
+        : await this.updateLearnerByCustomerUsecase.execute(accountId, {
+            id: input.learnerId,
+            customerId: input.customerId,
+            name: input.name,
+            gender: input.gender,
+            birthDate: input.birthDate,
+            avatarUrl: input.avatarUrl,
+            specialNeeds: input.specialNeeds,
+            remark: input.remark,
+            countPerSession: input.countPerSession,
+          });
 
     return this.mapLearnerEntityToOutput(result);
   }
@@ -122,6 +141,8 @@ export class LearnerResolver {
     const result: LearnerEntity = await this.getLearnerUsecase.execute(
       Number(user.sub),
       input.learnerId,
+      input.customerId,
+      user.activeRole,
     );
 
     return this.mapLearnerEntityToOutput(result);
