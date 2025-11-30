@@ -14,7 +14,7 @@ const ENABLED_SPECS = [
   // '05-verification-record/verification-record.e2e-spec.ts',
   // '05-verification-record/verification-record-types.e2e-spec.ts',
   // '05-verification-record/verification-record-invite.e2e-spec.ts',
-  '06-identity-management/identity-management.e2e-spec.ts',
+  // '06-identity-management/identity-management.e2e-spec.ts',
   // '06-identity-management/learner-management.e2e-spec.ts',
   // '06-identity-management/customer-management.e2e-spec.ts',
   // '06-identity-management/coach-management.e2e-spec.ts',
@@ -26,7 +26,7 @@ const ENABLED_SPECS = [
   // '08-integration-events/session-adjustments.e2e-spec.ts',
   // '08-integration-events/outbox-dispatcher.e2e-spec.ts',
   // '08-integration-events/course-workflows.e2e-spec.ts',
-  // '09-user-info/update-visible-user-info.e2e-spec.ts',
+  '09-user-info/update-visible-user-info.e2e-spec.ts',
 ];
 
 /** 可选：命令行临时指定（逗号分隔）

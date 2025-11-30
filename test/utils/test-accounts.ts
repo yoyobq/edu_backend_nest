@@ -1,15 +1,15 @@
 // test/utils/test-accounts.ts
+import { AccountStatus, IdentityTypeEnum } from '@app-types/models/account.types';
+import { MembershipLevel } from '@app-types/models/training.types';
+import { Gender, UserState } from '@app-types/models/user-info.types';
 import { AccountEntity } from '@src/modules/account/base/entities/account.entity';
 import { UserInfoEntity } from '@src/modules/account/base/entities/user-info.entity';
 import { AccountService } from '@src/modules/account/base/services/account.service';
+import { StaffEntity } from '@src/modules/account/identities/school/staff/account-staff.entity';
 import { CoachEntity } from '@src/modules/account/identities/training/coach/account-coach.entity';
 import { CustomerEntity } from '@src/modules/account/identities/training/customer/account-customer.entity';
 import { LearnerEntity } from '@src/modules/account/identities/training/learner/account-learner.entity';
 import { ManagerEntity } from '@src/modules/account/identities/training/manager/account-manager.entity';
-import { StaffEntity } from '@src/modules/account/identities/school/staff/account-staff.entity';
-import { AccountStatus, IdentityTypeEnum } from '@app-types/models/account.types';
-import { MembershipLevel } from '@app-types/models/training.types';
-import { Gender, UserState } from '@app-types/models/user-info.types';
 import { CreateAccountUsecase } from '@usecases/account/create-account.usecase';
 import { DataSource } from 'typeorm';
 
@@ -82,7 +82,7 @@ export const testAccountsConfig: Record<string, TestAccountConfig> = {
     loginEmail: 'guest@example.com',
     loginPassword: 'testGuest@2024',
     status: AccountStatus.ACTIVE,
-    accessGroup: [IdentityTypeEnum.GUEST],
+    accessGroup: [IdentityTypeEnum.GUEST, IdentityTypeEnum.REGISTRANT],
     identityType: IdentityTypeEnum.REGISTRANT,
   },
   emptyRoles: {

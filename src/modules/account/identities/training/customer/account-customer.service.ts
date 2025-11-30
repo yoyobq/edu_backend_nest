@@ -5,10 +5,10 @@ import type { PaginatedResult, SortParam } from '@core/pagination/pagination.typ
 import type { ISortResolver } from '@core/sort/sort.ports';
 import { Inject, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { normalizePhone } from '@src/core/common/normalize/normalize.helper';
+import { UserInfoEntity } from '@src/modules/account/base/entities/user-info.entity';
 import { PaginationService } from '@src/modules/common/pagination.service';
 import { Brackets, EntityManager, QueryFailedError, Repository, SelectQueryBuilder } from 'typeorm';
-import { UserInfoEntity } from '@src/modules/account/base/entities/user-info.entity';
-import { normalizePhone } from '@src/core/common/normalize/normalize.helper';
 import { CustomerEntity } from './account-customer.entity';
 
 /**
