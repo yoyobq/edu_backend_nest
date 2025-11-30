@@ -78,33 +78,33 @@ export class LearnerResolver {
     @currentUser() user: JwtPayload,
   ): Promise<LearnerOutput> {
     const accountId = Number(user.sub);
-    const activeRole = String(user.activeRole ?? '').toUpperCase();
-    const result: LearnerEntity =
-      activeRole === 'MANAGER'
-        ? await this.updateLearnerByManagerUsecase.execute(accountId, {
-            id: input.learnerId,
-            customerId: input.customerId,
-            name: input.name,
-            gender: input.gender,
-            birthDate: input.birthDate,
-            avatarUrl: input.avatarUrl,
-            specialNeeds: input.specialNeeds,
-            remark: input.remark,
-            countPerSession: input.countPerSession,
-            targetCustomerId: input.targetCustomerId,
-            deactivate: input.deactivate,
-          })
-        : await this.updateLearnerByCustomerUsecase.execute(accountId, {
-            id: input.learnerId,
-            customerId: input.customerId,
-            name: input.name,
-            gender: input.gender,
-            birthDate: input.birthDate,
-            avatarUrl: input.avatarUrl,
-            specialNeeds: input.specialNeeds,
-            remark: input.remark,
-            countPerSession: input.countPerSession,
-          });
+    const isManager =
+      Array.isArray(user.accessGroup) &&
+      user.accessGroup.some((r) => String(r).toUpperCase() === 'MANAGER');
+    const result: LearnerEntity = isManager
+      ? await this.updateLearnerByManagerUsecase.execute(accountId, {
+          id: input.learnerId,
+          name: input.name,
+          gender: input.gender,
+          birthDate: input.birthDate,
+          avatarUrl: input.avatarUrl,
+          specialNeeds: input.specialNeeds,
+          remark: input.remark,
+          countPerSession: input.countPerSession,
+          targetCustomerId: input.targetCustomerId,
+          deactivate: input.deactivate,
+        })
+      : await this.updateLearnerByCustomerUsecase.execute(accountId, {
+          id: input.learnerId,
+          customerId: input.customerId,
+          name: input.name,
+          gender: input.gender,
+          birthDate: input.birthDate,
+          avatarUrl: input.avatarUrl,
+          specialNeeds: input.specialNeeds,
+          remark: input.remark,
+          countPerSession: input.countPerSession,
+        });
 
     return this.mapLearnerEntityToOutput(result);
   }
@@ -138,11 +138,14 @@ export class LearnerResolver {
     @Args('input') input: GetLearnerInput,
     @currentUser() user: JwtPayload,
   ): Promise<LearnerOutput> {
+    const isManager =
+      Array.isArray(user.accessGroup) &&
+      user.accessGroup.some((r) => String(r).toUpperCase() === 'MANAGER');
     const result: LearnerEntity = await this.getLearnerUsecase.execute(
       Number(user.sub),
       input.learnerId,
       input.customerId,
-      user.activeRole,
+      isManager ? 'MANAGER' : user.activeRole,
     );
 
     return this.mapLearnerEntityToOutput(result);
