@@ -151,6 +151,7 @@ export class UserInfoResolver {
         phone: input.phone,
         tags: input.tags,
         geographic: geoPatch,
+        userState: input.userState,
       },
     });
     return {

@@ -1,8 +1,8 @@
 // 文件位置：src/adapters/graphql/account/dto/user-info.update.input.ts
 
-import { Gender } from '@app-types/models/user-info.types';
+import { Gender, UserState } from '@app-types/models/user-info.types';
 import { Field, InputType, ObjectType } from '@nestjs/graphql';
-import { IsInt, IsOptional, IsString, MaxLength } from 'class-validator';
+import { IsEnum, IsInt, IsOptional, IsString, MaxLength } from 'class-validator';
 import GraphQLJSON from 'graphql-type-json';
 import { UserInfoDTO } from './user-info.dto';
 
@@ -22,6 +22,11 @@ export class UpdateUserInfoInput {
   @Field(() => Gender, { nullable: true, description: '性别' })
   @IsOptional()
   gender?: Gender;
+
+  @Field(() => UserState, { nullable: true, description: '账户状态（仅 manager 可修改）' })
+  @IsOptional()
+  @IsEnum(UserState)
+  userState?: UserState;
 
   @Field(() => String, { nullable: true, description: '出生日期（YYYY-MM-DD）' })
   @IsOptional()

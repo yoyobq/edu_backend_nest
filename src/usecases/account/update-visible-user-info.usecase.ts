@@ -2,7 +2,7 @@
 
 import { IdentityTypeEnum } from '@app-types/models/account.types';
 import { UserInfoView } from '@app-types/models/auth.types';
-import { Gender, type GeographicInfo } from '@app-types/models/user-info.types';
+import { Gender, UserState, type GeographicInfo } from '@app-types/models/user-info.types';
 import { expandRoles, hasRole } from '@core/account/policy/role-access.policy';
 import { canViewUserInfo } from '@core/account/policy/user-info-visibility.policy';
 import { ACCOUNT_ERROR, DomainError, PERMISSION_ERROR } from '@core/common/errors/domain-error';
@@ -23,6 +23,7 @@ export type UserInfoPatch = {
   phone?: string | null;
   tags?: string[] | null;
   geographic?: GeographicInfo | null;
+  userState?: UserState;
 };
 
 export interface UpdateVisibleUserInfoParams {
@@ -71,7 +72,8 @@ export class UpdateVisibleUserInfoUsecase {
           throw new DomainError(ACCOUNT_ERROR.USER_INFO_NOT_FOUND, '用户信息不存在');
         }
 
-        const sanitized = await this.sanitizePatch(patch, current);
+        const isManagerRole = expandRoles(session.roles).includes(IdentityTypeEnum.MANAGER);
+        const sanitized = await this.sanitizePatch(patch, current, isManagerRole);
         if (Object.keys(sanitized).length === 0) {
           const view = await this.fetchUserInfoUsecase.executeStrict({
             accountId: targetAccountId,
@@ -184,6 +186,7 @@ export class UpdateVisibleUserInfoUsecase {
   private async sanitizePatch(
     patch: UserInfoPatch,
     current: UserInfoEntity,
+    isManager: boolean,
   ): Promise<Partial<UserInfoEntity>> {
     const out: Partial<UserInfoEntity> = {};
 
@@ -233,6 +236,16 @@ export class UpdateVisibleUserInfoUsecase {
       const v = this.sanitizeGeographic(patch.geographic);
       const eq = JSON.stringify(v) === JSON.stringify(current.geographic);
       if (!eq) out.geographic = v;
+    }
+
+    if (typeof patch.userState !== 'undefined') {
+      if (!isManager) {
+        throw new DomainError(
+          PERMISSION_ERROR.INSUFFICIENT_PERMISSIONS,
+          '仅 manager 可修改用户状态',
+        );
+      }
+      assignIfChanged('userState', this.sanitizeUserState(patch.userState));
     }
 
     return out;
@@ -308,6 +321,10 @@ export class UpdateVisibleUserInfoUsecase {
    */
   private sanitizeGeographic(value: GeographicInfo | null | undefined): GeographicInfo | null {
     return value ?? null;
+  }
+
+  private sanitizeUserState(value: UserState | undefined): UserState {
+    return value ?? UserState.PENDING;
   }
 
   /**
