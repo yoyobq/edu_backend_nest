@@ -48,94 +48,44 @@ export class GetLearnerUsecase {
     customerId?: number,
     activeRole?: IdentityTypeEnum | string | null,
   ): Promise<LearnerEntity> {
-    // 双重身份验证：支持 customer 和 manager 身份
-    let targetCustomerId: number;
-
-    // 角色归一化：优先根据 activeRole 决策
     const role = this.normalizeActiveRole(activeRole);
+    const targetCustomerId =
+      role === 'CUSTOMER'
+        ? await this.resolveCustomerTarget(accountId, customerId)
+        : await this.resolveManagerOrFallbackTarget(accountId, learnerId);
 
-    // customer 分支：仅允许访问自己名下学员
-    if (role === 'CUSTOMER') {
-      const customer = await this.customerService.findByAccountId(accountId);
-      if (!customer) {
-        throw new DomainError(PERMISSION_ERROR.ACCESS_DENIED, '当前账户未绑定客户身份');
-      }
-      // customer 身份：只能查看自己的学员
-      if (customerId && customerId !== customer.id) {
-        throw new DomainError(PERMISSION_ERROR.ACCESS_DENIED, '无权限访问其他客户的学员');
-      }
-      targetCustomerId = customer.id;
-    } else if (role === 'MANAGER') {
-      // manager 分支：不因传错 customerId 报错，统一按学员归属客户进行授权校验
-      const manager = await this.managerService.findByAccountId(accountId);
-      if (!manager) {
-        throw new DomainError(PERMISSION_ERROR.ACCESS_DENIED, '用户身份验证失败');
-      }
-
-      // 读取学员以确定实际归属客户
-      const temp = await this.learnerService.findById(learnerId);
-      if (!temp) {
-        throw new DomainError(LEARNER_ERROR.LEARNER_NOT_FOUND, '学员不存在');
-      }
-      if (temp.deactivatedAt) {
-        throw new DomainError(LEARNER_ERROR.LEARNER_NOT_FOUND, '学员不存在或已被删除');
-      }
-
-      // 授权校验（当前实现：活跃 manager 即具备全量权限）
-      const ok = await this.managerService.hasPermissionForCustomer(manager.id, temp.customerId);
-      if (!ok) {
-        throw new DomainError(PERMISSION_ERROR.ACCESS_DENIED, 'Manager 无权限管理该客户');
-      }
-
-      targetCustomerId = temp.customerId;
-    } else {
-      // 未明确角色时的兜底逻辑：先走 customer 身份，再回退到 manager 身份
-      const customer = await this.customerService.findByAccountId(accountId);
-      if (customer) {
-        if (customerId && customerId !== customer.id) {
-          throw new DomainError(PERMISSION_ERROR.ACCESS_DENIED, '无权限访问其他客户的学员');
-        }
-        targetCustomerId = customer.id;
-      } else {
-        const manager = await this.managerService.findByAccountId(accountId);
-        if (!manager) {
-          throw new DomainError(PERMISSION_ERROR.ACCESS_DENIED, '用户身份验证失败');
-        }
-
-        const temp = await this.learnerService.findById(learnerId);
-        if (!temp) {
-          throw new DomainError(LEARNER_ERROR.LEARNER_NOT_FOUND, '学员不存在');
-        }
-        if (temp.deactivatedAt) {
-          throw new DomainError(LEARNER_ERROR.LEARNER_NOT_FOUND, '学员不存在或已被删除');
-        }
-
-        const ok = await this.managerService.hasPermissionForCustomer(manager.id, temp.customerId);
-        if (!ok) {
-          throw new DomainError(PERMISSION_ERROR.ACCESS_DENIED, 'Manager 无权限管理该客户');
-        }
-        targetCustomerId = temp.customerId;
-      }
-    }
-
-    // 2. 查找学员
     const learner = await this.learnerService.findById(learnerId);
-
-    if (!learner) {
-      throw new DomainError(LEARNER_ERROR.LEARNER_NOT_FOUND, '学员不存在');
-    }
-
-    // 3. 验证所有权（对于 manager 已在上面按权限友好处理过）
-    if (learner.customerId !== targetCustomerId) {
+    if (!learner) throw new DomainError(LEARNER_ERROR.LEARNER_NOT_FOUND, '学员不存在');
+    if (learner.customerId !== targetCustomerId)
       throw new DomainError(PERMISSION_ERROR.ACCESS_DENIED, '无权限访问该学员');
-    }
-
-    // 4. 检查学员是否已被软删除
-    if (learner.deactivatedAt) {
+    if (learner.deactivatedAt)
       throw new DomainError(LEARNER_ERROR.LEARNER_NOT_FOUND, '学员不存在或已被删除');
-    }
-
     return learner;
+  }
+
+  private async resolveCustomerTarget(accountId: number, customerId?: number): Promise<number> {
+    const customer = await this.customerService.findByAccountId(accountId);
+    if (!customer) throw new DomainError(PERMISSION_ERROR.ACCESS_DENIED, '当前账户未绑定客户身份');
+    if (customerId && customerId !== customer.id)
+      throw new DomainError(PERMISSION_ERROR.ACCESS_DENIED, '无权限访问其他客户的学员');
+    return customer.id;
+  }
+
+  private async resolveManagerOrFallbackTarget(
+    accountId: number,
+    learnerId: number,
+  ): Promise<number> {
+    const manager = await this.managerService.findByAccountId(accountId);
+    if (!manager) throw new DomainError(PERMISSION_ERROR.ACCESS_DENIED, '用户身份验证失败');
+
+    const temp = await this.learnerService.findById(learnerId);
+    if (!temp) throw new DomainError(LEARNER_ERROR.LEARNER_NOT_FOUND, '学员不存在');
+    if (temp.deactivatedAt)
+      throw new DomainError(LEARNER_ERROR.LEARNER_NOT_FOUND, '学员不存在或已被删除');
+
+    const ok = await this.managerService.hasPermissionForCustomer(manager.id, temp.customerId);
+    if (!ok) throw new DomainError(PERMISSION_ERROR.ACCESS_DENIED, 'Manager 无权限管理该客户');
+    return temp.customerId;
   }
 
   /**
