@@ -1,12 +1,13 @@
 // src/usecases/learner/list-learners.usecase.ts
 
+import { IdentityTypeEnum } from '@app-types/models/account.types';
 import { Injectable } from '@nestjs/common';
 import { LearnerSortField, OrderDirection } from '@src/types/common/sort.types';
 import { DomainError, PERMISSION_ERROR } from '../../../core/common/errors/domain-error';
 import { CustomerService } from '../../../modules/account/identities/training/customer/account-customer.service';
-import { ManagerService } from '../../../modules/account/identities/training/manager/manager.service';
 import { LearnerEntity } from '../../../modules/account/identities/training/learner/account-learner.entity';
 import { LearnerService } from '../../../modules/account/identities/training/learner/account-learner.service';
+import { ManagerService } from '../../../modules/account/identities/training/manager/manager.service';
 
 /**
  * 分页查询参数
@@ -80,13 +81,80 @@ export class ListLearnersUsecase {
    * @param input 查询参数
    * @returns 分页学员列表
    */
-  async execute(accountId: number, input: PaginationInput): Promise<PaginatedLearners> {
+  async execute(
+    accountId: number,
+    input: PaginationInput,
+    activeRole?: IdentityTypeEnum | string,
+  ): Promise<PaginatedLearners> {
     const page = input.page || 1;
     const limit = Math.min(input.limit || 10, 100);
     const sortBy = this.mapSortFieldToDbField(input.sortBy || LearnerSortField.CREATED_AT);
     const sortOrder = input.sortOrder || OrderDirection.DESC;
 
-    // 首先尝试查找 Customer
+    // 若提供 activeRole，则优先按 activeRole 进行权限分支判定
+    const normalizedActiveRole =
+      typeof activeRole === 'string'
+        ? activeRole.toUpperCase()
+        : activeRole != null
+          ? String(activeRole).toUpperCase()
+          : null;
+
+    if (normalizedActiveRole === 'CUSTOMER') {
+      const customer = await this.customerService.findByAccountId(accountId);
+      if (!customer) {
+        throw new DomainError(PERMISSION_ERROR.ACCESS_DENIED, '当前账户未绑定客户身份');
+      }
+
+      const result = await this.learnerService.findPaginated({
+        customerId: customer.id,
+        page,
+        limit,
+        sortBy,
+        sortOrder: sortOrder as 'ASC' | 'DESC',
+        includeDeleted: false,
+      });
+
+      return {
+        items: result.learners,
+        total: result.total,
+        page: result.page,
+        limit: result.limit,
+        totalPages: result.totalPages,
+      };
+    }
+
+    if (normalizedActiveRole === 'MANAGER') {
+      const isActive = await this.managerService.isActiveManager(accountId);
+      if (!isActive) {
+        throw new DomainError(PERMISSION_ERROR.ACCESS_DENIED, '仅活跃的 manager 可访问学员列表');
+      }
+
+      if (input.customerId) {
+        const targetCustomer = await this.customerService.findById(input.customerId);
+        if (!targetCustomer) {
+          throw new DomainError(PERMISSION_ERROR.ACCESS_DENIED, '目标客户不存在');
+        }
+      }
+
+      const result = await this.learnerService.findPaginated({
+        customerId: input.customerId ?? undefined,
+        page,
+        limit,
+        sortBy,
+        sortOrder: sortOrder as 'ASC' | 'DESC',
+        includeDeleted: false,
+      });
+
+      return {
+        items: result.learners,
+        total: result.total,
+        page: result.page,
+        limit: result.limit,
+        totalPages: result.totalPages,
+      };
+    }
+
+    // 未提供 activeRole 时按既有身份存在逻辑回退
     const customer = await this.customerService.findByAccountId(accountId);
 
     if (customer) {

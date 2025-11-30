@@ -15,13 +15,13 @@ import {
   PaginatedLearners,
 } from '@src/usecases/identity-management/learner/list-learners.usecase';
 import { UpdateLearnerUsecase } from '@src/usecases/identity-management/learner/update-learner.usecase';
+import { LearnerOutput } from './dto/learner.arg';
 import { CreateLearnerInput } from './dto/learner.input.create';
 import { DeleteLearnerInput } from './dto/learner.input.delete';
 import { GetLearnerInput } from './dto/learner.input.get';
-import { LearnerOutput } from './dto/learner.arg';
 import { ListLearnersInput } from './dto/learner.input.list';
-import { ListLearnersOutput } from './dto/learners.list';
 import { UpdateLearnerInput } from './dto/learner.input.update';
+import { ListLearnersOutput } from './dto/learners.list';
 
 /**
  * 学员管理 GraphQL Resolver
@@ -139,13 +139,17 @@ export class LearnerResolver {
     @Args('input') input: ListLearnersInput,
     @currentUser() user: JwtPayload,
   ): Promise<ListLearnersOutput> {
-    const result: PaginatedLearners = await this.listLearnersUsecase.execute(Number(user.sub), {
-      page: input.page,
-      limit: input.limit,
-      sortBy: input.sortBy,
-      sortOrder: input.sortOrder || OrderDirection.DESC,
-      customerId: input.customerId,
-    });
+    const result: PaginatedLearners = await this.listLearnersUsecase.execute(
+      Number(user.sub),
+      {
+        page: input.page,
+        limit: input.limit,
+        sortBy: input.sortBy,
+        sortOrder: input.sortOrder || OrderDirection.DESC,
+        customerId: input.customerId,
+      },
+      user.activeRole,
+    );
 
     return {
       learners: result.items.map((learner: LearnerEntity) =>
