@@ -1,10 +1,12 @@
 // src/usecases/auth/login-with-password.usecase.ts
 
 import { EnrichedLoginResult, LoginWarningType } from '@app-types/auth/login-flow.types';
+import { JwtPayload } from '@app-types/jwt.types';
 import { AccountStatus } from '@app-types/models/account.types';
 import { AuthLoginModel } from '@app-types/models/auth.types';
 import { AUTH_ERROR, DomainError, isDomainError } from '@core/common/errors';
 import { Injectable } from '@nestjs/common';
+import { TokenHelper } from '@src/core/common/token/token.helper';
 import { AccountService } from '@src/modules/account/base/services/account.service';
 import { PinoLogger } from 'nestjs-pino';
 import { DecideLoginRoleUsecase } from './decide-login-role.usecase';
@@ -22,6 +24,7 @@ export class LoginWithPasswordUsecase {
     private readonly executeLoginFlowUsecase: ExecuteLoginFlowUsecase,
     private readonly decideLoginRoleUsecase: DecideLoginRoleUsecase,
     private readonly enrichLoginWithIdentityUsecase: EnrichLoginWithIdentityUsecase,
+    private readonly tokenHelper: TokenHelper,
     private readonly logger: PinoLogger,
   ) {
     this.logger.setContext(LoginWithPasswordUsecase.name);
@@ -60,9 +63,37 @@ export class LoginWithPasswordUsecase {
         },
       );
 
+      const hasRoles = Array.isArray(basicResult.accessGroup) && basicResult.accessGroup.length > 0;
+      if (hasRoles && !basicResult.accessGroup.includes(finalRole)) {
+        this.logger.warn(
+          {
+            accountId: basicResult.accountId,
+            loginName,
+            finalRole,
+            accessGroup: basicResult.accessGroup,
+            event: 'login_permission_mismatch',
+          },
+          '登录失败：角色与权限组不匹配',
+        );
+        throw new DomainError(AUTH_ERROR.PERMISSION_MISMATCH, '权限信息异常，拒绝登录', {
+          finalRole,
+          accessGroup: basicResult.accessGroup,
+        });
+      }
+
+      const payload: JwtPayload = {
+        sub: basicResult.accountId,
+        username: basicResult.userInfo.nickname,
+        email: basicResult.account.loginEmail,
+        accessGroup: basicResult.accessGroup,
+        ...(hasRoles ? { activeRole: finalRole } : {}),
+      };
+      const accessToken = this.tokenHelper.generateAccessToken({ payload, audience });
+      const tokens = { accessToken, refreshToken: basicResult.tokens.refreshToken };
+
       // Enrich: 装配身份信息
       const enrichedResult = await this.enrichLoginWithIdentityUsecase.execute({
-        tokens: basicResult.tokens,
+        tokens,
         accountId: basicResult.accountId,
         finalRole,
         accessGroup: basicResult.accessGroup,

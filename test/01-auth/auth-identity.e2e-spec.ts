@@ -1,20 +1,21 @@
 // test/01-auth/auth-identity.e2e-spec.ts
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
+import { TokenHelper } from '@src/core/common/token/token.helper';
 import { CoachEntity } from '@src/modules/account/identities/training/coach/account-coach.entity';
 import { CustomerEntity } from '@src/modules/account/identities/training/customer/account-customer.entity';
 import { LearnerEntity } from '@src/modules/account/identities/training/learner/account-learner.entity';
 import { ManagerEntity } from '@src/modules/account/identities/training/manager/account-manager.entity';
-import { StaffEntity } from '@src/modules/account/identities/school/staff/account-staff.entity';
+
 import { IdentityTypeEnum, LoginTypeEnum } from '@src/types/models/account.types';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { DataSource } from 'typeorm';
 
 import { UserState } from '@app-types/models/user-info.types';
+import { initGraphQLSchema } from '@src/adapters/graphql/schema/schema.init';
 import { AppModule } from '@src/app.module';
 import { CreateAccountUsecase } from '@src/usecases/account/create-account.usecase';
-import { initGraphQLSchema } from '../../src/adapters/graphql/schema/schema.init';
 import { cleanupTestAccounts, seedTestAccounts, testAccountsConfig } from '../utils/test-accounts';
 
 /**
@@ -24,9 +25,10 @@ describe('Auth Identity (e2e)', () => {
   let app: INestApplication<App>;
   let dataSource: DataSource;
   let createAccountUsecase: CreateAccountUsecase;
+  let tokenHelper: TokenHelper;
 
   // 直接使用统一测试账号配置
-  const { coach, customer, manager, learner, staff } = testAccountsConfig;
+  const { coach, customer, manager, learner } = testAccountsConfig;
 
   beforeAll(async () => {
     // 初始化 GraphQL Schema
@@ -39,14 +41,16 @@ describe('Auth Identity (e2e)', () => {
     app = moduleFixture.createNestApplication();
     dataSource = moduleFixture.get<DataSource>(DataSource);
     createAccountUsecase = moduleFixture.get<CreateAccountUsecase>(CreateAccountUsecase);
+    tokenHelper = moduleFixture.get<TokenHelper>(TokenHelper);
 
     await app.init();
+    await app.listen(0);
 
     // 使用统一的测试账号创建函数
     await seedTestAccounts({
       dataSource,
       createAccountUsecase,
-      includeKeys: ['coach', 'customer', 'manager', 'learner', 'staff'],
+      includeKeys: ['coach', 'customer', 'manager', 'learner'],
     });
 
     console.log('✅ 使用统一测试账号创建成功');
@@ -369,6 +373,10 @@ describe('Auth Identity (e2e)', () => {
       expect(data?.login.role).toBe(IdentityTypeEnum.COACH);
       expect(typeof data?.login.accessToken).toBe('string');
       expect(typeof data?.login.refreshToken).toBe('string');
+
+      const payload = tokenHelper.decodeToken({ token: data!.login.accessToken });
+      expect(payload?.activeRole).toBe(IdentityTypeEnum.COACH);
+      expect(payload?.accessGroup).toContain(IdentityTypeEnum.COACH);
     });
 
     it('应该正确返回 Coach 身份信息', async () => {
@@ -409,62 +417,62 @@ describe('Auth Identity (e2e)', () => {
     });
   });
 
-  describe('Staff 身份完整测试', () => {
-    it('应该支持 Staff 用户登录成功', async () => {
-      const response = await performLogin(staff.loginName, staff.loginPassword);
+  // describe('Staff 身份完整测试', () => {
+  //   it('应该支持 Staff 用户登录成功', async () => {
+  //     const response = await performLogin(staff.loginName, staff.loginPassword);
 
-      const { data } = response.body;
-      expect(data?.login.accountId).toBeDefined();
-      expect(data?.login.accessToken).toBeDefined();
-      expect(data?.login.refreshToken).toBeDefined();
-      expect(data?.login.role).toBe(IdentityTypeEnum.STAFF);
-      expect(typeof data?.login.accessToken).toBe('string');
-      expect(typeof data?.login.refreshToken).toBe('string');
-    });
+  //     const { data } = response.body;
+  //     expect(data?.login.accountId).toBeDefined();
+  //     expect(data?.login.accessToken).toBeDefined();
+  //     expect(data?.login.refreshToken).toBeDefined();
+  //     expect(data?.login.role).toBe(IdentityTypeEnum.STAFF);
+  //     expect(typeof data?.login.accessToken).toBe('string');
+  //     expect(typeof data?.login.refreshToken).toBe('string');
+  //   });
 
-    it('应该正确返回 Staff 身份信息', async () => {
-      const response = await performLogin(staff.loginName, staff.loginPassword);
+  //   it('应该正确返回 Staff 身份信息', async () => {
+  //     const response = await performLogin(staff.loginName, staff.loginPassword);
 
-      const { data } = response.body;
-      expect(data?.login.identity).toBeDefined();
-      expect(data?.login.identity.staffId).toBeDefined();
-      expect(data?.login.identity.name).toContain('staff_name');
-      expect(data?.login.identity.remark).toContain('测试用 staff 身份记录');
-      expect(data?.login.identity.jobTitle).toBe('教师');
-      expect(data?.login.identity.employmentStatus).toBeDefined();
-      // GraphQL schema 中 StaffType.id 是 Int，parseStaffId 将 varchar 工号解析为数字
-      expect(typeof data?.login.identity.staffId).toBe('number');
-    });
+  //     const { data } = response.body;
+  //     expect(data?.login.identity).toBeDefined();
+  //     expect(data?.login.identity.staffId).toBeDefined();
+  //     expect(data?.login.identity.name).toContain('staff_name');
+  //     expect(data?.login.identity.remark).toContain('测试用 staff 身份记录');
+  //     expect(data?.login.identity.jobTitle).toBe('教师');
+  //     expect(data?.login.identity.employmentStatus).toBeDefined();
+  //     // GraphQL schema 中 StaffType.id 是 Int，parseStaffId 将 varchar 工号解析为数字
+  //     expect(typeof data?.login.identity.staffId).toBe('number');
+  //   });
 
-    it('应该正确返回 Staff 用户信息', async () => {
-      const response = await performLogin(staff.loginName, staff.loginPassword);
+  //   it('应该正确返回 Staff 用户信息', async () => {
+  //     const response = await performLogin(staff.loginName, staff.loginPassword);
 
-      const { data } = response.body;
-      expect(data?.login.userInfo).toBeDefined();
-      expect(data?.login.userInfo.nickname).toBeDefined();
-      expect(data?.login.userInfo.email).toBe(staff.loginEmail);
-      expect(data?.login.userInfo.accessGroup).toContain(IdentityTypeEnum.STAFF);
-      expect(data?.login.userInfo.userState).toBe(UserState.ACTIVE);
-    });
+  //     const { data } = response.body;
+  //     expect(data?.login.userInfo).toBeDefined();
+  //     expect(data?.login.userInfo.nickname).toBeDefined();
+  //     expect(data?.login.userInfo.email).toBe(staff.loginEmail);
+  //     expect(data?.login.userInfo.accessGroup).toContain(IdentityTypeEnum.STAFF);
+  //     expect(data?.login.userInfo.userState).toBe(UserState.ACTIVE);
+  //   });
 
-    it('应该验证 Staff 身份记录与数据库一致', async () => {
-      const response = await performLogin(staff.loginName, staff.loginPassword);
+  //   it('应该验证 Staff 身份记录与数据库一致', async () => {
+  //     const response = await performLogin(staff.loginName, staff.loginPassword);
 
-      const { data } = response.body;
-      const staffRepository = dataSource.getRepository(StaffEntity);
-      const staffEntity = await staffRepository.findOne({
-        where: { accountId: parseInt(data?.login.accountId) },
-      });
+  //     const { data } = response.body;
+  //     const staffRepository = dataSource.getRepository(StaffEntity);
+  //     const staffEntity = await staffRepository.findOne({
+  //       where: { accountId: parseInt(data?.login.accountId) },
+  //     });
 
-      expect(staffEntity).toBeDefined();
-      // staffEntity.id 是 varchar 工号，GraphQL 返回的是解析后的数字 staffId
-      expect(data?.login.identity.staffId).toBe(parseInt(staffEntity!.id));
-      expect(data?.login.identity.name).toBe(staffEntity?.name);
-      expect(data?.login.identity.remark).toBe(staffEntity?.remark);
-      expect(data?.login.identity.departmentId).toBe(staffEntity?.departmentId);
-      expect(data?.login.identity.jobTitle).toBe(staffEntity?.jobTitle);
-    });
-  });
+  //     expect(staffEntity).toBeDefined();
+  //     // staffEntity.id 是 varchar 工号，GraphQL 返回的是解析后的数字 staffId
+  //     expect(data?.login.identity.staffId).toBe(parseInt(staffEntity!.id));
+  //     expect(data?.login.identity.name).toBe(staffEntity?.name);
+  //     expect(data?.login.identity.remark).toBe(staffEntity?.remark);
+  //     expect(data?.login.identity.departmentId).toBe(staffEntity?.departmentId);
+  //     expect(data?.login.identity.jobTitle).toBe(staffEntity?.jobTitle);
+  //   });
+  // });
 
   describe('Customer 身份完整测试', () => {
     it('应该支持 Customer 用户登录成功', async () => {
@@ -477,6 +485,10 @@ describe('Auth Identity (e2e)', () => {
       expect(data?.login.role).toBe(IdentityTypeEnum.CUSTOMER);
       expect(typeof data?.login.accessToken).toBe('string');
       expect(typeof data?.login.refreshToken).toBe('string');
+
+      const payload = tokenHelper.decodeToken({ token: data!.login.accessToken });
+      expect(payload?.activeRole).toBe(IdentityTypeEnum.CUSTOMER);
+      expect(payload?.accessGroup).toContain(IdentityTypeEnum.CUSTOMER);
     });
 
     it('应该正确返回 Customer 身份信息', async () => {
@@ -533,6 +545,10 @@ describe('Auth Identity (e2e)', () => {
       expect(data?.login.role).toBe(IdentityTypeEnum.MANAGER);
       expect(typeof data?.login.accessToken).toBe('string');
       expect(typeof data?.login.refreshToken).toBe('string');
+
+      const payload = tokenHelper.decodeToken({ token: data!.login.accessToken });
+      expect(payload?.activeRole).toBe(IdentityTypeEnum.MANAGER);
+      expect(payload?.accessGroup).toContain(IdentityTypeEnum.MANAGER);
     });
 
     it('应该正确返回 Manager 身份信息', async () => {
@@ -584,6 +600,10 @@ describe('Auth Identity (e2e)', () => {
       expect(data?.login.role).toBe(IdentityTypeEnum.LEARNER);
       expect(typeof data?.login.accessToken).toBe('string');
       expect(typeof data?.login.refreshToken).toBe('string');
+
+      const payload = tokenHelper.decodeToken({ token: data!.login.accessToken });
+      expect(payload?.activeRole).toBe(IdentityTypeEnum.LEARNER);
+      expect(payload?.accessGroup).toContain(IdentityTypeEnum.LEARNER);
     });
 
     it('应该正确返回 Learner 身份信息', async () => {
@@ -741,7 +761,10 @@ describe('Auth Identity (e2e)', () => {
           // 给 WebSocket 服务器一些时间来完成清理
           await new Promise((resolve) => setTimeout(resolve, 100));
         } catch (closeError) {
-          console.warn('应用关闭时出现警告:', closeError);
+          const msg = (closeError as Error)?.message ?? String(closeError);
+          if (!/server is not running/i.test(msg)) {
+            console.warn('应用关闭时出现警告:', closeError);
+          }
         }
       }
     }

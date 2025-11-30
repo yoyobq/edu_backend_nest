@@ -1,7 +1,10 @@
 // src/usecases/auth/login-by-account-id.usecase.ts
 
 import { EnrichedLoginResult, LoginWarningType } from '@app-types/auth/login-flow.types';
+import { JwtPayload } from '@app-types/jwt.types';
 import { AudienceTypeEnum, ThirdPartyProviderEnum } from '@app-types/models/account.types';
+import { AUTH_ERROR, DomainError } from '@core/common/errors';
+import { TokenHelper } from '@core/common/token/token.helper';
 import { Injectable } from '@nestjs/common';
 import { DecideLoginRoleUsecase } from './decide-login-role.usecase';
 import { EnrichLoginWithIdentityUsecase } from './enrich-login-with-identity.usecase';
@@ -17,6 +20,7 @@ export class LoginByAccountIdUsecase {
     private readonly executeLoginFlowUsecase: ExecuteLoginFlowUsecase,
     private readonly decideLoginRoleUsecase: DecideLoginRoleUsecase,
     private readonly enrichLoginWithIdentityUsecase: EnrichLoginWithIdentityUsecase,
+    private readonly tokenHelper: TokenHelper,
   ) {}
 
   /**
@@ -27,6 +31,13 @@ export class LoginByAccountIdUsecase {
    * @param params.audience 客户端类型
    * @param params.provider 第三方登录提供商（可选，用于区分第三方登录）
    * @returns 增强的登录结果
+   */
+  /**
+   * 根据账户 ID 执行登录（三段式编排）
+   * 1) 执行基础登录流程（获取账户与用户信息、校验状态）
+   * 2) 决策最终角色（基于 roleFromHint 与 accessGroup）
+   * 3) 在角色决策之后重签发 Access Token，写入 activeRole
+   * 4) 装配身份信息并返回增强结果
    */
   async execute({
     accountId,
@@ -58,9 +69,26 @@ export class LoginByAccountIdUsecase {
       },
     );
 
+    const hasRoles = Array.isArray(basicResult.accessGroup) && basicResult.accessGroup.length > 0;
+    if (hasRoles && !basicResult.accessGroup.includes(finalRole)) {
+      throw new DomainError(AUTH_ERROR.PERMISSION_MISMATCH, '权限信息异常，拒绝登录', {
+        finalRole,
+        accessGroup: basicResult.accessGroup,
+      });
+    }
+    const payload: JwtPayload = {
+      sub: basicResult.accountId,
+      username: basicResult.userInfo.nickname,
+      email: basicResult.account.loginEmail,
+      accessGroup: basicResult.accessGroup,
+      ...(hasRoles ? { activeRole: finalRole } : {}),
+    };
+    const accessToken = this.tokenHelper.generateAccessToken({ payload, audience });
+    const tokens = { accessToken, refreshToken: basicResult.tokens.refreshToken };
+
     // Enrich: 装配身份信息
     const enrichedResult = await this.enrichLoginWithIdentityUsecase.execute({
-      tokens: basicResult.tokens,
+      tokens,
       accountId: basicResult.accountId,
       finalRole,
       accessGroup: basicResult.accessGroup,

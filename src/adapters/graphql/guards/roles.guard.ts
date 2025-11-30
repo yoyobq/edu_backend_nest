@@ -26,85 +26,20 @@ export class RolesGuard implements CanActivate {
   constructor(private reflector: Reflector) {}
 
   canActivate(context: ExecutionContext): boolean {
-    const requiredRoles = this.reflector.getAllAndOverride<string[]>('roles', [
-      context.getHandler(),
-      context.getClass(),
-    ]);
+    const requiredRoles = this.getRequiredRoles(context);
+    const user = this.getAuthenticatedUser(context, requiredRoles);
 
-    const request = this.getRequest(context);
-    const user = request.user as JwtPayload;
-
-    // 首先检查用户是否登录，无论是否有角色要求
-    if (!user) {
-      // 用户未登录 - 401 语义
-      throw new DomainError(JWT_ERROR.AUTHENTICATION_FAILED, '用户未登录', {
-        requiredRoles: requiredRoles || [],
-      });
-    }
-
-    // 如果没有角色要求，允许已登录用户通过
     if (!requiredRoles) {
       return true;
     }
 
-    // 如果角色要求为空数组，需要检查用户权限信息
     if (requiredRoles.length === 0) {
-      // 检查 accessGroup 数据格式
-      if (!Array.isArray(user.accessGroup)) {
-        throw new DomainError(PERMISSION_ERROR.INSUFFICIENT_PERMISSIONS, '用户权限数据格式异常', {
-          requiredRoles,
-          accessGroupType: typeof user.accessGroup,
-          accessGroupValue: user.accessGroup,
-        });
-      }
-
-      const userAccessGroup = user.accessGroup;
-
-      if (userAccessGroup.length === 0) {
-        // 用户已登录但缺少角色信息 - 403 语义
-        throw new DomainError(PERMISSION_ERROR.INSUFFICIENT_PERMISSIONS, '用户权限信息缺失', {
-          requiredRoles,
-        });
-      }
-
-      // 有角色信息的用户可以访问空角色要求的端点
-      return true;
+      return this.handleEmptyRequiredRoles(user, requiredRoles);
     }
 
-    // 检查 accessGroup 数据格式，如果不是数组直接抛错
-    if (!Array.isArray(user.accessGroup)) {
-      throw new DomainError(PERMISSION_ERROR.INSUFFICIENT_PERMISSIONS, '用户权限数据格式异常', {
-        requiredRoles,
-        accessGroupType: typeof user.accessGroup,
-        accessGroupValue: user.accessGroup,
-      });
-    }
-
-    const userAccessGroup = user.accessGroup;
-
-    if (userAccessGroup.length === 0) {
-      // 用户已登录但缺少角色信息 - 403 语义
-      throw new DomainError(PERMISSION_ERROR.INSUFFICIENT_PERMISSIONS, '用户权限信息缺失', {
-        requiredRoles,
-      });
-    }
-
-    // 统一转换为小写进行比较
-    const normalizedRequiredRoles = requiredRoles.map((role) => role.toLowerCase());
-    const normalizedUserRoles = userAccessGroup.map((role) =>
-      typeof role === 'string' ? role.toLowerCase() : String(role).toLowerCase(),
-    );
-
-    const hasRole = normalizedRequiredRoles.some((role) => normalizedUserRoles.includes(role));
-
-    if (!hasRole) {
-      // 用户已登录但角色不匹配 - 403 语义
-      throw new DomainError(PERMISSION_ERROR.INSUFFICIENT_PERMISSIONS, '缺少所需角色', {
-        requiredRoles,
-        userRoles: userAccessGroup, // 保持原始数据用于调试
-      });
-    }
-
+    this.assertValidAccessGroup(user, requiredRoles);
+    this.validateActiveRole(user);
+    this.assertHasAnyRequiredRole(user, requiredRoles);
     return true;
   }
 
@@ -126,5 +61,109 @@ export class RolesGuard implements CanActivate {
     throw new DomainError(JWT_ERROR.AUTHENTICATION_FAILED, '不支持的上下文类型', {
       contextType: context.getType(),
     });
+  }
+
+  /**
+   * 读取角色要求元数据
+   */
+  private getRequiredRoles(context: ExecutionContext): string[] | undefined {
+    return this.reflector.getAllAndOverride<string[]>('roles', [
+      context.getHandler(),
+      context.getClass(),
+    ]);
+  }
+
+  /**
+   * 获取并校验认证用户
+   */
+  private getAuthenticatedUser(
+    context: ExecutionContext,
+    requiredRoles: string[] | undefined,
+  ): JwtPayload {
+    const request = this.getRequest(context);
+    const user = request.user as JwtPayload | undefined;
+    if (!user) {
+      throw new DomainError(JWT_ERROR.AUTHENTICATION_FAILED, '用户未登录', {
+        requiredRoles: requiredRoles || [],
+      });
+    }
+    return user;
+  }
+
+  /**
+   * 处理 @Roles() 空数组场景
+   */
+  private handleEmptyRequiredRoles(user: JwtPayload, requiredRoles: string[]): boolean {
+    if (!Array.isArray(user.accessGroup)) {
+      throw new DomainError(PERMISSION_ERROR.INSUFFICIENT_PERMISSIONS, '用户权限数据格式异常', {
+        requiredRoles,
+        accessGroupType: typeof user.accessGroup,
+        accessGroupValue: user.accessGroup,
+      });
+    }
+
+    if (user.accessGroup.length === 0) {
+      throw new DomainError(PERMISSION_ERROR.INSUFFICIENT_PERMISSIONS, '用户权限信息缺失', {
+        requiredRoles,
+      });
+    }
+    return true;
+  }
+
+  /**
+   * 校验访问组格式与非空
+   */
+  private assertValidAccessGroup(user: JwtPayload, requiredRoles: string[]): void {
+    if (!Array.isArray(user.accessGroup)) {
+      throw new DomainError(PERMISSION_ERROR.INSUFFICIENT_PERMISSIONS, '用户权限数据格式异常', {
+        requiredRoles,
+        accessGroupType: typeof user.accessGroup,
+        accessGroupValue: user.accessGroup,
+      });
+    }
+    if (user.accessGroup.length === 0) {
+      throw new DomainError(PERMISSION_ERROR.INSUFFICIENT_PERMISSIONS, '用户权限信息缺失', {
+        requiredRoles,
+      });
+    }
+  }
+
+  /**
+   * 校验 activeRole 一致性
+   */
+  private validateActiveRole(user: JwtPayload): void {
+    const activeRole = (user as { activeRole?: string }).activeRole;
+    if (!activeRole) return;
+    const normalizedActiveRole = String(activeRole).toLowerCase();
+    const normalizedUserRolesForCheck = user.accessGroup.map((role) =>
+      typeof role === 'string' ? role.toLowerCase() : String(role).toLowerCase(),
+    );
+    if (!normalizedUserRolesForCheck.includes(normalizedActiveRole)) {
+      throw new DomainError(
+        PERMISSION_ERROR.INSUFFICIENT_PERMISSIONS,
+        'activeRole 不在用户权限组中',
+        {
+          activeRole,
+          userRoles: user.accessGroup,
+        },
+      );
+    }
+  }
+
+  /**
+   * 断言用户拥有至少一个所需角色
+   */
+  private assertHasAnyRequiredRole(user: JwtPayload, requiredRoles: string[]): void {
+    const normalizedRequiredRoles = requiredRoles.map((role) => role.toLowerCase());
+    const normalizedUserRoles = user.accessGroup.map((role) =>
+      typeof role === 'string' ? role.toLowerCase() : String(role).toLowerCase(),
+    );
+    const hasRole = normalizedRequiredRoles.some((role) => normalizedUserRoles.includes(role));
+    if (!hasRole) {
+      throw new DomainError(PERMISSION_ERROR.INSUFFICIENT_PERMISSIONS, '缺少所需角色', {
+        requiredRoles,
+        userRoles: user.accessGroup,
+      });
+    }
   }
 }

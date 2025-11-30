@@ -57,7 +57,7 @@ export const testAccountsConfig: Record<string, TestAccountConfig> = {
     loginEmail: 'admin@example.com',
     loginPassword: 'testAdmin@2024',
     status: AccountStatus.ACTIVE,
-    accessGroup: [IdentityTypeEnum.ADMIN],
+    accessGroup: [IdentityTypeEnum.ADMIN, IdentityTypeEnum.REGISTRANT],
     // ✅ 修正：与 roles-guard.e2e-spec.ts 保持一致，使用 REGISTRANT
     identityType: IdentityTypeEnum.REGISTRANT,
   },

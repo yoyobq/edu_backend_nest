@@ -1,6 +1,6 @@
 // src/types/jwt.types.ts
 
-import { AudienceTypeEnum } from './models/account.types';
+import { AudienceTypeEnum, IdentityTypeEnum } from './models/account.types';
 
 /**
  * 生成访问令牌的参数类型
@@ -29,6 +29,8 @@ export type JwtPayload = {
   username: string; // 用户昵称（来自 UserInfoEntity.nickname）
   email: string | null; // 邮箱，允许为空
   accessGroup: string[]; // 角色或分组
+  /** 当前使用角色（可选；在登录后角色决策阶段写入） */
+  activeRole?: IdentityTypeEnum;
   type?: 'access' | 'refresh';
   tokenVersion?: number; // Refresh 控制用
   // 自动管理字段

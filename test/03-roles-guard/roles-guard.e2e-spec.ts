@@ -2,9 +2,9 @@
 import { INestApplication, UseGuards } from '@nestjs/common';
 import { Query, Resolver } from '@nestjs/graphql';
 import { Test, TestingModule } from '@nestjs/testing';
+import { Roles } from '@src/adapters/graphql/decorators/roles.decorator';
 import { JwtAuthGuard } from '@src/adapters/graphql/guards/jwt-auth.guard';
 import { RolesGuard } from '@src/adapters/graphql/guards/roles.guard';
-import { Roles } from '@src/adapters/graphql/decorators/roles.decorator';
 import { AppModule } from '@src/app.module';
 import { AccountEntity } from '@src/modules/account/base/entities/account.entity';
 import { UserInfoEntity } from '@src/modules/account/base/entities/user-info.entity';
@@ -13,12 +13,12 @@ import { IdentityTypeEnum, LoginTypeEnum } from '@src/types/models/account.types
 import { CreateAccountUsecase } from '@src/usecases/account/create-account.usecase';
 // 添加身份实体导入
 import request from 'supertest';
-import { executeGql as executeGqlUtils } from '../utils/e2e-graphql-utils';
 import { App } from 'supertest/types';
 import { DataSource } from 'typeorm';
+import { executeGql as executeGqlUtils } from '../utils/e2e-graphql-utils';
 // 导入全局测试账户工具
-import { cleanupTestAccounts, seedTestAccounts, testAccountsConfig } from '../utils/test-accounts';
 import { initGraphQLSchema } from '../../src/adapters/graphql/schema/schema.init';
+import { cleanupTestAccounts, seedTestAccounts, testAccountsConfig } from '../utils/test-accounts';
 
 /**
  * 测试用的 GraphQL Resolver
@@ -117,6 +117,7 @@ describe('RolesGuard (e2e)', () => {
 
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
+      // 直接注册测试用 Resolver，确保 GraphQL 能发现查询字段
       providers: [TestRolesResolver],
     }).compile();
 
