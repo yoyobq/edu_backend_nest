@@ -325,11 +325,11 @@ export class AccountService {
       throw new DomainError(ACCOUNT_ERROR.ACCOUNT_SUSPENDED, '账户因安全问题已被暂停');
     }
 
-    // 使用真实的 accessGroup（如果验证成功）或默认值
+    // 返回数据库中的 accessGroup（已通过安全校验阻断不一致场景）
     const accessGroup: IdentityTypeEnum[] =
-      securityResult.isValid && securityResult.realAccessGroup
-        ? securityResult.realAccessGroup
-        : userInfo.accessGroup || [IdentityTypeEnum.REGISTRANT];
+      userInfo.accessGroup && userInfo.accessGroup.length > 0
+        ? userInfo.accessGroup
+        : [IdentityTypeEnum.REGISTRANT];
 
     return {
       id: account.id,

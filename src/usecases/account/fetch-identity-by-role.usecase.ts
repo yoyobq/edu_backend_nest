@@ -2,8 +2,8 @@
 
 import { EmploymentStatus, IdentityTypeEnum } from '@app-types/models/account.types';
 import { Gender } from '@app-types/models/user-info.types';
-import { AUTH_ERROR, DomainError } from '@core/common/errors';
 import { parseStaffId } from '@core/account/identity/parse-staff-id';
+import { AUTH_ERROR, DomainError } from '@core/common/errors';
 import { Injectable } from '@nestjs/common';
 import { AccountService } from '@src/modules/account/base/services/account.service';
 import { CoachType } from '../../adapters/graphql/account/dto/identity/coach.dto';

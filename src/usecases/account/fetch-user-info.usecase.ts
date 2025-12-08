@@ -1,6 +1,6 @@
 // src/usecases/account/fetch-user-info.usecase.ts
 
-import { EmploymentStatus, IdentityTypeEnum } from '@app-types/models/account.types';
+import { IdentityTypeEnum } from '@app-types/models/account.types';
 import { UserInfoView } from '@app-types/models/auth.types'; // 导入统一的 UserInfoView
 import { Gender, UserState } from '@app-types/models/user-info.types';
 import { ACCOUNT_ERROR, DomainError } from '@core/common/errors';
@@ -48,10 +48,11 @@ export class FetchUserInfoUsecase {
     accessGroup?: IdentityTypeEnum[];
   }): Promise<UserInfoView> {
     const base = await this.accountService.findUserInfoByAccountId(params.accountId);
-    const accessGroup = params.accessGroup ?? (await this.buildAccessGroup(params.accountId));
+    const finalAccessGroup: IdentityTypeEnum[] = base?.accessGroup
+      ? base.accessGroup
+      : [IdentityTypeEnum.REGISTRANT];
 
-    // 现在 buildUserInfoView 总是返回严格类型
-    return this.buildUserInfoView(base, params.accountId, accessGroup);
+    return this.buildUserInfoView(base, params.accountId, finalAccessGroup);
   }
 
   /**
@@ -83,9 +84,11 @@ export class FetchUserInfoUsecase {
       );
     }
 
-    const accessGroup = params.accessGroup ?? (await this.buildAccessGroup(accountId));
+    const finalAccessGroup: IdentityTypeEnum[] = base.accessGroup?.length
+      ? base.accessGroup
+      : [IdentityTypeEnum.REGISTRANT];
 
-    return this.buildUserInfoView(base, accountId, accessGroup) as UserInfoView & {
+    return this.buildUserInfoView(base, accountId, finalAccessGroup) as UserInfoView & {
       nickname: string;
       userState: UserState;
       notifyCount: number;
@@ -127,11 +130,11 @@ export class FetchUserInfoUsecase {
       throw new DomainError(ACCOUNT_ERROR.ACCOUNT_SUSPENDED, '账户因安全问题已被暂停');
     }
 
-    // 5. 确定最终的 accessGroup（使用验证后的真实值）
+    // 5. 确定最终的 accessGroup（严格使用数据库字段）
     const finalAccessGroup: IdentityTypeEnum[] =
-      securityResult.isValid && securityResult.realAccessGroup
-        ? securityResult.realAccessGroup
-        : userInfo.accessGroup || [IdentityTypeEnum.REGISTRANT];
+      userInfo.accessGroup && userInfo.accessGroup.length > 0
+        ? userInfo.accessGroup
+        : [IdentityTypeEnum.REGISTRANT];
 
     // 6. 构建用户信息视图
     const userInfoView = this.buildUserInfoView(userInfo, accountId, finalAccessGroup);
@@ -207,31 +210,6 @@ export class FetchUserInfoUsecase {
     if (!tags) return null;
     if (Array.isArray(tags)) return tags.map((v) => String(v));
     return null;
-  }
-
-  /**
-   * 构建访问权限组
-   * 并行查询各身份记录，按检查顺序依次 push
-   */
-  private async buildAccessGroup(accountId: number): Promise<IdentityTypeEnum[]> {
-    // 并行查询各身份记录
-    const [manager, coach, customer, staff] = await Promise.all([
-      this.accountService.findManagerByAccountId(accountId).catch(() => null),
-      this.accountService.findCoachByAccountId(accountId).catch(() => null),
-      this.accountService.findCustomerByAccountId(accountId).catch(() => null),
-      this.accountService.findStaffByAccountId(accountId).catch(() => null),
-    ]);
-
-    // 按检查顺序依次 push；不做任何排序或去重
-    const groups: IdentityTypeEnum[] = [];
-    if (manager && !manager.deactivatedAt) groups.push(IdentityTypeEnum.MANAGER);
-    if (coach && !coach.deactivatedAt) groups.push(IdentityTypeEnum.COACH);
-    if (customer && !customer.deactivatedAt) groups.push(IdentityTypeEnum.CUSTOMER);
-    if (staff && staff.employmentStatus === EmploymentStatus.ACTIVE) {
-      groups.push(IdentityTypeEnum.STAFF);
-    }
-
-    return groups;
   }
 }
 export { UserInfoView };

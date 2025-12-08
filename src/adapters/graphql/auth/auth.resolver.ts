@@ -3,6 +3,7 @@
 import { IdentityTypeEnum } from '@app-types/models/account.types';
 import { AuthLoginModel, LoginResultModel, UserInfoView } from '@app-types/models/auth.types';
 import { GeographicInfo } from '@app-types/models/user-info.types';
+import { parseStaffId } from '@core/account/identity/parse-staff-id';
 import { StaffEntity } from '@modules/account/identities/school/staff/account-staff.entity';
 import { CoachEntity } from '@modules/account/identities/training/coach/account-coach.entity';
 import { CustomerEntity } from '@modules/account/identities/training/customer/account-customer.entity';
@@ -20,7 +21,6 @@ import { StaffType } from '../account/dto/identity/staff.dto';
 import { LoginResult } from '../account/dto/login-result.dto';
 import { UserInfoDTO } from '../account/dto/user-info.dto';
 import { AuthLoginInput } from './dto/auth-login.input';
-import { parseStaffId } from '@core/account/identity/parse-staff-id';
 
 /**
  * 认证相关的 GraphQL Resolver
