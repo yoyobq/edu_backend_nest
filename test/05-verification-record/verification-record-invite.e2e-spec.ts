@@ -3,17 +3,18 @@ import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
 import { App } from 'supertest/types';
-import { postGql as postGqlUtils } from '../utils/e2e-graphql-utils';
 import { DataSource } from 'typeorm';
+import { postGql as postGqlUtils } from '../utils/e2e-graphql-utils';
 
 import { TokenHelper } from '@core/common/token/token.helper';
 import { AppModule } from '@src/app.module';
 import { CoachEntity } from '@src/modules/account/identities/training/coach/account-coach.entity';
 import { LearnerEntity } from '@src/modules/account/identities/training/learner/account-learner.entity';
 import { ManagerEntity } from '@src/modules/account/identities/training/manager/account-manager.entity';
+import { WeAppProvider } from '@src/modules/third-party-auth/providers/weapp.provider';
 import { CreateAccountUsecase } from '@usecases/account/create-account.usecase';
-import { cleanupTestAccounts, seedTestAccounts, testAccountsConfig } from '../utils/test-accounts';
 import { initGraphQLSchema } from '../../src/adapters/graphql/schema/schema.init';
+import { cleanupTestAccounts, seedTestAccounts, testAccountsConfig } from '../utils/test-accounts';
 
 /**
  * GraphQL 请求辅助函数
@@ -172,7 +173,7 @@ function getMyAccountId(app: INestApplication, bearer: string): number {
   return parseInt(String(payload.sub), 10);
 }
 
-describe('验证记录邀请类型测试 E2E', () => {
+describe('05-VerificationRecord 邀请与 WeApp 二维码 E2E', () => {
   let app: INestApplication;
   let dataSource: DataSource;
   let createAccountUsecase: CreateAccountUsecase;
@@ -187,9 +188,39 @@ describe('验证记录邀请类型测试 E2E', () => {
     const schemaResult = initGraphQLSchema();
     console.log(`✅ GraphQL Schema 初始化: ${schemaResult.message}`);
 
+    // 覆盖 WeAppProvider，避免外网请求并便于断言 scene 传递
+    const mockWeAppProvider: Pick<WeAppProvider, 'getAccessToken' | 'createWxaCodeUnlimit'> = {
+      getAccessToken: jest.fn(() => Promise.resolve('mock-access-token')),
+      createWxaCodeUnlimit: jest.fn(
+        (params: {
+          accessToken: string;
+          scene: string;
+          page?: string;
+          width?: number;
+          checkPath?: boolean;
+          envVersion?: 'develop' | 'trial' | 'release';
+          isHyaline?: boolean;
+        }): Promise<{ buffer: Buffer; contentType: string }> => {
+          const payload = [
+            params.scene,
+            params.page ?? '',
+            String(params.width ?? ''),
+            String(params.checkPath ?? ''),
+            params.envVersion ?? '',
+            String(params.isHyaline ?? ''),
+          ].join('|');
+          const buf = Buffer.from(`PNG:${payload}`);
+          return Promise.resolve({ buffer: buf, contentType: 'image/png' });
+        },
+      ),
+    };
+
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
-    }).compile();
+    })
+      .overrideProvider(WeAppProvider)
+      .useValue(mockWeAppProvider)
+      .compile();
 
     app = moduleFixture.createNestApplication();
     await app.init();
@@ -233,7 +264,7 @@ describe('验证记录邀请类型测试 E2E', () => {
     }
   });
 
-  describe('INVITE_COACH 类型', () => {
+  describe('邀请用例：INVITE_COACH', () => {
     beforeEach(async () => {
       // 每个测试开始前清理 Coach 数据
       const coachRepository = dataSource.getRepository(CoachEntity);
@@ -643,7 +674,7 @@ describe('验证记录邀请类型测试 E2E', () => {
     });
   });
 
-  describe('INVITE_MANAGER 类型', () => {
+  describe('邀请用例：INVITE_MANAGER', () => {
     beforeEach(async () => {
       // 每个测试开始前清理 Manager 数据
       const managerRepository = dataSource.getRepository(ManagerEntity);
@@ -1063,9 +1094,196 @@ describe('验证记录邀请类型测试 E2E', () => {
       });
       expect(managerAfterWrongUserConsume).toBeNull();
     });
+
+    /**
+     * 发起 GraphQL 调用生成微信小程序二维码
+     * @param app Nest 应用实例
+     * @param input 生成参数（ audience / scene / page / width 等 ）
+     */
+    async function generateWeappQrcode(
+      app: INestApplication,
+      input: {
+        audience: string;
+        scene: string;
+        page?: string;
+        width?: number;
+        checkPath?: boolean;
+        envVersion?: 'develop' | 'trial' | 'release';
+        isHyaline?: boolean;
+        encodeBase64?: boolean;
+      },
+    ) {
+      return await postGql(
+        app,
+        `
+        mutation GenerateWeappQrcode($input: GenerateWeappQrcodeInput!) {
+          generateWeappQrcode(input: $input) {
+            contentType
+            imageBase64
+            imageBufferBase64
+          }
+        }
+      `,
+        { input },
+      );
+    }
+
+    describe('第三方 WeApp：二维码生成', () => {
+      it('应该生成指向链接的微信小程序二维码', async () => {
+        // 使用符合微信场景限制的“链接表达”字符串（不含 t= 前缀）
+        const scene = 'invite_link_example_1234567890';
+        const page = 'pages/invite/index';
+
+        const resp = await generateWeappQrcode(app, {
+          audience: 'SSTSWEAPP',
+          scene,
+          page,
+          width: 320,
+          checkPath: true,
+          envVersion: 'trial',
+          isHyaline: false,
+          encodeBase64: true,
+        });
+
+        if (resp.body.errors) {
+          throw new Error(`GraphQL 错误: ${JSON.stringify(resp.body.errors)}`);
+        }
+
+        const result = resp.body.data.generateWeappQrcode;
+        expect(result).toBeDefined();
+        expect(result.contentType).toBe('image/png');
+        expect(typeof result.imageBase64).toBe('string');
+        expect(result.imageBase64.length).toBeGreaterThan(0);
+
+        // 断言 provider 被正确调用（ scene 原样传递 ）
+        const provider = app.get(WeAppProvider);
+        const calls = (provider as unknown as { createWxaCodeUnlimit: jest.Mock })
+          .createWxaCodeUnlimit.mock.calls;
+        const lastCallArgs = calls[calls.length - 1]?.[0] as {
+          scene: string;
+          page?: string;
+          width?: number;
+          checkPath?: boolean;
+          envVersion?: 'develop' | 'trial' | 'release';
+          isHyaline?: boolean;
+        };
+        expect(lastCallArgs.scene).toBe(scene);
+        expect(lastCallArgs.page).toBe(page);
+      });
+
+      it('应该为 INVITE_COACH 验证记录生成二维码，scene=token（无 t= 前缀）', async () => {
+        // 1. 创建邀请教练的验证记录，获取明文 token
+        const payload = {
+          title: '邀请教练二维码',
+          inviteUrl: 'https://example.com/invite-coach',
+          email: 'coach-qrcode@example.com',
+          coachName: '二维码教练',
+        };
+
+        const createResp = await createVerificationRecord(
+          app,
+          'INVITE_COACH',
+          payload,
+          managerAccessToken,
+          {
+            targetAccountId: learnerAccountId,
+            subjectType: 'COACH',
+            subjectId: 1,
+            returnToken: true,
+          },
+        );
+
+        if (createResp.body.errors) {
+          throw new Error(`GraphQL 错误: ${JSON.stringify(createResp.body.errors)}`);
+        }
+        const token: string = createResp.body.data.createVerificationRecord.token;
+        expect(typeof token).toBe('string');
+        expect(token.length).toBeGreaterThan(0);
+        expect(token.length).toBeLessThanOrEqual(32);
+
+        // 2. 使用 token 作为 scene 生成微信二维码
+        const qrcodeResp = await generateWeappQrcode(app, {
+          audience: 'SSTSWEAPP',
+          scene: token,
+          page: 'pages/invite/index',
+          encodeBase64: true,
+        });
+
+        if (qrcodeResp.body.errors) {
+          throw new Error(`GraphQL 错误: ${JSON.stringify(qrcodeResp.body.errors)}`);
+        }
+
+        const qrcodeResult = qrcodeResp.body.data.generateWeappQrcode;
+        expect(qrcodeResult.contentType).toBe('image/png');
+        expect(typeof qrcodeResult.imageBase64).toBe('string');
+        expect(qrcodeResult.imageBase64.length).toBeGreaterThan(0);
+
+        // 断言 provider 收到的 scene 正是明文 token（无 t= 前缀）
+        const provider = app.get(WeAppProvider);
+        const calls = (provider as unknown as { createWxaCodeUnlimit: jest.Mock })
+          .createWxaCodeUnlimit.mock.calls;
+        const lastCallArgs = calls[calls.length - 1]?.[0] as { scene: string };
+        expect(lastCallArgs.scene).toBe(token);
+      });
+
+      it('应该为 INVITE_MANAGER 验证记录生成二维码，scene=token（无 t= 前缀）', async () => {
+        // 1. 创建邀请管理员的验证记录，获取明文 token
+        const payload = {
+          title: '邀请管理员二维码',
+          inviteUrl: 'https://example.com/invite-manager',
+          email: 'manager-qrcode@example.com',
+          managerName: '二维码管理员',
+        };
+
+        const createResp = await createVerificationRecord(
+          app,
+          'INVITE_MANAGER',
+          payload,
+          managerAccessToken,
+          {
+            targetAccountId: learnerAccountId,
+            subjectType: 'MANAGER',
+            subjectId: 1,
+            returnToken: true,
+          },
+        );
+
+        if (createResp.body.errors) {
+          throw new Error(`GraphQL 错误: ${JSON.stringify(createResp.body.errors)}`);
+        }
+        const token: string = createResp.body.data.createVerificationRecord.token;
+        expect(typeof token).toBe('string');
+        expect(token.length).toBeGreaterThan(0);
+        expect(token.length).toBeLessThanOrEqual(32);
+
+        // 2. 使用 token 作为 scene 生成微信二维码
+        const qrcodeResp = await generateWeappQrcode(app, {
+          audience: 'SJWEAPP',
+          scene: token,
+          page: 'pages/invite/index',
+          encodeBase64: true,
+        });
+
+        if (qrcodeResp.body.errors) {
+          throw new Error(`GraphQL 错误: ${JSON.stringify(qrcodeResp.body.errors)}`);
+        }
+
+        const qrcodeResult = qrcodeResp.body.data.generateWeappQrcode;
+        expect(qrcodeResult.contentType).toBe('image/png');
+        expect(typeof qrcodeResult.imageBase64).toBe('string');
+        expect(qrcodeResult.imageBase64.length).toBeGreaterThan(0);
+
+        // 断言 provider 收到的 scene 正是明文 token（无 t= 前缀）
+        const provider = app.get(WeAppProvider);
+        const calls = (provider as unknown as { createWxaCodeUnlimit: jest.Mock })
+          .createWxaCodeUnlimit.mock.calls;
+        const lastCallArgs = calls[calls.length - 1]?.[0] as { scene: string };
+        expect(lastCallArgs.scene).toBe(token);
+      });
+    });
   });
 
-  describe('INVITE_LEARNER 类型', () => {
+  describe('邀请用例：INVITE_LEARNER', () => {
     it('应该成功创建邀请学员类型的验证记录', async () => {
       const payload = {
         title: '邀请学员',

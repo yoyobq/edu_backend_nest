@@ -4,6 +4,7 @@ import { JwtPayload } from '@app-types/jwt.types';
 import { IdentityTypeEnum } from '@app-types/models/account.types';
 import { LoginResultModel, UserInfoView } from '@app-types/models/auth.types';
 import { GeographicInfo } from '@app-types/models/user-info.types';
+import { parseStaffId } from '@core/account/identity/parse-staff-id';
 import { StaffEntity } from '@modules/account/identities/school/staff/account-staff.entity';
 import { CoachEntity } from '@modules/account/identities/training/coach/account-coach.entity';
 import { CustomerEntity } from '@modules/account/identities/training/customer/account-customer.entity';
@@ -18,6 +19,8 @@ import { UserInfoDTO } from '@src/adapters/graphql/account/dto/user-info.dto';
 import { currentUser } from '@src/adapters/graphql/decorators/current-user.decorator';
 import { JwtAuthGuard } from '@src/adapters/graphql/guards/jwt-auth.guard';
 import { BindThirdPartyInput } from '@src/adapters/graphql/third-party-auth/dto/bind-third-party.input';
+import { GenerateWeappQrcodeInput } from '@src/adapters/graphql/third-party-auth/dto/generate-weapp-qrcode.input';
+import { GenerateWeappQrcodeResultDTO } from '@src/adapters/graphql/third-party-auth/dto/generate-weapp-qrcode.result';
 import { GetWeappPhoneInput } from '@src/adapters/graphql/third-party-auth/dto/get-weapp-phone.input';
 import { ThirdPartyAuthDTO } from '@src/adapters/graphql/third-party-auth/dto/third-party-auth.dto';
 import { ThirdPartyLoginInput } from '@src/adapters/graphql/third-party-auth/dto/third-party-login.input';
@@ -30,6 +33,10 @@ import {
 } from '@usecases/auth/login-with-third-party.usecase';
 import { BindThirdPartyAccountUsecase } from '@usecases/third-party-accounts/bind-third-party-account.usecase';
 import {
+  GenerateWeappQrcodeUsecase,
+  type GenerateWeappQrcodeResult,
+} from '@usecases/third-party-accounts/generate-weapp-qrcode.usecase';
+import {
   GetWeappPhoneParams,
   GetWeappPhoneUsecase,
 } from '@usecases/third-party-accounts/get-weapp-phone.usecase';
@@ -39,7 +46,6 @@ import { CustomerType } from '../account/dto/identity/customer.dto';
 import { LearnerType } from '../account/dto/identity/learner.dto';
 import { ManagerType } from '../account/dto/identity/manager.dto';
 import { StaffType } from '../account/dto/identity/staff.dto';
-import { parseStaffId } from '@core/account/identity/parse-staff-id';
 
 /**
  * 第三方认证 GraphQL 解析器
@@ -51,6 +57,7 @@ export class ThirdPartyAuthResolver {
     private readonly thirdPartyAuthService: ThirdPartyAuthService,
     private readonly loginWithThirdPartyUsecase: LoginWithThirdPartyUsecase,
     private readonly getWeappPhoneUsecase: GetWeappPhoneUsecase, // 注入新的 usecase
+    private readonly generateWeappQrcodeUsecase: GenerateWeappQrcodeUsecase,
     private readonly fetchUserInfoUsecase: FetchUserInfoUsecase,
     private readonly bindThirdPartyAccountUsecase: BindThirdPartyAccountUsecase,
     private readonly unbindThirdPartyAccountUsecase: UnbindThirdPartyAccountUsecase,
@@ -169,6 +176,34 @@ export class ThirdPartyAuthResolver {
       phoneNumber: result.phoneInfo.phoneNumber,
       purePhoneNumber: result.phoneInfo.purePhoneNumber,
       countryCode: result.phoneInfo.countryCode,
+    };
+  }
+
+  /**
+   * 生成微信小程序二维码
+   * 通过 appid + secret 换取 access_token，然后调用微信 getwxacodeunlimit
+   * @param input 生成参数（scene、page、width 等）
+   * @returns 图片内容类型与 Base64/二进制
+   */
+  @Mutation(() => GenerateWeappQrcodeResultDTO, { description: '生成微信小程序二维码' })
+  async generateWeappQrcode(
+    @Args('input') input: GenerateWeappQrcodeInput,
+  ): Promise<GenerateWeappQrcodeResultDTO> {
+    const result: GenerateWeappQrcodeResult = await this.generateWeappQrcodeUsecase.execute({
+      audience: input.audience,
+      scene: input.scene,
+      page: input.page,
+      width: input.width,
+      checkPath: input.checkPath,
+      envVersion: input.envVersion,
+      isHyaline: input.isHyaline,
+      encodeBase64: input.encodeBase64,
+    });
+
+    return {
+      contentType: result.contentType,
+      imageBase64: result.imageBase64,
+      imageBufferBase64: result.imageBuffer ? result.imageBuffer.toString('base64') : undefined,
     };
   }
 

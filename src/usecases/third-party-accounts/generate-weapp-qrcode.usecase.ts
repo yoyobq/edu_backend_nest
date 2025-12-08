@@ -8,7 +8,7 @@ import { PinoLogger } from 'nestjs-pino';
 export interface GenerateWeappQrcodeParams {
   /** 客户端类型 */
   audience: AudienceTypeEnum;
-  /** 场景值（最多 32 个可见字符），建议格式：t=<base62> */
+  /** 场景值（最多 32 个可见字符） */
   scene: string;
   /** 小程序页面路径（不带参数，示例：pages/index/index） */
   page?: string;
@@ -59,7 +59,6 @@ export class GenerateWeappQrcodeUsecase {
     try {
       this.validateParams(params);
 
-      // 统一外层场景规范：建议 't=' + base62 token
       const normalizedScene = this.normalizeScene(params.scene);
 
       const accessToken = await this.getAccessToken(params.audience);
@@ -129,13 +128,10 @@ export class GenerateWeappQrcodeUsecase {
   }
 
   /**
-   * 规范化场景值：推荐 't=' + base62 token
-   * - 如已符合规则则直接返回
-   * - 如为简单短字符串则保留
+   * 规范化场景值
+   * - 保留原始字符串，仅做长度保护（最多 32）
    */
   private normalizeScene(scene: string): string {
-    // 已含推荐前缀直接返回（不展开 base62 生成器避免过度设计）
-    if (scene.startsWith('t=')) return scene;
     // 长度安全剪裁：防止超过 32
     if (scene.length > 32) return scene.slice(0, 32);
     return scene;
