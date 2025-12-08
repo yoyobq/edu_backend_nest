@@ -5,7 +5,9 @@ import { CoachEntity } from '@modules/account/identities/training/coach/account-
 import { CoachService } from '@modules/account/identities/training/coach/coach.service';
 import { ManagerService } from '@modules/account/identities/training/manager/manager.service';
 import { Injectable } from '@nestjs/common';
-import type { OrderDirection } from '@src/types/common/sort.types';
+import { AccountService } from '@src/modules/account/base/services/account.service';
+import { CoachSortField, type OrderDirection } from '@src/types/common/sort.types';
+import { UserState } from '@src/types/models/user-info.types';
 
 /**
  * 列出教练列表的输入参数
@@ -16,17 +18,21 @@ export interface ListCoachesParams {
   /** 每页数量，默认 10，最大 100 */
   limit?: number;
   /** 排序字段 */
-  sortBy?: 'createdAt' | 'updatedAt' | 'name';
+  sortBy?: CoachSortField;
   /** 排序方向 */
   sortOrder?: OrderDirection;
+  /** 搜索关键词（姓名/手机号） */
+  query?: string;
+  /** 是否包含已停用记录（默认包含） */
+  includeDeleted?: boolean;
 }
 
 /**
  * 教练分页结果
  */
 export interface PaginatedCoaches {
-  /** 列表项 */
-  items: CoachEntity[];
+  /** 列表项（包含 userinfo 补充字段） */
+  items: CoachListItem[];
   /** 总数 */
   total: number;
   /** 页码 */
@@ -38,6 +44,16 @@ export interface PaginatedCoaches {
 }
 
 /**
+ * 教练列表项（包含 userinfo 补充信息）
+ */
+export interface CoachListItem {
+  entity: CoachEntity;
+  userState: UserState | null;
+  loginHistory: { ip: string; timestamp: string; audience?: string }[] | null;
+  userPhone: string | null;
+}
+
+/**
  * 列出教练列表用例（仅允许 manager 身份）
  */
 @Injectable()
@@ -45,6 +61,7 @@ export class ListCoachesUsecase {
   constructor(
     private readonly coachService: CoachService,
     private readonly managerService: ManagerService,
+    private readonly accountService: AccountService,
   ) {}
 
   /**
@@ -63,13 +80,30 @@ export class ListCoachesUsecase {
     const result = await this.coachService.findPaginated({
       page: params.page ?? 1,
       limit: params.limit ?? 10,
-      sortBy: params.sortBy ?? 'createdAt',
+      sortBy: params.sortBy ?? CoachSortField.CREATED_AT,
       sortOrder: (params.sortOrder ?? 'DESC') as 'ASC' | 'DESC',
-      includeDeleted: false,
+      includeDeleted: params.includeDeleted ?? true,
+      query: params.query,
     });
 
+    const items: CoachListItem[] = await Promise.all(
+      result.coaches.map(async (entity) => {
+        const ui = entity.accountId
+          ? await this.accountService.findUserInfoByAccountId(entity.accountId)
+          : null;
+        const acc = entity.accountId
+          ? await this.accountService.findOneById(entity.accountId)
+          : null;
+        const state: UserState | null = ui?.userState ?? null;
+        const history: { ip: string; timestamp: string; audience?: string }[] | null =
+          acc?.recentLoginHistory ?? null;
+        const phone: string | null = ui?.phone ?? null;
+        return { entity, userState: state, loginHistory: history, userPhone: phone };
+      }),
+    );
+
     return {
-      items: result.coaches,
+      items,
       total: result.total,
       page: result.page,
       limit: result.limit,

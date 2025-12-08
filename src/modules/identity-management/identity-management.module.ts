@@ -12,6 +12,7 @@ import { MembershipLevelsModule } from '@src/modules/membership-levels/membershi
 import { DeactivateCoachUsecase } from '@src/usecases/identity-management/coach/deactivate-coach.usecase';
 import { ListCoachesUsecase } from '@src/usecases/identity-management/coach/list-coaches.usecase';
 import { ReactivateCoachUsecase } from '@src/usecases/identity-management/coach/reactivate-coach.usecase';
+import { GetMyCoachUsecase } from '@src/usecases/identity-management/coach/get-my-coach.usecase';
 import { UpdateCoachUsecase } from '@src/usecases/identity-management/coach/update-coach.usecase';
 import { UpgradeToCoachUsecase } from '@src/usecases/identity-management/coach/upgrade-to-coach.usecase';
 import { UpgradeToCustomerUsecase } from '@src/usecases/identity-management/customer/upgrade-to-customer.usecase';
@@ -65,6 +66,7 @@ import { UpdateManagerUsecase } from '@src/usecases/identity-management/manager/
     DeactivateCoachUsecase,
     ReactivateCoachUsecase,
     ListCoachesUsecase,
+    GetMyCoachUsecase,
     // 学员管理相关用例
     CreateLearnerUsecase,
     UpdateLearnerByCustomerUsecase,
@@ -94,6 +96,7 @@ import { UpdateManagerUsecase } from '@src/usecases/identity-management/manager/
     DeactivateCoachUsecase,
     ReactivateCoachUsecase,
     ListCoachesUsecase,
+    GetMyCoachUsecase,
     // 导出学员管理相关用例
     CreateLearnerUsecase,
     UpdateLearnerByCustomerUsecase,

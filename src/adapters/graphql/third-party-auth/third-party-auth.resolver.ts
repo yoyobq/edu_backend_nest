@@ -319,6 +319,7 @@ export class ThirdPartyAuthResolver {
       accountId: coach.accountId,
       name: coach.name,
       departmentId: null,
+      phone: null,
       remark: coach.remark,
       jobTitle: null,
       employmentStatus: 'ACTIVE',
@@ -330,6 +331,8 @@ export class ThirdPartyAuthResolver {
       avatarUrl: coach.avatarUrl,
       specialty: coach.specialty,
       deactivatedAt: coach.deactivatedAt,
+      userState: null,
+      loginHistory: null,
     } as CoachType;
   }
 

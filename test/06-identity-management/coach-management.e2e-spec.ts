@@ -3,6 +3,8 @@
 import { AudienceTypeEnum, IdentityTypeEnum, LoginTypeEnum } from '@app-types/models/account.types';
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
+import { AccountEntity } from '@src/modules/account/base/entities/account.entity';
+import { UserInfoEntity } from '@src/modules/account/base/entities/user-info.entity';
 import request from 'supertest';
 import { DataSource } from 'typeorm';
 import { initGraphQLSchema } from '../../src/adapters/graphql/schema/schema.init';
@@ -94,7 +96,9 @@ describe('Coach Management (e2e)', () => {
         .expect(200);
       expect(response.body.errors).toBeDefined();
       const msg = response.body.errors?.[0]?.message ?? '';
-      expect(msg).toMatch(/仅管理员可查看教练列表|权限|无权|ACCESS_DENIED/);
+      expect(msg).toMatch(
+        /仅管理员可查看教练列表|仅活跃的 manager 可查看教练列表|权限|无权|ACCESS_DENIED/,
+      );
     });
 
     it('管理员可以分页查询教练列表，包含分页信息与新字段、分页标志', async () => {
@@ -158,6 +162,143 @@ describe('Coach Management (e2e)', () => {
       const names = items.map((i) => i.name);
       const sorted = [...names].sort((a, b) => a.localeCompare(b));
       expect(names.join('|')).toBe(sorted.join('|'));
+    });
+
+    /**
+     * 验证 coaches 支持姓名模糊搜索（Manager 视角）
+     */
+    it('管理员查询支持 query 按姓名模糊搜索', async () => {
+      const response = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', `Bearer ${managerAccessToken}`)
+        .send({
+          query: `
+            query ListCoaches($input: ListCoachesInput!) {
+              coaches(input: $input) {
+                coaches { id name }
+                data { id name }
+                pagination { total page limit totalPages hasNext hasPrev }
+              }
+            }
+          `,
+          variables: { input: { page: 1, limit: 10, query: 'coach_name' } },
+        })
+        .expect(200);
+
+      if (response.body.errors)
+        throw new Error(`GraphQL 错误: ${JSON.stringify(response.body.errors)}`);
+
+      const out = response.body.data.coaches;
+      expect(out.pagination.total).toBeGreaterThanOrEqual(1);
+      const hasCoach = out.coaches.some((c: { id: number; name: string }) => c.id === coachId);
+      expect(hasCoach).toBe(true);
+    });
+
+    /**
+     * 验证 coaches 支持手机号模糊搜索（Manager 视角）
+     * 先为测试教练的 user_info 写入手机号，再进行查询
+     */
+    it('管理员查询支持 query 按手机号模糊搜索', async () => {
+      const accountRepo = dataSource.getRepository(AccountEntity);
+      const uiRepo = dataSource.getRepository(UserInfoEntity);
+      const coachAccount = await accountRepo.findOne({
+        where: { loginName: testAccountsConfig.coach.loginName },
+      });
+      if (!coachAccount) throw new Error('测试教练账号不存在');
+      await uiRepo.update({ accountId: coachAccount.id }, { phone: '13800138000' });
+
+      const response = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', `Bearer ${managerAccessToken}`)
+        .send({
+          query: `
+            query ListCoaches($input: ListCoachesInput!) {
+              coaches(input: $input) {
+                coaches { id name }
+                pagination { total page limit totalPages }
+              }
+            }
+          `,
+          variables: { input: { page: 1, limit: 10, query: '1380013' } },
+        })
+        .expect(200);
+
+      if (response.body.errors)
+        throw new Error(`GraphQL 错误: ${JSON.stringify(response.body.errors)}`);
+
+      const out = response.body.data.coaches;
+      expect(out.pagination.total).toBeGreaterThanOrEqual(1);
+      const hasCoach = out.coaches.some((c: { id: number; name: string }) => c.id === coachId);
+      expect(hasCoach).toBe(true);
+    });
+
+    /**
+     * 验证 coaches 查询：query 不匹配时返回空列表与 total=0
+     */
+    it('管理员查询 query 不匹配应返回空列表', async () => {
+      const response = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', `Bearer ${managerAccessToken}`)
+        .send({
+          query: `
+            query ListCoaches($input: ListCoachesInput!) {
+              coaches(input: $input) {
+                coaches { id name }
+                data { id name }
+                pagination { total page limit totalPages hasNext hasPrev }
+              }
+            }
+          `,
+          variables: { input: { page: 1, limit: 10, query: '不存在关键词 00000' } },
+        })
+        .expect(200);
+
+      if (response.body.errors)
+        throw new Error(`GraphQL 错误: ${JSON.stringify(response.body.errors)}`);
+
+      const out = response.body.data.coaches;
+      expect(Array.isArray(out.coaches)).toBe(true);
+      expect(out.coaches.length).toBe(0);
+      expect(Array.isArray(out.data)).toBe(true);
+      expect(out.data.length).toBe(0);
+      expect(out.pagination.total).toBe(0);
+      expect(out.pagination.hasPrev).toBe(false);
+      expect(out.pagination.hasNext).toBe(false);
+    });
+
+    it('管理员列表应正确返回 description 与 remark 字段', async () => {
+      const response = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', `Bearer ${managerAccessToken}`)
+        .send({
+          query: `
+            query ListCoaches($input: ListCoachesInput!) {
+              coaches(input: $input) {
+                coaches { id name description remark }
+              }
+            }
+          `,
+          variables: { input: { page: 1, limit: 10 } },
+        })
+        .expect(200);
+
+      if (response.body.errors)
+        throw new Error(`GraphQL 错误: ${JSON.stringify(response.body.errors)}`);
+
+      type CoachListItem = {
+        id: number;
+        name: string;
+        description: string | null;
+        remark: string | null;
+      };
+      const list: CoachListItem[] = response.body.data.coaches.coaches as CoachListItem[];
+      const target = list.find((c) => c.id === coachId);
+      expect(target).toBeDefined();
+      expect(typeof target!.description === 'string' || target!.description === null).toBe(true);
+      expect(typeof target!.remark === 'string' || target!.remark === null).toBe(true);
+      // 预置数据包含登录名标识，便于断言
+      expect(target!.description ?? '').toContain(testAccountsConfig.coach.loginName);
+      expect(target!.remark ?? '').toContain(testAccountsConfig.coach.loginName);
     });
   });
 

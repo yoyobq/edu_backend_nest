@@ -1,14 +1,15 @@
 // src/adapters/graphql/identity-management/coach/coach.resolver.ts
 import { JwtPayload } from '@app-types/jwt.types';
 import { EmploymentStatus } from '@app-types/models/account.types';
+import { UserState } from '@app-types/models/user-info.types';
 import { UseGuards } from '@nestjs/common';
 import { Args, Mutation, Query, Resolver } from '@nestjs/graphql';
+import { LoginHistoryItem } from '@src/adapters/graphql/account/enums/login-history.types';
 import { currentUser } from '@src/adapters/graphql/decorators/current-user.decorator';
-import { ListCoachesInput } from './dto/coach.input.list';
-import { ListCoachesOutput } from './dto/coaches.list';
 import { JwtAuthGuard } from '@src/adapters/graphql/guards/jwt-auth.guard';
 import { CoachEntity } from '@src/modules/account/identities/training/coach/account-coach.entity';
 import { DeactivateCoachUsecase } from '@src/usecases/identity-management/coach/deactivate-coach.usecase';
+import { GetMyCoachUsecase } from '@src/usecases/identity-management/coach/get-my-coach.usecase';
 import {
   ListCoachesUsecase,
   PaginatedCoaches,
@@ -17,6 +18,7 @@ import { ReactivateCoachUsecase } from '@src/usecases/identity-management/coach/
 import { UpdateCoachUsecase } from '@src/usecases/identity-management/coach/update-coach.usecase';
 import { CoachType } from '../../account/dto/identity/coach.dto';
 import { DeactivateCoachInput } from './dto/coach.input.deactivate';
+import { ListCoachesInput } from './dto/coach.input.list';
 import { ReactivateCoachInput } from './dto/coach.input.reactivate';
 import { UpdateCoachInput } from './dto/coach.input.update';
 import {
@@ -24,6 +26,7 @@ import {
   ReactivateCoachResult,
   UpdateCoachResult,
 } from './dto/coach.result';
+import { ListCoachesOutput } from './dto/coaches.list';
 
 /**
  * Coach 管理 GraphQL 解析器
@@ -37,6 +40,7 @@ export class CoachResolver {
     private readonly deactivateCoachUsecase: DeactivateCoachUsecase,
     private readonly reactivateCoachUsecase: ReactivateCoachUsecase,
     private readonly listCoachesUsecase: ListCoachesUsecase,
+    private readonly getMyCoachUsecase: GetMyCoachUsecase,
   ) {}
 
   /**
@@ -108,11 +112,17 @@ export class CoachResolver {
    * @param entity 教练实体
    * @returns GraphQL 输出 DTO
    */
-  private mapCoachEntityToType(entity: CoachEntity): CoachType {
+  private mapCoachEntityToType(
+    entity: CoachEntity,
+    userState?: UserState | null,
+    loginHistory?: LoginHistoryItem[] | null,
+    userPhone?: string | null,
+  ): CoachType {
     const dto: CoachType = {
       id: entity.id,
       accountId: entity.accountId,
       name: entity.name,
+      phone: userPhone ?? null,
       remark: entity.remark,
       employmentStatus: entity.deactivatedAt ? EmploymentStatus.LEFT : EmploymentStatus.ACTIVE,
       createdAt: entity.createdAt,
@@ -122,6 +132,8 @@ export class CoachResolver {
       avatarUrl: entity.avatarUrl,
       specialty: entity.specialty,
       deactivatedAt: entity.deactivatedAt ?? null,
+      userState: userState ?? null,
+      loginHistory: loginHistory ?? null,
     };
     return dto;
   }
@@ -143,9 +155,13 @@ export class CoachResolver {
       limit: input.limit,
       sortBy: input.sortBy,
       sortOrder: input.sortOrder,
+      query: input.query ?? undefined,
+      includeDeleted: input.includeDeleted ?? true,
     });
 
-    const list = result.items.map((entity: CoachEntity) => this.mapCoachEntityToType(entity));
+    const list = result.items.map((item) =>
+      this.mapCoachEntityToType(item.entity, item.userState, item.loginHistory, item.userPhone),
+    );
     return {
       coaches: list,
       data: list, // 兼容旧字段，便于前端与测试渐进切换
@@ -158,5 +174,22 @@ export class CoachResolver {
         hasPrev: result.page > 1,
       },
     };
+  }
+
+  /**
+   * 获取当前教练的个人信息（仅 coach）
+   * @param user 当前登录用户信息
+   * @returns 教练信息
+   */
+  @UseGuards(JwtAuthGuard)
+  @Query(() => CoachType, { description: '获取当前教练的个人信息（仅 coach）' })
+  async myCoach(@currentUser() user: JwtPayload): Promise<CoachType> {
+    const result = await this.getMyCoachUsecase.execute({ currentAccountId: Number(user.sub) });
+    return this.mapCoachEntityToType(
+      result.entity,
+      result.userState,
+      result.loginHistory as LoginHistoryItem[] | null,
+      result.userPhone,
+    );
   }
 }

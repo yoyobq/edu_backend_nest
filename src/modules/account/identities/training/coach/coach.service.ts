@@ -4,7 +4,9 @@ import { ACCOUNT_ERROR, DomainError } from '@core/common/errors/domain-error';
 import type { ISortResolver } from '@core/sort/sort.ports';
 import { Inject, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { EntityManager, IsNull, Repository } from 'typeorm';
+import { Brackets, EntityManager, IsNull, Repository, SelectQueryBuilder } from 'typeorm';
+import { normalizePhone } from '@src/core/common/normalize/normalize.helper';
+import { UserInfoEntity } from '@src/modules/account/base/entities/user-info.entity';
 import { CoachEntity } from './account-coach.entity';
 
 /**
@@ -240,9 +242,10 @@ export class CoachService {
   async findPaginated(params: {
     readonly page?: number;
     readonly limit?: number;
-    readonly sortBy?: 'createdAt' | 'updatedAt' | 'name';
+    readonly sortBy?: import('@src/types/common/sort.types').CoachSortField;
     readonly sortOrder?: 'ASC' | 'DESC';
     readonly includeDeleted?: boolean;
+    readonly query?: string;
   }): Promise<{
     readonly coaches: CoachEntity[];
     readonly total: number;
@@ -256,15 +259,21 @@ export class CoachService {
       sortBy = 'createdAt',
       sortOrder = 'DESC',
       includeDeleted = false,
+      query,
     } = params;
 
     const actualLimit = Math.min(limit, 100);
     const qb = this.coachRepository.createQueryBuilder('coach');
+    // 连接用户信息以支持手机号模糊搜索
+    qb.leftJoin(UserInfoEntity, 'ui', 'ui.account_id = coach.account_id');
 
     // 过滤停用记录
     if (!includeDeleted) {
       qb.where('coach.deactivatedAt IS NULL');
     }
+
+    // 应用关键词搜索：姓名 / 手机号
+    this.applyQuerySearch(qb, query);
 
     // 排序（使用域解析器，防注入；并补充稳定副键）
     const primaryColumn =
@@ -274,9 +283,19 @@ export class CoachService {
     const tieBreaker = this.coachSortResolver.resolveColumn('id');
     if (tieBreaker) qb.addOrderBy(tieBreaker, sortOrder);
 
-    // 统计总数（克隆一个用于 COUNT 的查询，避免 ORDER BY 干扰）
+    // 统计总数（在存在 JOIN 的情况下使用 DISTINCT，避免计数重复）
     const countQb = qb.clone();
-    const total = await countQb.getCount();
+    try {
+      (countQb as unknown as SelectQueryBuilder<CoachEntity>).orderBy();
+    } catch {
+      // ignore
+    }
+    const cntAlias = 'cnt';
+    const raw = await countQb
+      .select('COUNT(DISTINCT coach.id)', cntAlias)
+      .getRawOne<Record<string, unknown>>();
+    const total =
+      typeof raw?.[cntAlias] === 'number' ? raw[cntAlias] : Number(raw?.[cntAlias] ?? 0);
 
     // 应用分页
     qb.take(actualLimit).skip((page - 1) * actualLimit);
@@ -284,5 +303,28 @@ export class CoachService {
 
     const totalPages = Math.ceil(total / actualLimit) || 1;
     return { coaches, total, page, limit: actualLimit, totalPages };
+  }
+
+  /**
+   * 应用关键词搜索（姓名 / 手机号）
+   * - 姓名：LOWER(coach.name) LIKE :q
+   * - 手机号：对输入提取数字，长度 ≥ 3 时匹配 ui.phone LIKE :p
+   */
+  private applyQuerySearch(qb: SelectQueryBuilder<CoachEntity>, query?: string): void {
+    if (!query || typeof query !== 'string') return;
+    const raw = query.trim();
+    if (raw.length === 0) return;
+    const normalized = raw.toLowerCase();
+    const digits = normalizePhone(raw);
+    const like = `%${normalized}%`;
+
+    qb.andWhere(
+      new Brackets((subQb) => {
+        subQb.where('LOWER(coach.name) LIKE :q', { q: like });
+        if (digits.length >= 3) {
+          subQb.orWhere('ui.phone LIKE :p', { p: `%${digits}%` });
+        }
+      }),
+    );
   }
 }

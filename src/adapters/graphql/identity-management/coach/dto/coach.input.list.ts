@@ -2,7 +2,7 @@
 
 import { Field, InputType, Int } from '@nestjs/graphql';
 import { CoachSortField, OrderDirection } from '@src/types/common/sort.types';
-import { IsEnum, IsInt, IsOptional, Max, Min } from 'class-validator';
+import { IsBoolean, IsEnum, IsInt, IsOptional, Max, Min } from 'class-validator';
 
 /**
  * GraphQL 输入：教练列表查询入参
@@ -45,4 +45,20 @@ export class ListCoachesInput {
   @IsOptional()
   @IsEnum(OrderDirection, { message: '排序方向不合法' })
   sortOrder?: OrderDirection = OrderDirection.DESC;
+
+  @Field(() => String, {
+    nullable: true,
+    description: '搜索关键词（姓名/手机号）',
+  })
+  @IsOptional()
+  query?: string;
+
+  @Field(() => Boolean, {
+    nullable: true,
+    description: '是否包含已停用记录',
+    defaultValue: true,
+  })
+  @IsOptional()
+  @IsBoolean({ message: 'includeDeleted 必须是布尔值' })
+  includeDeleted?: boolean = true;
 }
