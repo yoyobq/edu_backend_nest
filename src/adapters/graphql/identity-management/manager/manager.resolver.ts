@@ -1,14 +1,18 @@
 // src/adapters/graphql/identity-management/manager/manager.resolver.ts
 import { JwtPayload } from '@app-types/jwt.types';
 import { EmploymentStatus } from '@app-types/models/account.types';
+import { UserState } from '@app-types/models/user-info.types';
 import { UseGuards } from '@nestjs/common';
 import { Args, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { ManagerType } from '@src/adapters/graphql/account/dto/identity/manager.dto';
+import { LoginHistoryItem } from '@src/adapters/graphql/account/enums/login-history.types';
 import { currentUser } from '@src/adapters/graphql/decorators/current-user.decorator';
+import { JwtAuthGuard } from '@src/adapters/graphql/guards/jwt-auth.guard';
 import { ListManagersInput } from '@src/adapters/graphql/identity-management/manager/dto/manager.input.list';
 import { ListManagersOutput } from '@src/adapters/graphql/identity-management/manager/dto/managers.list';
-import { JwtAuthGuard } from '@src/adapters/graphql/guards/jwt-auth.guard';
+import { AccountService } from '@src/modules/account/base/services/account.service';
 import { ManagerEntity } from '@src/modules/account/identities/training/manager/account-manager.entity';
+import { GetVisibleUserInfoUsecase } from '@src/usecases/account/get-visible-user-info.usecase';
 import { DeactivateManagerUsecase } from '@src/usecases/identity-management/manager/deactivate-manager.usecase';
 import {
   ListManagersUsecase,
@@ -37,6 +41,8 @@ export class ManagerResolver {
     private readonly deactivateManagerUsecase: DeactivateManagerUsecase,
     private readonly reactivateManagerUsecase: ReactivateManagerUsecase,
     private readonly listManagersUsecase: ListManagersUsecase,
+    private readonly accountService: AccountService,
+    private readonly getVisibleUserInfoUsecase: GetVisibleUserInfoUsecase,
   ) {}
 
   /**
@@ -57,8 +63,33 @@ export class ManagerResolver {
       name: input.name,
       remark: input.remark ?? null,
     });
-
-    return { manager: this.mapManagerEntityToType(entity) };
+    let phone: string | null = null;
+    let userState: UserState | null = null;
+    let loginHistory: LoginHistoryItem[] | null = null;
+    if (entity.accountId) {
+      // 可见性驱动读取用户信息，确保与 Customer 对齐的 userinfo 合并策略
+      try {
+        const view = await this.getVisibleUserInfoUsecase.execute({
+          session: { accountId: Number(user.sub), roles: ['MANAGER'] },
+          targetAccountId: entity.accountId,
+          detail: 'FULL',
+        });
+        phone = view.phone ?? null;
+        userState = view.userState ?? null;
+      } catch {
+        phone = null;
+        userState = null;
+      }
+      const acc = await this.accountService.findOneById(entity.accountId);
+      loginHistory = acc?.recentLoginHistory ?? null;
+    }
+    return {
+      manager: this.mapManagerEntityToType(entity, {
+        userPhone: phone,
+        userState,
+        loginHistory,
+      }),
+    };
   }
 
   /**
@@ -104,7 +135,14 @@ export class ManagerResolver {
    * @param entity 经理实体
    * @returns GraphQL 输出 DTO
    */
-  private mapManagerEntityToType(entity: ManagerEntity): ManagerType {
+  private mapManagerEntityToType(
+    entity: ManagerEntity,
+    extras?: {
+      userState?: UserState | null;
+      userPhone?: string | null;
+      loginHistory?: LoginHistoryItem[] | null;
+    },
+  ): ManagerType {
     const dto: ManagerType = {
       id: entity.id,
       accountId: entity.accountId,
@@ -112,10 +150,13 @@ export class ManagerResolver {
       departmentId: null,
       remark: entity.remark,
       jobTitle: null,
+      phone: extras?.userPhone ?? null,
       employmentStatus: entity.deactivatedAt ? EmploymentStatus.LEFT : EmploymentStatus.ACTIVE,
+      userState: extras?.userState ?? null,
       createdAt: entity.createdAt,
       updatedAt: entity.updatedAt,
       deactivatedAt: entity.deactivatedAt ?? null,
+      loginHistory: extras?.loginHistory ?? null,
     };
     return dto;
   }
@@ -127,31 +168,25 @@ export class ManagerResolver {
    * @returns 经理列表与分页信息
    */
   @UseGuards(JwtAuthGuard)
-  @Query(() => ListManagersOutput, { description: '分页查询经理列表（仅 manager）' })
+  @Query(() => ListManagersOutput, { description: '查询经理列表（仅 manager，非分页）' })
   async managers(
     @Args('input') input: ListManagersInput,
     @currentUser() user: JwtPayload,
   ): Promise<ListManagersOutput> {
     const result: PaginatedManagers = await this.listManagersUsecase.execute(Number(user.sub), {
-      page: input.page,
-      limit: input.limit,
-      sortBy: input.sortBy,
-      sortOrder: input.sortOrder,
       includeDeleted: input.includeDeleted,
     });
 
-    const list = result.items.map((entity: ManagerEntity) => this.mapManagerEntityToType(entity));
+    const list = result.items.map((item) =>
+      this.mapManagerEntityToType(item.entity, {
+        userState: item.userState,
+        userPhone: item.userPhone,
+        loginHistory: item.loginHistory as LoginHistoryItem[] | null,
+      }),
+    );
     return {
       managers: list,
       data: list, // 兼容旧字段，便于前端与测试渐进切换
-      pagination: {
-        page: result.page,
-        limit: result.limit,
-        total: result.total,
-        totalPages: result.totalPages,
-        hasNext: result.page < result.totalPages,
-        hasPrev: result.page > 1,
-      },
     };
   }
 }

@@ -3,7 +3,6 @@
 import { ACCOUNT_ERROR, DomainError } from '@core/common/errors/domain-error';
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { OrderDirection } from '@src/types/common/sort.types';
 import { EntityManager, Repository } from 'typeorm';
 import { ManagerEntity } from './account-manager.entity';
 
@@ -186,59 +185,18 @@ export class ManagerService {
   }
 
   /**
-   * 分页查询 Manager 列表
-   * @param params 查询参数
-   * @param params.page 页码，从 1 开始
-   * @param params.limit 每页数量，默认 10，最大 100
-   * @param params.sortBy 排序字段（createdAt / updatedAt / name）
-   * @param params.sortOrder 排序方向（ASC / DESC）
-   * @param params.includeDeleted 是否包含已停用数据
+   * 查询全部 Manager 列表（不分页）
+   * @param includeDeleted 是否包含已停用数据
    * @param manager 可选事务管理器
-   * @returns 分页结果（列表、总数、页码、每页、总页数）
+   * @returns 全部 Manager 实体数组
    */
-  async findPaginated(
-    params: {
-      page: number;
-      limit: number;
-      sortBy: 'createdAt' | 'updatedAt' | 'name';
-      sortOrder: OrderDirection;
-      includeDeleted: boolean;
-    },
-    manager?: EntityManager,
-  ): Promise<{
-    managers: ManagerEntity[];
-    total: number;
-    page: number;
-    limit: number;
-    totalPages: number;
-  }> {
+  async findAll(includeDeleted: boolean, manager?: EntityManager): Promise<ManagerEntity[]> {
     const repo = manager ? manager.getRepository(ManagerEntity) : this.managerRepository;
-
-    const page = Math.max(1, params.page);
-    const limit = Math.min(Math.max(1, params.limit), 100);
-
     const qb = repo.createQueryBuilder('m');
-
-    if (!params.includeDeleted) {
+    if (!includeDeleted) {
       qb.andWhere('m.deactivatedAt IS NULL');
     }
-
-    const sortField = params.sortBy;
-    const sortOrder = params.sortOrder === OrderDirection.ASC ? 'ASC' : 'DESC';
-    qb.orderBy(`m.${sortField}`, sortOrder);
-
-    qb.skip((page - 1) * limit).take(limit);
-
-    const [entities, total] = await qb.getManyAndCount();
-
-    const totalPages = Math.max(1, Math.ceil(total / limit));
-
-    return {
-      managers: entities,
-      total,
-      page,
-      limit,
-      totalPages,
-    };
+    qb.orderBy('m.createdAt', 'DESC').addOrderBy('m.id', 'DESC');
+    return await qb.getMany();
   }
 }

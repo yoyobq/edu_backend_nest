@@ -1,6 +1,6 @@
 // src/adapters/graphql/auth/auth.resolver.ts
 
-import { IdentityTypeEnum } from '@app-types/models/account.types';
+import { EmploymentStatus, IdentityTypeEnum } from '@app-types/models/account.types';
 import { AuthLoginModel, LoginResultModel, UserInfoView } from '@app-types/models/auth.types';
 import { GeographicInfo } from '@app-types/models/user-info.types';
 import { parseStaffId } from '@core/account/identity/parse-staff-id';
@@ -16,7 +16,7 @@ import { CoachType } from '../account/dto/identity/coach.dto';
 import { CustomerType } from '../account/dto/identity/customer.dto';
 import { IdentityUnionType } from '../account/dto/identity/identity-union.type';
 import { LearnerType } from '../account/dto/identity/learner.dto';
-import { ManagerType } from '../account/dto/identity/manager.dto';
+import { ManagerIdentityGraphType } from '../account/dto/identity/manager.dto';
 import { StaffType } from '../account/dto/identity/staff.dto';
 import { LoginResult } from '../account/dto/login-result.dto';
 import { UserInfoDTO } from '../account/dto/user-info.dto';
@@ -174,7 +174,7 @@ export class AuthResolver {
    * @param manager Manager 实体
    * @returns ManagerType DTO
    */
-  private mapManagerIdentity(manager: ManagerEntity): ManagerType {
+  private mapManagerIdentity(manager: ManagerEntity): ManagerIdentityGraphType {
     return {
       id: manager.id,
       accountId: manager.accountId,
@@ -182,12 +182,16 @@ export class AuthResolver {
       departmentId: null,
       remark: manager.remark,
       jobTitle: null,
-      employmentStatus: 'ACTIVE',
+      phone: null,
+      employmentStatus: EmploymentStatus.ACTIVE,
+      userState: null,
       createdAt: manager.createdAt,
       updatedAt: manager.updatedAt,
-      managerId: manager.id,
       deactivatedAt: manager.deactivatedAt,
-    } as ManagerType;
+      loginHistory: null,
+      // 供 IdentityUnion 解析类型使用的标志字段
+      managerId: manager.id,
+    } as ManagerIdentityGraphType;
   }
 
   /**
@@ -204,7 +208,7 @@ export class AuthResolver {
       phone: null,
       remark: coach.remark,
       jobTitle: null,
-      employmentStatus: 'ACTIVE',
+      employmentStatus: EmploymentStatus.ACTIVE,
       createdAt: coach.createdAt,
       updatedAt: coach.updatedAt,
       coachId: coach.id,

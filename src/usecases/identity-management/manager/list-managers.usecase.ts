@@ -3,7 +3,14 @@ import { DomainError, PERMISSION_ERROR } from '@core/common/errors/domain-error'
 import { ManagerEntity } from '@modules/account/identities/training/manager/account-manager.entity';
 import { ManagerService } from '@modules/account/identities/training/manager/manager.service';
 import { Injectable } from '@nestjs/common';
-import { OrderDirection } from '@src/types/common/sort.types';
+import { AccountService } from '@src/modules/account/base/services/account.service';
+import { type UsecaseSession } from '@src/types/auth/session.types';
+import { ManagerSortField, type OrderDirection } from '@src/types/common/sort.types';
+import { Gender, UserState } from '@src/types/models/user-info.types';
+import {
+  GetVisibleUserInfoUsecase,
+  type VisibleDetailMode,
+} from '@src/usecases/account/get-visible-user-info.usecase';
 
 /**
  * 列出 Manager 列表的输入参数
@@ -15,9 +22,11 @@ export interface ListManagersParams {
   /** 每页数量，默认 10，最大 100 */
   limit?: number;
   /** 排序字段 */
-  sortBy?: 'createdAt' | 'updatedAt' | 'name';
+  sortBy?: ManagerSortField;
   /** 排序方向 */
   sortOrder?: OrderDirection;
+  /** 搜索关键词（姓名/手机号） */
+  query?: string;
   /** 是否包含已下线数据（默认 false） */
   includeDeleted?: boolean;
 }
@@ -25,9 +34,26 @@ export interface ListManagersParams {
 /**
  * Manager 分页结果
  */
+export interface ManagerListItem {
+  entity: ManagerEntity;
+  userState: UserState | null;
+  loginHistory: { ip: string; timestamp: string; audience?: string }[] | null;
+  userPhone: string | null;
+  userInfo?: {
+    mode: VisibleDetailMode;
+    view: {
+      accountId: number;
+      nickname: string;
+      gender: string | Gender;
+      avatarUrl: string | null;
+      phone: string | null;
+    };
+  } | null;
+}
+
 export interface PaginatedManagers {
-  /** 列表项 */
-  items: ManagerEntity[];
+  /** 列表项（包含 userinfo 补充字段） */
+  items: ManagerListItem[];
   /** 总数 */
   total: number;
   /** 页码 */
@@ -43,7 +69,11 @@ export interface PaginatedManagers {
  */
 @Injectable()
 export class ListManagersUsecase {
-  constructor(private readonly managerService: ManagerService) {}
+  constructor(
+    private readonly managerService: ManagerService,
+    private readonly accountService: AccountService,
+    private readonly getVisibleUserInfoUsecase: GetVisibleUserInfoUsecase,
+  ) {}
 
   /**
    * 执行列表查询
@@ -51,30 +81,64 @@ export class ListManagersUsecase {
    * @param params 分页与排序参数
    * @returns Manager 分页结果
    */
-  async execute(currentAccountId: number, params: ListManagersParams): Promise<PaginatedManagers> {
-    // 仅允许 manager 身份执行查询
-    const me = await this.managerService.findByAccountId(currentAccountId);
-    if (!me) {
-      throw new DomainError(PERMISSION_ERROR.ACCESS_DENIED, '仅 manager 可查看 Manager 列表');
+  async execute(
+    currentAccountId: number,
+    params: ListManagersParams & { detailMode?: VisibleDetailMode },
+  ): Promise<PaginatedManagers> {
+    const isActive = await this.managerService.isActiveManager(currentAccountId);
+    if (!isActive) {
+      throw new DomainError(PERMISSION_ERROR.ACCESS_DENIED, '仅活跃的 manager 可查看 Manager 列表');
     }
 
-    const result = await this.managerService.findPaginated(
-      {
-        page: params.page ?? 1,
-        limit: params.limit ?? 10,
-        sortBy: params.sortBy ?? 'createdAt',
-        sortOrder: params.sortOrder ?? OrderDirection.DESC,
-        includeDeleted: params.includeDeleted ?? false,
-      },
-      undefined,
+    const rows = await this.managerService.findAll(params.includeDeleted ?? false);
+
+    const items: ManagerListItem[] = await Promise.all(
+      rows.map(async (entity) => {
+        const acc = entity.accountId
+          ? await this.accountService.findOneById(entity.accountId)
+          : null;
+        const detail: VisibleDetailMode = params.detailMode ?? 'BASIC';
+        let userInfo: ManagerListItem['userInfo'] = null;
+        let state: UserState | null = null;
+        let phone: string | null = null;
+        if (entity.accountId) {
+          const session: UsecaseSession = { accountId: currentAccountId, roles: ['MANAGER'] };
+          try {
+            const view = await this.getVisibleUserInfoUsecase.execute({
+              session,
+              targetAccountId: entity.accountId,
+              detail,
+            });
+            state = view.userState ?? null;
+            phone = view.phone ?? null;
+            userInfo = {
+              mode: detail,
+              view: {
+                accountId: view.accountId,
+                nickname: view.nickname,
+                gender: view.gender,
+                avatarUrl: view.avatarUrl,
+                phone: view.phone,
+              },
+            };
+          } catch {
+            state = null;
+            phone = null;
+            userInfo = null;
+          }
+        }
+        const history: { ip: string; timestamp: string; audience?: string }[] | null =
+          acc?.recentLoginHistory ?? null;
+        return { entity, userState: state, loginHistory: history, userPhone: phone, userInfo };
+      }),
     );
 
     return {
-      items: result.managers,
-      total: result.total,
-      page: result.page,
-      limit: result.limit,
-      totalPages: result.totalPages,
+      items,
+      total: items.length,
+      page: 1,
+      limit: items.length,
+      totalPages: 1,
     };
   }
 }

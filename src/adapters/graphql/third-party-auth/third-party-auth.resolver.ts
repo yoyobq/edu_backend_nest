@@ -1,7 +1,7 @@
 // src/adapters/graphql/third-party-auth/third-party-auth.resolver.ts
 
 import { JwtPayload } from '@app-types/jwt.types';
-import { IdentityTypeEnum } from '@app-types/models/account.types';
+import { EmploymentStatus, IdentityTypeEnum } from '@app-types/models/account.types';
 import { LoginResultModel, UserInfoView } from '@app-types/models/auth.types';
 import { GeographicInfo } from '@app-types/models/user-info.types';
 import { parseStaffId } from '@core/account/identity/parse-staff-id';
@@ -44,7 +44,7 @@ import { UnbindThirdPartyAccountUsecase } from '@usecases/third-party-accounts/u
 import { CoachType } from '../account/dto/identity/coach.dto';
 import { CustomerType } from '../account/dto/identity/customer.dto';
 import { LearnerType } from '../account/dto/identity/learner.dto';
-import { ManagerType } from '../account/dto/identity/manager.dto';
+import { ManagerIdentityGraphType } from '../account/dto/identity/manager.dto';
 import { StaffType } from '../account/dto/identity/staff.dto';
 
 /**
@@ -297,7 +297,7 @@ export class ThirdPartyAuthResolver {
     }
   }
 
-  private mapManagerIdentity(manager: ManagerEntity): ManagerType {
+  private mapManagerIdentity(manager: ManagerEntity): ManagerIdentityGraphType {
     return {
       id: manager.id,
       accountId: manager.accountId,
@@ -305,12 +305,16 @@ export class ThirdPartyAuthResolver {
       departmentId: null,
       remark: manager.remark,
       jobTitle: null,
-      employmentStatus: 'ACTIVE',
+      phone: null,
+      employmentStatus: EmploymentStatus.ACTIVE,
+      userState: null,
       createdAt: manager.createdAt,
       updatedAt: manager.updatedAt,
-      managerId: manager.id,
       deactivatedAt: manager.deactivatedAt,
-    } as ManagerType;
+      loginHistory: null,
+      // 供 IdentityUnion 解析类型使用的标志字段（与密码登录保持一致）
+      managerId: manager.id,
+    } as ManagerIdentityGraphType;
   }
 
   private mapCoachIdentity(coach: CoachEntity): CoachType {
@@ -322,7 +326,7 @@ export class ThirdPartyAuthResolver {
       phone: null,
       remark: coach.remark,
       jobTitle: null,
-      employmentStatus: 'ACTIVE',
+      employmentStatus: EmploymentStatus.ACTIVE,
       createdAt: coach.createdAt,
       updatedAt: coach.updatedAt,
       coachId: coach.id,

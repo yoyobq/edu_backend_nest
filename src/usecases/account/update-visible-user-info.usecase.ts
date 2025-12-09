@@ -24,6 +24,8 @@ export type UserInfoPatch = {
   tags?: string[] | null;
   geographic?: GeographicInfo | null;
   userState?: UserState;
+  notifyCount?: number;
+  unreadCount?: number;
 };
 
 export interface UpdateVisibleUserInfoParams {
@@ -72,8 +74,12 @@ export class UpdateVisibleUserInfoUsecase {
           throw new DomainError(ACCOUNT_ERROR.USER_INFO_NOT_FOUND, '用户信息不存在');
         }
 
+        const isSelf = session.accountId === targetAccountId;
         const isManagerRole = expandRoles(session.roles).includes(IdentityTypeEnum.MANAGER);
-        const sanitized = await this.sanitizePatch(patch, current, isManagerRole);
+        const sanitized = await this.sanitizePatch(patch, current, {
+          isManager: isManagerRole,
+          isSelf,
+        });
         if (Object.keys(sanitized).length === 0) {
           const view = await this.fetchUserInfoUsecase.executeStrict({
             accountId: targetAccountId,
@@ -183,72 +189,155 @@ export class UpdateVisibleUserInfoUsecase {
   /**
    * 清洗并验证更新字段
    */
+  /**
+   * 清洗并验证更新字段（支持 isSelf / isManager 开关）
+   * - manager 自改：允许更广的白名单（包含 userState）
+   * - manager 改他人：仅允许极少字段（nickname / avatarUrl / phone）
+   * - 非 manager：允许基础与联系白名单，不允许 userState
+   */
   private async sanitizePatch(
     patch: UserInfoPatch,
     current: UserInfoEntity,
-    isManager: boolean,
+    flags: { isManager: boolean; isSelf: boolean },
   ): Promise<Partial<UserInfoEntity>> {
     const out: Partial<UserInfoEntity> = {};
-
+    const allow = (key: keyof UserInfoEntity): boolean => this.isFieldAllowed(key, flags);
     const assignIfChanged = <K extends keyof UserInfoEntity>(key: K, next: UserInfoEntity[K]) => {
       if (next !== current[key]) out[key] = next as never;
     };
 
-    if (typeof patch.nickname !== 'undefined') {
+    await this.applyBasicFields(patch, current, allow, assignIfChanged);
+    this.applyExtendedFields(patch, current, allow, assignIfChanged);
+    this.applyManagerSelfOnlyFields(patch, allow, assignIfChanged, flags);
+    return out;
+  }
+
+  private async applyBasicFields(
+    patch: UserInfoPatch,
+    current: UserInfoEntity,
+    allow: (key: keyof UserInfoEntity) => boolean,
+    assignIfChanged: <K extends keyof UserInfoEntity>(key: K, next: UserInfoEntity[K]) => void,
+  ): Promise<void> {
+    await this.applyNicknameField(patch, current, allow, assignIfChanged);
+    this.applyGenderBirthdateFields(patch, allow, assignIfChanged);
+    this.applyStringFields(patch, allow, assignIfChanged);
+  }
+
+  /**
+   * 处理昵称字段（需要唯一性校验）
+   */
+  private async applyNicknameField(
+    patch: UserInfoPatch,
+    current: UserInfoEntity,
+    allow: (key: keyof UserInfoEntity) => boolean,
+    assignIfChanged: <K extends keyof UserInfoEntity>(key: K, next: UserInfoEntity[K]) => void,
+  ): Promise<void> {
+    if (typeof patch.nickname !== 'undefined' && allow('nickname')) {
       assignIfChanged('nickname', await this.sanitizeNickname(patch.nickname, current));
     }
-    if (typeof patch.gender !== 'undefined') {
+  }
+
+  /**
+   * 处理性别与生日等基础枚举/日期字段
+   */
+  private applyGenderBirthdateFields(
+    patch: UserInfoPatch,
+    allow: (key: keyof UserInfoEntity) => boolean,
+    assignIfChanged: <K extends keyof UserInfoEntity>(key: K, next: UserInfoEntity[K]) => void,
+  ): void {
+    if (typeof patch.gender !== 'undefined' && allow('gender')) {
       assignIfChanged('gender', this.sanitizeGender(patch.gender));
     }
-    if (typeof patch.birthDate !== 'undefined') {
+    if (typeof patch.birthDate !== 'undefined' && allow('birthDate')) {
       assignIfChanged('birthDate', this.sanitizeBirthDate(patch.birthDate));
     }
-    if (typeof patch.avatarUrl !== 'undefined') {
+  }
+
+  /**
+   * 处理可空字符串类字段（avatarUrl/email/signature/address/phone）
+   */
+  private applyStringFields(
+    patch: UserInfoPatch,
+    allow: (key: keyof UserInfoEntity) => boolean,
+    assignIfChanged: <K extends keyof UserInfoEntity>(key: K, next: UserInfoEntity[K]) => void,
+  ): void {
+    if (typeof patch.avatarUrl !== 'undefined' && allow('avatarUrl')) {
       assignIfChanged(
         'avatarUrl',
         this.sanitizeNullableString(patch.avatarUrl, 255, '头像 URL 长度不能超过 255'),
       );
     }
-    if (typeof patch.email !== 'undefined') {
+    if (typeof patch.email !== 'undefined' && allow('email')) {
       assignIfChanged('email', this.sanitizeNullableString(patch.email, 50, '邮箱长度不能超过 50'));
     }
-    if (typeof patch.signature !== 'undefined') {
+    if (typeof patch.signature !== 'undefined' && allow('signature')) {
       assignIfChanged(
         'signature',
         this.sanitizeNullableString(patch.signature, 100, '个性签名长度不能超过 100'),
       );
     }
-    if (typeof patch.address !== 'undefined') {
+    if (typeof patch.address !== 'undefined' && allow('address')) {
       assignIfChanged(
         'address',
         this.sanitizeNullableString(patch.address, 255, '地址长度不能超过 255'),
       );
     }
-    if (typeof patch.phone !== 'undefined') {
+    if (typeof patch.phone !== 'undefined' && allow('phone')) {
       assignIfChanged('phone', this.sanitizeNullableString(patch.phone, 20, '电话长度不能超过 20'));
     }
-    if (typeof patch.tags !== 'undefined') {
+  }
+
+  private applyExtendedFields(
+    patch: UserInfoPatch,
+    current: UserInfoEntity,
+    allow: (key: keyof UserInfoEntity) => boolean,
+    assignIfChanged: <K extends keyof UserInfoEntity>(key: K, next: UserInfoEntity[K]) => void,
+  ): void {
+    if (typeof patch.tags !== 'undefined' && allow('tags')) {
       const v = this.sanitizeTags(patch.tags);
       const eq = JSON.stringify(v) === JSON.stringify(current.tags);
-      if (!eq) out.tags = v;
+      if (!eq) assignIfChanged('tags', v as never);
     }
-    if (typeof patch.geographic !== 'undefined') {
+    if (typeof patch.geographic !== 'undefined' && allow('geographic')) {
       const v = this.sanitizeGeographic(patch.geographic);
       const eq = JSON.stringify(v) === JSON.stringify(current.geographic);
-      if (!eq) out.geographic = v;
+      if (!eq) assignIfChanged('geographic', v as never);
     }
+  }
 
+  private applyManagerSelfOnlyFields(
+    patch: UserInfoPatch,
+    allow: (key: keyof UserInfoEntity) => boolean,
+    assignIfChanged: <K extends keyof UserInfoEntity>(key: K, next: UserInfoEntity[K]) => void,
+    flags: { isManager: boolean; isSelf: boolean },
+  ): void {
     if (typeof patch.userState !== 'undefined') {
-      if (!isManager) {
+      if (!(flags.isManager && flags.isSelf) || !allow('userState')) {
         throw new DomainError(
           PERMISSION_ERROR.INSUFFICIENT_PERMISSIONS,
-          '仅 manager 可修改用户状态',
+          '仅在 manager 自改时可修改用户状态',
         );
       }
       assignIfChanged('userState', this.sanitizeUserState(patch.userState));
     }
-
-    return out;
+    if (typeof patch.notifyCount !== 'undefined') {
+      if (!(flags.isManager && flags.isSelf) || !allow('notifyCount')) {
+        throw new DomainError(
+          PERMISSION_ERROR.INSUFFICIENT_PERMISSIONS,
+          '仅在 manager 自改时可修改通知计数',
+        );
+      }
+      assignIfChanged('notifyCount', this.sanitizeNonNegativeInt(patch.notifyCount));
+    }
+    if (typeof patch.unreadCount !== 'undefined') {
+      if (!(flags.isManager && flags.isSelf) || !allow('unreadCount')) {
+        throw new DomainError(
+          PERMISSION_ERROR.INSUFFICIENT_PERMISSIONS,
+          '仅在 manager 自改时可修改未读计数',
+        );
+      }
+      assignIfChanged('unreadCount', this.sanitizeNonNegativeInt(patch.unreadCount));
+    }
   }
 
   /**
@@ -327,13 +416,57 @@ export class UpdateVisibleUserInfoUsecase {
     return value ?? UserState.PENDING;
   }
 
+  private sanitizeNonNegativeInt(value: number | undefined): number {
+    const v = typeof value === 'number' ? value : 0;
+    if (!Number.isInteger(v) || v < 0) {
+      throw new DomainError(ACCOUNT_ERROR.OPERATION_NOT_SUPPORTED, '计数必须为不小于 0 的整数');
+    }
+    return v;
+  }
+
   /**
-   * 幂等性检查：是否存在真实数据变更
+   * 字段允许策略（isSelf / isManager）
+   * - manager 自改：允许 nickname / gender / birthDate / avatarUrl / email / signature / address / phone / tags / geographic / userState
+   * - manager 改他人：仅允许 nickname / avatarUrl / phone
+   * - 非 manager：允许基础与联系白名单（不含 userState）
    */
-  private hasDataChanges(updateData: Partial<UserInfoEntity>, current: UserInfoEntity): boolean {
-    const keys = Object.keys(updateData) as (keyof UserInfoEntity)[];
-    if (keys.length === 0) return false;
-    return keys.some((key) => updateData[key] !== current[key]);
+  private isFieldAllowed(
+    key: keyof UserInfoEntity,
+    flags: { isManager: boolean; isSelf: boolean },
+  ): boolean {
+    const selfManagerAllowed: (keyof UserInfoEntity)[] = [
+      'nickname',
+      'gender',
+      'birthDate',
+      'avatarUrl',
+      'email',
+      'signature',
+      'address',
+      'phone',
+      'tags',
+      'geographic',
+      'userState',
+      'notifyCount',
+      'unreadCount',
+    ];
+    const managerOtherAllowed: (keyof UserInfoEntity)[] = ['nickname', 'avatarUrl', 'phone'];
+    const nonManagerAllowed: (keyof UserInfoEntity)[] = [
+      'nickname',
+      'gender',
+      'birthDate',
+      'avatarUrl',
+      'email',
+      'signature',
+      'address',
+      'phone',
+      'tags',
+      'geographic',
+    ];
+
+    if (flags.isManager) {
+      return flags.isSelf ? selfManagerAllowed.includes(key) : managerOtherAllowed.includes(key);
+    }
+    return nonManagerAllowed.includes(key);
   }
 
   /**
