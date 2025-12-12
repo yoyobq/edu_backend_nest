@@ -76,11 +76,11 @@ export class UpdateCatalogDetailsUsecase {
    */
   private validatePermissions(session: UsecaseSession): void {
     // 统一转换为小写再比较，更优雅且高效
-    const allowedRoles = ['admin', 'teacher', 'manager'];
+    const allowedRoles = ['admin', 'manager'];
     const hasPermission = session.roles.some((role) => allowedRoles.includes(role.toLowerCase()));
 
     if (!hasPermission) {
-      throw new DomainError(CATALOG_ERROR.PERMISSION_DENIED, '仅管理员可以更新课程目录');
+      throw new DomainError(CATALOG_ERROR.PERMISSION_DENIED, '仅管理员或经理可以更新课程目录');
     }
   }
 

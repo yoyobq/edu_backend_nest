@@ -1,7 +1,6 @@
 // src/adapters/graphql/course/catalogs/dto/course-catalog.result.ts
 // 迁移自 src/adapters/graphql/course-catalogs/dto/course-catalog.result.ts
 import { Field, ObjectType } from '@nestjs/graphql';
-import { paginatedTypeFactory } from '@src/adapters/graphql/pagination.type-factory';
 import { CourseCatalogDTO } from './course-catalog.dto';
 
 /**
@@ -42,12 +41,7 @@ export class CourseCatalogsListResult {
   items!: CourseCatalogDTO[];
 }
 
-/**
- * 课程目录分页输出类型
- * 复用统一分页外壳结构（items/total/page/pageSize/pageInfo）
- */
-@ObjectType({ description: '课程目录分页结果' })
-export class PaginatedCourseCatalogsResult extends paginatedTypeFactory(CourseCatalogDTO) {}
+// 搜索分页类型取消
 
 /**
  * 下线课程目录返回结果

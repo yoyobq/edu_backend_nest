@@ -6,9 +6,9 @@ import { AppModule } from '@src/app.module';
 import { AccountEntity } from '@src/modules/account/base/entities/account.entity';
 import { CourseCatalogEntity } from '@src/modules/course/catalogs/course-catalog.entity';
 import { AudienceTypeEnum, LoginTypeEnum } from '@src/types/models/account.types';
-import { executeGql as executeGqlUtils } from '../utils/e2e-graphql-utils';
 import request from 'supertest';
 import { DataSource } from 'typeorm';
+import { executeGql as executeGqlUtils } from '../utils/e2e-graphql-utils';
 // 导入统一账号配置
 import { initGraphQLSchema } from '../../src/adapters/graphql/schema/schema.init';
 import { cleanupTestAccounts, seedTestAccounts, testAccountsConfig } from '../utils/test-accounts';
@@ -406,7 +406,7 @@ describe('课程目录模块 (e2e)', () => {
       // 应该返回权限错误
       expect(updateResponse.body.errors).toBeDefined();
       expect(updateResponse.body.errors[0].extensions.errorCode).toBe('INSUFFICIENT_PERMISSIONS');
-      expect(updateResponse.body.errors[0].message).toContain('仅管理员可以更新课程目录');
+      expect(updateResponse.body.errors[0].message).toContain('仅管理员或经理可以更新课程目录');
     });
 
     it('未登录用户不应该能够更新课程目录', async () => {
@@ -641,138 +641,6 @@ describe('课程目录模块 (e2e)', () => {
       expect(res.body.errors[0].extensions.code).toBe('GRAPHQL_VALIDATION_FAILED');
       expect(String(res.body.errors[0].message)).toContain('UpdateCatalogDetailsInput');
       expect(String(res.body.errors[0].message)).toContain('deactivatedAt');
-    });
-  });
-
-  describe('分页与搜索：searchCourseCatalogs', () => {
-    /**
-     * OFFSET 模式分页查询
-     * - 断言 items 数量不超过 pageSize
-     * - 断言返回 total/page/pageSize
-     * - OFFSET 模式下 pageInfo 为空
-     */
-    it('支持 OFFSET 模式分页查询（含 total）', async () => {
-      const query = `
-        query {
-          searchCourseCatalogs(input: {
-            pagination: { mode: OFFSET, page: 1, pageSize: 2, withTotal: true }
-          }) {
-            items { id courseLevel title description }
-            total
-            page
-            pageSize
-            pageInfo { hasNext nextCursor }
-          }
-        }
-      `;
-
-      const res = await executeQuery(query).expect(200);
-      const payload = res.body.data.searchCourseCatalogs;
-
-      expect(res.body.errors).toBeUndefined();
-      expect(payload).toBeDefined();
-      expect(Array.isArray(payload.items)).toBe(true);
-      expect(payload.items.length).toBeLessThanOrEqual(2);
-      expect(typeof payload.total).toBe('number');
-      expect(payload.total).toBeGreaterThanOrEqual(3);
-      expect(typeof payload.page).toBe('number');
-      expect(typeof payload.pageSize).toBe('number');
-      // OFFSET 模式 pageInfo 可为空或忽略游标
-      // 若存在，hasNext/nextCursor 也允许被忽略
-      if (payload.pageInfo) {
-        expect(typeof payload.pageInfo.hasNext).toBe('boolean');
-      }
-    });
-
-    /**
-     * 关键词检索：标题/描述 模糊匹配
-     * - 使用关键词 "武术" 应只返回 WUSHU 目录
-     */
-    it('支持关键词检索（title/description 模糊匹配）', async () => {
-      const query = `
-        query {
-          searchCourseCatalogs(input: {
-            pagination: { mode: OFFSET, page: 1, pageSize: 10, withTotal: true },
-            query: "武术"
-          }) {
-            items { id courseLevel title description }
-            total
-          }
-        }
-      `;
-
-      const res = await executeQuery(query).expect(200);
-      const payload = res.body.data.searchCourseCatalogs;
-
-      expect(res.body.errors).toBeUndefined();
-      expect(payload).toBeDefined();
-      expect(Array.isArray(payload.items)).toBe(true);
-      expect(payload.items.length).toBe(1);
-      expect(payload.items[0].courseLevel).toBe(CourseLevel.WUSHU);
-      expect(typeof payload.total).toBe('number');
-      expect(payload.total).toBe(1);
-    });
-
-    /**
-     * CURSOR 模式分页查询
-     * - 首次查询返回 limit 条数据，hasNext 为 true
-     * - 使用 nextCursor 查询下一页，返回剩余数据，hasNext 为 false
-     */
-    it('支持 CURSOR 模式分页查询（游标翻页）', async () => {
-      const firstQuery = `
-        query {
-          searchCourseCatalogs(input: {
-            pagination: { mode: CURSOR, limit: 2 }
-          }) {
-            items { id courseLevel title }
-            pageInfo { hasNext nextCursor }
-          }
-        }
-      `;
-
-      const firstRes = await executeQuery(firstQuery).expect(200);
-      if (firstRes.body.errors) {
-        // 打印 GraphQL 错误便于定位
-
-        console.error('GraphQL 错误（游标第一页）:', firstRes.body.errors);
-      }
-      const firstPayload = firstRes.body.data?.searchCourseCatalogs;
-
-      expect(firstRes.body.errors).toBeUndefined();
-      expect(firstPayload).toBeDefined();
-      expect(Array.isArray(firstPayload.items)).toBe(true);
-      expect(firstPayload.items.length).toBe(2);
-      expect(firstPayload.pageInfo).toBeDefined();
-      expect(firstPayload.pageInfo.hasNext).toBe(true);
-      expect(typeof firstPayload.pageInfo.nextCursor).toBe('string');
-
-      const nextCursor = firstPayload.pageInfo.nextCursor as string;
-
-      const secondQuery = `
-        query {
-          searchCourseCatalogs(input: {
-            pagination: { mode: CURSOR, limit: 2, after: "${nextCursor}" }
-          }) {
-            items { id courseLevel title }
-            pageInfo { hasNext nextCursor }
-          }
-        }
-      `;
-
-      const secondRes = await executeQuery(secondQuery).expect(200);
-      if (secondRes.body.errors) {
-        console.error('GraphQL 错误（游标第二页）:', secondRes.body.errors);
-      }
-      const secondPayload = secondRes.body.data?.searchCourseCatalogs;
-
-      expect(secondRes.body.errors).toBeUndefined();
-      expect(secondPayload).toBeDefined();
-      expect(Array.isArray(secondPayload.items)).toBe(true);
-      // 剩余 1 条（共 3 条）
-      expect(secondPayload.items.length).toBe(1);
-      expect(secondPayload.pageInfo).toBeDefined();
-      expect(secondPayload.pageInfo.hasNext).toBe(false);
-      // nextCursor 可为空或忽略
     });
   });
 

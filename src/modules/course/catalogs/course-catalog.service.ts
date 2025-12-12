@@ -48,7 +48,7 @@ export class CourseCatalogService {
   async findAllActive(): Promise<CourseCatalogEntity[]> {
     return await this.courseCatalogRepository.find({
       where: { deactivatedAt: IsNull() },
-      order: { createdAt: 'ASC' },
+      order: { courseLevel: 'ASC' },
     });
   }
 

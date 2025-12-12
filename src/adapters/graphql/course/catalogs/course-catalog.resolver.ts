@@ -5,13 +5,11 @@ import { JwtPayload } from '@app-types/jwt.types';
 import type { CourseLevel } from '@app-types/models/course.types';
 import { UseGuards } from '@nestjs/common';
 import { Args, Mutation, Query, Resolver } from '@nestjs/graphql';
-import { mapGqlToCoreParams } from '@src/adapters/graphql/pagination.mapper';
 import { CreateCatalogUsecase } from '@src/usecases/course/catalogs/create-catalog.usecase';
 import { DeactivateCatalogUsecase } from '@src/usecases/course/catalogs/deactivate-catalog.usecase';
 import { GetCatalogByLevelUsecase } from '@src/usecases/course/catalogs/get-catalog-by-level.usecase';
 import { ListCatalogsUsecase } from '@src/usecases/course/catalogs/list-catalogs.usecase';
 import { ReactivateCatalogUsecase } from '@src/usecases/course/catalogs/reactivate-catalog.usecase';
-import { SearchCatalogsUsecase } from '@src/usecases/course/catalogs/search-catalogs.usecase';
 import { UpdateCatalogDetailsUsecase } from '@src/usecases/course/catalogs/update-catalog-details.usecase';
 import { currentUser } from '../../decorators/current-user.decorator';
 import { JwtAuthGuard } from '../../guards/jwt-auth.guard';
@@ -21,14 +19,12 @@ import {
   DeactivateCatalogInput,
   GetCatalogByLevelInput,
   ReactivateCatalogInput,
-  SearchCourseCatalogsInput,
   UpdateCatalogDetailsInput,
 } from './dto/course-catalog.input';
 import {
   CourseCatalogsListResult,
   CreateCatalogResult,
   DeactivateCatalogResult,
-  PaginatedCourseCatalogsResult,
   ReactivateCatalogResult,
   UpdateCatalogDetailsResult,
 } from './dto/course-catalog.result';
@@ -74,7 +70,6 @@ export class CourseCatalogResolver {
   constructor(
     private readonly getCatalogByLevelUsecase: GetCatalogByLevelUsecase,
     private readonly listCatalogsUsecase: ListCatalogsUsecase, // 注入列表查询 usecase
-    private readonly searchCatalogsUsecase: SearchCatalogsUsecase, // 注入分页搜索 usecase
     private readonly updateCatalogDetailsUsecase: UpdateCatalogDetailsUsecase,
     private readonly deactivateCatalogUsecase: DeactivateCatalogUsecase,
     private readonly reactivateCatalogUsecase: ReactivateCatalogUsecase,
@@ -111,30 +106,7 @@ export class CourseCatalogResolver {
     return toCatalogDTO(catalog);
   }
 
-  /**
-   * 分页搜索课程目录
-   * 支持 OFFSET/CURSOR 两种分页模式、排序白名单与文本检索（标题/描述）
-   */
-  @Query(() => PaginatedCourseCatalogsResult, { description: '分页搜索课程目录' })
-  async searchCourseCatalogs(
-    @Args('input') input: SearchCourseCatalogsInput,
-  ): Promise<PaginatedCourseCatalogsResult> {
-    const params = mapGqlToCoreParams(input.pagination);
-    const result = await this.searchCatalogsUsecase.execute({ params, query: input.query });
-
-    const output = new PaginatedCourseCatalogsResult();
-    output.items = result.items.map((m) => toCatalogDTO(m));
-    output.total = result.total;
-    output.page = result.page;
-    output.pageSize = result.pageSize;
-    output.pageInfo = result.pageInfo
-      ? {
-          hasNext: result.pageInfo.hasNext ?? false,
-          nextCursor: result.pageInfo.nextCursor,
-        }
-      : undefined;
-    return output;
-  }
+  // 取消搜索接口：不再暴露 searchCourseCatalogs 查询
 
   /**
    * 更新课程目录详情（需要管理员权限）
@@ -204,7 +176,7 @@ export class CourseCatalogResolver {
   }
 
   /**
-   * 创建课程目录（需要管理员/经理/教师权限）
+   * 创建课程目录（需要管理员或经理权限）
    * 并发安全，按 courseLevel 唯一约束幂等
    */
   @UseGuards(JwtAuthGuard)

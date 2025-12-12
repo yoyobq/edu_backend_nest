@@ -78,10 +78,10 @@ export class CreateCatalogUsecase {
    * @param session 当前会话
    */
   private ensurePermissions(session: UsecaseSession): void {
-    const allowed = ['admin', 'manager', 'teacher'];
+    const allowed = ['admin', 'manager'];
     const ok = session.roles?.some((r) => allowed.includes(String(r).toLowerCase()));
     if (!ok) {
-      throw new DomainError(CATALOG_ERROR.PERMISSION_DENIED, '仅管理员可以创建课程目录');
+      throw new DomainError(CATALOG_ERROR.PERMISSION_DENIED, '仅 manager 可以创建课程目录');
     }
   }
 
