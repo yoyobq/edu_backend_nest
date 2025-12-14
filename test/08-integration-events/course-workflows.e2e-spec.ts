@@ -212,7 +212,7 @@ async function ensureTestCatalog(ds: DataSource): Promise<number> {
 }
 
 /**
- * 创建一个测试课程系列并返回其 ID
+ * 创建一个测试开课班并返回其 ID
  * 关联 Manager 发布者与测试目录
  */
 async function createTestSeries(
@@ -229,8 +229,8 @@ async function createTestSeries(
       catalogId,
       publisherType: PublisherType.MANAGER,
       publisherId: publisherManagerId,
-      title: `E2E 系列 ${Date.now()}`,
-      description: '课程工作流自动化测试系列',
+      title: `E2E 开课班 ${Date.now()}`,
+      description: '课程工作流自动化测试开课班',
       venueType: VenueType.SANDA_GYM,
       classMode: ClassMode.SMALL_CLASS,
       startDate: start.toISOString().slice(0, 10),
@@ -241,7 +241,7 @@ async function createTestSeries(
       teachingFeeRef: '80.00',
       maxLearners: 8,
       status: CourseSeriesStatus.PLANNED,
-      remark: 'E2E 工作流用系列',
+      remark: 'E2E 工作流用开课班',
       createdBy: null,
       updatedBy: null,
     }),

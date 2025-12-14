@@ -212,7 +212,7 @@ describe('Payout Rules (e2e)', () => {
   };
 
   /**
-   * 创建一个测试课程系列，返回其 ID
+   * 创建一个测试开课班，返回其 ID
    * @param cid 课程目录 ID
    */
   const createTestSeries = async (cid: number): Promise<number> => {
@@ -225,8 +225,8 @@ describe('Payout Rules (e2e)', () => {
         catalogId: cid,
         publisherType: PublisherType.MANAGER,
         publisherId: 1, // 测试数据：不影响绑定校验（仅要求存在 seriesId）
-        title: `测试系列 ${Date.now()}`,
-        description: '自动化测试系列',
+        title: `测试开课班 ${Date.now()}`,
+        description: '自动化测试开课班',
         venueType: VenueType.SANDA_GYM,
         classMode: ClassMode.SMALL_CLASS,
         startDate: start.toISOString().slice(0, 10),
@@ -237,7 +237,7 @@ describe('Payout Rules (e2e)', () => {
         teachingFeeRef: '80.00',
         maxLearners: 8,
         status: CourseSeriesStatus.PLANNED,
-        remark: 'E2E 测试用系列',
+        remark: 'E2E 测试用开课班',
         createdBy: null,
         updatedBy: null,
       }),

@@ -146,7 +146,7 @@ export class PreviewSeriesScheduleUsecase {
   private async requireSeries(id: number): Promise<CourseSeriesEntity> {
     const s = await this.seriesService.findById(id);
     if (!s) {
-      throw new DomainError(COURSE_SERIES_ERROR.SERIES_NOT_FOUND, '课程系列不存在');
+      throw new DomainError(COURSE_SERIES_ERROR.SERIES_NOT_FOUND, '开课班不存在');
     }
     return s;
   }
@@ -180,7 +180,7 @@ export class PreviewSeriesScheduleUsecase {
       }
       const ok = series.publisherType === PublisherType.COACH && series.publisherId === coach.id;
       if (!ok) {
-        throw new DomainError(PERMISSION_ERROR.ACCESS_DENIED, '无权查看该课程系列的排期预览');
+        throw new DomainError(PERMISSION_ERROR.ACCESS_DENIED, '无权查看该开课班的排期预览');
       }
       return;
     }
@@ -196,7 +196,7 @@ export class PreviewSeriesScheduleUsecase {
     const s = this.normalizeDate(start);
     const e = this.normalizeDate(end);
     if (!s || !e || s > e) {
-      throw new DomainError(COURSE_SERIES_ERROR.SERIES_DATE_INVALID, '系列日期非法');
+      throw new DomainError(COURSE_SERIES_ERROR.SERIES_DATE_INVALID, '开课班日期非法');
     }
     const maxSpanDays = 365 * 2;
     if (this.daysBetween(s, e) > maxSpanDays) {

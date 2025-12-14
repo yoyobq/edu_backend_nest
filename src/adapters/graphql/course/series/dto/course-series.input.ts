@@ -85,9 +85,9 @@ export class CreateCourseSeriesDraftInput {
 
 @InputType()
 export class PreviewSeriesScheduleInput {
-  @Field(() => Int, { description: '课程系列 ID' })
-  @IsInt({ message: '课程系列 ID 必须是整数' })
-  @Min(1, { message: '课程系列 ID 必须大于 0' })
+  @Field(() => Int, { description: '开课班 ID' })
+  @IsInt({ message: '开课班 ID 必须是整数' })
+  @Min(1, { message: '开课班 ID 必须大于 0' })
   seriesId!: number;
 
   @Field(() => Boolean, { nullable: true, description: '是否启用冲突检测（默认 true）' })
@@ -95,14 +95,14 @@ export class PreviewSeriesScheduleInput {
 }
 
 /**
- * 发布课程系列 入参 DTO
+ * 发布开课班 入参 DTO
  * 与 Usecase 的 PublishSeriesInput 对齐
  */
 @InputType()
 export class PublishCourseSeriesInput {
-  @Field(() => Int, { description: '课程系列 ID' })
-  @IsInt({ message: '课程系列 ID 必须是整数' })
-  @Min(1, { message: '课程系列 ID 必须大于 0' })
+  @Field(() => Int, { description: '开课班 ID' })
+  @IsInt({ message: '开课班 ID 必须是整数' })
+  @Min(1, { message: '开课班 ID 必须大于 0' })
   seriesId!: number;
 
   @Field(() => [String], {

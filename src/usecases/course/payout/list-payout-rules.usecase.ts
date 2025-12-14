@@ -47,7 +47,7 @@ export class ListPayoutRulesUsecase {
       // 为避免资源探测，不暴露是否存在，直接返回权限错误
       throw new DomainError(
         PERMISSION_ERROR.INSUFFICIENT_PERMISSIONS,
-        '仅允许查看自身课程系列的结算规则',
+        '仅允许查看自身开课班的结算规则',
       );
     }
     const coach = await this.coachService.findByAccountId(session.accountId);
@@ -62,7 +62,7 @@ export class ListPayoutRulesUsecase {
     if (!ownedByCoach) {
       throw new DomainError(
         PERMISSION_ERROR.INSUFFICIENT_PERMISSIONS,
-        '仅允许查看自身课程系列的结算规则',
+        '仅允许查看自身开课班的结算规则',
       );
     }
   }

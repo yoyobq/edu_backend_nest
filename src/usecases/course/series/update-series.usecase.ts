@@ -5,18 +5,18 @@ import { CourseSeriesEntity } from '@src/modules/course/series/course-series.ent
 import { CourseSeriesService } from '@src/modules/course/series/course-series.service';
 
 /**
- * 更新课程系列用例
+ * 更新开课班用例
  *
- * 负责执行课程系列的更新操作：按 ID 更新允许的字段。
+ * 负责执行开课班的更新操作：按 ID 更新允许的字段。
  */
 @Injectable()
 export class UpdateSeriesUsecase {
   constructor(private readonly seriesService: CourseSeriesService) {}
 
   /**
-   * 执行更新课程系列
+   * 执行更新开课班
    * @param args 更新参数对象
-   * @returns 更新后的课程系列实体
+   * @returns 更新后的开课班实体
    */
   async execute(args: {
     readonly id: number;
@@ -25,12 +25,12 @@ export class UpdateSeriesUsecase {
     try {
       const updated = await this.seriesService.update(args.id, args.data);
       if (!updated) {
-        throw new DomainError(COURSE_SERIES_ERROR.SERIES_NOT_FOUND, '课程系列不存在');
+        throw new DomainError(COURSE_SERIES_ERROR.SERIES_NOT_FOUND, '开课班不存在');
       }
       return updated;
     } catch (error) {
       if (error instanceof DomainError) throw error;
-      throw new DomainError(COURSE_SERIES_ERROR.SERIES_UPDATE_FAILED, '更新课程系列失败', {
+      throw new DomainError(COURSE_SERIES_ERROR.SERIES_UPDATE_FAILED, '更新开课班失败', {
         error,
       });
     }

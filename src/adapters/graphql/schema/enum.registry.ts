@@ -288,11 +288,11 @@ const ENUM_CONFIGS: Record<string, EnumConfig> = {
       DESC: { description: '降序' },
     },
   },
-  // 课程系列相关枚举
+  // 开课班相关枚举
   COURSE_SERIES_CLASS_MODE: {
     enumType: ClassMode,
     name: 'ClassMode',
-    description: '课程系列班型',
+    description: '开课班班型',
     valuesMap: {
       SMALL_CLASS: { description: '小班课' },
       LARGE_CLASS: { description: '大班课' },
@@ -311,7 +311,7 @@ const ENUM_CONFIGS: Record<string, EnumConfig> = {
   COURSE_SERIES_STATUS: {
     enumType: CourseSeriesStatus,
     name: 'CourseSeriesStatus',
-    description: '课程系列状态',
+    description: '开课班状态',
     valuesMap: {
       PLANNED: { description: '已建班未发布' },
       PUBLISHED: { description: '已发布' },

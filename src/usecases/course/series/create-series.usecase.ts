@@ -49,7 +49,7 @@ export class CreateSeriesUsecase {
   ) {}
 
   /**
-   * 执行创建课程系列草稿
+   * 执行创建开课班草稿
    * 仅创建 `course_series`，状态为 `PLANNED`，不生成节次、不写 Outbox。
    */
   async execute(params: {
@@ -191,7 +191,7 @@ export class CreateSeriesUsecase {
   private requireAuthorized(session: UsecaseSession): void {
     const ok = this.isAdmin(session) || this.isManager(session) || this.isCoach(session);
     if (!ok) {
-      throw new DomainError(PERMISSION_ERROR.ACCESS_DENIED, '缺少创建课程系列权限');
+      throw new DomainError(PERMISSION_ERROR.ACCESS_DENIED, '缺少创建开课班权限');
     }
   }
   private async verifyCatalogExists(catalogId: number): Promise<void> {

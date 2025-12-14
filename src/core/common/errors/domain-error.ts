@@ -206,7 +206,7 @@ Object.freeze(COURSE_SERIES_ERROR);
 
 export type CourseSeriesErrorCode = (typeof COURSE_SERIES_ERROR)[keyof typeof COURSE_SERIES_ERROR];
 
-// 课程系列结算规则相关错误码（集中定义）
+// 开课班结算规则相关错误码（集中定义）
 export const PAYOUT_RULE_ERROR = {
   RULE_NOT_FOUND: 'PAYOUT_RULE_NOT_FOUND',
   RULE_CREATION_FAILED: 'PAYOUT_RULE_CREATION_FAILED',

@@ -1,7 +1,7 @@
 // src/types/models/course-series.types.ts
 
 /**
- * 课程系列枚举类型定义
+ * 开课班枚举类型定义
  * 与数据库表 `course_series` 的枚举列保持一致
  */
 export enum PublisherType {

@@ -15,9 +15,9 @@ import {
 } from 'typeorm';
 
 /**
- * 课程系列实体
+ * 开课班实体
  * 对应数据库表：course_series
- * 用于管理系列班/开班信息（由教务或教练发布）
+ * 用于管理开课班信息（由教务或教练发布）
  */
 @Entity('course_series')
 @Index('idx_series_publisher', ['publisherType', 'publisherId'])
@@ -91,7 +91,7 @@ export class CourseSeriesEntity {
   })
   recurrenceRule!: string | null;
 
-  /** 请假有效阈值（小时，系列默认；节次可覆写） */
+  /** 请假有效阈值（小时，开课班默认；课程节次可覆写） */
   @Column({
     name: 'leave_cutoff_hours',
     type: 'int',
@@ -100,7 +100,7 @@ export class CourseSeriesEntity {
   })
   leaveCutoffHours!: number;
 
-  /** 每节客户价（系列默认） */
+  /** 每节客户价（开课班默认） */
   @Column({
     name: 'price_per_session',
     type: 'decimal',
@@ -111,7 +111,7 @@ export class CourseSeriesEntity {
   })
   pricePerSession!: string | null; // 使用字符串承载 decimal，避免 JS 精度问题
 
-  /** 每节授课参考价（系列默认） */
+  /** 每节授课参考价（开课班默认） */
   @Column({
     name: 'teaching_fee_ref',
     type: 'decimal',

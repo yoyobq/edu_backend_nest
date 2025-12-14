@@ -48,7 +48,7 @@ export class GetPayoutRuleUsecase {
         // 避免资源探测，直接返回权限错误
         throw new DomainError(
           PERMISSION_ERROR.INSUFFICIENT_PERMISSIONS,
-          '仅允许查询自身课程系列的结算规则',
+          '仅允许查询自身开课班的结算规则',
         );
       }
       const coach = await this.coachService.findByAccountId(args.session.accountId);
@@ -63,13 +63,13 @@ export class GetPayoutRuleUsecase {
       if (!ownedByCoach) {
         throw new DomainError(
           PERMISSION_ERROR.INSUFFICIENT_PERMISSIONS,
-          '仅允许查询自身课程系列的结算规则',
+          '仅允许查询自身开课班的结算规则',
         );
       }
     }
     const found = await this.ruleService.findBySeriesId(args.seriesId);
     if (!found) {
-      throw new DomainError(PAYOUT_RULE_ERROR.RULE_NOT_FOUND, '该课程系列未绑定结算规则');
+      throw new DomainError(PAYOUT_RULE_ERROR.RULE_NOT_FOUND, '该开课班未绑定结算规则');
     }
     return found;
   }

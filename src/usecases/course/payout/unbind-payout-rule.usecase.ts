@@ -6,7 +6,7 @@ import { PayoutSeriesRuleService } from '@src/modules/course/payout-series-rule/
 import { type UsecaseSession } from '@src/types/auth/session.types';
 
 /**
- * 解绑结算规则与课程系列用例
+ * 解绑结算规则与开课班用例
  *
  * 将课程绑定的规则解除为模板。
  */

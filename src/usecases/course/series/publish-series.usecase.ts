@@ -157,7 +157,7 @@ export class PublishSeriesUsecase {
   private requireAuthorized(session: UsecaseSession): void {
     const roles = (session.roles ?? []).map((r) => String(r).toUpperCase());
     const ok = roles.includes('ADMIN') || roles.includes('MANAGER') || roles.includes('COACH');
-    if (!ok) throw new DomainError(PERMISSION_ERROR.ACCESS_DENIED, '无权发布课程系列');
+    if (!ok) throw new DomainError(PERMISSION_ERROR.ACCESS_DENIED, '无权发布开课班');
   }
 
   /**
@@ -195,11 +195,11 @@ export class PublishSeriesUsecase {
       }
       const owned = series.publisherType === PublisherType.COACH && series.publisherId === coach.id;
       if (!owned) {
-        throw new DomainError(PERMISSION_ERROR.ACCESS_DENIED, '无权发布该课程系列');
+        throw new DomainError(PERMISSION_ERROR.ACCESS_DENIED, '无权发布该开课班');
       }
       return;
     }
-    throw new DomainError(PERMISSION_ERROR.ACCESS_DENIED, '无权发布课程系列');
+    throw new DomainError(PERMISSION_ERROR.ACCESS_DENIED, '无权发布开课班');
   }
 
   /**

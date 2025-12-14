@@ -36,9 +36,9 @@ export class PreviewOccurrenceDTO {
   conflict!: PreviewConflictDTO | null;
 }
 
-@ObjectType({ description: '课程系列排期预览结果' })
+@ObjectType({ description: '开课班排期预览结果' })
 export class PreviewSeriesScheduleResultDTO {
-  @Field(() => CourseSeriesDTO, { description: '目标课程系列' })
+  @Field(() => CourseSeriesDTO, { description: '目标开课班' })
   series!: CourseSeriesDTO;
 
   @Field(() => [PreviewOccurrenceDTO], { description: '生成的上课场次列表' })
@@ -54,12 +54,12 @@ export class PreviewSeriesScheduleResultDTO {
   defaultLeadCoachId!: number | null;
 }
 
-@ObjectType({ description: '发布课程系列结果' })
+@ObjectType({ description: '发布开课班结果' })
 export class PublishSeriesResultDTO {
-  @Field(() => Int, { description: '课程系列 ID' })
+  @Field(() => Int, { description: '开课班 ID' })
   seriesId!: number;
 
-  @Field(() => CourseSeriesStatus, { description: '发布后系列状态（或 dryRun 原状态）' })
+  @Field(() => CourseSeriesStatus, { description: '发布后开课班状态（或 dryRun 原状态）' })
   status!: CourseSeriesStatus;
 
   @Field(() => String, { nullable: true, description: '发布时间（ISO），dryRun 为 null' })

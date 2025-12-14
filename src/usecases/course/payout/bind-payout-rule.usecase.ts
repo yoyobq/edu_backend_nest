@@ -7,9 +7,9 @@ import { CourseSeriesService } from '@src/modules/course/series/course-series.se
 import { type UsecaseSession } from '@src/types/auth/session.types';
 
 /**
- * 绑定结算规则到课程系列用例
+ * 绑定结算规则到开课班用例
  *
- * 将模板规则绑定到指定课程系列，若该系列已有规则则失败。
+ * 将模板规则绑定到指定开课班，若该系列已有规则则失败。
  */
 @Injectable()
 export class BindPayoutRuleUsecase {
@@ -24,13 +24,13 @@ export class BindPayoutRuleUsecase {
    */
   async execute(args: {
     readonly ruleId: number; // 模板规则 ID
-    readonly seriesId: number; // 课程系列 ID
+    readonly seriesId: number; // 开课班 ID
     readonly session: UsecaseSession;
   }): Promise<{ rule: PayoutSeriesRuleEntity; isUpdated: boolean }> {
     // 先确认 series 存在
     const series = await this.seriesService.findById(args.seriesId);
     if (!series) {
-      throw new DomainError(PAYOUT_RULE_ERROR.INVALID_PARAMS, '课程系列不存在', {
+      throw new DomainError(PAYOUT_RULE_ERROR.INVALID_PARAMS, '开课班不存在', {
         seriesId: args.seriesId,
       });
     }
@@ -58,7 +58,7 @@ export class BindPayoutRuleUsecase {
     if (!updated) {
       throw new DomainError(
         PAYOUT_RULE_ERROR.SERIES_RULE_CONFLICT,
-        '该课程系列已绑定其他结算规则，无法重复绑定',
+        '该开课班已绑定其他结算规则，无法重复绑定',
         { seriesId: args.seriesId },
       );
     }

@@ -12,8 +12,8 @@ import { In, Repository, type SelectQueryBuilder, type EntityManager } from 'typ
 import { CourseSeriesEntity } from './course-series.entity';
 
 /**
- * 课程系列服务
- * 提供课程系列的基础读/写方法，供 usecases 复用
+ * 开课班服务
+ * 提供开课班的基础读/写方法，供 usecases 复用
  */
 @Injectable()
 export class CourseSeriesService {
@@ -24,24 +24,24 @@ export class CourseSeriesService {
   ) {}
 
   /**
-   * 根据 ID 获取课程系列
-   * @param id 课程系列 ID
+   * 根据 ID 获取开课班
+   * @param id 开课班 ID
    */
   async findById(id: number): Promise<CourseSeriesEntity | null> {
     return await this.seriesRepo.findOne({ where: { id } });
   }
 
   /**
-   * 列出全部课程系列（含所有状态）
-   * @returns 课程系列列表，按创建时间升序
+   * 列出全部开课班（含所有状态）
+   * @returns 开课班列表，按创建时间升序
    */
   async findAll(): Promise<CourseSeriesEntity[]> {
     return await this.seriesRepo.find({ order: { createdAt: 'ASC' } });
   }
 
   /**
-   * 列出有效的课程系列（排除 CLOSED/FINISHED）
-   * @returns 有效课程系列列表
+   * 列出有效的开课班（排除 CLOSED/FINISHED）
+   * @returns 有效开课班列表
    */
   async findAllActive(): Promise<CourseSeriesEntity[]> {
     return await this.seriesRepo.find({
@@ -53,9 +53,9 @@ export class CourseSeriesService {
   }
 
   /**
-   * 分页搜索课程系列（纯读，供 usecase 复用）
+   * 分页搜索开课班（纯读，供 usecase 复用）
    * @param args 查询参数对象（分页参数 + 可选关键词）
-   * @returns 分页后的课程系列结果
+   * @returns 分页后的开课班结果
    */
   async searchSeries(args: {
     readonly params: PaginationParams;
@@ -110,7 +110,7 @@ export class CourseSeriesService {
   }
 
   /**
-   * 创建课程系列
+   * 创建开课班
    * @param data 创建数据
    */
   async create(data: Partial<CourseSeriesEntity>): Promise<CourseSeriesEntity> {
@@ -119,8 +119,8 @@ export class CourseSeriesService {
   }
 
   /**
-   * 更新课程系列
-   * @param id 课程系列 ID
+   * 更新开课班
+   * @param id 开课班 ID
    * @param data 更新数据
    */
   async update(id: number, data: Partial<CourseSeriesEntity>): Promise<CourseSeriesEntity | null> {
@@ -148,8 +148,8 @@ export class CourseSeriesService {
   }
 
   /**
-   * 删除课程系列（物理删除）
-   * @param id 课程系列 ID
+   * 删除开课班（物理删除）
+   * @param id 开课班 ID
    * @returns 是否删除成功
    */
   async deleteById(id: number): Promise<boolean> {

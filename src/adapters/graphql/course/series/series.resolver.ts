@@ -37,7 +37,7 @@ export class CourseSeriesResolver {
   @UseGuards(JwtAuthGuard)
   @Mutation(() => CourseSeriesDTO, {
     name: 'createCourseSeriesDraft',
-    description: '创建课程系列草稿（仅 PLANNED）',
+    description: '创建开课班草稿（仅 PLANNED）',
   })
   async createCourseSeriesDraft(
     @currentUser() user: JwtPayload,
@@ -71,7 +71,7 @@ export class CourseSeriesResolver {
   @UseGuards(JwtAuthGuard)
   @Query(() => PreviewSeriesScheduleResultDTO, {
     name: 'previewCourseSeriesSchedule',
-    description: '预览课程系列的排期（仅内存，不写 DB）',
+    description: '预览开课班的排期（仅内存，不写 DB）',
   })
   async previewCourseSeriesSchedule(
     @currentUser() user: JwtPayload,
@@ -131,7 +131,7 @@ export class CourseSeriesResolver {
   @UseGuards(JwtAuthGuard)
   @Mutation(() => PublishSeriesResultDTO, {
     name: 'publishCourseSeries',
-    description: '发布课程系列（支持 dryRun 试发布，不写库）',
+    description: '发布开课班（支持 dryRun 试发布，不写库）',
   })
   async publishCourseSeries(
     @currentUser() user: JwtPayload,

@@ -5,7 +5,7 @@ import { CourseSeriesEntity } from '@src/modules/course/series/course-series.ent
 import { CourseSeriesService } from '@src/modules/course/series/course-series.service';
 
 /**
- * 课程系列分页搜索用例（纯读）
+ * 开课班分页搜索用例（纯读）
  *
  * 说明：分页策略统一由 PaginationService 处理，允许传入排序白名单。
  */

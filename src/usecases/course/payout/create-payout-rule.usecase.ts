@@ -10,7 +10,7 @@ import { type UsecaseSession } from '@src/types/auth/session.types';
  * 创建结算规则/模板用例
  *
  * 功能：
- * - 支持创建模板（`seriesId = null`）或为指定课程系列创建绑定规则（`seriesId = number`）
+ * - 支持创建模板（`seriesId = null`）或为指定开课班创建绑定规则（`seriesId = number`）
  * - 若指定系列已存在规则，则幂等返回现有规则
  */
 @Injectable()
