@@ -76,9 +76,11 @@ export class UpdateVisibleUserInfoUsecase {
 
         const isSelf = session.accountId === targetAccountId;
         const isManagerRole = expandRoles(session.roles).includes(IdentityTypeEnum.MANAGER);
+        const isAdminRole = hasRole(session.roles, IdentityTypeEnum.ADMIN);
         const sanitized = await this.sanitizePatch(patch, current, {
           isManager: isManagerRole,
           isSelf,
+          isAdmin: isAdminRole,
         });
         if (Object.keys(sanitized).length === 0) {
           const view = await this.fetchUserInfoUsecase.executeStrict({
@@ -195,10 +197,17 @@ export class UpdateVisibleUserInfoUsecase {
    * - manager 改他人：仅允许极少字段（nickname / avatarUrl / phone）
    * - 非 manager：允许基础与联系白名单，不允许 userState
    */
+  /**
+   * 清洗并验证更新字段（支持 isSelf / isManager / isAdmin 开关）
+   * - admin：允许除敏感系统字段外的全部白名单（等同于 manager 自改）
+   * - manager 自改：允许更广的白名单（包含 userState/notifyCount/unreadCount）
+   * - manager 改他人：仅允许极少字段（nickname / avatarUrl / phone）
+   * - 非 manager：允许基础与联系白名单，不允许用户状态与计数
+   */
   private async sanitizePatch(
     patch: UserInfoPatch,
     current: UserInfoEntity,
-    flags: { isManager: boolean; isSelf: boolean },
+    flags: { isManager: boolean; isSelf: boolean; isAdmin: boolean },
   ): Promise<Partial<UserInfoEntity>> {
     const out: Partial<UserInfoEntity> = {};
     const allow = (key: keyof UserInfoEntity): boolean => this.isFieldAllowed(key, flags);
@@ -309,31 +318,31 @@ export class UpdateVisibleUserInfoUsecase {
     patch: UserInfoPatch,
     allow: (key: keyof UserInfoEntity) => boolean,
     assignIfChanged: <K extends keyof UserInfoEntity>(key: K, next: UserInfoEntity[K]) => void,
-    flags: { isManager: boolean; isSelf: boolean },
+    _flags: { isManager: boolean; isSelf: boolean; isAdmin: boolean },
   ): void {
     if (typeof patch.userState !== 'undefined') {
-      if (!(flags.isManager && flags.isSelf) || !allow('userState')) {
+      if (!allow('userState')) {
         throw new DomainError(
           PERMISSION_ERROR.INSUFFICIENT_PERMISSIONS,
-          '仅在 manager 自改时可修改用户状态',
+          '仅在 manager 自改或 admin 时可修改用户状态',
         );
       }
       assignIfChanged('userState', this.sanitizeUserState(patch.userState));
     }
     if (typeof patch.notifyCount !== 'undefined') {
-      if (!(flags.isManager && flags.isSelf) || !allow('notifyCount')) {
+      if (!allow('notifyCount')) {
         throw new DomainError(
           PERMISSION_ERROR.INSUFFICIENT_PERMISSIONS,
-          '仅在 manager 自改时可修改通知计数',
+          '仅在 manager 自改或 admin 时可修改通知计数',
         );
       }
       assignIfChanged('notifyCount', this.sanitizeNonNegativeInt(patch.notifyCount));
     }
     if (typeof patch.unreadCount !== 'undefined') {
-      if (!(flags.isManager && flags.isSelf) || !allow('unreadCount')) {
+      if (!allow('unreadCount')) {
         throw new DomainError(
           PERMISSION_ERROR.INSUFFICIENT_PERMISSIONS,
-          '仅在 manager 自改时可修改未读计数',
+          '仅在 manager 自改或 admin 时可修改未读计数',
         );
       }
       assignIfChanged('unreadCount', this.sanitizeNonNegativeInt(patch.unreadCount));
@@ -432,7 +441,7 @@ export class UpdateVisibleUserInfoUsecase {
    */
   private isFieldAllowed(
     key: keyof UserInfoEntity,
-    flags: { isManager: boolean; isSelf: boolean },
+    flags: { isManager: boolean; isSelf: boolean; isAdmin: boolean },
   ): boolean {
     const selfManagerAllowed: (keyof UserInfoEntity)[] = [
       'nickname',
@@ -463,6 +472,9 @@ export class UpdateVisibleUserInfoUsecase {
       'geographic',
     ];
 
+    if (flags.isAdmin) {
+      return selfManagerAllowed.includes(key);
+    }
     if (flags.isManager) {
       return flags.isSelf ? selfManagerAllowed.includes(key) : managerOtherAllowed.includes(key);
     }

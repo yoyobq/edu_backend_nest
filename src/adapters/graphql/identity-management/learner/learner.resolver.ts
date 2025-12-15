@@ -84,6 +84,7 @@ export class LearnerResolver {
     const result: LearnerEntity = isManager
       ? await this.updateLearnerByManagerUsecase.execute(accountId, {
           id: input.learnerId,
+          customerId: input.customerId,
           name: input.name,
           gender: input.gender,
           birthDate: input.birthDate,
