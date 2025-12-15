@@ -2,6 +2,7 @@
 
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { PaginationModule } from '@modules/common/pagination.module';
 import { TypeOrmSort } from '@src/infrastructure/typeorm/sort/typeorm-sort';
 import { CoachEntity } from './account-coach.entity';
 import { CoachService } from './coach.service';
@@ -11,7 +12,7 @@ import { CoachService } from './coach.service';
  * 专门导出 CoachService 供其他模块使用
  */
 @Module({
-  imports: [TypeOrmModule.forFeature([CoachEntity])],
+  imports: [TypeOrmModule.forFeature([CoachEntity]), PaginationModule],
   providers: [
     CoachService,
     // 为 Coach 领域提供专用排序解析器，字段白名单与映射

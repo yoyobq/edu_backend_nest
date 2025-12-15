@@ -1,12 +1,19 @@
 // src/modules/account/identities/training/coach/coach.service.ts
 
 import { ACCOUNT_ERROR, DomainError } from '@core/common/errors/domain-error';
+import type {
+  PaginatedResult,
+  PaginationParams,
+  SortParam,
+} from '@core/pagination/pagination.types';
 import type { ISortResolver } from '@core/sort/sort.ports';
 import { Inject, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Brackets, EntityManager, IsNull, Repository, SelectQueryBuilder } from 'typeorm';
 import { normalizePhone } from '@src/core/common/normalize/normalize.helper';
 import { UserInfoEntity } from '@src/modules/account/base/entities/user-info.entity';
+import { PaginationService } from '@src/modules/common/pagination.service';
+import { CoachSortField } from '@src/types/common/sort.types';
+import { Brackets, EntityManager, IsNull, Repository, SelectQueryBuilder } from 'typeorm';
 import { CoachEntity } from './account-coach.entity';
 
 /**
@@ -40,8 +47,8 @@ export class CoachService {
   constructor(
     @InjectRepository(CoachEntity)
     private readonly coachRepository: Repository<CoachEntity>,
-    // Coach 域专用排序解析器（供分页使用）
     @Inject('COACH_SORT_RESOLVER') private readonly coachSortResolver: ISortResolver,
+    private readonly paginationService: PaginationService,
   ) {}
 
   /**
@@ -256,53 +263,108 @@ export class CoachService {
     const {
       page = 1,
       limit = 10,
-      sortBy = 'createdAt',
+      sortBy = CoachSortField.CREATED_AT,
       sortOrder = 'DESC',
       includeDeleted = false,
       query,
     } = params;
 
-    const actualLimit = Math.min(limit, 100);
+    const qb = this.buildCoachBaseQuery({
+      includeDeleted,
+      query,
+    });
+
+    const paginated = await this.paginateCoachQuery({
+      qb,
+      page,
+      limit,
+      sortBy,
+      sortOrder,
+    });
+
+    return {
+      coaches: paginated.items,
+      total: paginated.total,
+      page: paginated.page,
+      limit: paginated.limit,
+      totalPages: paginated.totalPages,
+    };
+  }
+
+  /**
+   * 构建教练查询的基础 QueryBuilder（含过滤与排序）
+   * @param options 查询构建参数
+   * @returns 已应用筛选与排序的 QueryBuilder
+   */
+  private buildCoachBaseQuery(options: {
+    readonly includeDeleted: boolean;
+    readonly query?: string;
+  }): SelectQueryBuilder<CoachEntity> {
     const qb = this.coachRepository.createQueryBuilder('coach');
-    // 连接用户信息以支持手机号模糊搜索
     qb.leftJoin(UserInfoEntity, 'ui', 'ui.account_id = coach.account_id');
 
-    // 过滤停用记录
-    if (!includeDeleted) {
+    if (!options.includeDeleted) {
       qb.where('coach.deactivatedAt IS NULL');
     }
 
-    // 应用关键词搜索：姓名 / 手机号
-    this.applyQuerySearch(qb, query);
+    this.applyQuerySearch(qb, options.query);
 
-    // 排序（使用域解析器，防注入；并补充稳定副键）
-    const primaryColumn =
-      this.coachSortResolver.resolveColumn(sortBy) ??
-      this.coachSortResolver.resolveColumn('createdAt');
-    if (primaryColumn) qb.orderBy(primaryColumn, sortOrder);
-    const tieBreaker = this.coachSortResolver.resolveColumn('id');
-    if (tieBreaker) qb.addOrderBy(tieBreaker, sortOrder);
+    return qb;
+  }
 
-    // 统计总数（在存在 JOIN 的情况下使用 DISTINCT，避免计数重复）
-    const countQb = qb.clone();
-    try {
-      (countQb as unknown as SelectQueryBuilder<CoachEntity>).orderBy();
-    } catch {
-      // ignore
-    }
-    const cntAlias = 'cnt';
-    const raw = await countQb
-      .select('COUNT(DISTINCT coach.id)', cntAlias)
-      .getRawOne<Record<string, unknown>>();
-    const total =
-      typeof raw?.[cntAlias] === 'number' ? raw[cntAlias] : Number(raw?.[cntAlias] ?? 0);
+  private async paginateCoachQuery(args: {
+    readonly qb: SelectQueryBuilder<CoachEntity>;
+    readonly page: number;
+    readonly limit: number;
+    readonly sortBy: CoachSortField;
+    readonly sortOrder: 'ASC' | 'DESC';
+  }): Promise<{
+    readonly items: CoachEntity[];
+    readonly total: number;
+    readonly page: number;
+    readonly limit: number;
+    readonly totalPages: number;
+  }> {
+    const safeLimit = Math.max(args.limit, 1);
+    const allowedSorts: ReadonlyArray<string> = ['name', 'id', 'createdAt', 'updatedAt'];
+    const defaultSorts: ReadonlyArray<SortParam> = [
+      { field: 'createdAt', direction: 'DESC' },
+      { field: 'id', direction: 'DESC' },
+    ];
 
-    // 应用分页
-    qb.take(actualLimit).skip((page - 1) * actualLimit);
-    const coaches = await qb.getMany();
+    const params: PaginationParams = {
+      mode: 'OFFSET',
+      page: args.page,
+      pageSize: safeLimit,
+      sorts: [
+        { field: args.sortBy, direction: args.sortOrder },
+        { field: 'id', direction: args.sortOrder },
+      ],
+      withTotal: true,
+    };
 
-    const totalPages = Math.ceil(total / actualLimit) || 1;
-    return { coaches, total, page, limit: actualLimit, totalPages };
+    const result: PaginatedResult<CoachEntity> =
+      await this.paginationService.paginateQuery<CoachEntity>({
+        qb: args.qb,
+        params,
+        allowedSorts,
+        defaultSorts,
+        countDistinctBy: 'coach.id',
+        sortResolver: this.coachSortResolver,
+      });
+
+    const total = result.total ?? 0;
+    const page = result.page ?? args.page;
+    const pageSize = result.pageSize ?? safeLimit;
+    const totalPages = pageSize > 0 ? Math.max(Math.ceil(total / pageSize), 1) : 1;
+
+    return {
+      items: result.items as CoachEntity[],
+      total,
+      page,
+      limit: pageSize,
+      totalPages,
+    };
   }
 
   /**

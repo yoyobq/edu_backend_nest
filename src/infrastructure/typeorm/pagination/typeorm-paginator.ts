@@ -11,10 +11,12 @@ import type {
   PaginationParams,
   SortDirection,
 } from '@core/pagination/pagination.types';
+import { Logger } from '@nestjs/common';
 import type { SelectQueryBuilder } from 'typeorm';
 
 export class TypeOrmPaginator implements IPaginator {
   constructor(private readonly signer: ICursorSigner) {}
+  private readonly logger = new Logger(TypeOrmPaginator.name);
 
   async paginate<T>(input: {
     readonly qb: unknown;
@@ -78,13 +80,31 @@ export class TypeOrmPaginator implements IPaginator {
       countQb.orderBy();
       if (countDistinctBy) {
         // 当存在 join 或多行同实体时，通过 COUNT(DISTINCT ...) 保证总数准确
-        const col = countQb.connection.driver.escape(countDistinctBy);
-        const alias = 'distinct_cnt';
-        const raw = await countQb
-          .select(`COUNT(DISTINCT ${col})`, alias)
-          .getRawOne<Record<string, unknown>>();
-        const val = raw?.[alias];
-        total = typeof val === 'number' ? val : Number(val ?? 0);
+        try {
+          if (/\s|\(|\)/.test(countDistinctBy)) {
+            throw new DomainError(
+              PAGINATION_ERROR.DB_QUERY_FAILED,
+              'countDistinctBy 必须为安全列名或 别名.列，不支持表达式',
+            );
+          }
+          const escapeIdent = (id: string): string => `\`${id.replace(/`/g, '``')}\``;
+          const col = countDistinctBy.includes('.')
+            ? countDistinctBy
+                .split('.')
+                .map((p) => escapeIdent(p))
+                .join('.')
+            : escapeIdent(countDistinctBy);
+          const alias = 'distinct_cnt';
+          const raw = await countQb
+            .select(`COUNT(DISTINCT ${col})`, alias)
+            .getRawOne<Record<string, unknown>>();
+          const val = raw?.[alias];
+          total = typeof val === 'number' ? val : Number(val ?? 0);
+        } catch {
+          // 回退：若 DISTINCT 计数失败，回退为普通 COUNT，保证接口可用
+          this.logger.warn(`COUNT DISTINCT 失败，回退为普通 COUNT: ${countDistinctBy}`);
+          total = await countQb.getCount();
+        }
       } else {
         total = await countQb.getCount();
       }
