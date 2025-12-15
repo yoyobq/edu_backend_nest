@@ -3,14 +3,16 @@
 import { mapJwtToUsecaseSession } from '@app-types/auth/session.types';
 import { JwtPayload } from '@app-types/jwt.types';
 import type { CourseLevel } from '@app-types/models/course.types';
+import { TokenHelper } from '@core/common/token/token.helper';
 import { UseGuards } from '@nestjs/common';
-import { Args, Mutation, Query, Resolver } from '@nestjs/graphql';
+import { Args, Context, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { CreateCatalogUsecase } from '@src/usecases/course/catalogs/create-catalog.usecase';
 import { DeactivateCatalogUsecase } from '@src/usecases/course/catalogs/deactivate-catalog.usecase';
 import { GetCatalogByLevelUsecase } from '@src/usecases/course/catalogs/get-catalog-by-level.usecase';
 import { ListCatalogsUsecase } from '@src/usecases/course/catalogs/list-catalogs.usecase';
 import { ReactivateCatalogUsecase } from '@src/usecases/course/catalogs/reactivate-catalog.usecase';
 import { UpdateCatalogDetailsUsecase } from '@src/usecases/course/catalogs/update-catalog-details.usecase';
+import type { Request } from 'express';
 import { currentUser } from '../../decorators/current-user.decorator';
 import { JwtAuthGuard } from '../../guards/jwt-auth.guard';
 import { CourseCatalogDTO } from './dto/course-catalog.dto';
@@ -74,15 +76,36 @@ export class CourseCatalogResolver {
     private readonly deactivateCatalogUsecase: DeactivateCatalogUsecase,
     private readonly reactivateCatalogUsecase: ReactivateCatalogUsecase,
     private readonly createCatalogUsecase: CreateCatalogUsecase,
+    private readonly tokenHelper: TokenHelper,
   ) {}
 
   /**
    * 获取所有有效的课程目录列表
    */
   @Query(() => CourseCatalogsListResult, { description: '获取课程目录列表' })
-  async courseCatalogsList(): Promise<CourseCatalogsListResult> {
-    // 使用 usecase 返回的实体进行安全映射，不在此处重定义类型
-    const entities = await this.listCatalogsUsecase.execute();
+  async courseCatalogsList(
+    @currentUser() user?: JwtPayload,
+    @Context() context?: { req: Request },
+  ): Promise<CourseCatalogsListResult> {
+    let session = user ? mapJwtToUsecaseSession(user) : undefined;
+
+    // 手动解析 Authorization 头中的 Bearer token，以便在公共查询中识别管理员/经理
+    if (!session) {
+      const authHeader = context?.req?.headers?.authorization;
+      if (typeof authHeader === 'string' && authHeader.startsWith('Bearer ')) {
+        const token = authHeader.slice(7);
+        try {
+          const payload = this.tokenHelper.verifyToken({ token });
+          if (payload?.type === 'access' && Array.isArray(payload.accessGroup)) {
+            session = mapJwtToUsecaseSession(payload);
+          }
+        } catch {
+          // 忽略无效或过期的 token，继续以公共身份返回有效列表
+        }
+      }
+    }
+
+    const entities = await this.listCatalogsUsecase.execute(session);
     const items: CourseCatalogDTO[] = entities.map((e) => toCatalogDTO(e));
     const result = new CourseCatalogsListResult();
     result.items = items;
