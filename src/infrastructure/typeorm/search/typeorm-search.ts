@@ -161,10 +161,11 @@ export class TypeOrmSearch implements ISearchEngine {
     const min = options.minQueryLength ?? 1;
     if (query.trim().length < min) return;
 
-    // 转义特殊字符，并统一大小写比较
+    // 转义 LIKE 特殊字符，避免 '%' / '_' 作为通配符导致全表命中
     const raw = query;
-    const escaped = raw.trim();
-    const like = `%${escaped}%`;
+    const escapedInput = raw.trim();
+    const escapeLike = (s: string): string => s.replace(/([%_\\])/g, '\\$1');
+    const like = `%${escapeLike(escapedInput)}%`;
 
     // 若提供自定义文本搜索钩子，优先使用
     if (options.buildTextSearch) {
