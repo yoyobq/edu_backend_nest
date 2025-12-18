@@ -18,7 +18,7 @@ export class CourseSessionsService {
 
   /**
    * 按 ID 查询节次
-   * @param params 查询参数
+   * @param id 节次 ID
    */
   async findById(id: number): Promise<CourseSessionEntity | null> {
     return this.sessionRepository.findOne({ where: { id } });
@@ -40,6 +40,113 @@ export class CourseSessionsService {
     if (params.untilDate) {
       qb.andWhere('s.startTime <= :untilDate', { untilDate: params.untilDate });
     }
+    return await qb.getMany();
+  }
+
+  /**
+   * 按系列获取“近期窗口”节次列表（以基准时间 baseTime 为中心）
+   *
+   * 口径（固定，避免前后端对不齐）：
+   * - 过去侧：取 startTime < baseTime 的最近 pastLimit 条（按 startTime DESC 取 limit）
+   * - 未来侧：取 startTime >= baseTime 的最近 futureLimit 条（按 startTime ASC 取 limit）
+   * - 最终返回：将两侧结果合并后按 startTime ASC 排序输出
+   *
+   * 说明：
+   * - 返回条数最多为 pastLimit + futureLimit
+   * - 适用于二级列表默认展开展示（近期前后优先），避免一次性拉全量
+   * - 若需要只展示特定状态，可通过可选 statusFilter 进一步筛选（建议在 SQL 层做）
+   *
+   * @param params.seriesId 课程系列 ID
+   * @param params.baseTime 基准时间（以此时间为中心取前后窗口，通常传 new Date()）
+   * @param params.pastLimit 过去侧最多返回条数
+   * @param params.futureLimit 未来侧最多返回条数
+   * @param params.statusFilter 可选：按节次状态筛选（如仅 SCHEDULED）
+   * @returns 节次实体列表（按 startTime 升序）
+   */
+  async listRecentWindowBySeries(params: {
+    readonly seriesId: number;
+    readonly baseTime: Date;
+    readonly pastLimit: number;
+    readonly futureLimit: number;
+    readonly statusFilter?: ReadonlyArray<SessionStatus>;
+  }): Promise<CourseSessionEntity[]> {
+    const HARD_MAX_WINDOW = 5; // 每侧最多返回条数（硬上限）
+    const safePast = Number.isFinite(params.pastLimit) ? Math.floor(params.pastLimit) : 0;
+    const safeFuture = Number.isFinite(params.futureLimit) ? Math.floor(params.futureLimit) : 0;
+    const pastLimit = Math.max(0, Math.min(safePast, HARD_MAX_WINDOW));
+    const futureLimit = Math.max(0, Math.min(safeFuture, HARD_MAX_WINDOW));
+
+    let pastPromise: Promise<CourseSessionEntity[]> = Promise.resolve([]);
+    if (pastLimit > 0) {
+      const pastQb = this.sessionRepository
+        .createQueryBuilder('s')
+        .select('s')
+        .where('s.seriesId = :seriesId', { seriesId: params.seriesId })
+        .andWhere('s.startTime < :baseTime', { baseTime: params.baseTime });
+      if (params.statusFilter && params.statusFilter.length > 0) {
+        pastQb.andWhere('s.status IN (:...statuses)', { statuses: params.statusFilter });
+      }
+      pastQb.orderBy('s.startTime', 'DESC').addOrderBy('s.id', 'DESC').limit(pastLimit);
+      pastPromise = pastQb.getMany();
+    }
+
+    let futurePromise: Promise<CourseSessionEntity[]> = Promise.resolve([]);
+    if (futureLimit > 0) {
+      const futureQb = this.sessionRepository
+        .createQueryBuilder('s')
+        .select('s')
+        .where('s.seriesId = :seriesId', { seriesId: params.seriesId })
+        .andWhere('s.startTime >= :baseTime', { baseTime: params.baseTime });
+      if (params.statusFilter && params.statusFilter.length > 0) {
+        futureQb.andWhere('s.status IN (:...statuses)', { statuses: params.statusFilter });
+      }
+      futureQb.orderBy('s.startTime', 'ASC').addOrderBy('s.id', 'ASC').limit(futureLimit);
+      futurePromise = futureQb.getMany();
+    }
+
+    const [past, future] = await Promise.all([pastPromise, futurePromise]);
+
+    const combined = [...past, ...future];
+    combined.sort((a, b) => {
+      const t = a.startTime.getTime() - b.startTime.getTime();
+      return t !== 0 ? t : a.id - b.id;
+    });
+    return combined;
+  }
+
+  /**
+   * 按系列获取“全量模式”节次列表（受最大返回条数限制）
+   *
+   * 口径：
+   * - 按 startTime ASC 返回该 series 下的节次
+   * - 返回条数最多为 maxSessions（硬上限），防止单系列历史过长导致接口超时/响应过大
+   *
+   * 说明：
+   * - 对应二级列表的“查看全部”按钮触发
+   * - 建议对 maxSessions 做保护，避免误传极大值
+   *
+   * @param params.seriesId 课程系列 ID
+   * @param params.maxSessions 最大返回节次数（硬上限，例如 200）
+   * @param params.statusFilter 可选：按节次状态筛选
+   * @returns 节次实体列表（按 startTime 升序，最多 maxSessions 条）
+   */
+  async listAllBySeries(params: {
+    readonly seriesId: number;
+    readonly maxSessions: number;
+    readonly statusFilter?: ReadonlyArray<SessionStatus>;
+  }): Promise<CourseSessionEntity[]> {
+    const HARD_MAX_SESSIONS = 200;
+    const safeMax = Number.isFinite(params.maxSessions) ? Math.floor(params.maxSessions) : 0;
+    const limit = Math.max(0, Math.min(safeMax, HARD_MAX_SESSIONS));
+    if (limit <= 0) return [];
+    const qb = this.sessionRepository
+      .createQueryBuilder('s')
+      .select('s')
+      .where('s.seriesId = :seriesId', { seriesId: params.seriesId });
+    if (params.statusFilter && params.statusFilter.length > 0) {
+      qb.andWhere('s.status IN (:...statuses)', { statuses: params.statusFilter });
+    }
+    qb.orderBy('s.startTime', 'ASC').addOrderBy('s.id', 'ASC').limit(limit);
     return await qb.getMany();
   }
 

@@ -16,13 +16,13 @@ import {
  */
 @Entity('course_sessions')
 @Index('uk_session_series_start', ['seriesId', 'startTime'], { unique: true })
-@Index('idx_sessions_series', ['seriesId'])
 @Index('idx_sessions_start', ['startTime'])
-@Index('idx_sessions_status', ['status'])
 @Index('idx_sessions_lead_time', ['leadCoachId', 'startTime'])
 @Index('idx_sessions_end', ['endTime'])
 @Index('idx_sessions_attendance_confirmed_at', ['attendanceConfirmedAt'])
 @Index('idx_sessions_status_start', ['status', 'startTime'])
+@Index('idx_sessions_series_status_start', ['seriesId', 'status', 'startTime'])
+@Index('idx_sessions_lead_status_start', ['leadCoachId', 'status', 'startTime'])
 export class CourseSessionEntity {
   /** 主键 ID */
   @PrimaryGeneratedColumn({ type: 'int' })
