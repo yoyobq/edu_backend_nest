@@ -36,6 +36,7 @@ import { UserInfoResolver } from './account/user-info.resolver';
 import { AuthResolver } from './auth/auth.resolver';
 import { CourseCatalogResolver } from './course/catalogs/course-catalog.resolver';
 import { CourseSeriesResolver } from './course/series/series.resolver';
+import { CourseSessionsResolver } from './course/sessions/course-sessions.resolver';
 import { SessionAttendanceResolver } from './course/workflows/session-attendance.resolver';
 import { SessionCancelResolver } from './course/workflows/session-cancel.resolver';
 import { SessionCloseResolver } from './course/workflows/session-close.resolver';
@@ -94,6 +95,7 @@ import { RolesGuard } from './guards/roles.guard';
     ThirdPartyAuthResolver,
     CourseCatalogResolver, // 注册课程目录 resolver
     CourseSeriesResolver, // 注册课程系列 resolver
+    CourseSessionsResolver, // 注册课程节次 resolver
     PayoutRuleResolver, // 注册结算规则 resolver
     SessionAdjustmentResolver, // 注册课次调整查询 resolver
     VerificationRecordResolver,
@@ -127,6 +129,7 @@ import { RolesGuard } from './guards/roles.guard';
     ThirdPartyAuthResolver,
     CourseCatalogResolver, // 导出课程目录 resolver
     CourseSeriesResolver, // 导出课程系列 resolver
+    CourseSessionsResolver, // 导出课程节次 resolver
     PayoutRuleResolver, // 导出结算规则 resolver
     SessionAdjustmentResolver, // 导出课次调整查询 resolver
     VerificationRecordResolver,

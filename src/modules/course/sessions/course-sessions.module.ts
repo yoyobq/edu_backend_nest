@@ -1,6 +1,7 @@
 // src/modules/course-sessions/course-sessions.module.ts
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { ListSessionsBySeriesUsecase } from '@src/usecases/course/sessions/list-sessions-by-series.usecase';
 import { CourseSessionEntity } from './course-session.entity';
 import { CourseSessionsService } from './course-sessions.service';
 
@@ -10,7 +11,7 @@ import { CourseSessionsService } from './course-sessions.service';
  */
 @Module({
   imports: [TypeOrmModule.forFeature([CourseSessionEntity])],
-  providers: [CourseSessionsService],
-  exports: [TypeOrmModule, CourseSessionsService],
+  providers: [CourseSessionsService, ListSessionsBySeriesUsecase],
+  exports: [TypeOrmModule, CourseSessionsService, ListSessionsBySeriesUsecase],
 })
 export class CourseSessionsModule {}

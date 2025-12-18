@@ -11,8 +11,9 @@ import {
   LoginTypeEnum,
   ThirdPartyProviderEnum,
 } from '@app-types/models/account.types';
-import { CourseLevel } from '@app-types/models/course.types';
 import { ClassMode, CourseSeriesStatus, VenueType } from '@app-types/models/course-series.types';
+import { SessionStatus } from '@app-types/models/course-session.types';
+import { CourseLevel } from '@app-types/models/course.types';
 // import { MembershipLevel } from '@app-types/models/training.types';
 import { Gender, UserState } from '@app-types/models/user-info.types';
 import {
@@ -170,6 +171,16 @@ const ENUM_CONFIGS: Record<string, EnumConfig> = {
       STRIKING: { description: '搏击' },
       SANDA: { description: '散打' },
       MMA: { description: '综合格斗' },
+    },
+  },
+  SESSION_STATUS: {
+    enumType: SessionStatus,
+    name: 'SessionStatus',
+    description: '节次状态枚举',
+    valuesMap: {
+      SCHEDULED: { description: '已排期' },
+      CANCELED: { description: '已取消' },
+      FINISHED: { description: '已结课' },
     },
   },
 
@@ -336,6 +347,7 @@ const EXPECTED_ENUMS = [
   'Gender',
   'UserState',
   'CourseLevel',
+  'SessionStatus',
   // MembershipLevel 枚举改为数据库驱动后不再静态注册
   'SubjectType',
   'VerificationRecordStatus',
