@@ -35,7 +35,7 @@ import { AccountResolver } from './account/account.resolver';
 import { UserInfoResolver } from './account/user-info.resolver';
 import { AuthResolver } from './auth/auth.resolver';
 import { CourseCatalogResolver } from './course/catalogs/course-catalog.resolver';
-import { CourseSeriesResolver } from './course/series/series.resolver';
+import { CourseSeriesResolver } from './course/series/course-series.resolver';
 import { CourseSessionsResolver } from './course/sessions/course-sessions.resolver';
 import { SessionAttendanceResolver } from './course/workflows/session-attendance.resolver';
 import { SessionCancelResolver } from './course/workflows/session-cancel.resolver';

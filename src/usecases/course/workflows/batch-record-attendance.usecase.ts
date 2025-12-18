@@ -21,7 +21,7 @@ import { CourseSessionsService } from '@src/modules/course/sessions/course-sessi
 import { ParticipationAttendanceService } from '@src/modules/participation/attendance/participation-attendance.service';
 import { ParticipationEnrollmentService } from '@src/modules/participation/enrollment/participation-enrollment.service';
 import { type UsecaseSession } from '@src/types/auth/session.types';
-import { ParticipationAttendanceStatus } from '@src/types/models/attendance.types';
+import { ParticipationAttendanceStatus } from '@app-types/models/attendance.types';
 import { createHash } from 'crypto';
 import { DataSource, EntityManager } from 'typeorm';
 

@@ -12,7 +12,7 @@ import {
 } from '@src/modules/participation/attendance/participation-attendance.service';
 import { ParticipationEnrollmentService } from '@src/modules/participation/enrollment/participation-enrollment.service';
 import { type UsecaseSession } from '@src/types/auth/session.types';
-import { ParticipationAttendanceStatus } from '@src/types/models/attendance.types';
+import { ParticipationAttendanceStatus } from '@app-types/models/attendance.types';
 
 /**
  * 加载节次点名视图 用例

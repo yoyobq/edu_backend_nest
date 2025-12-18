@@ -6,7 +6,7 @@ import { Injectable } from '@nestjs/common';
 import { AccountService } from '@src/modules/account/base/services/account.service';
 import { type UsecaseSession } from '@src/types/auth/session.types';
 import { ManagerSortField, type OrderDirection } from '@src/types/common/sort.types';
-import { Gender, UserState } from '@src/types/models/user-info.types';
+import { Gender, UserState } from '@app-types/models/user-info.types';
 import {
   GetVisibleUserInfoUsecase,
   type VisibleDetailMode,

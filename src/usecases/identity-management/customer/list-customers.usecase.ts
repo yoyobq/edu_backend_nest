@@ -7,7 +7,7 @@ import { ManagerService } from '@modules/account/identities/training/manager/man
 import { Injectable } from '@nestjs/common';
 import { AccountService } from '@src/modules/account/base/services/account.service';
 import { CustomerSortField, type OrderDirection } from '@src/types/common/sort.types';
-import { UserState } from '@src/types/models/user-info.types';
+import { UserState } from '@app-types/models/user-info.types';
 
 /**
  * 列出客户列表的输入参数

@@ -8,7 +8,7 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
-import { ParticipationAttendanceStatus } from '@src/types/models/attendance.types';
+import { ParticipationAttendanceStatus } from '@app-types/models/attendance.types';
 
 /**
  * 出勤记录实体（每节计入次数）

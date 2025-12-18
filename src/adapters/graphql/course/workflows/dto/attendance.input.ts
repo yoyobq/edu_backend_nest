@@ -1,6 +1,6 @@
 // 文件位置：src/adapters/graphql/course/workflows/dto/attendance.input.ts
 import { Field, InputType, Int, ObjectType } from '@nestjs/graphql';
-import { ParticipationAttendanceStatus } from '@src/types/models/attendance.types';
+import { ParticipationAttendanceStatus } from '@app-types/models/attendance.types';
 import {
   IsEnum,
   IsInt,

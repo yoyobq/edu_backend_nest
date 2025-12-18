@@ -1,6 +1,6 @@
 // src/usecases/course/sessions/list-sessions-by-series.usecase.ts
 import { Injectable } from '@nestjs/common';
-import { SessionStatus } from '@src/types/models/course-session.types';
+import { SessionStatus } from '@app-types/models/course-session.types';
 import { CourseSessionEntity } from '@src/modules/course/sessions/course-session.entity';
 import { CourseSessionsService } from '@src/modules/course/sessions/course-sessions.service';
 

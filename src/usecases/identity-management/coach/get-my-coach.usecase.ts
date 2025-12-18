@@ -4,7 +4,7 @@ import { CoachEntity } from '@modules/account/identities/training/coach/account-
 import { CoachService } from '@modules/account/identities/training/coach/coach.service';
 import { Injectable } from '@nestjs/common';
 import { AccountService } from '@src/modules/account/base/services/account.service';
-import { UserState } from '@src/types/models/user-info.types';
+import { UserState } from '@app-types/models/user-info.types';
 
 export interface GetMyCoachParams {
   /** 当前用户账户 ID */

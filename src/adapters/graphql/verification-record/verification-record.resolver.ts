@@ -6,12 +6,12 @@ import { currentUser } from '@src/adapters/graphql/decorators/current-user.decor
 import { Public } from '@src/adapters/graphql/decorators/public.decorator';
 import { JwtAuthGuard } from '@src/adapters/graphql/guards/jwt-auth.guard';
 import { JwtPayload } from '@src/types/jwt.types';
-import { IdentityTypeEnum } from '@src/types/models/account.types';
+import { IdentityTypeEnum } from '@app-types/models/account.types';
 import {
   SubjectType,
   VerificationRecordStatus,
   VerificationRecordType,
-} from '@src/types/models/verification-record.types';
+} from '@app-types/models/verification-record.types';
 import { ConsumeVerificationRecordUsecase } from '@src/usecases/verification-record/consume-verification-record.usecase';
 import { CreateVerificationRecordUsecase } from '@src/usecases/verification-record/create-verification-record.usecase';
 import { FindVerificationRecordUsecase } from '@src/usecases/verification-record/find-verification-record.usecase';

@@ -4,7 +4,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { CourseSeriesEntity } from '@src/modules/course/series/course-series.entity';
 import { CourseSessionEntity } from '@src/modules/course/sessions/course-session.entity';
 import { LearnerEntity } from '@src/modules/account/identities/training/learner/account-learner.entity';
-import { ParticipationAttendanceStatus } from '@src/types/models/attendance.types';
+import { ParticipationAttendanceStatus } from '@app-types/models/attendance.types';
 import { EntityManager, In, IsNull, Repository } from 'typeorm';
 import { ParticipationAttendanceRecordEntity } from './participation-attendance-record.entity';
 

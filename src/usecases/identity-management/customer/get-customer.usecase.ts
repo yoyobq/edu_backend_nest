@@ -6,7 +6,7 @@ import { CustomerEntity } from '@modules/account/identities/training/customer/ac
 import { CustomerService } from '@modules/account/identities/training/customer/account-customer.service';
 import { ManagerService } from '@modules/account/identities/training/manager/manager.service';
 import { AccountService } from '@src/modules/account/base/services/account.service';
-import { UserState } from '@src/types/models/user-info.types';
+import { UserState } from '@app-types/models/user-info.types';
 import { type CustomerLoginHistoryItem } from './list-customers.usecase';
 
 export interface GetCustomerParams {

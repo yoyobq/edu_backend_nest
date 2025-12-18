@@ -15,7 +15,7 @@ import { AccountService } from '@src/modules/account/base/services/account.servi
 import {
   RegisterWithEmailParams,
   RegisterWithEmailResult,
-} from '@src/types/models/registration.types';
+} from '@app-types/models/registration.types';
 import { CreateAccountUsecase } from '@usecases/account/create-account.usecase';
 import { ConsumeVerificationFlowUsecase } from '@usecases/verification/consume-verification-flow.usecase';
 import { PinoLogger } from 'nestjs-pino';

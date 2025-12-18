@@ -1,4 +1,4 @@
-// 文件位置：src/adapters/graphql/course/series/series.resolver.ts
+// 文件位置：src/adapters/graphql/course/series/course-series.resolver.ts
 import { UseGuards } from '@nestjs/common';
 import { Args, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { mapJwtToUsecaseSession, type UsecaseSession } from '@src/types/auth/session.types';
