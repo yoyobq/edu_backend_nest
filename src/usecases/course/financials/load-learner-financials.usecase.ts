@@ -18,6 +18,11 @@ import { LearnerService } from '@src/modules/account/identities/training/learner
 import { ParticipationAttendanceService } from '@src/modules/participation/attendance/participation-attendance.service';
 import { type UsecaseSession } from '@src/types/auth/session.types';
 
+const pad2 = (value: number): string => String(value).padStart(2, '0');
+
+const toLocalDateString = (date: Date): string =>
+  `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
+
 export interface LoadLearnerFinancialsInput {
   readonly learnerId: number;
   readonly fromDate?: Date;
@@ -145,7 +150,7 @@ export class LoadLearnerFinancialsUsecase {
   ): LearnerFinancialsDetailItem[] {
     return rows.map((r) => ({
       sessionId: r.sessionId,
-      date: r.date.toISOString().slice(0, 10),
+      date: toLocalDateString(r.date),
       seriesId: r.seriesId,
       seriesTitle: r.seriesTitle,
       status: r.status,

@@ -8,6 +8,11 @@ import { CourseSeriesService } from '@src/modules/course/series/course-series.se
 import { ParticipationAttendanceService } from '@src/modules/participation/attendance/participation-attendance.service';
 import { type UsecaseSession } from '@src/types/auth/session.types';
 
+const pad2 = (value: number): string => String(value).padStart(2, '0');
+
+const toLocalDateString = (date: Date): string =>
+  `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
+
 export interface LoadSeriesFinancialsInput {
   readonly seriesId: number;
   readonly untilDate?: Date;
@@ -121,7 +126,7 @@ export class LoadSeriesFinancialsUsecase {
     }));
     const bySession = bySessionAgg.map((x) => ({
       sessionId: x.sessionId,
-      sessionDate: x.sessionDate.toISOString().slice(0, 10),
+      sessionDate: toLocalDateString(x.sessionDate),
       billableUnits: x.billableUnits,
       grossAmount: decimalCompute({
         op: 'mul',
@@ -140,7 +145,7 @@ export class LoadSeriesFinancialsUsecase {
       seriesTitle: r.seriesTitle,
       learnerName: r.learnerName,
       sessionId: r.sessionId,
-      sessionDate: r.sessionDate.toISOString().slice(0, 10),
+      sessionDate: toLocalDateString(r.sessionDate),
       learnerId: r.learnerId,
       status: String(r.status),
       isBillable: r.billableUnits > 0,

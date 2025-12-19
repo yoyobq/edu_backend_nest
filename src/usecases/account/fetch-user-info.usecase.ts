@@ -131,10 +131,9 @@ export class FetchUserInfoUsecase {
     }
 
     // 5. 确定最终的 accessGroup（严格使用数据库字段）
-    const finalAccessGroup: IdentityTypeEnum[] =
-      userInfo.accessGroup && userInfo.accessGroup.length > 0
-        ? userInfo.accessGroup
-        : [IdentityTypeEnum.REGISTRANT];
+    const finalAccessGroup: IdentityTypeEnum[] = userInfo.accessGroup ?? [
+      IdentityTypeEnum.REGISTRANT,
+    ];
 
     // 6. 构建用户信息视图
     const userInfoView = this.buildUserInfoView(userInfo, accountId, finalAccessGroup);
