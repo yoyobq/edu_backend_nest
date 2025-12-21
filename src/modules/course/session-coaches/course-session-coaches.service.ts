@@ -1,6 +1,7 @@
 // src/modules/course-session-coaches/course-session-coaches.service.ts
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { CourseSessionEntity } from '@src/modules/course/sessions/course-session.entity';
 import { EntityManager, Repository } from 'typeorm';
 import { CourseSessionCoachEntity } from './course-session-coach.entity';
 
@@ -37,6 +38,25 @@ export class CourseSessionCoachesService {
       ? params.manager.getRepository(CourseSessionCoachEntity)
       : this.sessionCoachRepository;
     return await repo.count({ where: { sessionId: params.sessionId } });
+  }
+
+  /**
+   * 判断指定教练是否与给定开课班（series）存在任一结算关联
+   * 判定规则：存在至少一条 course_session_coaches 记录，其 sessionId 关联到
+   * 该 series 下任一节次。
+   * @param params 查询参数：seriesId 与 coachId
+   */
+  async existsCoachBoundToSeries(params: {
+    readonly seriesId: number;
+    readonly coachId: number;
+  }): Promise<boolean> {
+    return await this.sessionCoachRepository
+      .createQueryBuilder('sc')
+      .innerJoin(CourseSessionEntity, 's', 's.id = sc.sessionId')
+      .where('s.seriesId = :seriesId', { seriesId: params.seriesId })
+      .andWhere('sc.coachId = :coachId', { coachId: params.coachId })
+      .andWhere('sc.removedAt IS NULL')
+      .getExists();
   }
 
   /**

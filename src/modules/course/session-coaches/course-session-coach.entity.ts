@@ -1,4 +1,5 @@
 // src/modules/course-session-coaches/course-session-coach.entity.ts
+import { SessionCoachRemovedReason } from '@app-types/models/course-session-coach.types';
 import {
   Check,
   Column,
@@ -18,6 +19,7 @@ import {
 @Index('uk_session_coach_unique', ['sessionId', 'coachId'], { unique: true })
 @Index('idx_session_lookup', ['sessionId'])
 @Index('idx_coach_lookup', ['coachId', 'sessionId'])
+@Index('idx_sccoach_active_lookup', ['sessionId', 'coachId', 'removedAt'])
 @Index('idx_payout_coach_time', ['coachId', 'payoutFinalizedAt'])
 @Index('idx_payout_finalized_at', ['payoutFinalizedAt'])
 @Check('ck_sccoach_bonus_nonneg', 'bonus_amount >= 0')
@@ -91,4 +93,27 @@ export class CourseSessionCoachEntity {
   /** 更新者账号 ID */
   @Column({ name: 'updated_by', type: 'int', nullable: true })
   updatedBy!: number | null;
+
+  /** 移出/替换时间；NULL = 仍在 roster */
+  @Column({
+    name: 'removed_at',
+    type: 'datetime',
+    nullable: true,
+    comment: '移出/替换时间；NULL=仍在 roster',
+  })
+  removedAt!: Date | null;
+
+  /** 移出操作人账号 ID */
+  @Column({ name: 'removed_by', type: 'int', nullable: true, comment: '移出操作人账号ID' })
+  removedBy!: number | null;
+
+  /** 移出原因 */
+  @Column({
+    name: 'removed_reason',
+    type: 'enum',
+    enum: SessionCoachRemovedReason,
+    nullable: true,
+    comment: '移出原因（可选）',
+  })
+  removedReason!: SessionCoachRemovedReason | null;
 }
