@@ -1,6 +1,7 @@
 // src/adapters/graphql/payout/payout-rule.resolver.ts
 import { mapJwtToUsecaseSession } from '@app-types/auth/session.types';
 import { JwtPayload } from '@app-types/jwt.types';
+import { IdentityTypeEnum } from '@app-types/models/account.types';
 import { UseGuards } from '@nestjs/common';
 import { Args, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { currentUser } from '@src/adapters/graphql/decorators/current-user.decorator';
@@ -16,6 +17,7 @@ import { ListPayoutRulesUsecase } from '@src/usecases/course/payout/list-payout-
 import { ReactivatePayoutRuleUsecase } from '@src/usecases/course/payout/reactivate-payout-rule.usecase';
 import { UnbindPayoutRuleUsecase } from '@src/usecases/course/payout/unbind-payout-rule.usecase';
 import { UpdatePayoutRuleUsecase } from '@src/usecases/course/payout/update-payout-rule.usecase';
+import { SetSessionCoachPayoutUsecase } from '@src/usecases/course/sessions/update-session-coach-settlement.usecase';
 import { PayoutSeriesRuleType } from './dto/payout-rule.dto';
 import {
   BindPayoutRuleInput,
@@ -36,6 +38,7 @@ import {
   TogglePayoutRuleActiveResult,
   UpdatePayoutRuleResult,
 } from './dto/payout-rule.result';
+import { SetSessionCoachPayoutInputGql } from './dto/set-session-coach-payout.input';
 
 /**
  * 结算规则 GraphQL 解析器
@@ -53,6 +56,7 @@ export class PayoutRuleResolver {
     private readonly getUsecase: GetPayoutRuleUsecase,
     private readonly reactivateUsecase: ReactivatePayoutRuleUsecase,
     private readonly deactivateUsecase: DeactivatePayoutRuleUsecase,
+    private readonly setSessionCoachPayoutUsecase: SetSessionCoachPayoutUsecase,
   ) {}
 
   /**
@@ -154,7 +158,7 @@ export class PayoutRuleResolver {
    * 创建结算规则或模板
    */
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('manager')
+  @Roles(IdentityTypeEnum.MANAGER)
   @Mutation(() => CreatePayoutRuleResult, { description: '创建结算规则或模板' })
   async createPayoutRule(
     @Args('input') input: CreatePayoutRuleInput,
@@ -175,7 +179,7 @@ export class PayoutRuleResolver {
 
   /** 查询：按 ID */
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('manager')
+  @Roles(IdentityTypeEnum.MANAGER)
   @Query(() => PayoutSeriesRuleType, { description: '按 ID 查询结算规则' })
   async payoutRuleById(
     @Args('input') input: GetPayoutRuleByIdInput,
@@ -186,7 +190,7 @@ export class PayoutRuleResolver {
 
   /** 查询：按系列 ID */
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('manager', 'coach')
+  @Roles(IdentityTypeEnum.MANAGER, IdentityTypeEnum.COACH)
   @Query(() => PayoutSeriesRuleType, { description: '按系列 ID 查询课程绑定规则' })
   async payoutRuleBySeries(
     @Args('input') input: GetPayoutRuleBySeriesInput,
@@ -200,7 +204,7 @@ export class PayoutRuleResolver {
 
   /** 列表 */
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('manager', 'coach')
+  @Roles(IdentityTypeEnum.MANAGER, IdentityTypeEnum.COACH)
   @Query(() => ListPayoutRulesResult, { description: '列出结算规则/模板' })
   async listPayoutRules(
     @Args('input') input: ListPayoutRulesInput,
@@ -218,7 +222,7 @@ export class PayoutRuleResolver {
 
   /** 更新元信息 */
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('manager')
+  @Roles(IdentityTypeEnum.MANAGER)
   @Mutation(() => UpdatePayoutRuleResult, { description: '更新结算规则元信息' })
   async updatePayoutRuleMeta(
     @Args('input') input: UpdatePayoutRuleMetaInput,
@@ -238,7 +242,7 @@ export class PayoutRuleResolver {
 
   /** 更新 JSON */
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('manager')
+  @Roles(IdentityTypeEnum.MANAGER)
   @Mutation(() => UpdatePayoutRuleResult, { description: '更新结算规则 JSON' })
   async updatePayoutRuleJson(
     @Args('input') input: UpdatePayoutRuleJsonInput,
@@ -253,9 +257,40 @@ export class PayoutRuleResolver {
     return { rule: this.toDTO(rule) };
   }
 
+  /**
+   * 设置节次教练课酬（金额与备注）
+   * 说明：仅 manager 允许调用；权限与业务规则由用例层负责
+   */
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(IdentityTypeEnum.MANAGER)
+  @Mutation(() => Boolean, { description: '设置节次教练课酬（金额与备注）' })
+  async setSessionCoachPayout(
+    @Args('input') input: SetSessionCoachPayoutInputGql,
+    @currentUser() user: JwtPayload,
+  ): Promise<boolean> {
+    const session = mapJwtToUsecaseSession(user);
+
+    const teachingFeeAmount =
+      typeof input.teachingFeeAmount === 'number' ? input.teachingFeeAmount.toFixed(2) : undefined;
+    const bonusAmount =
+      typeof input.bonusAmount === 'number' ? input.bonusAmount.toFixed(2) : undefined;
+
+    await this.setSessionCoachPayoutUsecase.execute({
+      session,
+      sessionId: input.sessionId,
+      coachId: input.coachId,
+      teachingFeeAmount,
+      bonusAmount,
+      payoutNote: input.payoutNote,
+      payoutFinalizedAt: input.payoutFinalizedAt,
+    });
+
+    return true;
+  }
+
   /** 绑定模板到系列 */
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('manager')
+  @Roles(IdentityTypeEnum.MANAGER)
   @Mutation(() => BindOrUnbindPayoutRuleResult, { description: '绑定模板到课程系列' })
   async bindPayoutRule(
     @Args('input') input: BindPayoutRuleInput,
@@ -272,7 +307,7 @@ export class PayoutRuleResolver {
 
   /** 解绑课程系列 */
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('manager')
+  @Roles(IdentityTypeEnum.MANAGER)
   @Mutation(() => BindOrUnbindPayoutRuleResult, { description: '解绑课程系列与结算规则' })
   async unbindPayoutRule(
     @Args('input') input: UnbindPayoutRuleInput,
@@ -285,7 +320,7 @@ export class PayoutRuleResolver {
 
   /** 停用 */
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('manager')
+  @Roles(IdentityTypeEnum.MANAGER)
   @Mutation(() => TogglePayoutRuleActiveResult, { description: '停用结算规则' })
   async deactivatePayoutRule(
     @Args('input') input: TogglePayoutRuleActiveInput,
@@ -298,7 +333,7 @@ export class PayoutRuleResolver {
 
   /** 启用 */
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('manager')
+  @Roles(IdentityTypeEnum.MANAGER)
   @Mutation(() => TogglePayoutRuleActiveResult, { description: '启用结算规则' })
   async reactivatePayoutRule(
     @Args('input') input: TogglePayoutRuleActiveInput,
@@ -317,7 +352,7 @@ export class PayoutRuleResolver {
    * - 支持 OFFSET / CURSOR
    */
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('manager')
+  @Roles(IdentityTypeEnum.MANAGER)
   @Query(() => ListPayoutRulesResult, { description: '搜索与分页结算规则（不含 JSON 细项）' })
   async searchPayoutRules(
     @Args('input') input: SearchPayoutRulesInput,

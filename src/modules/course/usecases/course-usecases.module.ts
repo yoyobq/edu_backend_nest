@@ -13,8 +13,9 @@ import { ParticipationAttendanceModule } from '@src/modules/participation/attend
 import { ParticipationEnrollmentModule } from '@src/modules/participation/enrollment/participation-enrollment.module';
 import { PreviewSeriesScheduleUsecase } from '@src/usecases/course/series/preview-series-schedule.usecase';
 import { PublishSeriesUsecase } from '@src/usecases/course/series/publish-series.usecase';
-import { ViewSessionsBySeriesUsecase } from '@src/usecases/course/sessions/view-sessions-by-series.usecase';
 import { CourseSeriesAccessPolicy } from '@src/usecases/course/sessions/course-series-access.policy';
+import { SetSessionCoachPayoutUsecase } from '@src/usecases/course/sessions/update-session-coach-settlement.usecase';
+import { ViewSessionsBySeriesUsecase } from '@src/usecases/course/sessions/view-sessions-by-series.usecase';
 import { BatchRecordAttendanceUsecase } from '@src/usecases/course/workflows/batch-record-attendance.usecase';
 import { CancelEnrollmentUsecase } from '@src/usecases/course/workflows/cancel-enrollment.usecase';
 import { CloseSessionUsecase } from '@src/usecases/course/workflows/close-session.usecase';
@@ -45,6 +46,7 @@ import { LoadSessionAttendanceSheetUsecase } from '@src/usecases/course/workflow
     PublishSeriesUsecase,
     CourseSeriesAccessPolicy,
     ViewSessionsBySeriesUsecase,
+    SetSessionCoachPayoutUsecase,
   ],
   exports: [
     EnrollLearnerToSessionUsecase,
@@ -56,6 +58,7 @@ import { LoadSessionAttendanceSheetUsecase } from '@src/usecases/course/workflow
     PublishSeriesUsecase,
     CourseSeriesAccessPolicy,
     ViewSessionsBySeriesUsecase,
+    SetSessionCoachPayoutUsecase,
   ],
 })
 export class CourseUsecasesModule {}

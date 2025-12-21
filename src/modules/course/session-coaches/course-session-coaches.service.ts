@@ -203,6 +203,7 @@ export class CourseSessionCoachesService {
     readonly bonusAmount?: string;
     readonly payoutNote?: string | null;
     readonly payoutFinalizedAt?: Date | null;
+    readonly updatedBy?: number | null;
     readonly manager?: EntityManager;
   }): Promise<CourseSessionCoachEntity> {
     const existing = await this.findByUnique({
@@ -214,15 +215,11 @@ export class CourseSessionCoachesService {
       ? params.manager.getRepository(CourseSessionCoachEntity)
       : this.sessionCoachRepository;
     if (existing) {
-      await repo.update(
-        { id: existing.id },
-        {
-          teachingFeeAmount: params.teachingFeeAmount ?? existing.teachingFeeAmount,
-          bonusAmount: params.bonusAmount ?? existing.bonusAmount,
-          payoutNote: params.payoutNote ?? existing.payoutNote,
-          payoutFinalizedAt: params.payoutFinalizedAt ?? existing.payoutFinalizedAt,
-        },
-      );
+      const patch = this.buildUpdatePatch(params);
+      if (!patch) {
+        return existing;
+      }
+      await repo.update({ id: existing.id }, patch);
       const fresh = await repo.findOne({ where: { id: existing.id } });
       if (!fresh) throw new Error('更新后的结算记录未找到');
       return fresh;
@@ -234,7 +231,52 @@ export class CourseSessionCoachesService {
       bonusAmount: params.bonusAmount ?? '0.00',
       payoutNote: params.payoutNote ?? null,
       payoutFinalizedAt: params.payoutFinalizedAt ?? null,
+      createdBy: params.updatedBy ?? null,
+      updatedBy: params.updatedBy ?? null,
     });
     return repo.save(entity);
+  }
+
+  /**
+   * 构造已有结算记录的部分更新字段
+   * @param params 更新输入参数
+   * @returns 若无任何业务字段需要更新则返回 null
+   */
+  private buildUpdatePatch(params: {
+    readonly teachingFeeAmount?: string;
+    readonly bonusAmount?: string;
+    readonly payoutNote?: string | null;
+    readonly payoutFinalizedAt?: Date | null;
+    readonly updatedBy?: number | null;
+  }): Partial<CourseSessionCoachEntity> | null {
+    const patch: Partial<CourseSessionCoachEntity> = {};
+    let hasBusinessChange = false;
+
+    if (params.teachingFeeAmount !== undefined) {
+      patch.teachingFeeAmount = params.teachingFeeAmount;
+      hasBusinessChange = true;
+    }
+    if (params.bonusAmount !== undefined) {
+      patch.bonusAmount = params.bonusAmount;
+      hasBusinessChange = true;
+    }
+    if (params.payoutNote !== undefined) {
+      patch.payoutNote = params.payoutNote;
+      hasBusinessChange = true;
+    }
+    if (params.payoutFinalizedAt !== undefined) {
+      patch.payoutFinalizedAt = params.payoutFinalizedAt;
+      hasBusinessChange = true;
+    }
+
+    if (!hasBusinessChange) {
+      return null;
+    }
+
+    if (params.updatedBy !== undefined) {
+      patch.updatedBy = params.updatedBy;
+    }
+
+    return patch;
   }
 }
