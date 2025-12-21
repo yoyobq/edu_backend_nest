@@ -1,4 +1,5 @@
 // src/modules/course-session-coaches/course-session-coaches.service.ts
+import { SessionCoachRemovedReason } from '@app-types/models/course-session-coach.types';
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { CourseSessionEntity } from '@src/modules/course/sessions/course-session.entity';
@@ -18,13 +19,17 @@ export class CourseSessionCoachesService {
 
   /**
    * 按复合唯一键查询记录
-   * @param params 组合键参数
+   * @param params 组合键参数（可选 manager 支持事务内查询）
    */
   async findByUnique(params: {
     sessionId: number;
     coachId: number;
+    manager?: EntityManager;
   }): Promise<CourseSessionCoachEntity | null> {
-    return this.sessionCoachRepository.findOne({
+    const repo = params.manager
+      ? params.manager.getRepository(CourseSessionCoachEntity)
+      : this.sessionCoachRepository;
+    return repo.findOne({
       where: { sessionId: params.sessionId, coachId: params.coachId },
     });
   }
@@ -42,8 +47,8 @@ export class CourseSessionCoachesService {
 
   /**
    * 判断指定教练是否与给定开课班（series）存在任一结算关联
-   * 判定规则：存在至少一条 course_session_coaches 记录，其 sessionId 关联到
-   * 该 series 下任一节次。
+   * 判定规则：存在至少一条 course_session_coaches 记录，其 sessionId 关联到该 series
+   * 下任一节次；无论该记录当前是否已从 roster 中移除，历史参与都会被视为绑定。
    * @param params 查询参数：seriesId 与 coachId
    */
   async existsCoachBoundToSeries(params: {
@@ -55,65 +60,181 @@ export class CourseSessionCoachesService {
       .innerJoin(CourseSessionEntity, 's', 's.id = sc.sessionId')
       .where('s.seriesId = :seriesId', { seriesId: params.seriesId })
       .andWhere('sc.coachId = :coachId', { coachId: params.coachId })
-      .andWhere('sc.removedAt IS NULL')
       .getExists();
   }
 
   /**
-   * 创建或更新结算记录（幂等）
-   * @param data 创建或更新数据
+   * 确保指定节次-教练在 roster 中处于激活状态
+   * - 若不存在记录：创建一条 active 记录（removed 字段为 NULL）
+   * - 若存在记录但已移出：清空 removed 字段视为“复活”
+   * - 若已是 active：仅在需要时更新 updatedBy
+   * @param params 参数对象：sessionId、coachId、operatorAccountId（可选）、manager（可选）
+   * @returns 处理后的节次-教练记录
    */
-  async upsert(data: {
-    sessionId: number;
-    coachId: number;
-    teachingFeeAmount?: string;
-    bonusAmount?: string;
-    payoutNote?: string | null;
-    payoutFinalizedAt?: Date | null;
+  async ensureActive(params: {
+    readonly sessionId: number;
+    readonly coachId: number;
+    readonly operatorAccountId?: number | null;
+    readonly manager?: EntityManager;
   }): Promise<CourseSessionCoachEntity> {
-    const existing = await this.findByUnique({ sessionId: data.sessionId, coachId: data.coachId });
+    const repo = params.manager
+      ? params.manager.getRepository(CourseSessionCoachEntity)
+      : this.sessionCoachRepository;
+    const operator = params.operatorAccountId ?? null;
+
+    const existing = await repo.findOne({
+      where: { sessionId: params.sessionId, coachId: params.coachId },
+    });
+
     if (existing) {
-      await this.sessionCoachRepository.update(
+      const isAlreadyActive = existing.removedAt === null;
+
+      if (isAlreadyActive) {
+        if (operator !== null && existing.updatedBy !== operator) {
+          await repo.update({ id: existing.id }, { updatedBy: operator });
+          const fresh = await repo.findOne({
+            where: { id: existing.id },
+          });
+          if (!fresh) throw new Error('更新后的结算记录未找到');
+          return fresh;
+        }
+        return existing;
+      }
+
+      await repo.update(
         { id: existing.id },
         {
-          teachingFeeAmount: data.teachingFeeAmount ?? existing.teachingFeeAmount,
-          bonusAmount: data.bonusAmount ?? existing.bonusAmount,
-          payoutNote: data.payoutNote ?? existing.payoutNote,
-          payoutFinalizedAt: data.payoutFinalizedAt ?? existing.payoutFinalizedAt,
+          removedAt: null,
+          removedBy: null,
+          removedReason: null,
+          updatedBy: operator ?? existing.updatedBy,
         },
       );
-      const fresh = await this.sessionCoachRepository.findOne({ where: { id: existing.id } });
-      if (!fresh) throw new Error('更新后的结算记录未找到');
+      const fresh = await repo.findOne({
+        where: { id: existing.id },
+      });
+      if (!fresh) throw new Error('复活后的结算记录未找到');
       return fresh;
     }
-    const entity = this.sessionCoachRepository.create({
-      sessionId: data.sessionId,
-      coachId: data.coachId,
-      teachingFeeAmount: data.teachingFeeAmount ?? '0.00',
-      bonusAmount: data.bonusAmount ?? '0.00',
-      payoutNote: data.payoutNote ?? null,
-      payoutFinalizedAt: data.payoutFinalizedAt ?? null,
+
+    const entity = repo.create({
+      sessionId: params.sessionId,
+      coachId: params.coachId,
+      teachingFeeAmount: '0.00',
+      bonusAmount: '0.00',
+      payoutNote: null,
+      payoutFinalizedAt: null,
+      removedAt: null,
+      removedBy: null,
+      removedReason: null,
+      createdBy: operator,
+      updatedBy: operator,
     });
-    return this.sessionCoachRepository.save(entity);
+
+    return await repo.save(entity);
   }
 
   /**
-   * 更新备注或最终确定时间
-   * @param id 记录 ID
-   * @param patch 部分更新
+   * 将指定节次-教练从 roster 中移出（标记 removed 字段）
+   * - 若已有记录：更新 removed_at / removed_by / removed_reason
+   * - 若不存在记录：创建一条“已移出”的历史记录，便于留痕
+   * @param params 参数对象：sessionId、coachId、operatorAccountId、removedReason、manager
+   * @returns 处理后的节次-教练记录
    */
-  async update(
-    id: number,
-    patch: Partial<
-      Pick<
-        CourseSessionCoachEntity,
-        'teachingFeeAmount' | 'bonusAmount' | 'payoutNote' | 'payoutFinalizedAt'
-      >
-    >,
-  ): Promise<CourseSessionCoachEntity> {
-    await this.sessionCoachRepository.update({ id }, patch);
-    const fresh = await this.sessionCoachRepository.findOne({ where: { id } });
-    if (!fresh) throw new Error('更新后的结算记录未找到');
-    return fresh;
+  async removeFromRoster(params: {
+    readonly sessionId: number;
+    readonly coachId: number;
+    readonly operatorAccountId?: number | null;
+    readonly removedReason?: SessionCoachRemovedReason | null;
+    readonly manager?: EntityManager;
+  }): Promise<CourseSessionCoachEntity> {
+    const repo = params.manager
+      ? params.manager.getRepository(CourseSessionCoachEntity)
+      : this.sessionCoachRepository;
+    const operator = params.operatorAccountId ?? null;
+    const now = new Date();
+
+    const existing = await repo.findOne({
+      where: { sessionId: params.sessionId, coachId: params.coachId },
+    });
+
+    if (existing) {
+      await repo.update(
+        { id: existing.id },
+        {
+          removedAt: now,
+          removedBy: operator,
+          removedReason: params.removedReason ?? existing.removedReason ?? null,
+          updatedBy: operator ?? existing.updatedBy,
+        },
+      );
+      const fresh = await repo.findOne({
+        where: { id: existing.id },
+      });
+      if (!fresh) throw new Error('移出后的结算记录未找到');
+      return fresh;
+    }
+
+    const entity = repo.create({
+      sessionId: params.sessionId,
+      coachId: params.coachId,
+      teachingFeeAmount: '0.00',
+      bonusAmount: '0.00',
+      payoutNote: null,
+      payoutFinalizedAt: null,
+      removedAt: now,
+      removedBy: operator,
+      removedReason: params.removedReason ?? null,
+      createdBy: operator,
+      updatedBy: operator,
+    });
+
+    return await repo.save(entity);
+  }
+
+  /**
+   * 基于复合键更新或创建结算记录（幂等权威写入口）
+   * @param params 参数对象：sessionId、coachId 以及金额字段、manager（可选）
+   */
+  async update(params: {
+    readonly sessionId: number;
+    readonly coachId: number;
+    readonly teachingFeeAmount?: string;
+    readonly bonusAmount?: string;
+    readonly payoutNote?: string | null;
+    readonly payoutFinalizedAt?: Date | null;
+    readonly manager?: EntityManager;
+  }): Promise<CourseSessionCoachEntity> {
+    const existing = await this.findByUnique({
+      sessionId: params.sessionId,
+      coachId: params.coachId,
+      manager: params.manager,
+    });
+    const repo = params.manager
+      ? params.manager.getRepository(CourseSessionCoachEntity)
+      : this.sessionCoachRepository;
+    if (existing) {
+      await repo.update(
+        { id: existing.id },
+        {
+          teachingFeeAmount: params.teachingFeeAmount ?? existing.teachingFeeAmount,
+          bonusAmount: params.bonusAmount ?? existing.bonusAmount,
+          payoutNote: params.payoutNote ?? existing.payoutNote,
+          payoutFinalizedAt: params.payoutFinalizedAt ?? existing.payoutFinalizedAt,
+        },
+      );
+      const fresh = await repo.findOne({ where: { id: existing.id } });
+      if (!fresh) throw new Error('更新后的结算记录未找到');
+      return fresh;
+    }
+    const entity = repo.create({
+      sessionId: params.sessionId,
+      coachId: params.coachId,
+      teachingFeeAmount: params.teachingFeeAmount ?? '0.00',
+      bonusAmount: params.bonusAmount ?? '0.00',
+      payoutNote: params.payoutNote ?? null,
+      payoutFinalizedAt: params.payoutFinalizedAt ?? null,
+    });
+    return repo.save(entity);
   }
 }
