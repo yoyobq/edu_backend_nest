@@ -93,6 +93,14 @@ export const testAccountsConfig: Record<string, TestAccountConfig> = {
     accessGroup: [], // 空数组，符合测试期望
     identityType: IdentityTypeEnum.REGISTRANT,
   },
+  coachCustomer: {
+    loginName: 'testcoachcustomer',
+    loginEmail: 'coachcustomer@example.com',
+    loginPassword: 'testCoachCustomer@2024',
+    status: AccountStatus.ACTIVE,
+    accessGroup: [IdentityTypeEnum.COACH, IdentityTypeEnum.CUSTOMER],
+    identityType: IdentityTypeEnum.COACH,
+  },
 };
 
 /**
