@@ -5,25 +5,19 @@ import { PaginationModule } from '@modules/common/pagination.module';
 import { RegisterModule } from '@modules/register/register.module';
 import { ThirdPartyAuthModule } from '@modules/third-party-auth/third-party-auth.module';
 import { VerificationRecordModule } from '@modules/verification-record/verification-record.module';
-import { CourseCatalogsModule } from '@src/modules/course/catalogs/course-catalogs.module';
-import { PayoutSeriesRuleModule } from '@src/modules/course/payout-series-rule/payout-series-rule.module';
-import { PayoutSessionAdjustmentsModule } from '@src/modules/payout/session-adjustments/payout-session-adjustments.module';
-// 为报名用例提供依赖的服务模块
 import { CoachServiceModule } from '@src/modules/account/identities/training/coach/coach-service.module';
 import { CustomerServiceModule } from '@src/modules/account/identities/training/customer/customer-service.module';
 import { LearnerIdentityModule } from '@src/modules/account/identities/training/learner/learner.module';
 import { ManagerServiceModule } from '@src/modules/account/identities/training/manager/manager-service.module';
 import { IntegrationEventsModule } from '@src/modules/common/integration-events/integration-events.module';
+import { CourseCatalogsModule } from '@src/modules/course/catalogs/course-catalogs.module';
+import { PayoutSeriesRuleModule } from '@src/modules/course/payout-series-rule/payout-series-rule.module';
 import { CourseSeriesModule } from '@src/modules/course/series/course-series.module';
 import { CourseSessionCoachesModule } from '@src/modules/course/session-coaches/course-session-coaches.module';
-import { CourseSessionsModule } from '@src/modules/course/sessions/course-sessions.module';
+import { CourseUsecasesModule } from '@src/modules/course/usecases/course-usecases.module';
 import { ParticipationAttendanceModule } from '@src/modules/participation/attendance/participation-attendance.module';
 import { ParticipationEnrollmentModule } from '@src/modules/participation/enrollment/participation-enrollment.module';
-import { BatchRecordAttendanceUsecase } from '@src/usecases/course/workflows/batch-record-attendance.usecase';
-import { CancelEnrollmentUsecase } from '@src/usecases/course/workflows/cancel-enrollment.usecase';
-import { CloseSessionUsecase } from '@src/usecases/course/workflows/close-session.usecase';
-import { EnrollLearnerToSessionUsecase } from '@src/usecases/course/workflows/enroll-learner-to-session.usecase';
-import { LoadSessionAttendanceSheetUsecase } from '@src/usecases/course/workflows/load-session-attendance-sheet.usecase';
+import { PayoutSessionAdjustmentsModule } from '@src/modules/payout/session-adjustments/payout-session-adjustments.module';
 
 import { Module } from '@nestjs/common';
 import { AccountInstallerModule } from '@src/modules/account/account-installer.module';
@@ -71,9 +65,8 @@ import { RolesGuard } from './guards/roles.guard';
     // 提供 CURSOR_SIGNER 与 PAGINATOR（分页相关的 DI 令牌）
     PaginationModule,
     CourseCatalogsModule, // 导入课程目录模块
-    // 报名用例所需依赖模块（适配器模块内直接注入，不依赖已删除的 CourseWorkflowsModule）
+    // 报名与节次用例所需依赖模块
     CourseSeriesModule,
-    CourseSessionsModule,
     ParticipationEnrollmentModule,
     ParticipationAttendanceModule, // 结课用例依赖出勤服务（锁定与定稿校验）
     CourseSessionCoachesModule, // 结课用例依赖节次-教练结算模板服务（存在性校验）
@@ -86,6 +79,7 @@ import { RolesGuard } from './guards/roles.guard';
     VerificationRecordModule, // 导入验证记录模块（包含验证流程相关组件）
     IdentityManagementModule, // 导入身份管理模块
     ManagerServiceModule, // 导入经理服务模块，供用例权限校验
+    CourseUsecasesModule, // 导入课程用例模块（承载跨模块编排）
   ],
   providers: [
     // Resolvers
@@ -111,12 +105,6 @@ import { RolesGuard } from './guards/roles.guard';
     SessionCloseResolver, // 注册节次结课 resolver
     SessionAttendanceResolver, // 注册节次点名视图 resolver
     SearchSessionAdjustmentsUsecase, // 注册课次调整查询用例
-    // 用例
-    EnrollLearnerToSessionUsecase, // 在适配器模块内直接提供报名用例
-    CancelEnrollmentUsecase, // 在适配器模块内直接提供取消报名用例
-    CloseSessionUsecase,
-    LoadSessionAttendanceSheetUsecase,
-    BatchRecordAttendanceUsecase,
     // Guards
     JwtAuthGuard,
     RolesGuard,
