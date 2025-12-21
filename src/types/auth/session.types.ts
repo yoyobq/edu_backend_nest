@@ -8,7 +8,12 @@ import { JwtPayload } from '../jwt.types';
 export interface UsecaseSession {
   /** 当前账户 ID */
   accountId: number;
-  /** 角色访问组（与 JWT `accessGroup` 对齐） */
+  /**
+   * 角色访问组（已在此处做规范化）
+   * - 来源：JWT `accessGroup`
+   * - 格式：全部转为大写字符串，去除空值与重复项
+   * - 语义：与 GraphQL `@Roles()` 所使用的角色编码保持一致（如 "MANAGER"）
+   */
   roles: string[];
 }
 
@@ -19,6 +24,26 @@ export interface UsecaseSession {
 export function mapJwtToUsecaseSession(jwt: JwtPayload): UsecaseSession {
   return {
     accountId: jwt.sub,
-    roles: jwt.accessGroup,
+    roles: normalizeAccessGroup(jwt.accessGroup),
   };
+}
+
+/**
+ * 将 JWT `accessGroup` 规范化为用例层可直接使用的角色数组
+ * - 统一转为大写字符串
+ * - 过滤空值与空字符串
+ * - 去重，避免重复角色影响后续判断与日志
+ */
+function normalizeAccessGroup(accessGroup: string[]): string[] {
+  if (!Array.isArray(accessGroup)) return [];
+
+  const normalized: string[] = [];
+  for (const role of accessGroup) {
+    if (role == null) continue;
+    const name = String(role).trim();
+    if (!name) continue;
+    normalized.push(name.toUpperCase());
+  }
+
+  return Array.from(new Set(normalized));
 }

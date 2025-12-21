@@ -1,6 +1,6 @@
 // src/usecases/course/sessions/list-sessions-by-series.usecase.ts
-import { Injectable } from '@nestjs/common';
 import { SessionStatus } from '@app-types/models/course-session.types';
+import { Injectable } from '@nestjs/common';
 import { CourseSessionEntity } from '@src/modules/course/sessions/course-session.entity';
 import { CourseSessionsService } from '@src/modules/course/sessions/course-sessions.service';
 
@@ -32,11 +32,20 @@ export class ListSessionsBySeriesUsecase {
   constructor(private readonly sessionsService: CourseSessionsService) {}
 
   /**
-   * 执行节次列表查询
-   * @param query 查询参数对象
+   * 按开课班（CourseSeries）读取节次列表
+   * @param query 查询参数
    * @returns 节次实体列表
    */
   async execute(query: ListSessionsBySeriesQuery): Promise<CourseSessionEntity[]> {
+    return await this.executeQuery(query);
+  }
+
+  /**
+   * 根据查询模式执行底层查询
+   * @param query 查询参数
+   * @returns 节次实体列表
+   */
+  private async executeQuery(query: ListSessionsBySeriesQuery): Promise<CourseSessionEntity[]> {
     if (query.mode === 'RECENT_WINDOW') {
       return await this.sessionsService.listRecentWindowBySeries({
         seriesId: query.seriesId,

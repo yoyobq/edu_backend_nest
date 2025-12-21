@@ -16,6 +16,28 @@ export class ParticipationEnrollmentService {
   ) {}
 
   /**
+   * 判断某 customer 在某 series 下是否存在有效报名
+   * @param params 查询参数对象：customerId、seriesId
+   * @returns 是否存在有效报名
+   */
+  async hasActiveEnrollmentInSeries(params: {
+    readonly customerId: number;
+    readonly seriesId: number;
+  }): Promise<boolean> {
+    const row = await this.enrollmentRepository
+      .createQueryBuilder('e')
+      .select('1', 'one')
+      .innerJoin('course_sessions', 's', 's.id = e.session_id AND s.series_id = :seriesId', {
+        seriesId: params.seriesId,
+      })
+      .where('e.customer_id = :customerId', { customerId: params.customerId })
+      .andWhere('e.is_canceled = 0')
+      .limit(1)
+      .getRawOne<{ one: number }>();
+    return !!row;
+  }
+
+  /**
    * 按 ID 查询报名
    * @param id 报名 ID
    */

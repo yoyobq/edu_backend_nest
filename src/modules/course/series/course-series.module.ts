@@ -1,22 +1,19 @@
-// src/modules/course-series/course-series.module.ts
-import { PaginationModule } from '@modules/common/pagination.module';
+// src/modules/course/series/course-series.module.ts
 import { CoachServiceModule } from '@modules/account/identities/training/coach/coach-service.module';
 import { ManagerServiceModule } from '@modules/account/identities/training/manager/manager-service.module';
+import { PaginationModule } from '@modules/common/pagination.module';
 import { CourseCatalogsModule } from '@modules/course/catalogs/course-catalogs.module';
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { CourseSessionsModule } from '@src/modules/course/sessions/course-sessions.module';
+import { IntegrationEventsModule } from '@src/modules/common/integration-events/integration-events.module';
 import { CreateSeriesUsecase } from '@src/usecases/course/series/create-series.usecase';
 import { DeleteSeriesUsecase } from '@src/usecases/course/series/delete-series.usecase';
 import { GetSeriesUsecase } from '@src/usecases/course/series/get-series.usecase';
 import { ListSeriesUsecase } from '@src/usecases/course/series/list-series.usecase';
 import { SearchSeriesUsecase } from '@src/usecases/course/series/search-series.usecase';
 import { UpdateSeriesUsecase } from '@src/usecases/course/series/update-series.usecase';
-import { PreviewSeriesScheduleUsecase } from '@src/usecases/course/series/preview-series-schedule.usecase';
-import { PublishSeriesUsecase } from '@src/usecases/course/series/publish-series.usecase';
 import { CourseSeriesEntity } from './course-series.entity';
 import { CourseSeriesService } from './course-series.service';
-import { IntegrationEventsModule } from '@src/modules/common/integration-events/integration-events.module';
 
 /**
  * 课程系列模块
@@ -27,7 +24,6 @@ import { IntegrationEventsModule } from '@src/modules/common/integration-events/
     TypeOrmModule.forFeature([CourseSeriesEntity]),
     PaginationModule,
     CourseCatalogsModule,
-    CourseSessionsModule,
     CoachServiceModule,
     ManagerServiceModule,
     IntegrationEventsModule,
@@ -41,8 +37,6 @@ import { IntegrationEventsModule } from '@src/modules/common/integration-events/
     GetSeriesUsecase,
     ListSeriesUsecase,
     SearchSeriesUsecase,
-    PreviewSeriesScheduleUsecase,
-    PublishSeriesUsecase,
   ],
   exports: [
     TypeOrmModule,
@@ -53,8 +47,6 @@ import { IntegrationEventsModule } from '@src/modules/common/integration-events/
     GetSeriesUsecase,
     ListSeriesUsecase,
     SearchSeriesUsecase,
-    PreviewSeriesScheduleUsecase,
-    PublishSeriesUsecase,
   ],
 })
 export class CourseSeriesModule {}

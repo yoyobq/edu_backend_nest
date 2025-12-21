@@ -21,3 +21,14 @@ export interface ExtraCoachInfo {
   /** 教练等级（如 高级、金牌等，文本） */
   level: string;
 }
+
+export interface CourseSessionSafeView {
+  readonly id: number;
+  readonly seriesId: number;
+  readonly startTime: Date;
+  readonly endTime: Date;
+  readonly leadCoachId: number;
+  readonly locationText: string;
+  readonly extraCoaches: ExtraCoachInfo[] | null;
+  readonly status: SessionStatus;
+}

@@ -8,8 +8,15 @@ import type {
 import { PaginationService } from '@modules/common/pagination.service';
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository, type SelectQueryBuilder, type EntityManager } from 'typeorm';
+import { In, Repository, type EntityManager, type SelectQueryBuilder } from 'typeorm';
 import { CourseSeriesEntity } from './course-series.entity';
+
+export type CourseSeriesAccessInfo = {
+  readonly id: number;
+  readonly status: CourseSeriesStatus;
+  readonly startDate: string;
+  readonly endDate: string;
+};
 
 /**
  * 开课班服务
@@ -29,6 +36,27 @@ export class CourseSeriesService {
    */
   async findById(id: number): Promise<CourseSeriesEntity | null> {
     return await this.seriesRepo.findOne({ where: { id } });
+  }
+
+  /**
+   * 获取开课班访问裁剪所需字段（读模型）
+   * @param params 查询参数对象：seriesId
+   * @returns 访问裁剪信息（不存在则返回 null）
+   */
+  async findAccessInfoById(params: {
+    readonly seriesId: number;
+  }): Promise<CourseSeriesAccessInfo | null> {
+    const series = await this.seriesRepo.findOne({
+      where: { id: params.seriesId },
+      select: { id: true, status: true, startDate: true, endDate: true },
+    });
+    if (!series) return null;
+    return {
+      id: series.id,
+      status: series.status,
+      startDate: series.startDate,
+      endDate: series.endDate,
+    };
   }
 
   /**
