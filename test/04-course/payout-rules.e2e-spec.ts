@@ -10,12 +10,19 @@ import { CourseLevel } from '@app-types/models/course.types';
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
-import { executeGql as executeGqlUtils } from '../utils/e2e-graphql-utils';
 import { DataSource } from 'typeorm';
 import { initGraphQLSchema } from '../../src/adapters/graphql/schema/schema.init';
 import { AppModule } from '../../src/app.module';
 import { CourseCatalogEntity } from '../../src/modules/course/catalogs/course-catalog.entity';
 import { CourseSeriesEntity } from '../../src/modules/course/series/course-series.entity';
+import { CourseSessionCoachEntity } from '../../src/modules/course/session-coaches/course-session-coach.entity';
+import { CourseSessionEntity } from '../../src/modules/course/sessions/course-session.entity';
+import {
+  executeGql as executeGqlUtils,
+  getAccountIdByLoginName,
+  getCoachIdByAccountId,
+  postGql,
+} from '../utils/e2e-graphql-utils';
 import { cleanupTestAccounts, seedTestAccounts, testAccountsConfig } from '../utils/test-accounts';
 
 /**
@@ -28,6 +35,7 @@ describe('Payout Rules (e2e)', () => {
 
   let managerToken: string;
   let coachToken: string;
+  let coachIdentityId: number;
 
   let catalogId: number;
   let seriesId: number;
@@ -69,6 +77,12 @@ describe('Payout Rules (e2e)', () => {
     // 账号准备
     await cleanupTestAccounts(dataSource);
     await seedTestAccounts({ dataSource, includeKeys: ['manager', 'coach', 'guest'] });
+
+    const coachAccountId = await getAccountIdByLoginName(
+      dataSource,
+      testAccountsConfig.coach.loginName,
+    );
+    coachIdentityId = await getCoachIdByAccountId(dataSource, coachAccountId);
 
     managerToken = await loginAndGetToken(
       testAccountsConfig.manager.loginName,
@@ -825,6 +839,271 @@ describe('Payout Rules (e2e)', () => {
       expect(Array.isArray(res.body.errors)).toBe(true);
       const err = res.body.errors[0];
       expect(err.extensions?.errorCode).toBe('INSUFFICIENT_PERMISSIONS');
+    });
+  });
+
+  describe('SetSessionCoachPayout (e2e)', () => {
+    const createdSessionIds: number[] = [];
+
+    const createSession = async (): Promise<number> => {
+      const repo = dataSource.getRepository(CourseSessionEntity);
+      const base = new Date();
+      const start = new Date(base.getTime() + createdSessionIds.length * 60 * 1000);
+      const entity = repo.create({
+        seriesId,
+        startTime: start,
+        endTime: new Date(start.getTime() + 60 * 60 * 1000),
+        leadCoachId: coachIdentityId,
+        locationText: 'E2E payout session',
+        extraCoachesJson: null,
+        attendanceConfirmedAt: null,
+        attendanceConfirmedBy: null,
+        leaveCutoffHoursOverride: null,
+        cutoffEvaluatedAt: null,
+        remark: 'E2E payout session',
+        createdBy: null,
+        updatedBy: null,
+      } as Partial<CourseSessionEntity>);
+      const saved = await repo.save(entity);
+      createdSessionIds.push(saved.id);
+      return saved.id;
+    };
+
+    afterAll(async () => {
+      const coachRepo = dataSource.getRepository(CourseSessionCoachEntity);
+      const sessionRepo = dataSource.getRepository(CourseSessionEntity);
+      for (const id of createdSessionIds) {
+        await coachRepo.delete({ sessionId: id });
+        await sessionRepo.delete({ id });
+      }
+    });
+
+    it('manager 可以设置课酬并支持置空备注字段', async () => {
+      const sessionId = await createSession();
+
+      const mutation = `
+        mutation SetSessionCoachPayout($input: SetSessionCoachPayoutInputGql!) {
+          setSessionCoachPayout(input: $input)
+        }
+      `;
+
+      const initialVariables = {
+        input: {
+          sessionId,
+          coachId: coachIdentityId,
+          teachingFeeAmount: 150.5,
+          bonusAmount: 20,
+          payoutNote: '初始备注',
+        },
+      };
+
+      const res1 = await postGql({
+        app,
+        query: mutation,
+        variables: initialVariables,
+        token: managerToken,
+      }).expect(200);
+
+      expect(res1.body.errors).toBeUndefined();
+      expect(res1.body.data?.setSessionCoachPayout).toBe(true);
+
+      const coachRepo = dataSource.getRepository(CourseSessionCoachEntity);
+      const created = await coachRepo.findOne({
+        where: { sessionId, coachId: coachIdentityId },
+      });
+      expect(created).toBeDefined();
+      expect(created?.teachingFeeAmount).toBe('150.50');
+      expect(created?.bonusAmount).toBe('20.00');
+      expect(created?.payoutNote).toBe('初始备注');
+      expect(created?.payoutFinalizedAt).toBeNull();
+
+      const clearVariables = {
+        input: {
+          sessionId,
+          coachId: coachIdentityId,
+          payoutNote: null,
+          payoutFinalizedAt: null,
+        },
+      };
+
+      const res2 = await postGql({
+        app,
+        query: mutation,
+        variables: clearVariables,
+        token: managerToken,
+      }).expect(200);
+
+      expect(res2.body.errors).toBeUndefined();
+      expect(res2.body.data?.setSessionCoachPayout).toBe(true);
+
+      const cleared = await coachRepo.findOne({
+        where: { sessionId, coachId: coachIdentityId },
+      });
+      expect(cleared).toBeDefined();
+      expect(cleared?.payoutNote).toBeNull();
+      expect(cleared?.payoutFinalizedAt).toBeNull();
+    });
+
+    it('权限负例：coach 调用 setSessionCoachPayout 返回 INSUFFICIENT_PERMISSIONS', async () => {
+      const sessionId = await createSession();
+
+      const mutation = `
+        mutation SetSessionCoachPayout($input: SetSessionCoachPayoutInputGql!) {
+          setSessionCoachPayout(input: $input)
+        }
+      `;
+
+      const variables = {
+        input: {
+          sessionId,
+          coachId: coachIdentityId,
+          teachingFeeAmount: 100,
+        },
+      };
+
+      const res = await postGql({
+        app,
+        query: mutation,
+        variables,
+        token: coachToken,
+      }).expect(200);
+
+      expect(Array.isArray(res.body.errors)).toBe(true);
+      const err = res.body.errors[0];
+      expect(err.extensions?.errorCode).toBe('INSUFFICIENT_PERMISSIONS');
+    });
+
+    it('已从 roster 移除的教练不可编辑课酬', async () => {
+      const sessionId = await createSession();
+      const coachRepo = dataSource.getRepository(CourseSessionCoachEntity);
+      const removed = coachRepo.create({
+        sessionId,
+        coachId: coachIdentityId,
+        teachingFeeAmount: '100.00',
+        bonusAmount: '0.00',
+        payoutNote: null,
+        payoutFinalizedAt: null,
+        removedAt: new Date(),
+        removedBy: null,
+        removedReason: null,
+        createdBy: null,
+        updatedBy: null,
+      } as Partial<CourseSessionCoachEntity>);
+      await coachRepo.save(removed);
+
+      const mutation = `
+        mutation SetSessionCoachPayout($input: SetSessionCoachPayoutInputGql!) {
+          setSessionCoachPayout(input: $input)
+        }
+      `;
+
+      const variables = {
+        input: {
+          sessionId,
+          coachId: coachIdentityId,
+          teachingFeeAmount: 120,
+        },
+      };
+
+      const res = await postGql({
+        app,
+        query: mutation,
+        variables,
+        token: managerToken,
+      }).expect(200);
+
+      expect(Array.isArray(res.body.errors)).toBe(true);
+      const err = res.body.errors[0];
+      expect(err.extensions?.errorCode).toBe('SESSION_STATUS_INVALID');
+    });
+
+    it('已最终确认的课酬允许修改备注但禁止修改金额与最终确认时间', async () => {
+      const sessionId = await createSession();
+      const coachRepo = dataSource.getRepository(CourseSessionCoachEntity);
+      const finalizedAt = new Date();
+      const existing = coachRepo.create({
+        sessionId,
+        coachId: coachIdentityId,
+        teachingFeeAmount: '200.00',
+        bonusAmount: '10.00',
+        payoutNote: '已确认',
+        payoutFinalizedAt: finalizedAt,
+        removedAt: null,
+        removedBy: null,
+        removedReason: null,
+        createdBy: null,
+        updatedBy: null,
+      } as Partial<CourseSessionCoachEntity>);
+      await coachRepo.save(existing);
+
+      const mutation = `
+        mutation SetSessionCoachPayout($input: SetSessionCoachPayoutInputGql!) {
+          setSessionCoachPayout(input: $input)
+        }
+      `;
+
+      const noteOnlyVariables = {
+        input: {
+          sessionId,
+          coachId: coachIdentityId,
+          payoutNote: '更新备注',
+        },
+      };
+
+      const resNote = await postGql({
+        app,
+        query: mutation,
+        variables: noteOnlyVariables,
+        token: managerToken,
+      }).expect(200);
+
+      expect(resNote.body.errors).toBeUndefined();
+      expect(resNote.body.data?.setSessionCoachPayout).toBe(true);
+
+      const afterNote = await coachRepo.findOne({
+        where: { sessionId, coachId: coachIdentityId },
+      });
+      expect(afterNote).toBeDefined();
+      expect(afterNote?.payoutNote).toBe('更新备注');
+      expect(afterNote?.payoutFinalizedAt).not.toBeNull();
+
+      const changeAmountVariables = {
+        input: {
+          sessionId,
+          coachId: coachIdentityId,
+          teachingFeeAmount: 220,
+        },
+      };
+
+      const resAmount = await postGql({
+        app,
+        query: mutation,
+        variables: changeAmountVariables,
+        token: managerToken,
+      }).expect(200);
+
+      expect(Array.isArray(resAmount.body.errors)).toBe(true);
+      const errAmount = resAmount.body.errors[0];
+      expect(errAmount.extensions?.errorCode).toBe('SESSION_STATUS_INVALID');
+
+      const changeFinalizedVariables = {
+        input: {
+          sessionId,
+          coachId: coachIdentityId,
+          payoutFinalizedAt: new Date(finalizedAt.getTime() + 60 * 1000).toISOString(),
+        },
+      };
+
+      const resFinal = await postGql({
+        app,
+        query: mutation,
+        variables: changeFinalizedVariables,
+        token: managerToken,
+      }).expect(200);
+
+      expect(Array.isArray(resFinal.body.errors)).toBe(true);
+      const errFinal = resFinal.body.errors[0];
+      expect(errFinal.extensions?.errorCode).toBe('SESSION_STATUS_INVALID');
     });
   });
 });
