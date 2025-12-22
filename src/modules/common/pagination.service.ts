@@ -63,11 +63,12 @@ export class PaginationService {
 
     // 2) 归一化参数与排序（包含默认值、上限与白名单）
     const limited = this.computeParams(params, defaultSorts, maxPageSize);
+    const cursorKeyForSorts = limited.mode === 'CURSOR' ? cursorKey : undefined;
     const orderedSorts = this.normalizeSorts(
       limited.sorts ?? defaultSorts,
       allowedSorts,
       defaultSorts,
-      cursorKey,
+      cursorKeyForSorts,
       sortResolver,
     );
 
@@ -309,3 +310,11 @@ export class PaginationService {
     return { primaryDir, tieBreakerDir };
   }
 }
+
+// TODO(1)：validateCursorConfig() 改为基于 limited.mode / finalParams.mode 校验（先 computeParams 再校验）
+
+// TODO(2)：CURSOR 模式下收紧：要求 defaultSorts[0/1] 与 cursorKey.primary/tieBreaker 顺序一致（否则抛 INVALID_CURSOR）
+
+// TODO(3)：CURSOR 模式下 resolveCursorDirections() 找不到 primary/tieBreaker 时 fail-closed（抛 INVALID_CURSOR），去掉方向 fallback
+
+// TODO(4)：补一个 E2E：传入 after（触发 CURSOR）但未显式传 params.mode='CURSOR' 的场景，确保校验仍生效（防 future regression）
