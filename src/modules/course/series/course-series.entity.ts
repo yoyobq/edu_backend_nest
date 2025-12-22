@@ -24,6 +24,11 @@ import {
 @Index('idx_series_status', ['status'])
 @Index('idx_series_catalog', ['catalogId'])
 @Index('idx_series_dates', ['startDate', 'endDate'])
+@Index('idx_series_class_mode', ['classMode'])
+@Index('idx_series_status_start_date', ['status', 'startDate'])
+@Index('idx_series_status_end_date', ['status', 'endDate'])
+@Index('idx_series_created_at_id', ['createdAt', 'id'])
+@Index('idx_series_updated_at_id', ['updatedAt', 'id'])
 export class CourseSeriesEntity {
   /** 主键 ID */
   @PrimaryGeneratedColumn({ type: 'int' })

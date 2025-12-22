@@ -1,6 +1,8 @@
 // 文件位置：src/adapters/graphql/course/series/course-series.resolver.ts
+import { ValidateInput } from '@core/common/errors/validate-input.decorator';
 import { UseGuards } from '@nestjs/common';
 import { Args, Mutation, Query, Resolver } from '@nestjs/graphql';
+import { mapGqlToCoreParams } from '@src/adapters/graphql/pagination.mapper';
 import { mapJwtToUsecaseSession, type UsecaseSession } from '@src/types/auth/session.types';
 import { JwtPayload } from '@src/types/jwt.types';
 import {
@@ -12,19 +14,20 @@ import {
   PublishSeriesUsecase,
   type PublishSeriesOutput,
 } from '@src/usecases/course/series/publish-series.usecase';
+import { SearchSeriesUsecase } from '@src/usecases/course/series/search-series.usecase';
 import { currentUser } from '../../decorators/current-user.decorator';
 import { JwtAuthGuard } from '../../guards/jwt-auth.guard';
 import { CourseSeriesDTO } from './dto/course-series.dto';
 import {
-  CreateCourseSeriesDraftInput,
-  PreviewSeriesScheduleInput,
-  PublishCourseSeriesInput,
-} from './dto/course-series.input';
-import {
+  PaginatedCourseSeriesResultDTO,
   PreviewOccurrenceDTO,
   PreviewSeriesScheduleResultDTO,
   PublishSeriesResultDTO,
 } from './dto/course-series.result';
+import { CreateCourseSeriesDraftInput } from './dto/create-course-series-draft.input';
+import { PreviewSeriesScheduleInput } from './dto/preview-series-schedule.input';
+import { PublishCourseSeriesInput } from './dto/publish-course-series.input';
+import { SearchCourseSeriesInputGql } from './dto/search-course-series.input';
 
 @Resolver(() => CourseSeriesDTO)
 export class CourseSeriesResolver {
@@ -32,6 +35,7 @@ export class CourseSeriesResolver {
     private readonly createUsecase: CreateSeriesUsecase,
     private readonly previewUsecase: PreviewSeriesScheduleUsecase,
     private readonly publishUsecase: PublishSeriesUsecase,
+    private readonly searchUsecase: SearchSeriesUsecase,
   ) {}
 
   @UseGuards(JwtAuthGuard)
@@ -126,6 +130,73 @@ export class CourseSeriesResolver {
     result.previewHash = previewHash;
     result.defaultLeadCoachId = defaultLeadCoachId;
     return result;
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @ValidateInput()
+  @Query(() => PaginatedCourseSeriesResultDTO, {
+    name: 'searchCourseSeries',
+    description: '搜索与分页开课班',
+  })
+  async searchCourseSeries(
+    @Args('input') input: SearchCourseSeriesInputGql,
+    @currentUser() user: JwtPayload,
+  ): Promise<PaginatedCourseSeriesResultDTO> {
+    const session: UsecaseSession = mapJwtToUsecaseSession(user);
+    const pagination = mapGqlToCoreParams({ ...input.pagination, sorts: input.sorts });
+
+    const res = await this.searchUsecase.execute({
+      session,
+      params: {
+        query: input.query,
+        filters: {
+          ...(typeof input.activeOnly === 'boolean' ? { activeOnly: input.activeOnly } : {}),
+          ...(Array.isArray(input.statuses) && input.statuses.length > 0
+            ? { statuses: input.statuses }
+            : {}),
+          ...(typeof input.classMode === 'string' ? { classMode: input.classMode } : {}),
+          ...(typeof input.startDateFrom === 'string'
+            ? { startDateFrom: input.startDateFrom }
+            : {}),
+          ...(typeof input.startDateTo === 'string' ? { startDateTo: input.startDateTo } : {}),
+          ...(typeof input.endDateFrom === 'string' ? { endDateFrom: input.endDateFrom } : {}),
+          ...(typeof input.endDateTo === 'string' ? { endDateTo: input.endDateTo } : {}),
+        },
+        pagination,
+      },
+    });
+
+    const output = new PaginatedCourseSeriesResultDTO();
+    output.items = res.items.map((series) => {
+      const dto = new CourseSeriesDTO();
+      dto.id = series.id;
+      dto.catalogId = series.catalogId;
+      dto.title = series.title;
+      dto.description = series.description;
+      dto.venueType = series.venueType;
+      dto.classMode = series.classMode;
+      dto.startDate = series.startDate;
+      dto.endDate = series.endDate;
+      dto.recurrenceRule = series.recurrenceRule;
+      dto.leaveCutoffHours = series.leaveCutoffHours;
+      dto.pricePerSession = series.pricePerSession;
+      dto.teachingFeeRef = series.teachingFeeRef;
+      dto.maxLearners = series.maxLearners;
+      dto.status = series.status;
+      dto.remark = series.remark;
+      dto.createdAt = series.createdAt;
+      dto.updatedAt = series.updatedAt;
+      dto.createdBy = series.createdBy;
+      dto.updatedBy = series.updatedBy;
+      return dto;
+    });
+    output.total = res.total;
+    output.page = res.page;
+    output.pageSize = res.pageSize;
+    output.pageInfo = res.pageInfo
+      ? { hasNext: res.pageInfo.hasNext ?? false, nextCursor: res.pageInfo.nextCursor }
+      : undefined;
+    return output;
   }
 
   @UseGuards(JwtAuthGuard)

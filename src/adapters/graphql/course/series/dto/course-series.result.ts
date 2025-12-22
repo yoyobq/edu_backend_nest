@@ -1,6 +1,7 @@
 // 文件位置：src/adapters/graphql/course/series/dto/course-series.result.ts
 import { Field, Int, ObjectType } from '@nestjs/graphql';
 import { CourseSeriesStatus } from '@app-types/models/course-series.types';
+import { paginatedTypeFactory } from '@src/adapters/graphql/pagination.type-factory';
 import { CourseSeriesDTO } from './course-series.dto';
 
 @ObjectType({ description: '预览的冲突信息' })
@@ -68,3 +69,6 @@ export class PublishSeriesResultDTO {
   @Field(() => Int, { description: '创建的节次数量（dryRun 为 0）' })
   createdSessions!: number;
 }
+
+@ObjectType({ description: '开课班分页结果' })
+export class PaginatedCourseSeriesResultDTO extends paginatedTypeFactory(CourseSeriesDTO) {}
