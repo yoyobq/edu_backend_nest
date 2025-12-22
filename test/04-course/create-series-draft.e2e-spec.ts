@@ -563,6 +563,124 @@ describe('Course Series (e2e)', () => {
       const err = (res.body.errors?.[0] ?? null) as { extensions?: { errorCode?: string } } | null;
       expect(err?.extensions?.errorCode).toBe('COURSE_SERIES_INVALID_PARAMS');
     });
+
+    it('searchCourseSeries 游标分页按 createdAt/id 稳定排序', async () => {
+      const catalogId = await ensureCatalog();
+      const remark = 'E2E 草稿测试';
+      const start = new Date();
+      const end = new Date(start.getTime() + 7 * 24 * 3600 * 1000);
+
+      const createDraftSeries = async (title: string): Promise<number> => {
+        const mutation = `
+          mutation Create($input: CreateCourseSeriesDraftInput!) {
+            createCourseSeriesDraft(input: $input) { id }
+          }
+        `;
+        const resp = await request(app.getHttpServer())
+          .post('/graphql')
+          .set('Authorization', managerTokenWithBearer)
+          .send({
+            query: mutation,
+            variables: {
+              input: {
+                catalogId,
+                title,
+                description: 'Cursor 分页测试',
+                venueType: VenueType.SANDA_GYM,
+                classMode: ClassMode.SMALL_CLASS,
+                startDate: start.toISOString().slice(0, 10),
+                endDate: end.toISOString().slice(0, 10),
+                recurrenceRule: 'BYDAY=MO',
+                leaveCutoffHours: 12,
+                maxLearners: 4,
+                remark,
+              },
+            },
+          })
+          .expect(200);
+        if (resp.body.errors) throw new Error(`GraphQL 错误: ${JSON.stringify(resp.body.errors)}`);
+        const rawId = resp.body.data.createCourseSeriesDraft.id as string | number;
+        const id = typeof rawId === 'string' ? Number(rawId) : (rawId ?? 0);
+        expect(id).toBeGreaterThan(0);
+        return id;
+      };
+
+      const ids: number[] = [];
+      for (let i = 0; i < 5; i += 1) {
+        ids.push(await createDraftSeries(`E2E Cursor ${i + 1}`));
+      }
+
+      const createdAtValues = [
+        '2025-01-01 10:00:00',
+        '2025-01-03 10:00:00',
+        '2025-01-02 10:00:00',
+        '2025-01-05 10:00:00',
+        '2025-01-04 10:00:00',
+      ];
+      for (let i = 0; i < ids.length; i += 1) {
+        await dataSource.query('UPDATE course_series SET created_at = ? WHERE id = ?', [
+          createdAtValues[i],
+          ids[i],
+        ]);
+      }
+
+      const expectedRows = await dataSource.query(
+        'SELECT id FROM course_series WHERE remark = ? AND title LIKE ? ORDER BY created_at DESC, id DESC',
+        [remark, 'E2E Cursor %'],
+      );
+      const expectedIds = expectedRows.map((r: { readonly id: number }) => Number(r.id));
+      expect(expectedIds.length).toBe(ids.length);
+
+      const query = `
+        query Search($input: SearchCourseSeriesInputGql!) {
+          searchCourseSeries(input: $input) {
+            items { id createdAt }
+            pageInfo { hasNext nextCursor }
+          }
+        }
+      `;
+
+      const receivedIds: number[] = [];
+      const seen = new Set<number>();
+      let after: string | undefined = undefined;
+      for (let page = 0; page < 10; page += 1) {
+        const resp = await request(app.getHttpServer())
+          .post('/graphql')
+          .set('Authorization', managerTokenWithBearer)
+          .send({
+            query,
+            variables: {
+              input: {
+                query: 'E2E Cursor',
+                pagination: { mode: 'CURSOR', limit: 2, after },
+                sorts: [
+                  { field: 'createdAt', direction: 'DESC' },
+                  { field: 'id', direction: 'DESC' },
+                ],
+              },
+            },
+          })
+          .expect(200);
+        if (resp.body.errors) throw new Error(`GraphQL 错误: ${JSON.stringify(resp.body.errors)}`);
+        const data = resp.body.data.searchCourseSeries as {
+          items: Array<{ id: number; createdAt: string }>;
+          pageInfo: { hasNext: boolean; nextCursor?: string | null } | null;
+        };
+
+        for (const item of data.items) {
+          const id = Number(item.id);
+          expect(seen.has(id)).toBe(false);
+          seen.add(id);
+          receivedIds.push(id);
+        }
+
+        if (!data.pageInfo?.hasNext) break;
+        expect(typeof data.pageInfo.nextCursor).toBe('string');
+        after = data.pageInfo.nextCursor ?? undefined;
+      }
+
+      expect(receivedIds).toEqual(expectedIds);
+    });
   });
 
   describe('Preview Series', () => {
@@ -1937,6 +2055,670 @@ describe('Course Series (e2e)', () => {
         extensions?: { errorCode?: string };
       } | null;
       expect(err?.extensions?.errorCode).toBe('COURSE_SERIES_INVALID_PARAMS');
+    });
+  });
+
+  describe('Search Series', () => {
+    it('未登录用户不允许搜索系列，返回 UNAUTHENTICATED', async () => {
+      const query = `
+        query {
+          searchCourseSeries(input: {
+            pagination: { mode: OFFSET, page: 1, pageSize: 10 }
+          }) {
+            items { id }
+          }
+        }
+      `;
+
+      const res = await request(app.getHttpServer()).post('/graphql').send({ query }).expect(200);
+      const err = (res.body.errors?.[0] ?? null) as { extensions?: { code?: string } } | null;
+      expect(err?.extensions?.code).toBe('UNAUTHENTICATED');
+    });
+
+    it('manager 可按 classMode + query 搜索，并返回 OFFSET 分页信息', async () => {
+      const catalogId = await ensureCatalog();
+
+      const createSeries = async (title: string, classMode: ClassMode): Promise<number> => {
+        const createMutation = `
+          mutation {
+            createCourseSeriesDraft(input: {
+              catalogId: ${catalogId},
+              title: "${title}",
+              description: "说明",
+              venueType: ${VenueType.SANDA_GYM},
+              classMode: ${classMode},
+              startDate: "2025-10-01",
+              endDate: "2025-10-07",
+              recurrenceRule: "BYDAY=MO;BYHOUR=18;BYMINUTE=0",
+              leaveCutoffHours: 12,
+              maxLearners: 4,
+              remark: "E2E 草稿测试"
+            }) { id }
+          }
+        `;
+
+        const res = await request(app.getHttpServer())
+          .post('/graphql')
+          .set('Authorization', managerTokenWithBearer)
+          .send({ query: createMutation })
+          .expect(200);
+        if (res.body.errors) throw new Error(`GraphQL 错误: ${JSON.stringify(res.body.errors)}`);
+        return Number(res.body.data.createCourseSeriesDraft.id);
+      };
+
+      await createSeries('E2E 搜索 manager 小班 A', ClassMode.SMALL_CLASS);
+      await createSeries('E2E 搜索 manager 小班 B', ClassMode.SMALL_CLASS);
+      await createSeries('E2E 搜索 manager 大班 C', ClassMode.LARGE_CLASS);
+
+      const searchQuery = `
+        query {
+          searchCourseSeries(input: {
+            query: "E2E 搜索 manager",
+            classMode: SMALL_CLASS,
+            activeOnly: true,
+            pagination: { mode: OFFSET, page: 1, pageSize: 20, withTotal: true },
+            sorts: [{ field: "id", direction: ASC }]
+          }) {
+            items { id title classMode status }
+            total
+            page
+            pageSize
+          }
+        }
+      `;
+
+      const searchRes = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', managerTokenWithBearer)
+        .send({ query: searchQuery })
+        .expect(200);
+      if (searchRes.body.errors)
+        throw new Error(`GraphQL 错误: ${JSON.stringify(searchRes.body.errors)}`);
+
+      const result = searchRes.body.data.searchCourseSeries as {
+        items: Array<{
+          id: number;
+          title: string;
+          classMode: ClassMode;
+          status: CourseSeriesStatus;
+        }>;
+        total: number | null;
+        page: number | null;
+        pageSize: number | null;
+      };
+
+      expect(result.page).toBe(1);
+      expect(result.pageSize).toBe(20);
+      expect(typeof result.total).toBe('number');
+      expect(result.items.length).toBeGreaterThanOrEqual(2);
+      for (const item of result.items) {
+        expect(item.title.includes('E2E 搜索 manager')).toBe(true);
+        expect(item.classMode).toBe(ClassMode.SMALL_CLASS);
+        expect([CourseSeriesStatus.PLANNED, CourseSeriesStatus.PUBLISHED]).toContain(item.status);
+      }
+    });
+
+    it('不传 activeOnly 或 statuses 默认返回全量状态', async () => {
+      const catalogId = await ensureCatalog();
+
+      const createDraft = async (title: string): Promise<number> => {
+        const createMutation = `
+          mutation {
+            createCourseSeriesDraft(input: {
+              catalogId: ${catalogId},
+              title: "${title}",
+              description: "说明",
+              venueType: ${VenueType.SANDA_GYM},
+              classMode: ${ClassMode.SMALL_CLASS},
+              startDate: "2025-10-01",
+              endDate: "2025-10-07",
+              recurrenceRule: "BYDAY=MO;BYHOUR=18;BYMINUTE=0",
+              leaveCutoffHours: 12,
+              maxLearners: 4,
+              remark: "E2E 草稿测试"
+            }) { id }
+          }
+        `;
+        const res = await request(app.getHttpServer())
+          .post('/graphql')
+          .set('Authorization', managerTokenWithBearer)
+          .send({ query: createMutation })
+          .expect(200);
+        if (res.body.errors) throw new Error(`GraphQL 错误: ${JSON.stringify(res.body.errors)}`);
+        return Number(res.body.data.createCourseSeriesDraft.id);
+      };
+
+      const plannedId = await createDraft('E2E 搜索 status-default planned');
+      const closedId = await createDraft('E2E 搜索 status-default closed');
+      await dataSource
+        .getRepository(CourseSeriesEntity)
+        .update({ id: closedId }, { status: CourseSeriesStatus.CLOSED });
+
+      const searchQuery = `
+        query {
+          searchCourseSeries(input: {
+            query: "E2E 搜索 status-default",
+            pagination: { mode: OFFSET, page: 1, pageSize: 50, withTotal: true },
+            sorts: [{ field: "id", direction: ASC }]
+          }) {
+            items { id title status }
+          }
+        }
+      `;
+
+      const searchRes = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', managerTokenWithBearer)
+        .send({ query: searchQuery })
+        .expect(200);
+      if (searchRes.body.errors)
+        throw new Error(`GraphQL 错误: ${JSON.stringify(searchRes.body.errors)}`);
+
+      const items = (searchRes.body.data.searchCourseSeries.items ?? []) as Array<{
+        id: string;
+        title: string;
+        status: CourseSeriesStatus;
+      }>;
+      const ids = items.map((i) => Number(i.id));
+
+      expect(ids).toContain(plannedId);
+      expect(ids).toContain(closedId);
+      expect(items.some((i) => i.status === CourseSeriesStatus.CLOSED)).toBe(true);
+    });
+
+    it('activeOnly=true 时仅返回 PLANNED / PUBLISHED，且 statuses 覆盖 activeOnly', async () => {
+      const baseQuery = 'E2E 搜索 status-default';
+
+      const activeOnlyQuery = `
+        query {
+          searchCourseSeries(input: {
+            query: "${baseQuery}",
+            activeOnly: true,
+            pagination: { mode: OFFSET, page: 1, pageSize: 50, withTotal: true },
+            sorts: [{ field: "id", direction: ASC }]
+          }) {
+            items { id title status }
+          }
+        }
+      `;
+      const activeOnlyRes = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', managerTokenWithBearer)
+        .send({ query: activeOnlyQuery })
+        .expect(200);
+      if (activeOnlyRes.body.errors)
+        throw new Error(`GraphQL 错误: ${JSON.stringify(activeOnlyRes.body.errors)}`);
+
+      const activeOnlyItems = (activeOnlyRes.body.data.searchCourseSeries.items ?? []) as Array<{
+        status: CourseSeriesStatus;
+      }>;
+      expect(activeOnlyItems.every((i) => i.status !== CourseSeriesStatus.CLOSED)).toBe(true);
+
+      const overrideQuery = `
+        query {
+          searchCourseSeries(input: {
+            query: "${baseQuery}",
+            activeOnly: true,
+            statuses: [CLOSED],
+            pagination: { mode: OFFSET, page: 1, pageSize: 50, withTotal: true },
+            sorts: [{ field: "id", direction: ASC }]
+          }) {
+            items { id title status }
+          }
+        }
+      `;
+      const overrideRes = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', managerTokenWithBearer)
+        .send({ query: overrideQuery })
+        .expect(200);
+      if (overrideRes.body.errors)
+        throw new Error(`GraphQL 错误: ${JSON.stringify(overrideRes.body.errors)}`);
+
+      const overrideItems = (overrideRes.body.data.searchCourseSeries.items ?? []) as Array<{
+        status: CourseSeriesStatus;
+      }>;
+      expect(overrideItems.length).toBeGreaterThan(0);
+      expect(overrideItems.every((i) => i.status === CourseSeriesStatus.CLOSED)).toBe(true);
+    });
+
+    it('日期过滤使用 overlap：区间相交即可命中', async () => {
+      const catalogId = await ensureCatalog();
+
+      const createDraft = async (
+        title: string,
+        startDate: string,
+        endDate: string,
+      ): Promise<void> => {
+        const createMutation = `
+          mutation {
+            createCourseSeriesDraft(input: {
+              catalogId: ${catalogId},
+              title: "${title}",
+              description: "说明",
+              venueType: ${VenueType.SANDA_GYM},
+              classMode: ${ClassMode.SMALL_CLASS},
+              startDate: "${startDate}",
+              endDate: "${endDate}",
+              recurrenceRule: "BYDAY=MO;BYHOUR=18;BYMINUTE=0",
+              leaveCutoffHours: 12,
+              maxLearners: 4,
+              remark: "E2E 草稿测试"
+            }) { id }
+          }
+        `;
+        const res = await request(app.getHttpServer())
+          .post('/graphql')
+          .set('Authorization', managerTokenWithBearer)
+          .send({ query: createMutation })
+          .expect(200);
+        if (res.body.errors) throw new Error(`GraphQL 错误: ${JSON.stringify(res.body.errors)}`);
+      };
+
+      await createDraft('E2E overlap A', '2025-10-01', '2025-10-07'); // 覆盖筛选区间
+      await createDraft('E2E overlap B', '2025-09-25', '2025-10-03'); // 边界相交
+      await createDraft('E2E overlap C', '2025-10-06', '2025-10-10'); // 不相交
+
+      const searchQuery = `
+        query {
+          searchCourseSeries(input: {
+            query: "E2E overlap",
+            startDateFrom: "2025-10-03",
+            endDateTo: "2025-10-05",
+            pagination: { mode: OFFSET, page: 1, pageSize: 50, withTotal: true },
+            sorts: [{ field: "id", direction: ASC }]
+          }) {
+            items { id title startDate endDate }
+          }
+        }
+      `;
+      const searchRes = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', managerTokenWithBearer)
+        .send({ query: searchQuery })
+        .expect(200);
+      if (searchRes.body.errors)
+        throw new Error(`GraphQL 错误: ${JSON.stringify(searchRes.body.errors)}`);
+
+      const titles = (
+        (searchRes.body.data.searchCourseSeries.items ?? []) as Array<{ title: string }>
+      ).map((i) => i.title);
+      expect(titles.some((t) => t.includes('overlap A'))).toBe(true);
+      expect(titles.some((t) => t.includes('overlap B'))).toBe(true);
+      expect(titles.some((t) => t.includes('overlap C'))).toBe(false);
+    });
+
+    it('日期过滤下界冲突时返回 COURSE_SERIES_INVALID_PARAMS', async () => {
+      const searchQuery = `
+        query {
+          searchCourseSeries(input: {
+            query: "E2E overlap",
+            startDateFrom: "2025-10-03",
+            endDateFrom: "2025-10-04",
+            pagination: { mode: OFFSET, page: 1, pageSize: 10, withTotal: true },
+            sorts: [{ field: "id", direction: ASC }]
+          }) {
+            items { id }
+          }
+        }
+      `;
+      const searchRes = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', managerTokenWithBearer)
+        .send({ query: searchQuery })
+        .expect(200);
+      const err = (searchRes.body.errors?.[0] ?? null) as {
+        extensions?: { errorCode?: string };
+      } | null;
+      expect(err?.extensions?.errorCode).toBe('COURSE_SERIES_INVALID_PARAMS');
+    });
+
+    it('coach 搜索仅返回自己发布的系列', async () => {
+      const catalogId = await ensureCatalog();
+
+      const createAsManager = async (title: string): Promise<number> => {
+        const createMutation = `
+          mutation {
+            createCourseSeriesDraft(input: {
+              catalogId: ${catalogId},
+              title: "${title}",
+              description: "说明",
+              venueType: ${VenueType.SANDA_GYM},
+              classMode: ${ClassMode.SMALL_CLASS},
+              startDate: "2025-11-01",
+              endDate: "2025-11-07",
+              recurrenceRule: "BYDAY=MO;BYHOUR=18;BYMINUTE=0",
+              leaveCutoffHours: 12,
+              maxLearners: 4,
+              remark: "E2E 草稿测试"
+            }) { id }
+          }
+        `;
+        const res = await request(app.getHttpServer())
+          .post('/graphql')
+          .set('Authorization', managerTokenWithBearer)
+          .send({ query: createMutation })
+          .expect(200);
+        if (res.body.errors) throw new Error(`GraphQL 错误: ${JSON.stringify(res.body.errors)}`);
+        return Number(res.body.data.createCourseSeriesDraft.id);
+      };
+
+      const createAsCoach = async (title: string): Promise<number> => {
+        const createMutation = `
+          mutation {
+            createCourseSeriesDraft(input: {
+              catalogId: ${catalogId},
+              title: "${title}",
+              description: "说明",
+              venueType: ${VenueType.SANDA_GYM},
+              classMode: ${ClassMode.SMALL_CLASS},
+              startDate: "2025-11-01",
+              endDate: "2025-11-07",
+              recurrenceRule: "BYDAY=MO;BYHOUR=18;BYMINUTE=0",
+              leaveCutoffHours: 12,
+              maxLearners: 4,
+              remark: "E2E 草稿测试"
+            }) { id }
+          }
+        `;
+        const res = await request(app.getHttpServer())
+          .post('/graphql')
+          .set('Authorization', coachTokenWithBearer)
+          .send({ query: createMutation })
+          .expect(200);
+        if (res.body.errors) throw new Error(`GraphQL 错误: ${JSON.stringify(res.body.errors)}`);
+        return Number(res.body.data.createCourseSeriesDraft.id);
+      };
+
+      await createAsManager('E2E 搜索 only-manager');
+      await createAsCoach('E2E 搜索 only-coach');
+
+      const searchQuery = `
+        query {
+          searchCourseSeries(input: {
+            query: "E2E 搜索 only-",
+            pagination: { mode: OFFSET, page: 1, pageSize: 50, withTotal: true },
+            sorts: [{ field: "id", direction: DESC }]
+          }) {
+            items { id title }
+          }
+        }
+      `;
+
+      const searchRes = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', coachTokenWithBearer)
+        .send({ query: searchQuery })
+        .expect(200);
+      if (searchRes.body.errors)
+        throw new Error(`GraphQL 错误: ${JSON.stringify(searchRes.body.errors)}`);
+
+      const titles = (
+        (searchRes.body.data.searchCourseSeries.items ?? []) as Array<{ id: number; title: string }>
+      ).map((i) => i.title);
+
+      expect(titles.some((t) => t.includes('only-coach'))).toBe(true);
+      expect(titles.some((t) => t.includes('only-manager'))).toBe(false);
+    });
+
+    it('支持 CURSOR 分页：hasNext 与 nextCursor 可用', async () => {
+      const catalogId = await ensureCatalog();
+
+      const createAsManager = async (title: string): Promise<number> => {
+        const createMutation = `
+          mutation {
+            createCourseSeriesDraft(input: {
+              catalogId: ${catalogId},
+              title: "${title}",
+              description: "说明",
+              venueType: ${VenueType.SANDA_GYM},
+              classMode: ${ClassMode.SMALL_CLASS},
+              startDate: "2025-12-01",
+              endDate: "2025-12-07",
+              recurrenceRule: "BYDAY=MO;BYHOUR=18;BYMINUTE=0",
+              leaveCutoffHours: 12,
+              maxLearners: 4,
+              remark: "E2E 草稿测试"
+            }) { id }
+          }
+        `;
+        const res = await request(app.getHttpServer())
+          .post('/graphql')
+          .set('Authorization', managerTokenWithBearer)
+          .send({ query: createMutation })
+          .expect(200);
+        if (res.body.errors) throw new Error(`GraphQL 错误: ${JSON.stringify(res.body.errors)}`);
+        return Number(res.body.data.createCourseSeriesDraft.id);
+      };
+
+      const idA = await createAsManager('E2E 搜索 cursor A');
+      const idB = await createAsManager('E2E 搜索 cursor B');
+      const idC = await createAsManager('E2E 搜索 cursor C');
+      await dataSource.query('UPDATE course_series SET created_at = ? WHERE id = ?', [
+        '2025-01-01 10:00:03',
+        idA,
+      ]);
+      await dataSource.query('UPDATE course_series SET created_at = ? WHERE id = ?', [
+        '2025-01-01 10:00:02',
+        idB,
+      ]);
+      await dataSource.query('UPDATE course_series SET created_at = ? WHERE id = ?', [
+        '2025-01-01 10:00:01',
+        idC,
+      ]);
+
+      const searchQuery = `
+        query Search($input: SearchCourseSeriesInputGql!) {
+          searchCourseSeries(input: $input) {
+            items { id title }
+            pageInfo { hasNext nextCursor }
+          }
+        }
+      `;
+
+      const firstRes = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', managerTokenWithBearer)
+        .send({
+          query: searchQuery,
+          variables: {
+            input: {
+              query: 'E2E 搜索 cursor',
+              pagination: { mode: 'CURSOR', limit: 2 },
+              sorts: [
+                { field: 'createdAt', direction: 'DESC' },
+                { field: 'id', direction: 'DESC' },
+              ],
+            },
+          },
+        })
+        .expect(200);
+      if (firstRes.body.errors)
+        throw new Error(`GraphQL 错误: ${JSON.stringify(firstRes.body.errors)}`);
+
+      const first = firstRes.body.data.searchCourseSeries as {
+        items: Array<{ id: number; title: string }>;
+        pageInfo?: { hasNext: boolean; nextCursor?: string | null } | null;
+      };
+      expect(first.items.length).toBe(2);
+      expect(first.pageInfo?.hasNext).toBe(true);
+      expect(typeof first.pageInfo?.nextCursor).toBe('string');
+
+      const after = first.pageInfo?.nextCursor ?? '';
+      const secondRes = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', managerTokenWithBearer)
+        .send({
+          query: searchQuery,
+          variables: {
+            input: {
+              query: 'E2E 搜索 cursor',
+              pagination: { mode: 'CURSOR', limit: 2, after },
+              sorts: [
+                { field: 'createdAt', direction: 'DESC' },
+                { field: 'id', direction: 'DESC' },
+              ],
+            },
+          },
+        })
+        .expect(200);
+      if (secondRes.body.errors)
+        throw new Error(`GraphQL 错误: ${JSON.stringify(secondRes.body.errors)}`);
+
+      const second = secondRes.body.data.searchCourseSeries as {
+        items: Array<{ id: number; title: string }>;
+        pageInfo?: { hasNext: boolean; nextCursor?: string | null } | null;
+      };
+
+      expect(second.items.length).toBeGreaterThan(0);
+      expect(second.items[0]?.id).not.toBe(first.items[0]?.id);
+    });
+
+    it('CURSOR 模式带 after 翻两页：不重复不漏', async () => {
+      const catalogId = await ensureCatalog();
+
+      /**
+       * 创建一条用于游标翻页测试的草稿系列。
+       * @param title 系列标题（用于搜索过滤）
+       */
+      const createForCursorPaging = async (title: string): Promise<number> => {
+        const createMutation = `
+          mutation {
+            createCourseSeriesDraft(input: {
+              catalogId: ${catalogId},
+              title: "${title}",
+              description: "Cursor after 翻页测试",
+              venueType: ${VenueType.SANDA_GYM},
+              classMode: ${ClassMode.SMALL_CLASS},
+              startDate: "2025-12-01",
+              endDate: "2025-12-07",
+              recurrenceRule: "BYDAY=MO;BYHOUR=18;BYMINUTE=0",
+              leaveCutoffHours: 12,
+              maxLearners: 4,
+              remark: "E2E 草稿测试"
+            }) { id }
+          }
+        `;
+        const res = await request(app.getHttpServer())
+          .post('/graphql')
+          .set('Authorization', managerTokenWithBearer)
+          .send({ query: createMutation })
+          .expect(200);
+        if (res.body.errors) throw new Error(`GraphQL 错误: ${JSON.stringify(res.body.errors)}`);
+        const id = Number(res.body.data.createCourseSeriesDraft.id);
+        expect(id).toBeGreaterThan(0);
+        return id;
+      };
+
+      const titles = [
+        'E2E 游标翻页 A',
+        'E2E 游标翻页 B',
+        'E2E 游标翻页 C',
+        'E2E 游标翻页 D',
+        'E2E 游标翻页 E',
+        'E2E 游标翻页 F',
+      ];
+
+      const ids: number[] = [];
+      for (const t of titles) {
+        ids.push(await createForCursorPaging(t));
+      }
+
+      const createdAtValues = [
+        '2025-01-01 10:00:06',
+        '2025-01-01 10:00:05',
+        '2025-01-01 10:00:04',
+        '2025-01-01 10:00:03',
+        '2025-01-01 10:00:02',
+        '2025-01-01 10:00:01',
+      ];
+      for (let i = 0; i < ids.length; i += 1) {
+        await dataSource.query('UPDATE course_series SET created_at = ? WHERE id = ?', [
+          createdAtValues[i],
+          ids[i],
+        ]);
+      }
+
+      const expectedRows = await dataSource.query(
+        'SELECT id FROM course_series WHERE remark = ? AND title LIKE ? ORDER BY created_at DESC, id DESC',
+        ['E2E 草稿测试', 'E2E 游标翻页 %'],
+      );
+      const expectedIds = expectedRows.map((r: { readonly id: number }) => Number(r.id));
+      expect(expectedIds.length).toBe(6);
+
+      const searchQuery = `
+        query Search($input: SearchCourseSeriesInputGql!) {
+          searchCourseSeries(input: $input) {
+            items { id title }
+            pageInfo { hasNext nextCursor }
+          }
+        }
+      `;
+
+      const firstRes = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', managerTokenWithBearer)
+        .send({
+          query: searchQuery,
+          variables: {
+            input: {
+              query: 'E2E 游标翻页',
+              startDateFrom: '2025-12-02',
+              endDateTo: '2025-12-06',
+              pagination: { mode: 'CURSOR', limit: 3 },
+              sorts: [
+                { field: 'createdAt', direction: 'DESC' },
+                { field: 'id', direction: 'DESC' },
+              ],
+            },
+          },
+        })
+        .expect(200);
+      if (firstRes.body.errors)
+        throw new Error(`GraphQL 错误: ${JSON.stringify(firstRes.body.errors)}`);
+      const first = firstRes.body.data.searchCourseSeries as {
+        items: Array<{ id: number; title: string }>;
+        pageInfo?: { hasNext: boolean; nextCursor?: string | null } | null;
+      };
+      expect(first.items.length).toBe(3);
+      expect(first.pageInfo?.hasNext).toBe(true);
+      expect(typeof first.pageInfo?.nextCursor).toBe('string');
+
+      const after = first.pageInfo?.nextCursor ?? '';
+      const secondRes = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', managerTokenWithBearer)
+        .send({
+          query: searchQuery,
+          variables: {
+            input: {
+              query: 'E2E 游标翻页',
+              startDateFrom: '2025-12-02',
+              endDateTo: '2025-12-06',
+              pagination: { mode: 'CURSOR', limit: 3, after },
+              sorts: [
+                { field: 'createdAt', direction: 'DESC' },
+                { field: 'id', direction: 'DESC' },
+              ],
+            },
+          },
+        })
+        .expect(200);
+      if (secondRes.body.errors)
+        throw new Error(`GraphQL 错误: ${JSON.stringify(secondRes.body.errors)}`);
+      const second = secondRes.body.data.searchCourseSeries as {
+        items: Array<{ id: number; title: string }>;
+        pageInfo?: { hasNext: boolean; nextCursor?: string | null } | null;
+      };
+      expect(second.items.length).toBe(3);
+      expect(second.pageInfo?.hasNext).toBe(false);
+
+      const gotIds = [
+        ...first.items.map((i) => Number(i.id)),
+        ...second.items.map((i) => Number(i.id)),
+      ];
+      expect(new Set(gotIds).size).toBe(gotIds.length);
+      expect(gotIds).toEqual(expectedIds);
     });
   });
 });
