@@ -15,8 +15,13 @@ import {
   type PublishSeriesOutput,
 } from '@src/usecases/course/series/publish-series.usecase';
 import { SearchSeriesUsecase } from '@src/usecases/course/series/search-series.usecase';
+import { UpdateSeriesUsecase } from '@src/usecases/course/series/update-series.usecase';
+import { IdentityTypeEnum } from '@app-types/models/account.types';
+import { CourseSeriesEntity } from '@src/modules/course/series/course-series.entity';
 import { currentUser } from '../../decorators/current-user.decorator';
+import { Roles } from '../../decorators/roles.decorator';
 import { JwtAuthGuard } from '../../guards/jwt-auth.guard';
+import { RolesGuard } from '../../guards/roles.guard';
 import { CourseSeriesDTO } from './dto/course-series.dto';
 import {
   PaginatedCourseSeriesResultDTO,
@@ -28,6 +33,7 @@ import { CreateCourseSeriesDraftInput } from './dto/create-course-series-draft.i
 import { PreviewSeriesScheduleInput } from './dto/preview-series-schedule.input';
 import { PublishCourseSeriesInput } from './dto/publish-course-series.input';
 import { SearchCourseSeriesInputGql } from './dto/search-course-series.input';
+import { UpdateCourseSeriesInput } from './dto/update-course-series.input';
 
 @Resolver(() => CourseSeriesDTO)
 export class CourseSeriesResolver {
@@ -36,6 +42,7 @@ export class CourseSeriesResolver {
     private readonly previewUsecase: PreviewSeriesScheduleUsecase,
     private readonly publishUsecase: PublishSeriesUsecase,
     private readonly searchUsecase: SearchSeriesUsecase,
+    private readonly updateUsecase: UpdateSeriesUsecase,
   ) {}
 
   @UseGuards(JwtAuthGuard)
@@ -49,6 +56,61 @@ export class CourseSeriesResolver {
   ): Promise<CourseSeriesDTO> {
     const session: UsecaseSession = mapJwtToUsecaseSession(user);
     const { series }: CreateSeriesOutput = await this.createUsecase.execute({ session, input });
+    const dto = new CourseSeriesDTO();
+    dto.id = series.id;
+    dto.catalogId = series.catalogId;
+    dto.title = series.title;
+    dto.description = series.description;
+    dto.venueType = series.venueType;
+    dto.classMode = series.classMode;
+    dto.startDate = series.startDate;
+    dto.endDate = series.endDate;
+    dto.recurrenceRule = series.recurrenceRule;
+    dto.leaveCutoffHours = series.leaveCutoffHours;
+    dto.pricePerSession = series.pricePerSession;
+    dto.teachingFeeRef = series.teachingFeeRef;
+    dto.maxLearners = series.maxLearners;
+    dto.status = series.status;
+    dto.remark = series.remark;
+    dto.createdAt = series.createdAt;
+    dto.updatedAt = series.updatedAt;
+    dto.createdBy = series.createdBy;
+    dto.updatedBy = series.updatedBy;
+    return dto;
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(IdentityTypeEnum.MANAGER)
+  @Mutation(() => CourseSeriesDTO, {
+    name: 'updateCourseSeries',
+    description: '更新开课班信息（仅允许更新特定字段）',
+  })
+  async updateCourseSeries(
+    @currentUser() user: JwtPayload,
+    @Args('input') input: UpdateCourseSeriesInput,
+  ): Promise<CourseSeriesDTO> {
+    const session: UsecaseSession = mapJwtToUsecaseSession(user);
+    const { id, pricePerSession, teachingFeeRef, ...rest } = input;
+
+    // 手动构造 Partial<CourseSeriesEntity>，处理类型转换
+    const data: Partial<CourseSeriesEntity> = {
+      ...rest,
+    };
+
+    if (pricePerSession !== undefined) {
+      data.pricePerSession = pricePerSession === null ? null : pricePerSession.toFixed(2);
+    }
+
+    if (teachingFeeRef !== undefined) {
+      data.teachingFeeRef = teachingFeeRef === null ? null : teachingFeeRef.toFixed(2);
+    }
+
+    const series = await this.updateUsecase.execute({
+      session,
+      id,
+      data,
+    });
+
     const dto = new CourseSeriesDTO();
     dto.id = series.id;
     dto.catalogId = series.catalogId;
