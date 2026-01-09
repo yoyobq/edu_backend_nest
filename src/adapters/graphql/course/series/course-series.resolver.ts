@@ -80,7 +80,7 @@ export class CourseSeriesResolver {
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(IdentityTypeEnum.MANAGER)
+  @Roles(IdentityTypeEnum.MANAGER, IdentityTypeEnum.COACH)
   @Mutation(() => CourseSeriesDTO, {
     name: 'updateCourseSeries',
     description: '更新开课班信息（仅允许更新特定字段）',

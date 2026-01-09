@@ -1,6 +1,6 @@
 // 文件位置：test/04-course/update-course-series.e2e-spec.ts
 import { AudienceTypeEnum, LoginTypeEnum } from '@app-types/models/account.types';
-import { ClassMode, CourseSeriesStatus, VenueType } from '@app-types/models/course-series.types';
+import { ClassMode, VenueType } from '@app-types/models/course-series.types';
 import { CourseLevel } from '@app-types/models/course.types';
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
@@ -101,15 +101,22 @@ describe('Update Course Series (e2e)', () => {
     return (created as CourseCatalogEntity).id;
   };
 
-  const createDraftSeries = async (catalogId: number): Promise<number> => {
+  const createDraftSeries = async (params: {
+    readonly catalogId: number;
+    readonly auth: string;
+    readonly title?: string;
+    readonly remark?: string;
+  }): Promise<number> => {
     const start = new Date();
     const end = new Date(start.getTime() + 7 * 24 * 3600 * 1000);
+    const title = params.title ?? 'E2E 待更新系列';
+    const remark = params.remark ?? 'E2E 更新测试';
 
     const mutation = `
       mutation {
         createCourseSeriesDraft(input: {
-          catalogId: ${catalogId},
-          title: "E2E 待更新系列",
+          catalogId: ${params.catalogId},
+          title: "${title}",
           description: "初始描述",
           venueType: ${VenueType.SANDA_GYM},
           classMode: ${ClassMode.SMALL_CLASS},
@@ -120,14 +127,14 @@ describe('Update Course Series (e2e)', () => {
           pricePerSession: 100.00,
           teachingFeeRef: 50.00,
           maxLearners: 4,
-          remark: "E2E 更新测试"
+          remark: "${remark}"
         }) { id }
       }
     `;
 
     const res = await request(app.getHttpServer())
       .post('/graphql')
-      .set('Authorization', managerTokenWithBearer)
+      .set('Authorization', params.auth)
       .send({ query: mutation })
       .expect(200);
 
@@ -136,14 +143,14 @@ describe('Update Course Series (e2e)', () => {
   };
 
   const cleanupSeriesAndCatalogs = async (): Promise<void> => {
-    await dataSource.query('DELETE FROM course_series WHERE remark = ?', ['E2E 更新测试']);
+    await dataSource.query('DELETE FROM course_series WHERE remark LIKE ?', ['E2E 更新测试%']);
     await dataSource.query('DELETE FROM course_catalogs WHERE title = ?', ['E2E 更新测试目录']);
   };
 
   describe('updateCourseSeries', () => {
     it('manager 可以更新草稿系列的基本信息', async () => {
       const catalogId = await ensureCatalog();
-      const seriesId = await createDraftSeries(catalogId);
+      const seriesId = await createDraftSeries({ catalogId, auth: managerTokenWithBearer });
 
       const updateMutation = `
         mutation {
@@ -196,7 +203,7 @@ describe('Update Course Series (e2e)', () => {
 
     it('支持部分更新（只更新价格）', async () => {
       const catalogId = await ensureCatalog();
-      const seriesId = await createDraftSeries(catalogId);
+      const seriesId = await createDraftSeries({ catalogId, auth: managerTokenWithBearer });
 
       const updateMutation = `
         mutation {
@@ -222,9 +229,46 @@ describe('Update Course Series (e2e)', () => {
       expect(data.title).toBe('E2E 待更新系列'); // 保持原值
     });
 
-    it('Coach 无法更新系列 (Forbidden)', async () => {
+    it('coach 可以更新自己创建的未发布 series', async () => {
       const catalogId = await ensureCatalog();
-      const seriesId = await createDraftSeries(catalogId);
+      const seriesId = await createDraftSeries({
+        catalogId,
+        auth: coachTokenWithBearer,
+        remark: 'E2E 更新测试 (coach)',
+      });
+
+      const updateMutation = `
+        mutation {
+          updateCourseSeries(input: {
+            id: ${seriesId},
+            title: "Coach 更新标题",
+            remark: "E2E 更新测试 (coach 已更新)"
+          }) {
+            id
+            title
+            remark
+            updatedBy
+          }
+        }
+      `;
+
+      const res = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', coachTokenWithBearer)
+        .send({ query: updateMutation })
+        .expect(200);
+
+      if (res.body.errors) throw new Error(`coach 更新失败: ${JSON.stringify(res.body.errors)}`);
+      const data = res.body.data.updateCourseSeries;
+      expect(Number(data.id)).toBe(seriesId);
+      expect(data.title).toBe('Coach 更新标题');
+      expect(data.remark).toBe('E2E 更新测试 (coach 已更新)');
+      expect(data.updatedBy).toBeTruthy();
+    });
+
+    it('coach 不允许更新非自己创建的 series', async () => {
+      const catalogId = await ensureCatalog();
+      const seriesId = await createDraftSeries({ catalogId, auth: managerTokenWithBearer });
 
       const updateMutation = `
         mutation {
@@ -245,9 +289,8 @@ describe('Update Course Series (e2e)', () => {
 
       const err = res.body.errors?.[0];
       expect(err).toBeDefined();
-      // 具体的错误码取决于 Guards 的实现，通常是 ForbiddenResource 或 ForbiddenException
-      // 在 NestJS Graphql 中，RolesGuard 拦截通常返回 Forbidden resource 或本地化的 "缺少所需角色"
-      expect(err.message).toMatch(/Forbidden resource|缺少所需角色/i);
+      const msg = String(err.message ?? '');
+      expect(msg).toMatch(/无权更新|ACCESS_DENIED|权限/i);
     });
 
     it('尝试更新不存在的系列 ID 应报错', async () => {
