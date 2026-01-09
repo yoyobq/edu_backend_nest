@@ -23,6 +23,39 @@ export class UpdateSeriesUsecase {
     private readonly coachService: CoachService,
   ) {}
 
+  private hasRole(session: UsecaseSession, role: string): boolean {
+    return (session.roles ?? []).some((r) => String(r).toUpperCase() === role);
+  }
+
+  private async assertCanUpdate(
+    session: UsecaseSession,
+    series: CourseSeriesEntity,
+  ): Promise<void> {
+    const isAdmin = this.hasRole(session, 'ADMIN');
+    const isManager = this.hasRole(session, 'MANAGER');
+    const isCoach = this.hasRole(session, 'COACH');
+
+    if (!isAdmin && !isManager && !isCoach) {
+      throw new DomainError(PERMISSION_ERROR.ACCESS_DENIED, '无权更新开课班');
+    }
+
+    if (isAdmin || isManager) return;
+
+    if (series.status !== CourseSeriesStatus.PLANNED) {
+      throw new DomainError(PERMISSION_ERROR.ACCESS_DENIED, '仅允许更新未发布的开课班');
+    }
+
+    const coach = await this.coachService.findByAccountId(session.accountId);
+    if (!coach) {
+      throw new DomainError(PERMISSION_ERROR.ACCESS_DENIED, '当前账户未绑定 Coach 身份');
+    }
+
+    const owned = series.publisherType === PublisherType.COACH && series.publisherId === coach.id;
+    if (!owned) {
+      throw new DomainError(PERMISSION_ERROR.ACCESS_DENIED, '无权更新该开课班');
+    }
+  }
+
   /**
    * 执行更新开课班
    * @param args 更新参数对象
@@ -39,29 +72,7 @@ export class UpdateSeriesUsecase {
         throw new DomainError(COURSE_SERIES_ERROR.SERIES_NOT_FOUND, '开课班不存在');
       }
 
-      const roles = (args.session.roles ?? []).map((r) => String(r).toUpperCase());
-      const isAdmin = roles.includes('ADMIN');
-      const isManager = roles.includes('MANAGER');
-      const isCoach = roles.includes('COACH');
-
-      if (!isAdmin && !isManager && !isCoach) {
-        throw new DomainError(PERMISSION_ERROR.ACCESS_DENIED, '无权更新开课班');
-      }
-
-      if (!isAdmin && !isManager && isCoach) {
-        if (series.status !== CourseSeriesStatus.PLANNED) {
-          throw new DomainError(PERMISSION_ERROR.ACCESS_DENIED, '仅允许更新未发布的开课班');
-        }
-        const coach = await this.coachService.findByAccountId(args.session.accountId);
-        if (!coach) {
-          throw new DomainError(PERMISSION_ERROR.ACCESS_DENIED, '当前账户未绑定 Coach 身份');
-        }
-        const owned =
-          series.publisherType === PublisherType.COACH && series.publisherId === coach.id;
-        if (!owned) {
-          throw new DomainError(PERMISSION_ERROR.ACCESS_DENIED, '无权更新该开课班');
-        }
-      }
+      await this.assertCanUpdate(args.session, series);
 
       const patch = { ...args.data };
       if (args.session.accountId) {
