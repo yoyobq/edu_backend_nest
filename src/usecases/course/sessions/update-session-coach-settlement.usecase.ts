@@ -111,7 +111,7 @@ export class SetSessionCoachPayoutUsecase {
       return entity;
     };
 
-    if (input.manager) {
+    if (input.manager !== undefined) {
       return await run(input.manager);
     }
 

@@ -54,10 +54,10 @@ export class UpdateSessionBasicInfoUsecase {
       Pick<CourseSessionEntity, 'startTime' | 'endTime' | 'leadCoachId' | 'locationText' | 'remark'>
     > = {};
 
-    if (input.startTime) {
+    if (input.startTime !== undefined) {
       patch.startTime = input.startTime;
     }
-    if (input.endTime) {
+    if (input.endTime !== undefined) {
       patch.endTime = input.endTime;
     }
     if (input.leadCoachId !== undefined) {
