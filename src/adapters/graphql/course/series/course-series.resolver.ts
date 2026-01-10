@@ -277,6 +277,12 @@ export class CourseSeriesResolver {
       selectedKeys: input.selectedKeys,
       previewHash: input.previewHash,
       dryRun: input.dryRun,
+      customSessions: input.customSessions?.map((s) => ({
+        startTime: s.startTime,
+        endTime: s.endTime,
+        locationText: s.locationText,
+        remark: s.remark ?? null,
+      })),
       leadCoachId: input.leadCoachId,
     });
     const dto = new PublishSeriesResultDTO();

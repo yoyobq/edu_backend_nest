@@ -1,11 +1,44 @@
 // src/adapters/graphql/course/series/dto/publish-course-series.input.ts
+import { Type } from 'class-transformer';
 import { Field, InputType, Int } from '@nestjs/graphql';
-import { IsInt, IsOptional, IsString, MaxLength, Min } from 'class-validator';
+import {
+  IsArray,
+  IsDate,
+  IsInt,
+  IsOptional,
+  IsString,
+  MaxLength,
+  Min,
+  ValidateNested,
+} from 'class-validator';
 
 /**
  * 发布开课班 入参 DTO
  * 与 Usecase 的 PublishSeriesInput 对齐
  */
+@InputType()
+export class PublishCustomCourseSessionInput {
+  @Field(() => Date, { description: '节次开始时间' })
+  @IsDate({ message: '节次开始时间必须是 Date 类型' })
+  startTime!: Date;
+
+  @Field(() => Date, { description: '节次结束时间' })
+  @IsDate({ message: '节次结束时间必须是 Date 类型' })
+  endTime!: Date;
+
+  @Field(() => String, { nullable: true, description: '上课地点文本（默认 馆内）' })
+  @IsOptional()
+  @IsString({ message: '上课地点必须是字符串' })
+  @MaxLength(64, { message: '上课地点长度不能超过 64 个字符' })
+  locationText?: string;
+
+  @Field(() => String, { nullable: true, description: '备注（可选）' })
+  @IsOptional()
+  @IsString({ message: '备注必须是字符串' })
+  @MaxLength(200, { message: '备注长度不能超过 200 个字符' })
+  remark?: string | null;
+}
+
 @InputType()
 export class PublishCourseSeriesInput {
   @Field(() => Int, { description: '开课班 ID' })
@@ -28,6 +61,16 @@ export class PublishCourseSeriesInput {
   @Field(() => Boolean, { nullable: true, description: '是否为试发布（不写库）' })
   @IsOptional()
   dryRun?: boolean;
+
+  @Field(() => [PublishCustomCourseSessionInput], {
+    nullable: true,
+    description: '自定义临时课次列表（不受 recurrenceRule 限制）',
+  })
+  @IsOptional()
+  @IsArray({ message: '自定义临时课次必须是数组' })
+  @ValidateNested({ each: true })
+  @Type(() => PublishCustomCourseSessionInput)
+  customSessions?: PublishCustomCourseSessionInput[];
 
   @Field(() => Int, {
     nullable: true,

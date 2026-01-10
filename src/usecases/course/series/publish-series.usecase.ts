@@ -24,6 +24,12 @@ export interface PublishSeriesInput {
   readonly selectedKeys?: ReadonlyArray<string>;
   readonly previewHash: string;
   readonly dryRun?: boolean;
+  readonly customSessions?: ReadonlyArray<{
+    readonly startTime: Date;
+    readonly endTime: Date;
+    readonly locationText?: string;
+    readonly remark?: string | null;
+  }>;
   readonly leadCoachId?: number;
 }
 
@@ -63,13 +69,15 @@ export class PublishSeriesUsecase {
 
     const occurrences = this.recomputeOccurrences(series);
     const toCreate = this.filterBySelectedKeys(occurrences, selectedKeys);
+    const customSessions = input.customSessions ?? [];
+    this.validateCustomSessionsOrThrow(series, customSessions, toCreate);
 
     const leadCoachId = await this.resolveLeadCoachId({
       series,
       selectedLeadCoachId: input.leadCoachId,
     });
 
-    if (toCreate.length === 0 && dryRun !== true) {
+    if (toCreate.length === 0 && customSessions.length === 0 && dryRun !== true) {
       throw new DomainError(COURSE_SERIES_ERROR.INVALID_PARAMS, '发布必须至少包含 1 个节次');
     }
 
@@ -82,14 +90,24 @@ export class PublishSeriesUsecase {
     let created = 0;
     const publishedAt = new Date().toISOString();
     await this.dataSource.transaction(async (manager) => {
-      const items = toCreate.map((occ) => ({
-        seriesId: series.id,
-        startTime: occ.startTime,
-        endTime: occ.endTime,
-        leadCoachId,
-        locationText: '馆内',
-        remark: null,
-      }));
+      const items = [
+        ...toCreate.map((occ) => ({
+          seriesId: series.id,
+          startTime: occ.startTime,
+          endTime: occ.endTime,
+          leadCoachId,
+          locationText: '馆内',
+          remark: null,
+        })),
+        ...customSessions.map((s) => ({
+          seriesId: series.id,
+          startTime: s.startTime,
+          endTime: s.endTime,
+          leadCoachId,
+          locationText: s.locationText?.trim() ? s.locationText.trim() : '馆内',
+          remark: s.remark ?? null,
+        })),
+      ];
 
       const res = await this.sessionsService.bulkCreate({ items, manager });
       created = res.created;
@@ -249,6 +267,76 @@ export class PublishSeriesUsecase {
       .map((o) => ({ startTime: o.startTime, endTime: o.endTime }));
   }
 
+  private validateCustomSessionsOrThrow(
+    series: CourseSeriesEntity,
+    customSessions: ReadonlyArray<{
+      readonly startTime: Date;
+      readonly endTime: Date;
+      readonly locationText?: string;
+      readonly remark?: string | null;
+    }>,
+    scheduled: ReadonlyArray<{ startTime: Date; endTime: Date }>,
+  ): void {
+    if (customSessions.length === 0) return;
+
+    const rangeStart = this.parseDate(series.startDate);
+    const rangeEnd = this.endOfDate(series.endDate);
+    const scheduledStartTimes = new Set(scheduled.map((s) => s.startTime.getTime()));
+    const customStartTimes = new Set<number>();
+
+    for (const s of customSessions) {
+      this.assertCustomSessionTimeOrThrow(s);
+      this.assertCustomSessionInRangeOrThrow(s, rangeStart, rangeEnd);
+      this.assertCustomSessionUniqueStartOrThrow(s, scheduledStartTimes, customStartTimes);
+    }
+  }
+
+  private assertCustomSessionTimeOrThrow(input: {
+    readonly startTime: Date;
+    readonly endTime: Date;
+  }): void {
+    const st = input.startTime?.getTime?.();
+    const et = input.endTime?.getTime?.();
+    if (!Number.isFinite(st) || !Number.isFinite(et)) {
+      throw new DomainError(COURSE_SERIES_ERROR.INVALID_PARAMS, '临时课次时间无效');
+    }
+    if (Number(st) >= Number(et)) {
+      throw new DomainError(COURSE_SERIES_ERROR.INVALID_PARAMS, '临时课次开始时间必须早于结束时间');
+    }
+  }
+
+  private assertCustomSessionInRangeOrThrow(
+    input: { readonly startTime: Date; readonly endTime: Date },
+    rangeStart: Date,
+    rangeEnd: Date,
+  ): void {
+    const startTime = input.startTime.getTime();
+    const endTime = input.endTime.getTime();
+    const startOk = startTime >= rangeStart.getTime() && startTime <= rangeEnd.getTime();
+    const endOk = endTime >= rangeStart.getTime() && endTime <= rangeEnd.getTime();
+    if (!startOk || !endOk) {
+      throw new DomainError(COURSE_SERIES_ERROR.INVALID_PARAMS, '临时课次不在开班日期范围内');
+    }
+  }
+
+  private assertCustomSessionUniqueStartOrThrow(
+    input: { readonly startTime: Date },
+    scheduledStartTimes: ReadonlySet<number>,
+    customStartTimes: Set<number>,
+  ): void {
+    const key = input.startTime.getTime();
+    if (scheduledStartTimes.has(key)) {
+      throw new DomainError(
+        COURSE_SERIES_ERROR.INVALID_PARAMS,
+        '临时课次与规则课次存在重复开始时间',
+      );
+    }
+    if (customStartTimes.has(key)) {
+      throw new DomainError(COURSE_SERIES_ERROR.INVALID_PARAMS, '临时课次列表存在重复开始时间');
+    }
+    customStartTimes.add(key);
+  }
+
   /**
    * 生成 occurrence key：YYYY-MM-DDTHH:mm#v1
    */
@@ -267,6 +355,12 @@ export class PublishSeriesUsecase {
   private parseDate(s: string): Date {
     const [y, m, d] = s.split('-').map((t) => Number(t));
     return new Date(y, m - 1, d, 0, 0, 0, 0);
+  }
+
+  private endOfDate(s: string): Date {
+    const d = this.parseDate(s);
+    d.setHours(23, 59, 59, 999);
+    return d;
   }
 
   /**
