@@ -2,11 +2,12 @@
 import { mapJwtToUsecaseSession } from '@app-types/auth/session.types';
 import { JwtPayload } from '@app-types/jwt.types';
 import { UseGuards } from '@nestjs/common';
-import { Args, Query, Resolver } from '@nestjs/graphql';
+import { Args, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { Roles } from '@src/adapters/graphql/decorators/roles.decorator';
 import { JwtAuthGuard } from '@src/adapters/graphql/guards/jwt-auth.guard';
 import { RolesGuard } from '@src/adapters/graphql/guards/roles.guard';
 import { CourseSessionEntity } from '@src/modules/course/sessions/course-session.entity';
+import { UpdateSessionBasicInfoUsecase } from '@src/usecases/course/sessions/update-session-basic-info.usecase';
 import { ViewSessionsBySeriesUsecase } from '@src/usecases/course/sessions/view-sessions-by-series.usecase';
 import { currentUser } from '../../decorators/current-user.decorator';
 import {
@@ -19,6 +20,7 @@ import {
   CourseSessionsBySeriesResult,
   CustomerCourseSessionsBySeriesResult,
 } from './dto/list-sessions-by-series.result';
+import { UpdateCourseSessionInput } from './dto/update-course-session.input';
 
 function toCourseSessionDTO(entity: CourseSessionEntity): CourseSessionDTO {
   const dto = new CourseSessionDTO();
@@ -75,7 +77,10 @@ function toCourseSessionSafeViewDTO(entity: CourseSessionEntity): CourseSessionS
  */
 @Resolver()
 export class CourseSessionsResolver {
-  constructor(private readonly viewSessionsBySeriesUsecase: ViewSessionsBySeriesUsecase) {}
+  constructor(
+    private readonly viewSessionsBySeriesUsecase: ViewSessionsBySeriesUsecase,
+    private readonly updateSessionBasicInfoUsecase: UpdateSessionBasicInfoUsecase,
+  ) {}
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('MANAGER', 'ADMIN')
@@ -143,5 +148,28 @@ export class CourseSessionsResolver {
     const result = new CustomerCourseSessionsBySeriesResult();
     result.items = sessions.map((s) => toCourseSessionSafeViewDTO(s));
     return result;
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('MANAGER', 'ADMIN')
+  @Mutation(() => CourseSessionDTO, {
+    name: 'updateCourseSession',
+    description: '更新课程节次基础信息（时间/地点/主教练/备注）',
+  })
+  async updateCourseSession(
+    @Args('input') input: UpdateCourseSessionInput,
+    @currentUser() user: JwtPayload,
+  ): Promise<CourseSessionDTO> {
+    const session = mapJwtToUsecaseSession(user);
+    const updated = await this.updateSessionBasicInfoUsecase.execute(session, {
+      sessionId: input.id,
+      startTime: input.startTime,
+      endTime: input.endTime,
+      locationText: input.locationText,
+      leadCoachId: input.leadCoachId,
+      remark: input.remark,
+    });
+
+    return toCourseSessionDTO(updated);
   }
 }
