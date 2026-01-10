@@ -1,6 +1,6 @@
 // src/adapters/graphql/course/series/dto/update-course-series.input.ts
 import { ClassMode, VenueType } from '@app-types/models/course-series.types';
-import { Field, Float, ID, InputType, Int } from '@nestjs/graphql';
+import { Field, Float, InputType, Int } from '@nestjs/graphql';
 import {
   IsDateString,
   IsEnum,
@@ -14,7 +14,7 @@ import {
 
 @InputType()
 export class UpdateCourseSeriesInput {
-  @Field(() => ID, { description: '开课班 ID' })
+  @Field(() => Int, { description: '开课班 ID' })
   @IsInt({ message: 'ID 必须是整数' })
   id!: number;
 

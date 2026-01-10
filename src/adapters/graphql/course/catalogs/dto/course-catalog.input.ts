@@ -1,7 +1,7 @@
 // src/adapters/graphql/course/catalogs/dto/course-catalog.input.ts
 // 迁移自 src/adapters/graphql/course-catalogs/dto/course-catalog.input.ts
 import { CourseLevel } from '@app-types/models/course.types';
-import { Field, ID, InputType } from '@nestjs/graphql';
+import { Field, InputType, Int } from '@nestjs/graphql';
 import { Type } from 'class-transformer';
 import { IsEnum, IsInt, IsOptional, IsString, MaxLength } from 'class-validator';
 
@@ -22,7 +22,7 @@ export class GetCatalogByLevelInput {
  */
 @InputType({ description: '更新课程目录详情' })
 export class UpdateCatalogDetailsInput {
-  @Field(() => ID, { description: '课程目录 ID' })
+  @Field(() => Int, { description: '课程目录 ID' })
   @Type(() => Number)
   @IsInt({ message: 'ID 必须是整数' })
   id!: number;
@@ -46,7 +46,7 @@ export class UpdateCatalogDetailsInput {
 @InputType({ description: '下线课程目录输入参数' })
 export class DeactivateCatalogInput {
   /** 课程目录 ID */
-  @Field(() => ID, { description: '课程目录 ID' })
+  @Field(() => Int, { description: '课程目录 ID' })
   @Type(() => Number)
   @IsInt({ message: 'ID 必须是整数' })
   id!: number;
@@ -58,7 +58,7 @@ export class DeactivateCatalogInput {
 @InputType({ description: '重新激活课程目录输入参数' })
 export class ReactivateCatalogInput {
   /** 课程目录 ID */
-  @Field(() => ID, { description: '课程目录 ID' })
+  @Field(() => Int, { description: '课程目录 ID' })
   @Type(() => Number)
   @IsInt({ message: 'ID 必须是整数' })
   id!: number;

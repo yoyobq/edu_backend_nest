@@ -1,6 +1,6 @@
 // src/adapters/graphql/account/dto/update-account.input.ts
 import { AccountStatus } from '@app-types/models/account.types';
-import { Field, ID, InputType } from '@nestjs/graphql';
+import { Field, InputType, Int } from '@nestjs/graphql';
 import { IsEmail, IsEnum, IsInt, IsOptional, IsString, MinLength } from 'class-validator';
 import { IsValidPassword } from '@core/common/password/password-validation.decorator';
 
@@ -9,7 +9,7 @@ import { IsValidPassword } from '@core/common/password/password-validation.decor
  */
 @InputType()
 export class UpdateAccountInput {
-  @Field(() => ID, { description: '账户 ID' })
+  @Field(() => Int, { description: '账户 ID' })
   @IsInt({ message: 'ID 必须是整数' })
   id!: number;
 

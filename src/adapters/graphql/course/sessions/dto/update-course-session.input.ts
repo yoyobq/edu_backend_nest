@@ -1,10 +1,10 @@
 // src/adapters/graphql/course/sessions/dto/update-course-session.input.ts
-import { Field, ID, InputType } from '@nestjs/graphql';
+import { Field, InputType, Int } from '@nestjs/graphql';
 import { IsDate, IsInt, IsOptional, IsString, MaxLength, Min, ValidateIf } from 'class-validator';
 
 @InputType()
 export class UpdateCourseSessionInput {
-  @Field(() => ID, { description: '节次 ID' })
+  @Field(() => Int, { description: '节次 ID' })
   @IsInt({ message: '节次 ID 必须是整数' })
   @Min(1, { message: '节次 ID 必须大于 0' })
   id!: number;
@@ -25,7 +25,7 @@ export class UpdateCourseSessionInput {
   @MaxLength(255, { message: '地点长度不能超过 255 个字符' })
   locationText?: string | null;
 
-  @Field(() => ID, { nullable: true, description: '主教练 ID' })
+  @Field(() => Int, { nullable: true, description: '主教练 ID' })
   @ValidateIf((_, value) => value !== undefined)
   @IsInt({ message: '主教练 ID 必须是整数' })
   @Min(1, { message: '主教练 ID 必须大于 0' })
