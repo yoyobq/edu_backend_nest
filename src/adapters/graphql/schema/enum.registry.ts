@@ -324,7 +324,8 @@ const ENUM_CONFIGS: Record<string, EnumConfig> = {
     name: 'CourseSeriesStatus',
     description: '开课班状态',
     valuesMap: {
-      PLANNED: { description: '已建班未发布' },
+      PLANNED: { description: '计划中' },
+      PENDING_APPROVAL: { description: '待审批' },
       PUBLISHED: { description: '已发布' },
       CLOSED: { description: '封班' },
       FINISHED: { description: '已结课' },

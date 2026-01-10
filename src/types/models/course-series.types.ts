@@ -39,6 +39,8 @@ export enum ClassMode {
 export enum CourseSeriesStatus {
   /** 已建班但未发布 */
   PLANNED = 'PLANNED',
+  /** 待审批 */
+  PENDING_APPROVAL = 'PENDING_APPROVAL',
   /** 正在招生/进行中 */
   PUBLISHED = 'PUBLISHED',
   /** 招生已满或已封班 */
