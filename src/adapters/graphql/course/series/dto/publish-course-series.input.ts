@@ -13,8 +13,8 @@ import {
 } from 'class-validator';
 
 /**
- * 发布开课班 入参 DTO
- * 与 Usecase 的 PublishSeriesInput 对齐
+ * 应用开课班排期 入参 DTO
+ * 与 Usecase 的 ApplySeriesScheduleInput 对齐
  */
 @InputType()
 export class PublishCustomCourseSessionInput {
@@ -40,7 +40,7 @@ export class PublishCustomCourseSessionInput {
 }
 
 @InputType()
-export class PublishCourseSeriesInput {
+export class ApplyCourseSeriesScheduleInput {
   @Field(() => Int, { description: '开课班 ID' })
   @IsInt({ message: '开课班 ID 必须是整数' })
   @Min(1, { message: '开课班 ID 必须大于 0' })
@@ -80,4 +80,12 @@ export class PublishCourseSeriesInput {
   @IsInt({ message: '主教练 ID 必须是整数' })
   @Min(1, { message: '主教练 ID 必须大于 0' })
   leadCoachId?: number;
+}
+
+@InputType()
+export class PublishCourseSeriesInput {
+  @Field(() => Int, { description: '开课班 ID' })
+  @IsInt({ message: '开课班 ID 必须是整数' })
+  @Min(1, { message: '开课班 ID 必须大于 0' })
+  seriesId!: number;
 }

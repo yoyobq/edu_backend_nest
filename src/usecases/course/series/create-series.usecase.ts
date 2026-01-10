@@ -86,7 +86,7 @@ export class CreateSeriesUsecase {
       pricePerSession: this.toDecimalString(input.pricePerSession),
       teachingFeeRef: this.toDecimalString(input.teachingFeeRef),
       maxLearners,
-      status: CourseSeriesStatus.PLANNED,
+      status: CourseSeriesStatus.DRAFT,
       remark: input.remark ?? null,
       createdBy: session.accountId,
       updatedBy: session.accountId,

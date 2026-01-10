@@ -94,7 +94,11 @@ export class CourseSeriesService {
   async findAllActive(): Promise<CourseSeriesEntity[]> {
     return await this.seriesRepo.find({
       where: {
-        status: In([CourseSeriesStatus.PLANNED, CourseSeriesStatus.PUBLISHED]),
+        status: In([
+          CourseSeriesStatus.DRAFT,
+          CourseSeriesStatus.SCHEDULED,
+          CourseSeriesStatus.PUBLISHED,
+        ]),
       },
       order: { createdAt: 'ASC' },
     });
@@ -180,7 +184,7 @@ export class CourseSeriesService {
    * 规则说明：
    * - `filters` 未传入时，默认不做状态过滤（即返回全量状态）；
    * - 若显式传入 `statuses`，则以 `statuses` 为准；
-   * - 否则仅当 `activeOnly === true` 时，才收敛到“有效”状态（`PLANNED` / `PUBLISHED`）。
+   * - 否则仅当 `activeOnly === true` 时，才收敛到“有效”状态（`DRAFT` / `SCHEDULED` / `PUBLISHED`）。
    * @param filters 搜索过滤条件
    * @returns 需要应用的状态列表；不需要过滤时返回 undefined
    */
@@ -190,7 +194,7 @@ export class CourseSeriesService {
     if (!filters) return undefined;
     if (filters.statuses && filters.statuses.length > 0) return filters.statuses;
     if (filters.activeOnly === true) {
-      return [CourseSeriesStatus.PLANNED, CourseSeriesStatus.PUBLISHED];
+      return [CourseSeriesStatus.DRAFT, CourseSeriesStatus.SCHEDULED, CourseSeriesStatus.PUBLISHED];
     }
     return undefined;
   }

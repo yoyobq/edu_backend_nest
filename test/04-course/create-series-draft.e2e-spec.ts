@@ -159,7 +159,7 @@ describe('Course Series (e2e)', () => {
         maxLearners: number;
       };
 
-      expect(data.status).toBe(CourseSeriesStatus.PLANNED);
+      expect(data.status).toBe(CourseSeriesStatus.DRAFT);
       expect(data.classMode).toBe(ClassMode.SMALL_CLASS);
       expect(data.maxLearners).toBe(4);
 
@@ -241,7 +241,7 @@ describe('Course Series (e2e)', () => {
       };
 
       expect(Number(result.series.id)).toBe(seriesId);
-      expect(result.series.status).toBe(CourseSeriesStatus.PLANNED);
+      expect(result.series.status).toBe(CourseSeriesStatus.DRAFT);
       expect(Array.isArray(result.occurrences)).toBe(true);
 
       const startStr = start.toISOString().slice(0, 10);
@@ -375,7 +375,7 @@ describe('Course Series (e2e)', () => {
       expect(result.defaultLeadCoachId).toBe(coach!.id);
 
       // 继续做基本结构断言
-      expect(result.series.status).toBe(CourseSeriesStatus.PLANNED);
+      expect(result.series.status).toBe(CourseSeriesStatus.DRAFT);
       expect(Array.isArray(result.occurrences)).toBe(true);
       expect(result.occurrences.length).toBeGreaterThan(0);
     });
@@ -750,7 +750,7 @@ describe('Course Series (e2e)', () => {
       };
 
       expect(Number(result.series.id)).toBe(seriesId2);
-      expect(result.series.status).toBe(CourseSeriesStatus.PLANNED);
+      expect(result.series.status).toBe(CourseSeriesStatus.DRAFT);
       expect(Array.isArray(result.occurrences)).toBe(true);
       expect(result.occurrences.length).toBeGreaterThan(0);
       for (const occ of result.occurrences) {
@@ -963,7 +963,7 @@ describe('Course Series (e2e)', () => {
   });
 
   describe('Publish Series', () => {
-    it('manager dryRun：未指定主教练应报错', async () => {
+    it('manager dryRun：未指定主教练应用排期应报错', async () => {
       const catalogId = await ensureCatalog();
       const startDateStr = '2025-02-01';
       const endDateStr = '2025-02-07';
@@ -1009,9 +1009,9 @@ describe('Course Series (e2e)', () => {
       const previewHash = previewRes.body.data.previewCourseSeriesSchedule.previewHash as string;
       expect(typeof previewHash).toBe('string');
 
-      const publishMutation = `
+      const applyMutation = `
         mutation {
-          publishCourseSeries(input: { seriesId: ${seriesId}, previewHash: "${previewHash}", dryRun: true }) {
+          applyCourseSeriesSchedule(input: { seriesId: ${seriesId}, previewHash: "${previewHash}", dryRun: true }) {
             seriesId
             status
             publishedAt
@@ -1022,7 +1022,7 @@ describe('Course Series (e2e)', () => {
       const publishRes = await request(app.getHttpServer())
         .post('/graphql')
         .set('Authorization', managerTokenWithBearer)
-        .send({ query: publishMutation })
+        .send({ query: applyMutation })
         .expect(200);
       const err = (publishRes.body.errors?.[0] ?? null) as {
         extensions?: { errorCode?: string };
@@ -1030,7 +1030,7 @@ describe('Course Series (e2e)', () => {
       expect(err?.extensions?.errorCode).toBe('COURSE_SERIES_INVALID_PARAMS');
     });
 
-    it('manager dryRun：主教练存在时返回 publishedAt=null 与 createdSessions=0', async () => {
+    it('manager dryRun：主教练存在时应用排期返回 publishedAt=null 与 createdSessions=0', async () => {
       const catalogId = await ensureCatalog();
       const startDateStr = '2025-02-01';
       const endDateStr = '2025-02-07';
@@ -1078,9 +1078,9 @@ describe('Course Series (e2e)', () => {
       const coach = await coachRepo.findOne({ where: { accountId: account!.id } });
       const leadId = coach!.id;
 
-      const publishMutation = `
+      const applyMutation = `
         mutation {
-          publishCourseSeries(input: { seriesId: ${seriesId}, previewHash: "${previewHash}", dryRun: true, leadCoachId: ${leadId} }) {
+          applyCourseSeriesSchedule(input: { seriesId: ${seriesId}, previewHash: "${previewHash}", dryRun: true, leadCoachId: ${leadId} }) {
             seriesId
             status
             publishedAt
@@ -1088,14 +1088,14 @@ describe('Course Series (e2e)', () => {
           }
         }
       `;
-      const publishRes = await request(app.getHttpServer())
+      const applyRes = await request(app.getHttpServer())
         .post('/graphql')
         .set('Authorization', managerTokenWithBearer)
-        .send({ query: publishMutation })
+        .send({ query: applyMutation })
         .expect(200);
-      if (publishRes.body.errors)
-        throw new Error(`GraphQL 错误: ${JSON.stringify(publishRes.body.errors)}`);
-      const result = publishRes.body.data.publishCourseSeries as {
+      if (applyRes.body.errors)
+        throw new Error(`GraphQL 错误: ${JSON.stringify(applyRes.body.errors)}`);
+      const result = applyRes.body.data.applyCourseSeriesSchedule as {
         seriesId: number;
         status: string;
         publishedAt: string | null;
@@ -1106,7 +1106,7 @@ describe('Course Series (e2e)', () => {
       expect(result.createdSessions).toBe(0);
     });
 
-    it('真实发布：返回 PUBLISHED 与 publishedAt 为 ISO 字符串', async () => {
+    it('真实发布：先应用排期再发布，返回 PUBLISHED 与 publishedAt 为 ISO 字符串', async () => {
       const catalogId = await ensureCatalog();
       const startDateStr = '2025-03-01';
       const endDateStr = '2025-03-07';
@@ -1153,9 +1153,37 @@ describe('Course Series (e2e)', () => {
       const coach = await coachRepo.findOne({ where: { accountId: account!.id } });
       const leadId = coach!.id;
 
+      const applyMutation = `
+        mutation {
+          applyCourseSeriesSchedule(input: { seriesId: ${seriesId}, previewHash: "${previewHash}", leadCoachId: ${leadId} }) {
+            seriesId
+            status
+            publishedAt
+            createdSessions
+          }
+        }
+      `;
+      const applyRes = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', managerTokenWithBearer)
+        .send({ query: applyMutation })
+        .expect(200);
+      if (applyRes.body.errors)
+        throw new Error(`GraphQL 错误: ${JSON.stringify(applyRes.body.errors)}`);
+      const applyResult = applyRes.body.data.applyCourseSeriesSchedule as {
+        seriesId: number;
+        status: string;
+        publishedAt: string | null;
+        createdSessions: number;
+      };
+      expect(applyResult.seriesId).toBe(seriesId);
+      expect(applyResult.status).toBe('SCHEDULED');
+      expect(applyResult.publishedAt).toBeNull();
+      expect(applyResult.createdSessions).toBeGreaterThan(0);
+
       const publishMutation = `
         mutation {
-          publishCourseSeries(input: { seriesId: ${seriesId}, previewHash: "${previewHash}", leadCoachId: ${leadId} }) {
+          publishCourseSeries(input: { seriesId: ${seriesId} }) {
             seriesId
             status
             publishedAt
@@ -1170,19 +1198,19 @@ describe('Course Series (e2e)', () => {
         .expect(200);
       if (publishRes.body.errors)
         throw new Error(`GraphQL 错误: ${JSON.stringify(publishRes.body.errors)}`);
-      const result = publishRes.body.data.publishCourseSeries as {
+      const publishResult = publishRes.body.data.publishCourseSeries as {
         seriesId: number;
         status: string;
         publishedAt: string | null;
         createdSessions: number;
       };
-      expect(result.status).toBe('PUBLISHED');
-      expect(typeof result.publishedAt).toBe('string');
-      expect(result.publishedAt).toMatch(/\d{4}-\d{2}-\d{2}T/);
-      expect(result.createdSessions).toBeGreaterThan(0);
+      expect(publishResult.status).toBe('PUBLISHED');
+      expect(typeof publishResult.publishedAt).toBe('string');
+      expect(publishResult.publishedAt).toMatch(/\d{4}-\d{2}-\d{2}T/);
+      expect(publishResult.createdSessions).toBeGreaterThan(0);
     });
 
-    it('coach 自己发班：不带 leadCoachId 也能发布为 PUBLISHED，生成节次', async () => {
+    it('coach 自己发班：不带 leadCoachId 也能应用排期并发布为 PUBLISHED，生成节次', async () => {
       const catalogId = await ensureCatalog();
       const startDateStr = '2025-04-01';
       const endDateStr = '2025-04-07';
@@ -1229,10 +1257,37 @@ describe('Course Series (e2e)', () => {
       const previewHash = previewRes.body.data.previewCourseSeriesSchedule.previewHash as string;
       expect(typeof previewHash).toBe('string');
 
-      // 发布（不带 leadCoachId）
+      const applyMutation = `
+        mutation {
+          applyCourseSeriesSchedule(input: { seriesId: ${seriesId}, previewHash: "${previewHash}" }) {
+            seriesId
+            status
+            publishedAt
+            createdSessions
+          }
+        }
+      `;
+      const applyRes = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', coachTokenWithBearer)
+        .send({ query: applyMutation })
+        .expect(200);
+      if (applyRes.body.errors)
+        throw new Error(`GraphQL 错误: ${JSON.stringify(applyRes.body.errors)}`);
+      const applyResult = applyRes.body.data.applyCourseSeriesSchedule as {
+        seriesId: number;
+        status: string;
+        publishedAt: string | null;
+        createdSessions: number;
+      };
+      expect(applyResult.seriesId).toBe(seriesId);
+      expect(applyResult.status).toBe('SCHEDULED');
+      expect(applyResult.publishedAt).toBeNull();
+      expect(applyResult.createdSessions).toBeGreaterThan(0);
+
       const publishMutation = `
         mutation {
-          publishCourseSeries(input: { seriesId: ${seriesId}, previewHash: "${previewHash}" }) {
+          publishCourseSeries(input: { seriesId: ${seriesId} }) {
             seriesId
             status
             publishedAt
@@ -1247,17 +1302,16 @@ describe('Course Series (e2e)', () => {
         .expect(200);
       if (publishRes.body.errors)
         throw new Error(`GraphQL 错误: ${JSON.stringify(publishRes.body.errors)}`);
-      const result = publishRes.body.data.publishCourseSeries as {
+      const publishResult = publishRes.body.data.publishCourseSeries as {
         seriesId: number;
         status: string;
         publishedAt: string | null;
         createdSessions: number;
       };
-
-      expect(result.seriesId).toBe(seriesId);
-      expect(result.status).toBe('PUBLISHED');
-      expect(typeof result.publishedAt).toBe('string');
-      expect(result.createdSessions).toBeGreaterThan(0);
+      expect(publishResult.seriesId).toBe(seriesId);
+      expect(publishResult.status).toBe('PUBLISHED');
+      expect(typeof publishResult.publishedAt).toBe('string');
+      expect(publishResult.createdSessions).toBeGreaterThan(0);
 
       // 进一步确认数据库已生成节次
       const qb = dataSource
@@ -1310,9 +1364,27 @@ describe('Course Series (e2e)', () => {
         .expect(200);
       const previewHash = previewRes.body.data.previewCourseSeriesSchedule.previewHash as string;
 
+      const applyMutation = `
+        mutation {
+          applyCourseSeriesSchedule(input: { seriesId: ${seriesId}, previewHash: "${previewHash}" }) {
+            seriesId
+            status
+            publishedAt
+            createdSessions
+          }
+        }
+      `;
+      const applyRes = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', coachTokenWithBearer)
+        .send({ query: applyMutation })
+        .expect(200);
+      if (applyRes.body.errors)
+        throw new Error(`GraphQL 错误: ${JSON.stringify(applyRes.body.errors)}`);
+
       const publishMutation = `
         mutation {
-          publishCourseSeries(input: { seriesId: ${seriesId}, previewHash: "${previewHash}" }) {
+          publishCourseSeries(input: { seriesId: ${seriesId} }) {
             seriesId
             status
             publishedAt
@@ -1385,9 +1457,9 @@ describe('Course Series (e2e)', () => {
         .expect(200);
       const previewHash = previewRes.body.data.previewCourseSeriesSchedule.previewHash as string;
 
-      const publishMutation = `
+      const applyMutation = `
         mutation {
-          publishCourseSeries(input: { seriesId: ${seriesId}, previewHash: "${previewHash}" }) {
+          applyCourseSeriesSchedule(input: { seriesId: ${seriesId}, previewHash: "${previewHash}" }) {
             seriesId
             status
             publishedAt
@@ -1395,19 +1467,19 @@ describe('Course Series (e2e)', () => {
           }
         }
       `;
-      const publishRes = await request(app.getHttpServer())
+      const applyRes = await request(app.getHttpServer())
         .post('/graphql')
         .set('Authorization', coachTokenWithBearer)
-        .send({ query: publishMutation })
+        .send({ query: applyMutation })
         .expect(200);
-      const err = (publishRes.body.errors?.[0] ?? null) as {
+      const err = (applyRes.body.errors?.[0] ?? null) as {
         extensions?: { errorCode?: string };
       } | null;
       expect(err?.extensions?.errorCode).toBe('ACCESS_DENIED');
 
       const seriesRepo = dataSource.getRepository(CourseSeriesEntity);
       const fresh = await seriesRepo.findOne({ where: { id: seriesId } });
-      expect(fresh!.status).toBe(CourseSeriesStatus.PLANNED);
+      expect(fresh!.status).toBe(CourseSeriesStatus.DRAFT);
 
       const rows = await dataSource.query(
         'SELECT COUNT(1) AS c FROM course_sessions WHERE series_id = ?',
@@ -1417,7 +1489,7 @@ describe('Course Series (e2e)', () => {
       expect(c).toBe(0);
     });
 
-    it('非 ADMIN/MANAGER/COACH 身份调用 publish：返回 ACCESS_DENIED，且无写操作', async () => {
+    it('非 ADMIN/MANAGER/COACH 身份调用 publish：返回 ACCESS_DENIED，且无写操作（不生成节次）', async () => {
       const learnerToken = await loginAndGetToken(
         testAccountsConfig.learner.loginName,
         testAccountsConfig.learner.loginPassword,
@@ -1452,19 +1524,9 @@ describe('Course Series (e2e)', () => {
         .expect(200);
       const seriesId = Number(createRes.body.data.createCourseSeriesDraft.id);
 
-      const previewQuery = `
-        query { previewCourseSeriesSchedule(input: { seriesId: ${seriesId} }) { previewHash } }
-      `;
-      const previewRes = await request(app.getHttpServer())
-        .post('/graphql')
-        .set('Authorization', managerTokenWithBearer)
-        .send({ query: previewQuery })
-        .expect(200);
-      const previewHash = previewRes.body.data.previewCourseSeriesSchedule.previewHash as string;
-
       const publishMutation = `
         mutation {
-          publishCourseSeries(input: { seriesId: ${seriesId}, previewHash: "${previewHash}" }) {
+          publishCourseSeries(input: { seriesId: ${seriesId} }) {
             seriesId
             status
             publishedAt
@@ -1490,7 +1552,7 @@ describe('Course Series (e2e)', () => {
       expect(c).toBe(0);
     });
 
-    it('manager 发布教练创建的系列：传入不同 leadCoachId，最终主教练仍为 publisherId', async () => {
+    it('manager 应用教练创建的系列排期：传入不同 leadCoachId，最终主教练仍为 publisherId', async () => {
       const catalogId = await ensureCatalog();
       const startDateStr = '2025-06-01';
       const endDateStr = '2025-06-07';
@@ -1530,9 +1592,9 @@ describe('Course Series (e2e)', () => {
       const previewHash = previewRes.body.data.previewCourseSeriesSchedule.previewHash as string;
 
       const badLeadId = 999999;
-      const publishMutation = `
+      const applyMutation = `
         mutation {
-          publishCourseSeries(input: { seriesId: ${seriesId}, previewHash: "${previewHash}", leadCoachId: ${badLeadId} }) {
+          applyCourseSeriesSchedule(input: { seriesId: ${seriesId}, previewHash: "${previewHash}", leadCoachId: ${badLeadId} }) {
             seriesId
             status
             publishedAt
@@ -1540,13 +1602,13 @@ describe('Course Series (e2e)', () => {
           }
         }
       `;
-      const publishRes = await request(app.getHttpServer())
+      const applyRes = await request(app.getHttpServer())
         .post('/graphql')
         .set('Authorization', managerTokenWithBearer)
-        .send({ query: publishMutation })
+        .send({ query: applyMutation })
         .expect(200);
-      if (publishRes.body.errors)
-        throw new Error(`GraphQL 错误: ${JSON.stringify(publishRes.body.errors)}`);
+      if (applyRes.body.errors)
+        throw new Error(`GraphQL 错误: ${JSON.stringify(applyRes.body.errors)}`);
 
       const accountRepo = dataSource.getRepository(AccountEntity);
       const account = await accountRepo.findOne({
@@ -1595,16 +1657,6 @@ describe('Course Series (e2e)', () => {
         .expect(200);
       const seriesId = Number(createRes.body.data.createCourseSeriesDraft.id);
 
-      const previewQuery = `
-        query { previewCourseSeriesSchedule(input: { seriesId: ${seriesId} }) { previewHash } }
-      `;
-      const previewRes = await request(app.getHttpServer())
-        .post('/graphql')
-        .set('Authorization', managerTokenWithBearer)
-        .send({ query: previewQuery })
-        .expect(200);
-      const previewHash = previewRes.body.data.previewCourseSeriesSchedule.previewHash as string;
-
       await dataSource.query('UPDATE course_series SET status = ? WHERE id = ?', [
         'PUBLISHED',
         seriesId,
@@ -1612,7 +1664,7 @@ describe('Course Series (e2e)', () => {
 
       const publishMutation = `
         mutation {
-          publishCourseSeries(input: { seriesId: ${seriesId}, previewHash: "${previewHash}" }) {
+          publishCourseSeries(input: { seriesId: ${seriesId} }) {
             seriesId
             status
             publishedAt
@@ -1685,9 +1737,27 @@ describe('Course Series (e2e)', () => {
       const coach = await coachRepo.findOne({ where: { accountId: account!.id } });
       const leadId = coach!.id;
 
+      const applyMutation = `
+        mutation {
+          applyCourseSeriesSchedule(input: { seriesId: ${seriesId}, previewHash: "${previewHash}", leadCoachId: ${leadId} }) {
+            seriesId
+            status
+            publishedAt
+            createdSessions
+          }
+        }
+      `;
+      const applyRes1 = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', managerTokenWithBearer)
+        .send({ query: applyMutation })
+        .expect(200);
+      if (applyRes1.body.errors)
+        throw new Error(`GraphQL 错误: ${JSON.stringify(applyRes1.body.errors)}`);
+
       const publish1 = `
         mutation {
-          publishCourseSeries(input: { seriesId: ${seriesId}, previewHash: "${previewHash}", leadCoachId: ${leadId} }) {
+          publishCourseSeries(input: { seriesId: ${seriesId} }) {
             seriesId
             status
             publishedAt
@@ -1704,7 +1774,7 @@ describe('Course Series (e2e)', () => {
 
       const publish2 = `
         mutation {
-          publishCourseSeries(input: { seriesId: ${seriesId}, previewHash: "${previewHash}", leadCoachId: ${leadId} }) {
+          publishCourseSeries(input: { seriesId: ${seriesId} }) {
             seriesId
             status
             publishedAt
@@ -1767,9 +1837,9 @@ describe('Course Series (e2e)', () => {
         seriesId,
       ]);
 
-      const publishMutation = `
+      const applyMutation = `
         mutation {
-          publishCourseSeries(input: { seriesId: ${seriesId}, previewHash: "${previewHash}" }) {
+          applyCourseSeriesSchedule(input: { seriesId: ${seriesId}, previewHash: "${previewHash}" }) {
             seriesId
             status
             publishedAt
@@ -1777,18 +1847,18 @@ describe('Course Series (e2e)', () => {
           }
         }
       `;
-      const publishRes = await request(app.getHttpServer())
+      const applyRes = await request(app.getHttpServer())
         .post('/graphql')
         .set('Authorization', managerTokenWithBearer)
-        .send({ query: publishMutation })
+        .send({ query: applyMutation })
         .expect(200);
-      const err = (publishRes.body.errors?.[0] ?? null) as {
+      const err = (applyRes.body.errors?.[0] ?? null) as {
         extensions?: { errorCode?: string };
       } | null;
       expect(err?.extensions?.errorCode).toBe('COURSE_SERIES_INVALID_PARAMS');
     });
 
-    it('recurrenceRule 为空：非 dryRun 发布报「至少 1 节次」错误', async () => {
+    it('recurrenceRule 为空：非 dryRun 应用排期报「至少 1 节次」错误', async () => {
       const catalogId = await ensureCatalog();
       const startDateStr = '2025-08-01';
       const endDateStr = '2025-08-07';
@@ -1835,9 +1905,9 @@ describe('Course Series (e2e)', () => {
       const coach = await coachRepo.findOne({ where: { accountId: account!.id } });
       const leadId = coach!.id;
 
-      const publishMutation = `
+      const applyMutation = `
         mutation {
-          publishCourseSeries(input: { seriesId: ${seriesId}, previewHash: "${previewHash}", leadCoachId: ${leadId} }) {
+          applyCourseSeriesSchedule(input: { seriesId: ${seriesId}, previewHash: "${previewHash}", leadCoachId: ${leadId} }) {
             seriesId
             status
             publishedAt
@@ -1845,18 +1915,18 @@ describe('Course Series (e2e)', () => {
           }
         }
       `;
-      const publishRes = await request(app.getHttpServer())
+      const applyRes = await request(app.getHttpServer())
         .post('/graphql')
         .set('Authorization', managerTokenWithBearer)
-        .send({ query: publishMutation })
+        .send({ query: applyMutation })
         .expect(200);
-      const err = (publishRes.body.errors?.[0] ?? null) as {
+      const err = (applyRes.body.errors?.[0] ?? null) as {
         extensions?: { errorCode?: string };
       } | null;
       expect(err?.extensions?.errorCode).toBe('COURSE_SERIES_INVALID_PARAMS');
     });
 
-    it('recurrenceRule 为空但 customSessions 有值：可发布并创建临时课次', async () => {
+    it('recurrenceRule 为空但 customSessions 有值：可应用排期并创建临时课次', async () => {
       const catalogId = await ensureCatalog();
       const startDateStr = '2025-08-01';
       const endDateStr = '2025-08-07';
@@ -1909,9 +1979,9 @@ describe('Course Series (e2e)', () => {
 
       const startTime = new Date('2025-08-03T18:00:00.000Z').toISOString();
       const endTime = new Date('2025-08-03T19:00:00.000Z').toISOString();
-      const publishMutation = `
+      const applyMutation = `
         mutation {
-          publishCourseSeries(input: {
+          applyCourseSeriesSchedule(input: {
             seriesId: ${seriesId},
             previewHash: "${previewHash}",
             selectedKeys: [],
@@ -1925,22 +1995,22 @@ describe('Course Series (e2e)', () => {
           }
         }
       `;
-      const publishRes = await request(app.getHttpServer())
+      const applyRes = await request(app.getHttpServer())
         .post('/graphql')
         .set('Authorization', managerTokenWithBearer)
-        .send({ query: publishMutation })
+        .send({ query: applyMutation })
         .expect(200);
-      if (publishRes.body.errors)
-        throw new Error(`GraphQL 错误: ${JSON.stringify(publishRes.body.errors)}`);
-      const result = publishRes.body.data.publishCourseSeries as {
+      if (applyRes.body.errors)
+        throw new Error(`GraphQL 错误: ${JSON.stringify(applyRes.body.errors)}`);
+      const result = applyRes.body.data.applyCourseSeriesSchedule as {
         seriesId: number;
         status: string;
         publishedAt: string | null;
         createdSessions: number;
       };
       expect(result.seriesId).toBe(seriesId);
-      expect(result.status).toBe('PUBLISHED');
-      expect(typeof result.publishedAt).toBe('string');
+      expect(result.status).toBe('SCHEDULED');
+      expect(result.publishedAt).toBeNull();
       expect(result.createdSessions).toBe(1);
 
       const rows = await dataSource.query(
@@ -1951,7 +2021,7 @@ describe('Course Series (e2e)', () => {
       expect(String(rows[0]?.locationText ?? '')).toBe('临时教室');
     });
 
-    it('coach 发布且 customSessions 有值：无需 leadCoachId 也可创建临时课次', async () => {
+    it('coach 发布且 customSessions 有值：应用排期时无需 leadCoachId 也可创建临时课次', async () => {
       const catalogId = await ensureCatalog();
       const startDateStr = '2025-08-01';
       const endDateStr = '2025-08-07';
@@ -1996,9 +2066,9 @@ describe('Course Series (e2e)', () => {
 
       const startTime = new Date('2025-08-03T18:00:00.000Z').toISOString();
       const endTime = new Date('2025-08-03T19:00:00.000Z').toISOString();
-      const publishMutation = `
+      const applyMutation = `
         mutation {
-          publishCourseSeries(input: {
+          applyCourseSeriesSchedule(input: {
             seriesId: ${seriesId},
             previewHash: "${previewHash}",
             customSessions: [{ startTime: "${startTime}", endTime: "${endTime}", locationText: "临时教室 coach", remark: "临时加课-coach" }]
@@ -2010,22 +2080,22 @@ describe('Course Series (e2e)', () => {
           }
         }
       `;
-      const publishRes = await request(app.getHttpServer())
+      const applyRes = await request(app.getHttpServer())
         .post('/graphql')
         .set('Authorization', coachTokenWithBearer)
-        .send({ query: publishMutation })
+        .send({ query: applyMutation })
         .expect(200);
-      if (publishRes.body.errors)
-        throw new Error(`GraphQL 错误: ${JSON.stringify(publishRes.body.errors)}`);
-      const result = publishRes.body.data.publishCourseSeries as {
+      if (applyRes.body.errors)
+        throw new Error(`GraphQL 错误: ${JSON.stringify(applyRes.body.errors)}`);
+      const result = applyRes.body.data.applyCourseSeriesSchedule as {
         seriesId: number;
         status: string;
         publishedAt: string | null;
         createdSessions: number;
       };
       expect(result.seriesId).toBe(seriesId);
-      expect(result.status).toBe('PUBLISHED');
-      expect(typeof result.publishedAt).toBe('string');
+      expect(result.status).toBe('SCHEDULED');
+      expect(result.publishedAt).toBeNull();
       expect(result.createdSessions).toBe(1);
 
       const rows = await dataSource.query(
@@ -2036,7 +2106,7 @@ describe('Course Series (e2e)', () => {
       expect(String(rows[0]?.locationText ?? '')).toBe('临时教室 coach');
     });
 
-    it('selectedKeys = []：显式一个都不发，应报「至少 1 节次」错误', async () => {
+    it('selectedKeys = []：显式一个都不发，应用排期应报「至少 1 节次」错误', async () => {
       const catalogId = await ensureCatalog();
       const startDateStr = '2025-08-15';
       const endDateStr = '2025-08-21';
@@ -2083,9 +2153,9 @@ describe('Course Series (e2e)', () => {
       const coach = await coachRepo.findOne({ where: { accountId: account!.id } });
       const leadId = coach!.id;
 
-      const publishMutation = `
+      const applyMutation = `
         mutation {
-          publishCourseSeries(input: { seriesId: ${seriesId}, previewHash: "${previewHash}", selectedKeys: [], leadCoachId: ${leadId} }) {
+          applyCourseSeriesSchedule(input: { seriesId: ${seriesId}, previewHash: "${previewHash}", selectedKeys: [], leadCoachId: ${leadId} }) {
             seriesId
             status
             publishedAt
@@ -2093,18 +2163,18 @@ describe('Course Series (e2e)', () => {
           }
         }
       `;
-      const publishRes = await request(app.getHttpServer())
+      const applyRes = await request(app.getHttpServer())
         .post('/graphql')
         .set('Authorization', managerTokenWithBearer)
-        .send({ query: publishMutation })
+        .send({ query: applyMutation })
         .expect(200);
-      const err = (publishRes.body.errors?.[0] ?? null) as {
+      const err = (applyRes.body.errors?.[0] ?? null) as {
         extensions?: { errorCode?: string };
       } | null;
       expect(err?.extensions?.errorCode).toBe('COURSE_SERIES_INVALID_PARAMS');
     });
 
-    it('selectedKeys 部分选择：createdSessions 等于选择数量', async () => {
+    it('selectedKeys 部分选择：应用排期 createdSessions 等于选择数量', async () => {
       const catalogId = await ensureCatalog();
       const startDateStr = '2025-09-01';
       const endDateStr = '2025-09-07';
@@ -2156,9 +2226,9 @@ describe('Course Series (e2e)', () => {
       const coach = await coachRepo.findOne({ where: { accountId: account!.id } });
       const leadId = coach!.id;
 
-      const publishMutation = `
+      const applyMutation = `
         mutation {
-          publishCourseSeries(input: { seriesId: ${seriesId}, previewHash: "${previewHash}", selectedKeys: [${keys.map((k) => `"${k}"`).join(', ')}], leadCoachId: ${leadId} }) {
+          applyCourseSeriesSchedule(input: { seriesId: ${seriesId}, previewHash: "${previewHash}", selectedKeys: [${keys.map((k) => `"${k}"`).join(', ')}], leadCoachId: ${leadId} }) {
             seriesId
             status
             publishedAt
@@ -2166,18 +2236,18 @@ describe('Course Series (e2e)', () => {
           }
         }
       `;
-      const publishRes = await request(app.getHttpServer())
+      const applyRes = await request(app.getHttpServer())
         .post('/graphql')
         .set('Authorization', managerTokenWithBearer)
-        .send({ query: publishMutation })
+        .send({ query: applyMutation })
         .expect(200);
-      if (publishRes.body.errors)
-        throw new Error(`GraphQL 错误: ${JSON.stringify(publishRes.body.errors)}`);
-      const result = publishRes.body.data.publishCourseSeries as { createdSessions: number };
+      if (applyRes.body.errors)
+        throw new Error(`GraphQL 错误: ${JSON.stringify(applyRes.body.errors)}`);
+      const result = applyRes.body.data.applyCourseSeriesSchedule as { createdSessions: number };
       expect(result.createdSessions).toBe(keys.length);
     });
 
-    it('manager 指定不存在的主教练 ID：返回 COURSE_SERIES_INVALID_PARAMS', async () => {
+    it('manager 应用排期指定不存在的主教练 ID：返回 COURSE_SERIES_INVALID_PARAMS', async () => {
       const catalogId = await ensureCatalog();
       const startDateStr = '2025-09-15';
       const endDateStr = '2025-09-21';
@@ -2216,9 +2286,9 @@ describe('Course Series (e2e)', () => {
         .expect(200);
       const previewHash = previewRes.body.data.previewCourseSeriesSchedule.previewHash as string;
 
-      const publishMutation = `
+      const applyMutation = `
         mutation {
-          publishCourseSeries(input: { seriesId: ${seriesId}, previewHash: "${previewHash}", leadCoachId: 999999 }) {
+          applyCourseSeriesSchedule(input: { seriesId: ${seriesId}, previewHash: "${previewHash}", leadCoachId: 999999 }) {
             seriesId
             status
             publishedAt
@@ -2226,12 +2296,12 @@ describe('Course Series (e2e)', () => {
           }
         }
       `;
-      const publishRes = await request(app.getHttpServer())
+      const applyRes = await request(app.getHttpServer())
         .post('/graphql')
         .set('Authorization', managerTokenWithBearer)
-        .send({ query: publishMutation })
+        .send({ query: applyMutation })
         .expect(200);
-      const err = (publishRes.body.errors?.[0] ?? null) as {
+      const err = (applyRes.body.errors?.[0] ?? null) as {
         extensions?: { errorCode?: string };
       } | null;
       expect(err?.extensions?.errorCode).toBe('COURSE_SERIES_INVALID_PARAMS');
@@ -2334,7 +2404,11 @@ describe('Course Series (e2e)', () => {
       for (const item of result.items) {
         expect(item.title.includes('E2E 搜索 manager')).toBe(true);
         expect(item.classMode).toBe(ClassMode.SMALL_CLASS);
-        expect([CourseSeriesStatus.PLANNED, CourseSeriesStatus.PUBLISHED]).toContain(item.status);
+        expect([
+          CourseSeriesStatus.DRAFT,
+          CourseSeriesStatus.SCHEDULED,
+          CourseSeriesStatus.PUBLISHED,
+        ]).toContain(item.status);
       }
     });
 

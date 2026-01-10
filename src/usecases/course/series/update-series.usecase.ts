@@ -41,7 +41,10 @@ export class UpdateSeriesUsecase {
 
     if (isAdmin || isManager) return;
 
-    if (series.status !== CourseSeriesStatus.PLANNED) {
+    if (
+      series.status !== CourseSeriesStatus.DRAFT &&
+      series.status !== CourseSeriesStatus.SCHEDULED
+    ) {
       throw new DomainError(PERMISSION_ERROR.ACCESS_DENIED, '仅允许更新未发布的开课班');
     }
 

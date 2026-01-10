@@ -1,96 +1,115 @@
-// src/usecases/course/series/publish-series.usecase.ts
+// 文件位置：src/usecases/course/series/apply-series-schedule.usecase.ts
 import { CourseSeriesStatus, PublisherType } from '@app-types/models/course-series.types';
 import {
   COURSE_SERIES_ERROR,
   DomainError,
   PERMISSION_ERROR,
 } from '@core/common/errors/domain-error';
-import { buildEnvelope } from '@core/common/integration-events/events.types';
-import { type IOutboxWriterPort } from '@core/common/integration-events/outbox.port';
-import { Inject, Injectable } from '@nestjs/common';
-import { InjectDataSource } from '@nestjs/typeorm';
+import { Injectable } from '@nestjs/common';
 import { CoachService } from '@src/modules/account/identities/training/coach/coach.service';
-import { INTEGRATION_EVENTS_TOKENS } from '@src/modules/common/integration-events/events.tokens';
+import { computeSeriesScheduleHash } from '@src/modules/common/utils/series-schedule-hash.util';
 import { CourseSeriesEntity } from '@src/modules/course/series/course-series.entity';
 import { CourseSeriesService } from '@src/modules/course/series/course-series.service';
 import { CourseSessionsService } from '@src/modules/course/sessions/course-sessions.service';
 import { type UsecaseSession } from '@src/types/auth/session.types';
-import { DataSource } from 'typeorm';
 
-export interface PublishSeriesInput {
+export interface ApplySeriesScheduleInput {
   readonly session: UsecaseSession;
   readonly seriesId: number;
+  readonly selectedKeys?: ReadonlyArray<string>;
+  readonly previewHash: string;
+  readonly dryRun?: boolean;
+  readonly customSessions?: ReadonlyArray<{
+    readonly startTime: Date;
+    readonly endTime: Date;
+    readonly locationText?: string;
+    readonly remark?: string | null;
+  }>;
+  readonly leadCoachId?: number;
 }
 
-export interface PublishSeriesOutput {
-  readonly series: { id: number; status: CourseSeriesStatus; publishedAt?: string | null };
+export interface ApplySeriesScheduleOutput {
+  readonly seriesId: number;
   readonly createdSessions: number;
 }
 
 @Injectable()
-export class PublishSeriesUsecase {
+export class ApplySeriesScheduleUsecase {
   constructor(
     private readonly seriesService: CourseSeriesService,
     private readonly sessionsService: CourseSessionsService,
     private readonly coachService: CoachService,
-    @Inject(INTEGRATION_EVENTS_TOKENS.OUTBOX_WRITER_PORT)
-    private readonly outboxWriter: IOutboxWriterPort,
-    @InjectDataSource() private readonly dataSource: DataSource,
   ) {}
 
-  async execute(input: PublishSeriesInput): Promise<PublishSeriesOutput> {
-    const { session, seriesId } = input;
+  async execute(input: ApplySeriesScheduleInput): Promise<ApplySeriesScheduleOutput> {
+    const { session, seriesId, selectedKeys, previewHash, dryRun } = input;
     this.requireAuthorized(session);
     const series = await this.loadSeriesOrThrow(seriesId);
     await this.requireOwnership(session, series);
 
-    const sessionCount = await this.sessionsService.countBySeries(series.id);
-    if (sessionCount <= 0) {
+    const currentHash = computeSeriesScheduleHash(series, 'v1');
+    if (currentHash !== previewHash) {
       throw new DomainError(
         COURSE_SERIES_ERROR.INVALID_PARAMS,
-        '当前系列尚未生成任何节次，无法发布',
+        '预览内容已过期，请重新预览后再应用排期',
       );
     }
 
-    const publishedAt = new Date().toISOString();
-    await this.dataSource.transaction(async (manager) => {
-      const updateRes = await manager
-        .getRepository(CourseSeriesEntity)
-        .update(
-          { id: series.id, status: CourseSeriesStatus.SCHEDULED },
-          { status: CourseSeriesStatus.PUBLISHED },
-        );
-      if ((updateRes.affected ?? 0) !== 1) {
-        throw new DomainError(
-          COURSE_SERIES_ERROR.SERIES_UPDATE_FAILED,
-          '系列状态已被其他流程更新，当前发布操作被拒绝',
-        );
-      }
+    const occurrences = this.recomputeOccurrences(series);
+    const toCreate = this.filterBySelectedKeys(occurrences, selectedKeys);
+    const customSessions = input.customSessions ?? [];
+    this.validateCustomSessionsOrThrow(series, customSessions, toCreate);
 
-      const envelope = buildEnvelope({
-        type: 'SeriesPublished',
-        aggregateType: 'series',
-        aggregateId: series.id,
-        dedupKey: `SeriesPublished:${series.id}`,
-        priority: 6,
-        payload: {
-          seriesId: series.id,
-          createdSessions: sessionCount,
-          publishedAt,
-        },
-      });
-      await this.outboxWriter.enqueue({ envelope });
+    const leadCoachId = await this.resolveLeadCoachId({
+      series,
+      selectedLeadCoachId: input.leadCoachId,
     });
 
+    if (toCreate.length === 0 && customSessions.length === 0 && dryRun !== true) {
+      throw new DomainError(COURSE_SERIES_ERROR.INVALID_PARAMS, '排期必须至少包含 1 个节次');
+    }
+
+    if (dryRun === true) {
+      return {
+        seriesId: series.id,
+        createdSessions: 0,
+      };
+    }
+
+    const items = [
+      ...toCreate.map((occ) => ({
+        seriesId: series.id,
+        startTime: occ.startTime,
+        endTime: occ.endTime,
+        leadCoachId,
+        locationText: '馆内',
+        remark: null,
+      })),
+      ...customSessions.map((s) => ({
+        seriesId: series.id,
+        startTime: s.startTime,
+        endTime: s.endTime,
+        leadCoachId,
+        locationText: s.locationText?.trim() ? s.locationText.trim() : '馆内',
+        remark: s.remark ?? null,
+      })),
+    ];
+
+    const res = await this.sessionsService.bulkCreate({ items });
+
+    if (series.status !== CourseSeriesStatus.SCHEDULED) {
+      await this.seriesService.update(series.id, { status: CourseSeriesStatus.SCHEDULED });
+    }
+
     return {
-      series: { id: series.id, status: CourseSeriesStatus.PUBLISHED, publishedAt },
-      createdSessions: sessionCount,
+      seriesId: series.id,
+      createdSessions: res.created,
     };
   }
 
   /**
    * 解析主教练 ID：
-   * - 系列由教练发布：主教练固定为该教练（忽略外部选择）；
+   * - 系列由教练发布：主教练固定为该教练；
    * - 系列由经理/管理员发布：必须提供主教练 ID 并验证存在。
    */
   private async resolveLeadCoachId(input: {
@@ -112,12 +131,14 @@ export class PublishSeriesUsecase {
   }
 
   /**
-   * 鉴权：仅允许 ADMIN / MANAGER / COACH 角色发布
+   * 鉴权：仅允许 ADMIN / MANAGER / COACH 角色应用排期
    */
   private requireAuthorized(session: UsecaseSession): void {
     const roles = (session.roles ?? []).map((r) => String(r).toUpperCase());
     const ok = roles.includes('ADMIN') || roles.includes('MANAGER') || roles.includes('COACH');
-    if (!ok) throw new DomainError(PERMISSION_ERROR.ACCESS_DENIED, '无权发布开课班');
+    if (!ok) {
+      throw new DomainError(PERMISSION_ERROR.ACCESS_DENIED, '无权应用开课班排期');
+    }
   }
 
   private async loadSeriesOrThrow(seriesId: number): Promise<CourseSeriesEntity> {
@@ -125,16 +146,19 @@ export class PublishSeriesUsecase {
     if (!found) {
       throw new DomainError(COURSE_SERIES_ERROR.SERIES_NOT_FOUND, '系列不存在');
     }
-    if (found.status !== CourseSeriesStatus.SCHEDULED) {
-      throw new DomainError(COURSE_SERIES_ERROR.INVALID_PARAMS, '当前状态不支持发布');
+    if (
+      found.status !== CourseSeriesStatus.DRAFT &&
+      found.status !== CourseSeriesStatus.SCHEDULED
+    ) {
+      throw new DomainError(COURSE_SERIES_ERROR.INVALID_PARAMS, '当前状态不支持应用排期');
     }
     return found;
   }
 
   /**
    * 所有权校验：
-   * - manager/admin 可以发布任何系列；
-   * - coach 仅能发布自己作为 publisher 的系列。
+   * - manager/admin 可以操作任何系列；
+   * - coach 仅能操作自己作为 publisher 的系列。
    */
   private async requireOwnership(
     session: UsecaseSession,
@@ -144,7 +168,9 @@ export class PublishSeriesUsecase {
     const isAdmin = roles.includes('ADMIN');
     const isManager = roles.includes('MANAGER');
     const isCoach = roles.includes('COACH');
-    if (isAdmin || isManager) return;
+    if (isAdmin || isManager) {
+      return;
+    }
     if (isCoach) {
       const coach = await this.coachService.findByAccountId(session.accountId);
       if (!coach) {
@@ -152,16 +178,15 @@ export class PublishSeriesUsecase {
       }
       const owned = series.publisherType === PublisherType.COACH && series.publisherId === coach.id;
       if (!owned) {
-        throw new DomainError(PERMISSION_ERROR.ACCESS_DENIED, '无权发布该开课班');
+        throw new DomainError(PERMISSION_ERROR.ACCESS_DENIED, '无权操作该开课班');
       }
       return;
     }
-    throw new DomainError(PERMISSION_ERROR.ACCESS_DENIED, '无权发布开课班');
+    throw new DomainError(PERMISSION_ERROR.ACCESS_DENIED, '无权操作该开课班');
   }
 
   /**
    * 复算 occurrence（占位实现）：按 startDate→endDate 每天一节，时长固定 60 分钟
-   * TODO: 使用与 PreviewSeriesScheduleUsecase 相同的 RecurrenceEngine 实现
    */
   private recomputeOccurrences(series: CourseSeriesEntity): ReadonlyArray<{
     key: string;
@@ -169,7 +194,9 @@ export class PublishSeriesUsecase {
     endTime: Date;
   }> {
     const rule = (series.recurrenceRule ?? '').trim();
-    if (!rule) return [];
+    if (!rule) {
+      return [];
+    }
     const hour = this.extractHour(rule);
     const minute = this.extractMinute(rule);
     const start = this.parseDate(series.startDate);
@@ -206,6 +233,9 @@ export class PublishSeriesUsecase {
       .map((o) => ({ startTime: o.startTime, endTime: o.endTime }));
   }
 
+  /**
+   * 校验自定义课次列表
+   */
   private validateCustomSessionsOrThrow(
     series: CourseSeriesEntity,
     customSessions: ReadonlyArray<{
@@ -216,7 +246,9 @@ export class PublishSeriesUsecase {
     }>,
     scheduled: ReadonlyArray<{ startTime: Date; endTime: Date }>,
   ): void {
-    if (customSessions.length === 0) return;
+    if (customSessions.length === 0) {
+      return;
+    }
 
     const rangeStart = this.parseDate(series.startDate);
     const rangeEnd = this.endOfDate(series.endDate);
@@ -230,6 +262,9 @@ export class PublishSeriesUsecase {
     }
   }
 
+  /**
+   * 校验自定义课次的开始结束时间
+   */
   private assertCustomSessionTimeOrThrow(input: {
     readonly startTime: Date;
     readonly endTime: Date;
@@ -244,6 +279,9 @@ export class PublishSeriesUsecase {
     }
   }
 
+  /**
+   * 校验自定义课次是否位于开班日期范围内
+   */
   private assertCustomSessionInRangeOrThrow(
     input: { readonly startTime: Date; readonly endTime: Date },
     rangeStart: Date,
@@ -258,6 +296,9 @@ export class PublishSeriesUsecase {
     }
   }
 
+  /**
+   * 校验自定义课次开始时间不与已排期或其他临时课重复
+   */
   private assertCustomSessionUniqueStartOrThrow(
     input: { readonly startTime: Date },
     scheduledStartTimes: ReadonlySet<number>,
@@ -296,6 +337,9 @@ export class PublishSeriesUsecase {
     return new Date(y, m - 1, d, 0, 0, 0, 0);
   }
 
+  /**
+   * 计算日期的结束时间
+   */
   private endOfDate(s: string): Date {
     const d = this.parseDate(s);
     d.setHours(23, 59, 59, 999);

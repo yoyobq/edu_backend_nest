@@ -136,8 +136,8 @@ export class CourseSeriesEntity {
     name: 'status',
     type: 'enum',
     enum: CourseSeriesStatus,
-    default: CourseSeriesStatus.PLANNED,
-    comment: '班级状态：PLANNED/PENDING_APPROVAL/PUBLISHED/CLOSED/FINISHED',
+    default: CourseSeriesStatus.DRAFT,
+    comment: '班级状态：DRAFT/SCHEDULED/PENDING_APPROVAL/PUBLISHED/CLOSED/FINISHED',
   })
   status!: CourseSeriesStatus;
 

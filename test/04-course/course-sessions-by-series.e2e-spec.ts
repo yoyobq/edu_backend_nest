@@ -424,7 +424,7 @@ describe('Course Sessions By Series (e2e)', () => {
     const seriesId = await createSeries({ catalogId });
 
     await dataSource.query('UPDATE course_series SET status = ? WHERE id = ?', [
-      CourseSeriesStatus.PLANNED,
+      CourseSeriesStatus.SCHEDULED,
       seriesId,
     ]);
     await dataSource.query('DELETE FROM participation_enrollment WHERE customer_id = ?', [
@@ -528,7 +528,7 @@ describe('Course Sessions By Series (e2e)', () => {
     const seriesId = await createSeries({ catalogId });
 
     await dataSource.query('UPDATE course_series SET status = ? WHERE id = ?', [
-      CourseSeriesStatus.PLANNED,
+      CourseSeriesStatus.SCHEDULED,
       seriesId,
     ]);
 
@@ -648,7 +648,7 @@ describe('Course Sessions By Series (e2e)', () => {
       const seriesId = await createSeries({ catalogId });
 
       await dataSource.query('UPDATE course_series SET status = ? WHERE id = ?', [
-        CourseSeriesStatus.PLANNED,
+        CourseSeriesStatus.SCHEDULED,
         seriesId,
       ]);
 
@@ -705,7 +705,7 @@ describe('Course Sessions By Series (e2e)', () => {
       const seriesId = await createSeries({ catalogId });
 
       await dataSource.query('UPDATE course_series SET status = ? WHERE id = ?', [
-        CourseSeriesStatus.PLANNED,
+        CourseSeriesStatus.SCHEDULED,
         seriesId,
       ]);
 

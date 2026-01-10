@@ -10,6 +10,7 @@ import {
   type CreateSeriesOutput,
 } from '@src/usecases/course/series/create-series.usecase';
 import { PreviewSeriesScheduleUsecase } from '@src/usecases/course/series/preview-series-schedule.usecase';
+import { ApplySeriesScheduleUsecase } from '@src/usecases/course/series/apply-series-schedule.usecase';
 import {
   PublishSeriesUsecase,
   type PublishSeriesOutput,
@@ -31,7 +32,10 @@ import {
 } from './dto/course-series.result';
 import { CreateCourseSeriesDraftInput } from './dto/create-course-series-draft.input';
 import { PreviewSeriesScheduleInput } from './dto/preview-series-schedule.input';
-import { PublishCourseSeriesInput } from './dto/publish-course-series.input';
+import {
+  ApplyCourseSeriesScheduleInput,
+  PublishCourseSeriesInput,
+} from './dto/publish-course-series.input';
 import { SearchCourseSeriesInputGql } from './dto/search-course-series.input';
 import { UpdateCourseSeriesInput } from './dto/update-course-series.input';
 
@@ -40,6 +44,7 @@ export class CourseSeriesResolver {
   constructor(
     private readonly createUsecase: CreateSeriesUsecase,
     private readonly previewUsecase: PreviewSeriesScheduleUsecase,
+    private readonly applyScheduleUsecase: ApplySeriesScheduleUsecase,
     private readonly publishUsecase: PublishSeriesUsecase,
     private readonly searchUsecase: SearchSeriesUsecase,
     private readonly updateUsecase: UpdateSeriesUsecase,
@@ -263,15 +268,15 @@ export class CourseSeriesResolver {
 
   @UseGuards(JwtAuthGuard)
   @Mutation(() => PublishSeriesResultDTO, {
-    name: 'publishCourseSeries',
-    description: '发布开课班（支持 dryRun 试发布，不写库）',
+    name: 'applyCourseSeriesSchedule',
+    description: '应用开课班排期（支持 dryRun，写入节次但不发布）',
   })
-  async publishCourseSeries(
+  async applyCourseSeriesSchedule(
     @currentUser() user: JwtPayload,
-    @Args('input') input: PublishCourseSeriesInput,
+    @Args('input') input: ApplyCourseSeriesScheduleInput,
   ): Promise<PublishSeriesResultDTO> {
     const session: UsecaseSession = mapJwtToUsecaseSession(user);
-    const result: PublishSeriesOutput = await this.publishUsecase.execute({
+    const result = await this.applyScheduleUsecase.execute({
       session,
       seriesId: input.seriesId,
       selectedKeys: input.selectedKeys,
@@ -284,6 +289,34 @@ export class CourseSeriesResolver {
         remark: s.remark ?? null,
       })),
       leadCoachId: input.leadCoachId,
+    });
+    const dto = new PublishSeriesResultDTO();
+    dto.seriesId = result.seriesId;
+    dto.status = (
+      await this.previewUsecase.execute({
+        session,
+        seriesId: input.seriesId,
+        options: { enableConflictCheck: false },
+      })
+    ).series.status;
+    dto.publishedAt = null;
+    dto.createdSessions = result.createdSessions;
+    return dto;
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Mutation(() => PublishSeriesResultDTO, {
+    name: 'publishCourseSeries',
+    description: '发布开课班（要求已存在节次，仅更新状态并写入事件）',
+  })
+  async publishCourseSeries(
+    @currentUser() user: JwtPayload,
+    @Args('input') input: PublishCourseSeriesInput,
+  ): Promise<PublishSeriesResultDTO> {
+    const session: UsecaseSession = mapJwtToUsecaseSession(user);
+    const result: PublishSeriesOutput = await this.publishUsecase.execute({
+      session,
+      seriesId: input.seriesId,
     });
     const dto = new PublishSeriesResultDTO();
     dto.seriesId = result.series.id;

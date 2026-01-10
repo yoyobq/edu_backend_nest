@@ -240,7 +240,7 @@ async function createTestSeries(
       pricePerSession: '100.00',
       teachingFeeRef: '80.00',
       maxLearners: 8,
-      status: CourseSeriesStatus.PLANNED,
+      status: CourseSeriesStatus.SCHEDULED,
       remark: 'E2E 工作流用开课班',
       createdBy: null,
       updatedBy: null,

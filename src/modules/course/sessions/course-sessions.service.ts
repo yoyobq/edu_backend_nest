@@ -151,6 +151,28 @@ export class CourseSessionsService {
   }
 
   /**
+   * 按系列统计节次数量
+   * @param seriesId 课程系列 ID
+   * @returns 对应系列下的节次数量
+   */
+  async countBySeries(seriesId: number): Promise<number> {
+    const qb = this.sessionRepository
+      .createQueryBuilder('s')
+      .select('COUNT(1)', 'cnt')
+      .where('s.seriesId = :seriesId', { seriesId });
+    const row = (await qb.getRawOne()) as { cnt?: string | number } | null;
+    const raw = row?.cnt;
+    if (typeof raw === 'number') {
+      return raw;
+    }
+    if (typeof raw === 'string') {
+      const parsed = Number(raw);
+      return Number.isFinite(parsed) ? parsed : 0;
+    }
+    return 0;
+  }
+
+  /**
    * 按教练与时间段查询已排期的节次（仅 SCHEDULED）
    * @param params 查询参数对象：coachId / rangeStart / rangeEnd
    * @returns 重叠时间段内的节次列表，按开始时间升序

@@ -37,8 +37,10 @@ export enum ClassMode {
  * 班级状态
  */
 export enum CourseSeriesStatus {
-  /** 已建班但未发布 */
-  PLANNED = 'PLANNED',
+  /** 草稿：已建班但尚未生成任何节次 */
+  DRAFT = 'DRAFT',
+  /** 已排期：已生成节次但尚未发布 */
+  SCHEDULED = 'SCHEDULED',
   /** 待审批 */
   PENDING_APPROVAL = 'PENDING_APPROVAL',
   /** 正在招生/进行中 */

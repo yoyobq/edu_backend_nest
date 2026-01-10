@@ -151,12 +151,8 @@ export class PreviewSeriesScheduleUsecase {
     return s;
   }
 
-  /**
-   * 状态校验：当前仅允许 PLANNED 做预览
-   * @param s 系列实体
-   */
   private requireStatusPlanned(s: CourseSeriesEntity): void {
-    if (s.status !== CourseSeriesStatus.PLANNED) {
+    if (s.status !== CourseSeriesStatus.DRAFT && s.status !== CourseSeriesStatus.SCHEDULED) {
       throw new DomainError(COURSE_SERIES_ERROR.INVALID_PARAMS, '当前状态不支持排期预览');
     }
   }

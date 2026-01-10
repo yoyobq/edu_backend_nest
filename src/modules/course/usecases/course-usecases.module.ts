@@ -12,8 +12,10 @@ import { CourseSessionsModule } from '@src/modules/course/sessions/course-sessio
 import { ParticipationAttendanceModule } from '@src/modules/participation/attendance/participation-attendance.module';
 import { ParticipationEnrollmentModule } from '@src/modules/participation/enrollment/participation-enrollment.module';
 import { PreviewSeriesScheduleUsecase } from '@src/usecases/course/series/preview-series-schedule.usecase';
+import { ApplySeriesScheduleUsecase } from '@src/usecases/course/series/apply-series-schedule.usecase';
 import { PublishSeriesUsecase } from '@src/usecases/course/series/publish-series.usecase';
 import { CourseSeriesAccessPolicy } from '@src/usecases/course/sessions/course-series-access.policy';
+import { GenerateSessionCoachesForSeriesUsecase } from '@src/usecases/course/sessions/generate-session-coaches-for-series.usecase';
 import { UpdateSessionBasicInfoUsecase } from '@src/usecases/course/sessions/update-session-basic-info.usecase';
 import { SetSessionCoachPayoutUsecase } from '@src/usecases/course/sessions/update-session-coach-settlement.usecase';
 import { ViewSessionsBySeriesUsecase } from '@src/usecases/course/sessions/view-sessions-by-series.usecase';
@@ -44,7 +46,9 @@ import { LoadSessionAttendanceSheetUsecase } from '@src/usecases/course/workflow
     LoadSessionAttendanceSheetUsecase,
     BatchRecordAttendanceUsecase,
     PreviewSeriesScheduleUsecase,
+    ApplySeriesScheduleUsecase,
     PublishSeriesUsecase,
+    GenerateSessionCoachesForSeriesUsecase,
     CourseSeriesAccessPolicy,
     ViewSessionsBySeriesUsecase,
     SetSessionCoachPayoutUsecase,
@@ -57,7 +61,9 @@ import { LoadSessionAttendanceSheetUsecase } from '@src/usecases/course/workflow
     LoadSessionAttendanceSheetUsecase,
     BatchRecordAttendanceUsecase,
     PreviewSeriesScheduleUsecase,
+    ApplySeriesScheduleUsecase,
     PublishSeriesUsecase,
+    GenerateSessionCoachesForSeriesUsecase,
     CourseSeriesAccessPolicy,
     ViewSessionsBySeriesUsecase,
     SetSessionCoachPayoutUsecase,
