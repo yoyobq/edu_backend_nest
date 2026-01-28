@@ -8,5 +8,6 @@ export enum SessionCoachRemovedReason {
   REPLACED = 'REPLACED',
   TEMP_HELP = 'TEMP_HELP',
   NO_SHOW = 'NO_SHOW',
+  CANCELED = 'CANCELED',
   OTHER = 'OTHER',
 }

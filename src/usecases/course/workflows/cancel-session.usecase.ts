@@ -63,7 +63,7 @@ export class CancelSessionUsecase {
         await this.sessionCoachesService.removeActiveBySession({
           sessionId: s.id,
           operatorAccountId: session.accountId ?? null,
-          removedReason: SessionCoachRemovedReason.OTHER,
+          removedReason: SessionCoachRemovedReason.CANCELED,
           manager,
         });
         return entity;
@@ -71,7 +71,7 @@ export class CancelSessionUsecase {
       await this.sessionCoachesService.removeActiveBySession({
         sessionId: s.id,
         operatorAccountId: session.accountId ?? null,
-        removedReason: SessionCoachRemovedReason.OTHER,
+        removedReason: SessionCoachRemovedReason.CANCELED,
         manager,
       });
       return s;

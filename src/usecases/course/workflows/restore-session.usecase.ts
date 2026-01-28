@@ -69,7 +69,7 @@ export class RestoreSessionUsecase {
       await this.sessionCoachesService.restoreRemovedBySession({
         sessionId: s.id,
         operatorAccountId: session.accountId ?? null,
-        removedReason: SessionCoachRemovedReason.OTHER,
+        removedReason: SessionCoachRemovedReason.CANCELED,
         manager,
       });
       return entity;
