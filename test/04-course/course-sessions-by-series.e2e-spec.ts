@@ -1,3 +1,4 @@
+/* eslint-disable complexity */
 // test/04-course/course-sessions-by-series.e2e-spec.ts
 import { CourseSeriesStatus, PublisherType } from '@app-types/models/course-series.types';
 import { SessionCoachRemovedReason } from '@app-types/models/course-session-coach.types';
@@ -31,6 +32,7 @@ describe('Course Sessions By Series (e2e)', () => {
   let app: INestApplication;
   let dataSource: DataSource;
   let managerToken: string;
+  let adminToken: string;
   let coachToken: string;
   let customerToken: string;
   let managerAccountId: number;
@@ -193,13 +195,18 @@ describe('Course Sessions By Series (e2e)', () => {
     await cleanupTestAccounts(dataSource);
     await seedTestAccounts({
       dataSource,
-      includeKeys: ['manager', 'coach', 'customer', 'coachCustomer'],
+      includeKeys: ['manager', 'admin', 'coach', 'customer', 'coachCustomer'],
     });
 
     managerToken = await login({
       app,
       loginName: testAccountsConfig.manager.loginName,
       loginPassword: testAccountsConfig.manager.loginPassword,
+    });
+    adminToken = await login({
+      app,
+      loginName: testAccountsConfig.admin.loginName,
+      loginPassword: testAccountsConfig.admin.loginPassword,
     });
     coachToken = await login({
       app,
@@ -937,6 +944,402 @@ describe('Course Sessions By Series (e2e)', () => {
         where: { sessionId, coachId: coachIdentityId },
       });
       expect(afterCount).toBe(0);
+    });
+  });
+
+  describe('generateSessionCoachesForSeries & syncSessionCoachesRoster (GraphQL)', () => {
+    it('manager 可以调用 generateSessionCoachesForSeries 为 SCHEDULED 节次创建教练关联', async () => {
+      const catalogId = await ensureCatalog();
+      const seriesId = await createSeries({ catalogId });
+      const baseTime = new Date();
+      const sessions = await createSessions({ seriesId, baseTime });
+
+      const mutation = `
+        mutation Generate($input: GenerateSessionCoachesForSeriesInputGql!) {
+          generateSessionCoachesForSeries(input: $input) {
+            seriesId
+            sessionsProcessed
+            coachRelationsPlanned
+          }
+        }
+      `;
+
+      const res = await postQuery({
+        query: mutation,
+        variables: {
+          input: {
+            seriesId,
+            maxSessions: 200,
+          },
+        },
+        token: managerToken,
+      }).expect(200);
+
+      if (res.body.errors) {
+        throw new Error(`GraphQL 错误: ${JSON.stringify(res.body.errors)}`);
+      }
+
+      const data = (
+        res.body as {
+          data?: {
+            generateSessionCoachesForSeries?: {
+              seriesId: number;
+              sessionsProcessed: number;
+              coachRelationsPlanned: number;
+            };
+          };
+        }
+      ).data?.generateSessionCoachesForSeries;
+
+      expect(data).toBeDefined();
+      expect(Number(data?.seriesId)).toBe(seriesId);
+
+      const scheduledSessions = sessions.filter((s) => s.status === SessionStatus.SCHEDULED);
+      expect(data?.sessionsProcessed).toBe(scheduledSessions.length);
+      expect(data?.coachRelationsPlanned).toBe(scheduledSessions.length);
+
+      const coachSessionRepo = dataSource.getRepository(CourseSessionCoachEntity);
+      for (const s of scheduledSessions) {
+        const count = await coachSessionRepo.count({
+          where: { sessionId: s.id, coachId: coachIdentityId },
+        });
+        expect(count).toBe(1);
+      }
+    });
+
+    it('admin 可以调用 generateSessionCoachesForSeries 为 SCHEDULED 节次创建教练关联', async () => {
+      const catalogId = await ensureCatalog();
+      const seriesId = await createSeries({ catalogId });
+      const baseTime = new Date();
+      const sessions = await createSessions({ seriesId, baseTime });
+
+      const mutation = `
+        mutation Generate($input: GenerateSessionCoachesForSeriesInputGql!) {
+          generateSessionCoachesForSeries(input: $input) {
+            seriesId
+            sessionsProcessed
+            coachRelationsPlanned
+          }
+        }
+      `;
+
+      const res = await postQuery({
+        query: mutation,
+        variables: {
+          input: {
+            seriesId,
+            maxSessions: 200,
+          },
+        },
+        token: adminToken,
+      }).expect(200);
+
+      if (res.body.errors) {
+        throw new Error(`GraphQL 错误: ${JSON.stringify(res.body.errors)}`);
+      }
+
+      const data = (
+        res.body as {
+          data?: {
+            generateSessionCoachesForSeries?: {
+              seriesId: number;
+              sessionsProcessed: number;
+              coachRelationsPlanned: number;
+            };
+          };
+        }
+      ).data?.generateSessionCoachesForSeries;
+
+      expect(data).toBeDefined();
+      expect(Number(data?.seriesId)).toBe(seriesId);
+
+      const scheduledSessions = sessions.filter((s) => s.status === SessionStatus.SCHEDULED);
+      expect(data?.sessionsProcessed).toBe(scheduledSessions.length);
+      expect(data?.coachRelationsPlanned).toBe(scheduledSessions.length);
+    });
+
+    it('coach 调用 generateSessionCoachesForSeries 会被 RolesGuard 拒绝', async () => {
+      const mutation = `
+        mutation Generate($input: GenerateSessionCoachesForSeriesInputGql!) {
+          generateSessionCoachesForSeries(input: $input) {
+            seriesId
+          }
+        }
+      `;
+
+      const res = await postQuery({
+        query: mutation,
+        variables: {
+          input: {
+            seriesId: 1,
+            maxSessions: 10,
+          },
+        },
+        token: coachToken,
+      }).expect(200);
+
+      expect(res.body.errors).toBeDefined();
+      const err = res.body.errors[0];
+      expect(String(err.message ?? '')).toContain('缺少所需角色');
+      expect(err.extensions?.errorCode).toBe('INSUFFICIENT_PERMISSIONS');
+      expect(err.extensions?.details?.requiredRoles).toEqual(
+        expect.arrayContaining(['MANAGER', 'ADMIN']),
+      );
+      expect(err.extensions?.details?.userRoles).toEqual(['COACH']);
+    });
+
+    it('匿名调用 generateSessionCoachesForSeries 会被 JwtAuthGuard 拒绝', async () => {
+      const mutation = `
+        mutation Generate($input: GenerateSessionCoachesForSeriesInputGql!) {
+          generateSessionCoachesForSeries(input: $input) {
+            seriesId
+          }
+        }
+      `;
+
+      const res = await postQuery({
+        query: mutation,
+        variables: {
+          input: {
+            seriesId: 1,
+            maxSessions: 10,
+          },
+        },
+      }).expect(200);
+
+      expect(res.body.errors).toBeDefined();
+      const err = res.body.errors[0];
+      expect(String(err.message ?? '')).toContain('JWT');
+      expect(err.extensions?.errorCode).toBe('JWT_AUTHENTICATION_FAILED');
+    });
+
+    it('manager 可以调用 syncSessionCoachesRoster 将 roster 覆盖为指定教练集合', async () => {
+      const catalogId = await ensureCatalog();
+      const seriesId = await createSeries({ catalogId });
+      const baseTime = new Date();
+      const sessions = await createSessions({ seriesId, baseTime });
+      const sessionId = sessions[0]?.id;
+      if (!sessionId) throw new Error('测试前置失败：未生成节次');
+
+      const mutation = `
+        mutation SyncRoster($input: SyncSessionCoachesRosterInputGql!) {
+          syncSessionCoachesRoster(input: $input) {
+            sessionId
+            activatedCount
+            removedCount
+          }
+        }
+      `;
+
+      const res1 = await postQuery({
+        query: mutation,
+        variables: {
+          input: {
+            sessionId,
+            coachIds: [coachIdentityId, coachCustomerIdentityId],
+          },
+        },
+        token: managerToken,
+      }).expect(200);
+
+      if (res1.body.errors) {
+        throw new Error(`GraphQL 错误: ${JSON.stringify(res1.body.errors)}`);
+      }
+
+      const data1 = (
+        res1.body as {
+          data?: {
+            syncSessionCoachesRoster?: {
+              sessionId: number;
+              activatedCount: number;
+              removedCount: number;
+            };
+          };
+        }
+      ).data?.syncSessionCoachesRoster;
+
+      expect(data1).toBeDefined();
+      expect(Number(data1?.sessionId)).toBe(sessionId);
+      expect(data1?.activatedCount).toBe(2);
+      expect(data1?.removedCount).toBe(0);
+
+      const res2 = await postQuery({
+        query: mutation,
+        variables: {
+          input: {
+            sessionId,
+            coachIds: [coachIdentityId],
+          },
+        },
+        token: managerToken,
+      }).expect(200);
+
+      if (res2.body.errors) {
+        throw new Error(`GraphQL 错误: ${JSON.stringify(res2.body.errors)}`);
+      }
+
+      const data2 = (
+        res2.body as {
+          data?: {
+            syncSessionCoachesRoster?: {
+              sessionId: number;
+              activatedCount: number;
+              removedCount: number;
+            };
+          };
+        }
+      ).data?.syncSessionCoachesRoster;
+
+      expect(data2).toBeDefined();
+      expect(Number(data2?.sessionId)).toBe(sessionId);
+      expect(data2?.activatedCount).toBe(0);
+      expect(data2?.removedCount).toBe(1);
+
+      const coachSessionRepo = dataSource.getRepository(CourseSessionCoachEntity);
+      const activeCoach = await coachSessionRepo.findOne({
+        where: { sessionId, coachId: coachIdentityId },
+      });
+      const removedCoach = await coachSessionRepo.findOne({
+        where: { sessionId, coachId: coachCustomerIdentityId },
+      });
+
+      expect(activeCoach).toBeDefined();
+      expect(activeCoach?.removedAt).toBeNull();
+      expect(removedCoach).toBeDefined();
+      expect(removedCoach?.removedAt).not.toBeNull();
+      expect(removedCoach?.removedReason).toBe(SessionCoachRemovedReason.REPLACED);
+    });
+
+    it('admin 可以调用 syncSessionCoachesRoster 将 roster 覆盖为指定教练集合', async () => {
+      const catalogId = await ensureCatalog();
+      const seriesId = await createSeries({ catalogId });
+      const baseTime = new Date();
+      const sessions = await createSessions({ seriesId, baseTime });
+      const sessionId = sessions[0]?.id;
+      if (!sessionId) throw new Error('测试前置失败：未生成节次');
+
+      const mutation = `
+        mutation SyncRoster($input: SyncSessionCoachesRosterInputGql!) {
+          syncSessionCoachesRoster(input: $input) {
+            sessionId
+            activatedCount
+            removedCount
+          }
+        }
+      `;
+
+      const res = await postQuery({
+        query: mutation,
+        variables: {
+          input: {
+            sessionId,
+            coachIds: [coachIdentityId],
+          },
+        },
+        token: adminToken,
+      }).expect(200);
+
+      if (res.body.errors) {
+        throw new Error(`GraphQL 错误: ${JSON.stringify(res.body.errors)}`);
+      }
+
+      const data = (
+        res.body as {
+          data?: {
+            syncSessionCoachesRoster?: {
+              sessionId: number;
+              activatedCount: number;
+              removedCount: number;
+            };
+          };
+        }
+      ).data?.syncSessionCoachesRoster;
+
+      expect(data).toBeDefined();
+      expect(Number(data?.sessionId)).toBe(sessionId);
+      expect(data?.activatedCount).toBe(1);
+      expect(data?.removedCount).toBe(0);
+    });
+
+    it('manager 传入空 coachIds 调用 syncSessionCoachesRoster 会被 Usecase 拒绝', async () => {
+      const mutation = `
+        mutation SyncRoster($input: SyncSessionCoachesRosterInputGql!) {
+          syncSessionCoachesRoster(input: $input) {
+            sessionId
+          }
+        }
+      `;
+
+      const res = await postQuery({
+        query: mutation,
+        variables: {
+          input: {
+            sessionId: 1,
+            coachIds: [],
+          },
+        },
+        token: managerToken,
+      }).expect(200);
+
+      expect(res.body.errors).toBeDefined();
+      const err = res.body.errors[0];
+      expect(String(err.message ?? '')).toContain('目标教练列表不能为空');
+      expect(err.extensions?.errorCode).toBe('SESSION_STATUS_INVALID');
+    });
+
+    it('匿名调用 syncSessionCoachesRoster 会被 JwtAuthGuard 拒绝', async () => {
+      const mutation = `
+        mutation SyncRoster($input: SyncSessionCoachesRosterInputGql!) {
+          syncSessionCoachesRoster(input: $input) {
+            sessionId
+          }
+        }
+      `;
+
+      const res = await postQuery({
+        query: mutation,
+        variables: {
+          input: {
+            sessionId: 1,
+            coachIds: [coachIdentityId],
+          },
+        },
+      }).expect(200);
+
+      expect(res.body.errors).toBeDefined();
+      const err = res.body.errors[0];
+      expect(String(err.message ?? '')).toContain('JWT');
+      expect(err.extensions?.errorCode).toBe('JWT_AUTHENTICATION_FAILED');
+    });
+
+    it('coach 调用 syncSessionCoachesRoster 会被 RolesGuard 拒绝', async () => {
+      const mutation = `
+        mutation SyncRoster($input: SyncSessionCoachesRosterInputGql!) {
+          syncSessionCoachesRoster(input: $input) {
+            sessionId
+          }
+        }
+      `;
+
+      const res = await postQuery({
+        query: mutation,
+        variables: {
+          input: {
+            sessionId: 1,
+            coachIds: [coachIdentityId],
+          },
+        },
+        token: coachToken,
+      }).expect(200);
+
+      expect(res.body.errors).toBeDefined();
+      const err = res.body.errors[0];
+      expect(String(err.message ?? '')).toContain('缺少所需角色');
+      expect(err.extensions?.errorCode).toBe('INSUFFICIENT_PERMISSIONS');
+      expect(err.extensions?.details?.requiredRoles).toEqual(
+        expect.arrayContaining(['MANAGER', 'ADMIN']),
+      );
+      expect(err.extensions?.details?.userRoles).toEqual(['COACH']);
     });
   });
 });

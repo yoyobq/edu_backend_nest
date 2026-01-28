@@ -2247,6 +2247,96 @@ describe('Course Series (e2e)', () => {
       expect(result.createdSessions).toBe(keys.length);
     });
 
+    it('规则课次 + customSessions 混合：应用排期应落库自定义课次', async () => {
+      const catalogId = await ensureCatalog();
+      const startDateStr = '2025-09-01';
+      const endDateStr = '2025-09-07';
+
+      const createMutation = `
+        mutation {
+          createCourseSeriesDraft(input: {
+            catalogId: ${catalogId},
+            title: "E2E 混合排期",
+            description: "说明",
+            venueType: ${VenueType.SANDA_GYM},
+            classMode: ${ClassMode.SMALL_CLASS},
+            startDate: "${startDateStr}",
+            endDate: "${endDateStr}",
+            recurrenceRule: "BYDAY=MO,WE;BYHOUR=18;BYMINUTE=0",
+            leaveCutoffHours: 12,
+            maxLearners: 4,
+            remark: "E2E 草稿测试"
+          }) { id }
+        }
+      `;
+      const createRes = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', managerTokenWithBearer)
+        .send({ query: createMutation })
+        .expect(200);
+      if (createRes.body.errors)
+        throw new Error(`GraphQL 错误: ${JSON.stringify(createRes.body.errors)}`);
+      const seriesId = Number(createRes.body.data.createCourseSeriesDraft.id);
+
+      const previewQuery = `
+        query { previewCourseSeriesSchedule(input: { seriesId: ${seriesId} }) { occurrences { occurrenceKey } previewHash } }
+      `;
+      const previewRes = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', managerTokenWithBearer)
+        .send({ query: previewQuery })
+        .expect(200);
+      if (previewRes.body.errors)
+        throw new Error(`GraphQL 错误: ${JSON.stringify(previewRes.body.errors)}`);
+      const occurrences = (previewRes.body.data.previewCourseSeriesSchedule.occurrences ??
+        []) as Array<{ occurrenceKey: string }>;
+      const previewHash = previewRes.body.data.previewCourseSeriesSchedule.previewHash as string;
+      const keys = occurrences.slice(0, 2).map((o) => o.occurrenceKey);
+
+      const accountRepo = dataSource.getRepository(AccountEntity);
+      const account = await accountRepo.findOne({
+        where: { loginName: testAccountsConfig.coach.loginName },
+      });
+      const coachRepo = dataSource.getRepository(CoachEntity);
+      const coach = await coachRepo.findOne({ where: { accountId: account!.id } });
+      const leadId = coach!.id;
+
+      const customStartTime = new Date('2025-09-05T18:00:00.000Z').toISOString();
+      const customEndTime = new Date('2025-09-05T19:00:00.000Z').toISOString();
+      const applyMutation = `
+        mutation {
+          applyCourseSeriesSchedule(input: {
+            seriesId: ${seriesId},
+            previewHash: "${previewHash}",
+            selectedKeys: [${keys.map((k) => `"${k}"`).join(', ')}],
+            customSessions: [{ startTime: "${customStartTime}", endTime: "${customEndTime}", locationText: "临时教室-混合", remark: "临时加课-混合" }],
+            leadCoachId: ${leadId}
+          }) {
+            seriesId
+            status
+            publishedAt
+            createdSessions
+          }
+        }
+      `;
+      const applyRes = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', managerTokenWithBearer)
+        .send({ query: applyMutation })
+        .expect(200);
+      if (applyRes.body.errors)
+        throw new Error(`GraphQL 错误: ${JSON.stringify(applyRes.body.errors)}`);
+      const result = applyRes.body.data.applyCourseSeriesSchedule as { createdSessions: number };
+      expect(result.createdSessions).toBe(keys.length + 1);
+
+      const rows = await dataSource.query(
+        'SELECT location_text AS locationText, remark FROM course_sessions WHERE series_id = ? AND remark = ?',
+        [seriesId, '临时加课-混合'],
+      );
+      expect(rows.length).toBe(1);
+      expect(String(rows[0]?.locationText ?? '')).toBe('临时教室-混合');
+    });
+
     it('manager 应用排期指定不存在的主教练 ID：返回 COURSE_SERIES_INVALID_PARAMS', async () => {
       const catalogId = await ensureCatalog();
       const startDateStr = '2025-09-15';
