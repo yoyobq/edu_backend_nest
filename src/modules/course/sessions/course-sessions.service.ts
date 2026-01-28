@@ -263,6 +263,31 @@ export class CourseSessionsService {
   }
 
   /**
+   * 更新节次基本信息（可选事务管理）
+   * @param params.id 节次 ID
+   * @param params.patch 部分更新数据
+   * @param params.manager 可选事务管理器
+   */
+  async updateWithManager(params: {
+    readonly id: number;
+    readonly patch: Partial<
+      Pick<
+        CourseSessionEntity,
+        'startTime' | 'endTime' | 'leadCoachId' | 'locationText' | 'extraCoachesJson' | 'remark'
+      >
+    >;
+    readonly manager?: EntityManager;
+  }): Promise<CourseSessionEntity> {
+    const repo = params.manager
+      ? params.manager.getRepository(CourseSessionEntity)
+      : this.sessionRepository;
+    await repo.update({ id: params.id }, params.patch);
+    const fresh = await repo.findOne({ where: { id: params.id } });
+    if (!fresh) throw new Error('更新后的节次未找到');
+    return fresh;
+  }
+
+  /**
    * 更新节次基本信息
    * @param id 节次 ID
    * @param patch 部分更新数据
@@ -276,10 +301,7 @@ export class CourseSessionsService {
       >
     >,
   ): Promise<CourseSessionEntity> {
-    await this.sessionRepository.update({ id }, patch);
-    const fresh = await this.sessionRepository.findOne({ where: { id } });
-    if (!fresh) throw new Error('更新后的节次未找到');
-    return fresh;
+    return this.updateWithManager({ id, patch });
   }
 
   /**

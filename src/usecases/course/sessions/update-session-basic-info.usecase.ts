@@ -1,12 +1,16 @@
 // src/usecases/course/sessions/update-session-basic-info.usecase.ts
 import { IdentityTypeEnum } from '@app-types/models/account.types';
+import { SessionCoachRemovedReason } from '@app-types/models/course-session-coach.types';
 import { SessionStatus } from '@app-types/models/course-session.types';
 import { hasRole } from '@core/account/policy/role-access.policy';
 import { DomainError, PERMISSION_ERROR, SESSION_ERROR } from '@core/common/errors/domain-error';
 import { Injectable } from '@nestjs/common';
+import { InjectDataSource } from '@nestjs/typeorm';
+import { CourseSessionCoachesService } from '@src/modules/course/session-coaches/course-session-coaches.service';
 import { CourseSessionEntity } from '@src/modules/course/sessions/course-session.entity';
 import { CourseSessionsService } from '@src/modules/course/sessions/course-sessions.service';
 import { UsecaseSession } from '@src/types/auth/session.types';
+import { DataSource } from 'typeorm';
 
 export interface UpdateSessionBasicInfoInput {
   readonly sessionId: number;
@@ -19,7 +23,11 @@ export interface UpdateSessionBasicInfoInput {
 
 @Injectable()
 export class UpdateSessionBasicInfoUsecase {
-  constructor(private readonly sessionsService: CourseSessionsService) {}
+  constructor(
+    @InjectDataSource() private readonly dataSource: DataSource,
+    private readonly sessionsService: CourseSessionsService,
+    private readonly sessionCoachesService: CourseSessionCoachesService,
+  ) {}
 
   /**
    * 更新节次基础信息
@@ -74,7 +82,45 @@ export class UpdateSessionBasicInfoUsecase {
       return current;
     }
 
-    return await this.sessionsService.update(current.id, patch);
+    const leadCoachChanged =
+      input.leadCoachId !== undefined && input.leadCoachId !== current.leadCoachId;
+
+    if (!leadCoachChanged) {
+      return await this.sessionsService.update(current.id, patch);
+    }
+
+    const operatorAccountId = session.accountId ?? null;
+    const nextLeadCoachId = input.leadCoachId;
+    const previousLeadCoachId = current.leadCoachId;
+
+    const updated = await this.dataSource.transaction(async (manager) => {
+      const entity = await this.sessionsService.updateWithManager({
+        id: current.id,
+        patch,
+        manager,
+      });
+
+      await this.sessionCoachesService.ensureActive({
+        sessionId: current.id,
+        coachId: nextLeadCoachId,
+        operatorAccountId,
+        manager,
+      });
+
+      if (previousLeadCoachId && previousLeadCoachId !== nextLeadCoachId) {
+        await this.sessionCoachesService.removeFromRoster({
+          sessionId: current.id,
+          coachId: previousLeadCoachId,
+          operatorAccountId,
+          removedReason: SessionCoachRemovedReason.REPLACED,
+          manager,
+        });
+      }
+
+      return entity;
+    });
+
+    return updated;
   }
 
   /**

@@ -1,4 +1,5 @@
 // src/usecases/course/series/publish-series.usecase.ts
+import { SessionStatus } from '@app-types/models/course-session.types';
 import { CourseSeriesStatus, PublisherType } from '@app-types/models/course-series.types';
 import {
   COURSE_SERIES_ERROR,
@@ -13,6 +14,8 @@ import { CoachService } from '@src/modules/account/identities/training/coach/coa
 import { INTEGRATION_EVENTS_TOKENS } from '@src/modules/common/integration-events/events.tokens';
 import { CourseSeriesEntity } from '@src/modules/course/series/course-series.entity';
 import { CourseSeriesService } from '@src/modules/course/series/course-series.service';
+import { CourseSessionCoachesService } from '@src/modules/course/session-coaches/course-session-coaches.service';
+import { CourseSessionEntity } from '@src/modules/course/sessions/course-session.entity';
 import { CourseSessionsService } from '@src/modules/course/sessions/course-sessions.service';
 import { type UsecaseSession } from '@src/types/auth/session.types';
 import { DataSource } from 'typeorm';
@@ -33,6 +36,7 @@ export class PublishSeriesUsecase {
     private readonly seriesService: CourseSeriesService,
     private readonly sessionsService: CourseSessionsService,
     private readonly coachService: CoachService,
+    private readonly sessionCoachesService: CourseSessionCoachesService,
     @Inject(INTEGRATION_EVENTS_TOKENS.OUTBOX_WRITER_PORT)
     private readonly outboxWriter: IOutboxWriterPort,
     @InjectDataSource() private readonly dataSource: DataSource,
@@ -65,6 +69,42 @@ export class PublishSeriesUsecase {
           COURSE_SERIES_ERROR.SERIES_UPDATE_FAILED,
           '系列状态已被其他流程更新，当前发布操作被拒绝',
         );
+      }
+
+      const sessions = await manager
+        .getRepository(CourseSessionEntity)
+        .createQueryBuilder('s')
+        .select('s')
+        .where('s.seriesId = :seriesId', { seriesId: series.id })
+        .andWhere('s.status = :status', { status: SessionStatus.SCHEDULED })
+        .orderBy('s.startTime', 'ASC')
+        .addOrderBy('s.id', 'ASC')
+        .limit(200)
+        .getMany();
+
+      for (const s of sessions) {
+        const coachIds = new Set<number>();
+        if (s.leadCoachId) {
+          coachIds.add(s.leadCoachId);
+        }
+        if (Array.isArray(s.extraCoachesJson)) {
+          for (const extra of s.extraCoachesJson) {
+            if (typeof extra.id === 'number') {
+              coachIds.add(extra.id);
+            }
+          }
+        }
+        if (coachIds.size === 0) {
+          continue;
+        }
+        for (const coachId of coachIds) {
+          await this.sessionCoachesService.ensureActive({
+            sessionId: s.id,
+            coachId,
+            operatorAccountId: session.accountId ?? null,
+            manager,
+          });
+        }
       }
 
       const envelope = buildEnvelope({
