@@ -93,7 +93,13 @@ export class ApplySeriesScheduleUsecase {
         locationText: s.locationText?.trim() ? s.locationText.trim() : '馆内',
         remark: s.remark ?? null,
       })),
-    ];
+    ].sort((a, b) => {
+      const startDiff = a.startTime.getTime() - b.startTime.getTime();
+      if (startDiff !== 0) return startDiff;
+      const endDiff = a.endTime.getTime() - b.endTime.getTime();
+      if (endDiff !== 0) return endDiff;
+      return String(a.locationText).localeCompare(String(b.locationText), 'zh-Hans');
+    });
 
     const res = await this.sessionsService.bulkCreate({ items });
 

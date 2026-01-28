@@ -16,6 +16,7 @@ import { ApplySeriesScheduleUsecase } from '@src/usecases/course/series/apply-se
 import { PublishSeriesUsecase } from '@src/usecases/course/series/publish-series.usecase';
 import { CourseSeriesAccessPolicy } from '@src/usecases/course/sessions/course-series-access.policy';
 import { GenerateSessionCoachesForSeriesUsecase } from '@src/usecases/course/sessions/generate-session-coaches-for-series.usecase';
+import { SyncSessionCoachesRosterUsecase } from '@src/usecases/course/sessions/sync-session-coaches-roster.usecase';
 import { UpdateSessionBasicInfoUsecase } from '@src/usecases/course/sessions/update-session-basic-info.usecase';
 import { SetSessionCoachPayoutUsecase } from '@src/usecases/course/sessions/update-session-coach-settlement.usecase';
 import { ViewSessionsBySeriesUsecase } from '@src/usecases/course/sessions/view-sessions-by-series.usecase';
@@ -49,6 +50,7 @@ import { LoadSessionAttendanceSheetUsecase } from '@src/usecases/course/workflow
     ApplySeriesScheduleUsecase,
     PublishSeriesUsecase,
     GenerateSessionCoachesForSeriesUsecase,
+    SyncSessionCoachesRosterUsecase,
     CourseSeriesAccessPolicy,
     ViewSessionsBySeriesUsecase,
     SetSessionCoachPayoutUsecase,
@@ -64,6 +66,7 @@ import { LoadSessionAttendanceSheetUsecase } from '@src/usecases/course/workflow
     ApplySeriesScheduleUsecase,
     PublishSeriesUsecase,
     GenerateSessionCoachesForSeriesUsecase,
+    SyncSessionCoachesRosterUsecase,
     CourseSeriesAccessPolicy,
     ViewSessionsBySeriesUsecase,
     SetSessionCoachPayoutUsecase,

@@ -49,7 +49,10 @@ export class GenerateSessionCoachesForSeriesUsecase {
   ): Promise<GenerateSessionCoachesForSeriesResult> {
     const { session } = input;
 
-    if (!session.roles || !hasRole(session.roles, IdentityTypeEnum.MANAGER)) {
+    const roles = session.roles ?? [];
+    const isAdmin = hasRole(roles, IdentityTypeEnum.ADMIN);
+    const isManager = hasRole(roles, IdentityTypeEnum.MANAGER);
+    if (!isAdmin && !isManager) {
       throw new DomainError(
         PERMISSION_ERROR.ACCESS_DENIED,
         '仅 manager / admin 可以生成节次教练关联',

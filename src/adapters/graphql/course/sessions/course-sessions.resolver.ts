@@ -1,12 +1,15 @@
 // src/adapters/graphql/course/sessions/course-sessions.resolver.ts
 import { mapJwtToUsecaseSession } from '@app-types/auth/session.types';
 import { JwtPayload } from '@app-types/jwt.types';
+import { SessionCoachRemovedReason } from '@app-types/models/course-session-coach.types';
 import { UseGuards } from '@nestjs/common';
 import { Args, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { Roles } from '@src/adapters/graphql/decorators/roles.decorator';
 import { JwtAuthGuard } from '@src/adapters/graphql/guards/jwt-auth.guard';
 import { RolesGuard } from '@src/adapters/graphql/guards/roles.guard';
 import { CourseSessionEntity } from '@src/modules/course/sessions/course-session.entity';
+import { GenerateSessionCoachesForSeriesUsecase } from '@src/usecases/course/sessions/generate-session-coaches-for-series.usecase';
+import { SyncSessionCoachesRosterUsecase } from '@src/usecases/course/sessions/sync-session-coaches-roster.usecase';
 import { UpdateSessionBasicInfoUsecase } from '@src/usecases/course/sessions/update-session-basic-info.usecase';
 import { ViewSessionsBySeriesUsecase } from '@src/usecases/course/sessions/view-sessions-by-series.usecase';
 import { currentUser } from '../../decorators/current-user.decorator';
@@ -15,11 +18,15 @@ import {
   CourseSessionSafeViewDTO,
   ExtraCoachDTO,
 } from './dto/course-session.dto';
+import { GenerateSessionCoachesForSeriesInputGql } from './dto/generate-session-coaches.input';
+import { GenerateSessionCoachesForSeriesResultGql } from './dto/generate-session-coaches.result';
 import { ListSessionsBySeriesInput } from './dto/list-sessions-by-series.input';
 import {
   CourseSessionsBySeriesResult,
   CustomerCourseSessionsBySeriesResult,
 } from './dto/list-sessions-by-series.result';
+import { SyncSessionCoachesRosterInputGql } from './dto/sync-session-coaches-roster.input';
+import { SyncSessionCoachesRosterResultGql } from './dto/sync-session-coaches-roster.result';
 import { UpdateCourseSessionInput } from './dto/update-course-session.input';
 
 function toCourseSessionDTO(entity: CourseSessionEntity): CourseSessionDTO {
@@ -80,6 +87,8 @@ export class CourseSessionsResolver {
   constructor(
     private readonly viewSessionsBySeriesUsecase: ViewSessionsBySeriesUsecase,
     private readonly updateSessionBasicInfoUsecase: UpdateSessionBasicInfoUsecase,
+    private readonly generateSessionCoachesForSeriesUsecase: GenerateSessionCoachesForSeriesUsecase,
+    private readonly syncSessionCoachesRosterUsecase: SyncSessionCoachesRosterUsecase,
   ) {}
 
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -171,5 +180,61 @@ export class CourseSessionsResolver {
     });
 
     return toCourseSessionDTO(updated);
+  }
+
+  /**
+   * 按开课班批量生成节次教练关联的 GraphQL 接口
+   * 仅做会话映射与入参透传，权限与业务规则由 Usecase 层负责
+   */
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('MANAGER', 'ADMIN')
+  @Mutation(() => GenerateSessionCoachesForSeriesResultGql, {
+    name: 'generateSessionCoachesForSeries',
+    description: '按开课班批量生成节次-教练关联记录（manager/admin）',
+  })
+  async generateSessionCoachesForSeries(
+    @Args('input') input: GenerateSessionCoachesForSeriesInputGql,
+    @currentUser() user: JwtPayload,
+  ): Promise<GenerateSessionCoachesForSeriesResultGql> {
+    const session = mapJwtToUsecaseSession(user);
+    const result = await this.generateSessionCoachesForSeriesUsecase.execute({
+      session,
+      seriesId: input.seriesId,
+      maxSessions: input.maxSessions,
+    });
+    const dto = new GenerateSessionCoachesForSeriesResultGql();
+    dto.seriesId = result.seriesId;
+    dto.sessionsProcessed = result.sessionsProcessed;
+    dto.coachRelationsPlanned = result.coachRelationsPlanned;
+    return dto;
+  }
+
+  /**
+   * 同步单节次教练 roster 的 GraphQL 接口
+   * 仅做会话映射与入参透传，权限与业务规则由 Usecase 层负责
+   */
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('MANAGER', 'ADMIN')
+  @Mutation(() => SyncSessionCoachesRosterResultGql, {
+    name: 'syncSessionCoachesRoster',
+    description: '同步单节次教练 roster（整体覆盖，manager/admin）',
+  })
+  async syncSessionCoachesRoster(
+    @Args('input') input: SyncSessionCoachesRosterInputGql,
+    @currentUser() user: JwtPayload,
+  ): Promise<SyncSessionCoachesRosterResultGql> {
+    const session = mapJwtToUsecaseSession(user);
+    const result = await this.syncSessionCoachesRosterUsecase.execute({
+      session,
+      sessionId: input.sessionId,
+      coachIds: input.coachIds,
+      removedReason: SessionCoachRemovedReason.REPLACED,
+    });
+
+    const dto = new SyncSessionCoachesRosterResultGql();
+    dto.sessionId = result.sessionId;
+    dto.activatedCount = result.activatedCount;
+    dto.removedCount = result.removedCount;
+    return dto;
   }
 }
