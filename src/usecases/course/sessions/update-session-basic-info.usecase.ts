@@ -164,7 +164,7 @@ export class UpdateSessionBasicInfoUsecase {
     if (input.endTime !== undefined) {
       patch.endTime = input.endTime;
     }
-    if (input.leadCoachId !== undefined) {
+    if (input.leadCoachId !== undefined && input.leadCoachId !== null) {
       patch.leadCoachId = input.leadCoachId;
     }
     if (input.locationText !== undefined) {

@@ -4,12 +4,16 @@ import { Args, Mutation, Resolver } from '@nestjs/graphql';
 import { mapJwtToUsecaseSession } from '@src/types/auth/session.types';
 import { JwtPayload } from '@src/types/jwt.types';
 import { CancelSessionUsecase } from '@src/usecases/course/workflows/cancel-session.usecase';
+import { RestoreSessionUsecase } from '@src/usecases/course/workflows/restore-session.usecase';
 import { currentUser } from '../../decorators/current-user.decorator';
 import { JwtAuthGuard } from '../../guards/jwt-auth.guard';
 
 @Resolver()
 export class SessionCancelResolver {
-  constructor(private readonly cancelSessionUsecase: CancelSessionUsecase) {}
+  constructor(
+    private readonly cancelSessionUsecase: CancelSessionUsecase,
+    private readonly restoreSessionUsecase: RestoreSessionUsecase,
+  ) {}
 
   /**
    * 取消节次（标记为 CANCELED）
@@ -24,6 +28,22 @@ export class SessionCancelResolver {
   ): Promise<boolean> {
     const session = mapJwtToUsecaseSession(user);
     await this.cancelSessionUsecase.execute(session, { sessionId });
+    return true;
+  }
+
+  /**
+   * 恢复节次（从 CANCELED 恢复到 SCHEDULED）
+   * @param user 当前登录用户的 JWT 载荷
+   * @param sessionId 节次 ID
+   */
+  @UseGuards(JwtAuthGuard)
+  @Mutation(() => Boolean, { name: 'restoreSession' })
+  async restoreSession(
+    @currentUser() user: JwtPayload,
+    @Args('sessionId', { type: () => Number }) sessionId: number,
+  ): Promise<boolean> {
+    const session = mapJwtToUsecaseSession(user);
+    await this.restoreSessionUsecase.execute(session, { sessionId });
     return true;
   }
 }

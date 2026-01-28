@@ -26,6 +26,7 @@ import { CancelSessionUsecase } from '@src/usecases/course/workflows/cancel-sess
 import { CloseSessionUsecase } from '@src/usecases/course/workflows/close-session.usecase';
 import { EnrollLearnerToSessionUsecase } from '@src/usecases/course/workflows/enroll-learner-to-session.usecase';
 import { LoadSessionAttendanceSheetUsecase } from '@src/usecases/course/workflows/load-session-attendance-sheet.usecase';
+import { RestoreSessionUsecase } from '@src/usecases/course/workflows/restore-session.usecase';
 
 @Module({
   imports: [
@@ -45,6 +46,7 @@ import { LoadSessionAttendanceSheetUsecase } from '@src/usecases/course/workflow
     EnrollLearnerToSessionUsecase,
     CancelEnrollmentUsecase,
     CancelSessionUsecase,
+    RestoreSessionUsecase,
     CloseSessionUsecase,
     LoadSessionAttendanceSheetUsecase,
     BatchRecordAttendanceUsecase,
@@ -62,6 +64,7 @@ import { LoadSessionAttendanceSheetUsecase } from '@src/usecases/course/workflow
     EnrollLearnerToSessionUsecase,
     CancelEnrollmentUsecase,
     CancelSessionUsecase,
+    RestoreSessionUsecase,
     CloseSessionUsecase,
     LoadSessionAttendanceSheetUsecase,
     BatchRecordAttendanceUsecase,

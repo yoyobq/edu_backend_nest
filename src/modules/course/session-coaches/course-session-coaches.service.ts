@@ -3,7 +3,7 @@ import { SessionCoachRemovedReason } from '@app-types/models/course-session-coac
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { CourseSessionEntity } from '@src/modules/course/sessions/course-session.entity';
-import { EntityManager, IsNull, Repository } from 'typeorm';
+import { EntityManager, FindOptionsWhere, IsNull, Not, Repository } from 'typeorm';
 import { CourseSessionCoachEntity } from './course-session-coach.entity';
 
 /**
@@ -217,6 +217,40 @@ export class CourseSessionCoachesService {
       patch.updatedBy = operator;
     }
     const res = await repo.update({ sessionId: params.sessionId, removedAt: IsNull() }, patch);
+    return res.affected ?? 0;
+  }
+
+  /**
+   * 批量恢复节次内被移出的教练（清空 removed 字段）
+   * @param params 参数对象：sessionId、operatorAccountId、removedReason、manager
+   * @returns 本次被恢复的记录数量
+   */
+  async restoreRemovedBySession(params: {
+    readonly sessionId: number;
+    readonly operatorAccountId?: number | null;
+    readonly removedReason?: SessionCoachRemovedReason;
+    readonly manager?: EntityManager;
+  }): Promise<number> {
+    const repo = params.manager
+      ? params.manager.getRepository(CourseSessionCoachEntity)
+      : this.sessionCoachRepository;
+    const operator = params.operatorAccountId ?? null;
+    const patch: Partial<CourseSessionCoachEntity> = {
+      removedAt: null,
+      removedBy: null,
+      removedReason: null,
+    };
+    if (operator !== null) {
+      patch.updatedBy = operator;
+    }
+    const where: FindOptionsWhere<CourseSessionCoachEntity> = {
+      sessionId: params.sessionId,
+      removedAt: Not(IsNull()),
+    };
+    if (params.removedReason !== undefined) {
+      where.removedReason = params.removedReason;
+    }
+    const res = await repo.update(where, patch);
     return res.affected ?? 0;
   }
 
