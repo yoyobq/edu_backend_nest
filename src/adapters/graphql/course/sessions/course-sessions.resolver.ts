@@ -37,6 +37,7 @@ function toCourseSessionDTO(entity: CourseSessionEntity): CourseSessionDTO {
   dto.endTime = entity.endTime;
   dto.leadCoachId = entity.leadCoachId;
   dto.locationText = entity.locationText;
+  dto.leaveCutoffHoursOverride = entity.leaveCutoffHoursOverride;
   dto.extraCoaches = entity.extraCoachesJson
     ? entity.extraCoachesJson.map((c) => {
         const coach = new ExtraCoachDTO();
@@ -175,6 +176,7 @@ export class CourseSessionsResolver {
       startTime: input.startTime,
       endTime: input.endTime,
       locationText: input.locationText,
+      leaveCutoffHoursOverride: input.leaveCutoffHoursOverride,
       leadCoachId: input.leadCoachId,
       remark: input.remark,
     });

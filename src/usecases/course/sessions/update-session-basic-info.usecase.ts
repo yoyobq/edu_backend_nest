@@ -17,6 +17,7 @@ export interface UpdateSessionBasicInfoInput {
   readonly startTime?: Date;
   readonly endTime?: Date;
   readonly locationText?: string | null;
+  readonly leaveCutoffHoursOverride?: number | null;
   readonly leadCoachId?: number | null;
   readonly remark?: string | null;
 }
@@ -152,10 +153,26 @@ export class UpdateSessionBasicInfoUsecase {
   private buildPatch(
     input: UpdateSessionBasicInfoInput,
   ): Partial<
-    Pick<CourseSessionEntity, 'startTime' | 'endTime' | 'leadCoachId' | 'locationText' | 'remark'>
+    Pick<
+      CourseSessionEntity,
+      | 'startTime'
+      | 'endTime'
+      | 'leadCoachId'
+      | 'locationText'
+      | 'remark'
+      | 'leaveCutoffHoursOverride'
+    >
   > {
     const patch: Partial<
-      Pick<CourseSessionEntity, 'startTime' | 'endTime' | 'leadCoachId' | 'locationText' | 'remark'>
+      Pick<
+        CourseSessionEntity,
+        | 'startTime'
+        | 'endTime'
+        | 'leadCoachId'
+        | 'locationText'
+        | 'remark'
+        | 'leaveCutoffHoursOverride'
+      >
     > = {};
 
     if (input.startTime !== undefined) {
@@ -170,6 +187,9 @@ export class UpdateSessionBasicInfoUsecase {
     if (input.locationText !== undefined) {
       patch.locationText = input.locationText ?? '';
     }
+    if (input.leaveCutoffHoursOverride !== undefined) {
+      patch.leaveCutoffHoursOverride = input.leaveCutoffHoursOverride ?? null;
+    }
     if (input.remark !== undefined) {
       patch.remark = input.remark ?? null;
     }
@@ -182,7 +202,15 @@ export class UpdateSessionBasicInfoUsecase {
    */
   private hasPatch(
     patch: Partial<
-      Pick<CourseSessionEntity, 'startTime' | 'endTime' | 'leadCoachId' | 'locationText' | 'remark'>
+      Pick<
+        CourseSessionEntity,
+        | 'startTime'
+        | 'endTime'
+        | 'leadCoachId'
+        | 'locationText'
+        | 'remark'
+        | 'leaveCutoffHoursOverride'
+      >
     >,
   ): boolean {
     return Object.keys(patch).length > 0;
@@ -207,7 +235,15 @@ export class UpdateSessionBasicInfoUsecase {
   private async updateWithLeadCoachChange(params: {
     readonly current: CourseSessionEntity;
     readonly patch: Partial<
-      Pick<CourseSessionEntity, 'startTime' | 'endTime' | 'leadCoachId' | 'locationText' | 'remark'>
+      Pick<
+        CourseSessionEntity,
+        | 'startTime'
+        | 'endTime'
+        | 'leadCoachId'
+        | 'locationText'
+        | 'remark'
+        | 'leaveCutoffHoursOverride'
+      >
     >;
     readonly nextLeadCoachId: number;
     readonly operatorAccountId: number | null;

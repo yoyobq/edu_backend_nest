@@ -25,6 +25,12 @@ export class UpdateCourseSessionInput {
   @MaxLength(255, { message: '地点长度不能超过 255 个字符' })
   locationText?: string | null;
 
+  @Field(() => Int, { nullable: true, description: '请假阈值覆写（小时）' })
+  @ValidateIf((_, value) => value !== undefined && value !== null)
+  @IsInt({ message: '请假阈值覆写必须是整数' })
+  @Min(0, { message: '请假阈值覆写不能小于 0' })
+  leaveCutoffHoursOverride?: number | null;
+
   @Field(() => Int, { nullable: true, description: '主教练 ID' })
   @ValidateIf((_, value) => value !== undefined)
   @IsInt({ message: '主教练 ID 必须是整数' })

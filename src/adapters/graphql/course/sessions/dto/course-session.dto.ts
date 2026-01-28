@@ -1,6 +1,6 @@
 // src/adapters/graphql/course/sessions/dto/course-session.dto.ts
 import { SessionStatus } from '@app-types/models/course-session.types';
-import { Field, ID, ObjectType } from '@nestjs/graphql';
+import { Field, ID, Int, ObjectType } from '@nestjs/graphql';
 
 @ObjectType({ description: '协助教练信息' })
 export class ExtraCoachDTO {
@@ -33,6 +33,9 @@ export class CourseSessionDTO {
 
   @Field(() => String, { description: '地点文本' })
   locationText!: string;
+
+  @Field(() => Int, { description: '请假阈值覆写（小时）', nullable: true })
+  leaveCutoffHoursOverride?: number | null;
 
   @Field(() => [ExtraCoachDTO], { description: '协助教练列表', nullable: true })
   extraCoaches?: ExtraCoachDTO[] | null;
