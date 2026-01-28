@@ -11,8 +11,8 @@ import { CourseSessionCoachesModule } from '@src/modules/course/session-coaches/
 import { CourseSessionsModule } from '@src/modules/course/sessions/course-sessions.module';
 import { ParticipationAttendanceModule } from '@src/modules/participation/attendance/participation-attendance.module';
 import { ParticipationEnrollmentModule } from '@src/modules/participation/enrollment/participation-enrollment.module';
-import { PreviewSeriesScheduleUsecase } from '@src/usecases/course/series/preview-series-schedule.usecase';
 import { ApplySeriesScheduleUsecase } from '@src/usecases/course/series/apply-series-schedule.usecase';
+import { PreviewSeriesScheduleUsecase } from '@src/usecases/course/series/preview-series-schedule.usecase';
 import { PublishSeriesUsecase } from '@src/usecases/course/series/publish-series.usecase';
 import { CourseSeriesAccessPolicy } from '@src/usecases/course/sessions/course-series-access.policy';
 import { GenerateSessionCoachesForSeriesUsecase } from '@src/usecases/course/sessions/generate-session-coaches-for-series.usecase';
@@ -22,6 +22,7 @@ import { SetSessionCoachPayoutUsecase } from '@src/usecases/course/sessions/upda
 import { ViewSessionsBySeriesUsecase } from '@src/usecases/course/sessions/view-sessions-by-series.usecase';
 import { BatchRecordAttendanceUsecase } from '@src/usecases/course/workflows/batch-record-attendance.usecase';
 import { CancelEnrollmentUsecase } from '@src/usecases/course/workflows/cancel-enrollment.usecase';
+import { CancelSessionUsecase } from '@src/usecases/course/workflows/cancel-session.usecase';
 import { CloseSessionUsecase } from '@src/usecases/course/workflows/close-session.usecase';
 import { EnrollLearnerToSessionUsecase } from '@src/usecases/course/workflows/enroll-learner-to-session.usecase';
 import { LoadSessionAttendanceSheetUsecase } from '@src/usecases/course/workflows/load-session-attendance-sheet.usecase';
@@ -43,6 +44,7 @@ import { LoadSessionAttendanceSheetUsecase } from '@src/usecases/course/workflow
   providers: [
     EnrollLearnerToSessionUsecase,
     CancelEnrollmentUsecase,
+    CancelSessionUsecase,
     CloseSessionUsecase,
     LoadSessionAttendanceSheetUsecase,
     BatchRecordAttendanceUsecase,
@@ -59,6 +61,7 @@ import { LoadSessionAttendanceSheetUsecase } from '@src/usecases/course/workflow
   exports: [
     EnrollLearnerToSessionUsecase,
     CancelEnrollmentUsecase,
+    CancelSessionUsecase,
     CloseSessionUsecase,
     LoadSessionAttendanceSheetUsecase,
     BatchRecordAttendanceUsecase,

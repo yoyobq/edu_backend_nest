@@ -310,9 +310,16 @@ export class CourseSessionsService {
    * @param id 节次 ID
    * @param status 目标状态
    */
-  async setStatus(params: { id: number; status: SessionStatus }): Promise<CourseSessionEntity> {
-    await this.sessionRepository.update({ id: params.id }, { status: params.status });
-    const fresh = await this.sessionRepository.findOne({ where: { id: params.id } });
+  async setStatus(params: {
+    id: number;
+    status: SessionStatus;
+    manager?: EntityManager;
+  }): Promise<CourseSessionEntity> {
+    const repo = params.manager
+      ? params.manager.getRepository(CourseSessionEntity)
+      : this.sessionRepository;
+    await repo.update({ id: params.id }, { status: params.status });
+    const fresh = await repo.findOne({ where: { id: params.id } });
     if (!fresh) throw new Error('状态更新后的节次未找到');
     return fresh;
   }
