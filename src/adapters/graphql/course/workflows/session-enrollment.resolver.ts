@@ -3,12 +3,15 @@ import { UseGuards } from '@nestjs/common';
 import { Args, Mutation, Resolver } from '@nestjs/graphql';
 import { mapJwtToUsecaseSession, type UsecaseSession } from '@src/types/auth/session.types';
 import { JwtPayload } from '@src/types/jwt.types';
+import { CancelEnrollmentUsecase } from '@src/usecases/course/workflows/cancel-enrollment.usecase';
 import {
   EnrollLearnerToSessionUsecase,
   type EnrollLearnerToSessionOutput,
 } from '@src/usecases/course/workflows/enroll-learner-to-session.usecase';
 import { currentUser } from '../../decorators/current-user.decorator';
 import { JwtAuthGuard } from '../../guards/jwt-auth.guard';
+import { CancelEnrollmentInputGql } from './dto/cancel-enrollment.input';
+import { CancelEnrollmentResultGql } from './dto/cancel-enrollment.result';
 import { EnrollLearnerToSessionInputGql } from './dto/enrollment.input';
 import { EnrollLearnerToSessionResultGql, EnrollmentOutputGql } from './dto/enrollment.result';
 
@@ -19,7 +22,10 @@ import { EnrollLearnerToSessionResultGql, EnrollmentOutputGql } from './dto/enro
  */
 @Resolver(() => EnrollmentOutputGql)
 export class SessionEnrollmentResolver {
-  constructor(private readonly enrollUsecase: EnrollLearnerToSessionUsecase) {}
+  constructor(
+    private readonly enrollUsecase: EnrollLearnerToSessionUsecase,
+    private readonly cancelEnrollmentUsecase: CancelEnrollmentUsecase,
+  ) {}
 
   /**
    * 学员报名到指定节次
@@ -49,5 +55,29 @@ export class SessionEnrollmentResolver {
       },
       isNewlyCreated: result.isNewlyCreated,
     } as EnrollLearnerToSessionResultGql;
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Mutation(() => CancelEnrollmentResultGql, { name: 'cancelEnrollment' })
+  async cancelEnrollment(
+    @currentUser() user: JwtPayload,
+    @Args('input') { enrollmentId, reason }: CancelEnrollmentInputGql,
+  ): Promise<CancelEnrollmentResultGql> {
+    const session: UsecaseSession = mapJwtToUsecaseSession(user);
+    const result = await this.cancelEnrollmentUsecase.execute(session, {
+      enrollmentId,
+      reason: reason ?? null,
+    });
+    return {
+      enrollment: {
+        id: result.enrollment.id,
+        sessionId: result.enrollment.sessionId,
+        learnerId: result.enrollment.learnerId,
+        customerId: result.enrollment.customerId,
+        isCanceled: result.enrollment.isCanceled,
+        cancelReason: result.enrollment.cancelReason,
+      },
+      isUpdated: result.isUpdated,
+    } as CancelEnrollmentResultGql;
   }
 }

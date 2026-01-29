@@ -1,6 +1,6 @@
 // src/usecases/course/workflows/enroll-learner-to-session.usecase.ts
-import { SessionStatus } from '@app-types/models/course-session.types';
 import { CourseSeriesStatus } from '@app-types/models/course-series.types';
+import { SessionStatus } from '@app-types/models/course-session.types';
 import {
   DomainError,
   ENROLLMENT_ERROR,
@@ -8,16 +8,16 @@ import {
   PERMISSION_ERROR,
   SESSION_ERROR,
 } from '@core/common/errors/domain-error';
+import { buildEnvelope } from '@core/common/integration-events/events.types';
+import { type IOutboxWriterPort } from '@core/common/integration-events/outbox.port';
 import { Inject, Injectable } from '@nestjs/common';
 import { CustomerService } from '@src/modules/account/identities/training/customer/account-customer.service';
 import { LearnerService } from '@src/modules/account/identities/training/learner/account-learner.service';
+import { INTEGRATION_EVENTS_TOKENS } from '@src/modules/common/integration-events/events.tokens';
 import { CourseSeriesService } from '@src/modules/course/series/course-series.service';
 import { CourseSessionsService } from '@src/modules/course/sessions/course-sessions.service';
 import { ParticipationEnrollmentService } from '@src/modules/participation/enrollment/participation-enrollment.service';
 import { type UsecaseSession } from '@src/types/auth/session.types';
-import { buildEnvelope } from '@core/common/integration-events/events.types';
-import { type IOutboxWriterPort } from '@core/common/integration-events/outbox.port';
-import { INTEGRATION_EVENTS_TOKENS } from '@src/modules/common/integration-events/events.tokens';
 
 /**
  * 为学员报名到节次用例
@@ -82,6 +82,23 @@ export class EnrollLearnerToSessionUsecase {
     const foundSession = await this.validateSessionOrThrow(input.sessionId);
     const { customerId } = await this.validateLearnerOrThrow(input.learnerId);
     await this.ensureSelfServiceOwnership(session, customerId);
+    const existing = await this.enrollmentService.findByUnique({
+      sessionId: input.sessionId,
+      learnerId: input.learnerId,
+    });
+    if (existing && (existing.isCanceled ?? 0) === 0) {
+      return {
+        enrollment: {
+          id: existing.id,
+          sessionId: existing.sessionId,
+          learnerId: existing.learnerId,
+          customerId: existing.customerId,
+          isCanceled: (existing.isCanceled ?? 0) as 0 | 1,
+          remark: existing.remark ?? null,
+        },
+        isNewlyCreated: false,
+      };
+    }
     await this.ensureCapacityOrThrow(foundSession);
     // 重复报名同一节次应视为幂等，不应触发时间冲突
     await this.ensureNoScheduleConflictOrThrow(
@@ -113,7 +130,66 @@ export class EnrollLearnerToSessionUsecase {
       await this.outboxWriter.enqueue({ envelope });
     }
 
+    await this.tryBulkEnrollOtherSessions({
+      session,
+      input,
+      foundSession,
+      customerId,
+    });
+
     return result;
+  }
+
+  private async tryBulkEnrollOtherSessions(params: {
+    readonly session: UsecaseSession;
+    readonly input: EnrollLearnerToSessionInput;
+    readonly foundSession: NonNullable<Awaited<ReturnType<CourseSessionsService['findById']>>>;
+    readonly customerId: number;
+  }): Promise<void> {
+    const series = await this.seriesService.findById(params.foundSession.seriesId);
+    if (!series) {
+      throw new DomainError(SESSION_ERROR.INVALID_PARAMS, '节次引用的系列不存在');
+    }
+    const now = new Date();
+    const allSessions = await this.sessionsService.listAllBySeries({
+      seriesId: params.foundSession.seriesId,
+      maxSessions: 200,
+      statusFilter: [SessionStatus.SCHEDULED],
+    });
+    const otherSessions = allSessions.filter(
+      (s) => s.id !== params.foundSession.id && s.startTime.getTime() >= now.getTime(),
+    );
+    if (otherSessions.length === 0) return;
+    const eligibleSessionIds: number[] = [];
+    for (const s of otherSessions) {
+      const count = await this.enrollmentService.countEffectiveBySession({ sessionId: s.id });
+      if (count < series.maxLearners) {
+        eligibleSessionIds.push(s.id);
+      }
+    }
+    if (eligibleSessionIds.length === 0) return;
+    const createdList = await this.enrollmentService.bulkCreateBySessionIds({
+      sessionIds: eligibleSessionIds,
+      learnerId: params.input.learnerId,
+      customerId: params.customerId,
+      remark: params.input.remark ?? null,
+      createdBy: params.session.accountId,
+    });
+    for (const created of createdList) {
+      const env = buildEnvelope({
+        type: 'EnrollmentCreated',
+        aggregateType: 'Enrollment',
+        aggregateId: created.id,
+        payload: {
+          sessionId: created.sessionId,
+          learnerId: created.learnerId,
+          customerId: created.customerId,
+          remark: created.remark ?? null,
+        },
+        priority: 6,
+      });
+      await this.outboxWriter.enqueue({ envelope: env });
+    }
   }
 
   /**

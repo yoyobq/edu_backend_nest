@@ -77,8 +77,12 @@ export class ParticipationEnrollmentService {
   async findByUnique(params: {
     sessionId: number;
     learnerId: number;
+    manager?: EntityManager;
   }): Promise<ParticipationEnrollmentEntity | null> {
-    return this.enrollmentRepository.findOne({
+    const repo = params.manager
+      ? params.manager.getRepository(ParticipationEnrollmentEntity)
+      : this.enrollmentRepository;
+    return repo.findOne({
       where: {
         sessionId: params.sessionId,
         learnerId: params.learnerId,
@@ -96,13 +100,18 @@ export class ParticipationEnrollmentService {
     customerId: number;
     remark?: string | null;
     createdBy?: number | null;
+    manager?: EntityManager;
   }): Promise<ParticipationEnrollmentEntity> {
+    const repo = data.manager
+      ? data.manager.getRepository(ParticipationEnrollmentEntity)
+      : this.enrollmentRepository;
     const existing = await this.findByUnique({
       sessionId: data.sessionId,
       learnerId: data.learnerId,
+      manager: data.manager,
     });
     if (existing) return existing;
-    const entity = this.enrollmentRepository.create({
+    const entity = repo.create({
       sessionId: data.sessionId,
       learnerId: data.learnerId,
       customerId: data.customerId,
@@ -114,7 +123,7 @@ export class ParticipationEnrollmentService {
       createdBy: data.createdBy ?? null,
       updatedBy: data.createdBy ?? null,
     });
-    return this.enrollmentRepository.save(entity);
+    return repo.save(entity);
   }
 
   /**
@@ -147,9 +156,12 @@ export class ParticipationEnrollmentService {
    */
   async restore(
     id: number,
-    params: { updatedBy?: number | null },
+    params: { updatedBy?: number | null; manager?: EntityManager },
   ): Promise<ParticipationEnrollmentEntity> {
-    await this.enrollmentRepository.update(
+    const repo = params.manager
+      ? params.manager.getRepository(ParticipationEnrollmentEntity)
+      : this.enrollmentRepository;
+    await repo.update(
       { id },
       {
         isCanceled: 0,
@@ -159,7 +171,7 @@ export class ParticipationEnrollmentService {
         updatedBy: params.updatedBy ?? null,
       },
     );
-    const fresh = await this.enrollmentRepository.findOne({ where: { id } });
+    const fresh = await repo.findOne({ where: { id } });
     if (!fresh) throw new Error('恢复后的报名未找到');
     return fresh;
   }
@@ -185,6 +197,50 @@ export class ParticipationEnrollmentService {
   async countEffectiveBySession(params: { sessionId: number }): Promise<number> {
     const { sessionId } = params;
     return await this.enrollmentRepository.count({ where: { sessionId, isCanceled: 0 } });
+  }
+
+  /**
+   * 按节次列表批量创建报名（幂等）
+   * - 依赖唯一键 (sessionId + learnerId) 去重，仅为不存在的节次创建报名
+   * - 返回“新创建”的报名列表（已存在的报名不返回）
+   * - 支持传入事务管理器，用于在用例层与其他写操作同事务执行
+   * @param params 批量创建参数
+   * @returns 新创建的报名实体列表
+   */
+  async bulkCreateBySessionIds(params: {
+    readonly sessionIds: ReadonlyArray<number>;
+    readonly learnerId: number;
+    readonly customerId: number;
+    readonly remark?: string | null;
+    readonly createdBy?: number | null;
+    readonly manager?: EntityManager;
+  }): Promise<ParticipationEnrollmentEntity[]> {
+    const repo = params.manager
+      ? params.manager.getRepository(ParticipationEnrollmentEntity)
+      : this.enrollmentRepository;
+    const uniqueSessionIds = Array.from(new Set(params.sessionIds.map((id) => Math.floor(id))));
+    if (uniqueSessionIds.length === 0) return [];
+    const existing = await repo.find({
+      where: { sessionId: In(uniqueSessionIds), learnerId: params.learnerId },
+    });
+    const existingSet = new Set<number>(existing.map((e) => e.sessionId));
+    const toCreateIds = uniqueSessionIds.filter((id) => !existingSet.has(id));
+    if (toCreateIds.length === 0) return [];
+    const entities = toCreateIds.map((sessionId) =>
+      repo.create({
+        sessionId,
+        learnerId: params.learnerId,
+        customerId: params.customerId,
+        isCanceled: 0,
+        canceledAt: null,
+        canceledBy: null,
+        cancelReason: null,
+        remark: params.remark ?? null,
+        createdBy: params.createdBy ?? null,
+        updatedBy: params.createdBy ?? null,
+      }),
+    );
+    return await repo.save(entities);
   }
 
   /**

@@ -10,6 +10,7 @@ const ENABLED_SPECS = [
   // '03-roles-guard/roles-guard.e2e-spec.ts',
   // '04-course/course-catalogs.e2e-spec.ts',
   '04-course/create-series-draft.e2e-spec.ts',
+  // '04-course/update-course-series.e2e-spec.ts',
   // '04-course/update-course-session.e2e-spec.ts',
   // '04-course/course-sessions-by-series.e2e-spec.ts',
   // '04-course/payout-rules.e2e-spec.ts',

@@ -37,7 +37,7 @@ import { AccountStatus, IdentityTypeEnum } from '@src/types/models/account.types
 import { ParticipationAttendanceStatus } from '@src/types/models/attendance.types';
 import { UserState } from '@src/types/models/user-info.types';
 import request from 'supertest';
-import { DataSource } from 'typeorm';
+import { DataSource, In } from 'typeorm';
 import { initGraphQLSchema } from '../../src/adapters/graphql/schema/schema.init';
 import { executeGql as executeGqlUtils, login as loginUtils } from '../utils/e2e-graphql-utils';
 import { cleanupTestAccounts, seedTestAccounts, testAccountsConfig } from '../utils/test-accounts';
@@ -1458,6 +1458,67 @@ describe('08-Integration-Events 课程工作流：报名触发与 Outbox 分发 
       }
       // 调度器无新增消费（用例只在新建报名时入箱）
       expect(handler.calls).toBe(baselineCalls);
+    });
+
+    it('半路报名仅为未来节次创建报名', async () => {
+      const sessionRepo = dataSource.getRepository(CourseSessionEntity);
+      const enrollmentRepo = dataSource.getRepository(ParticipationEnrollmentEntity);
+      const baseSession = await sessionRepo.findOne({ where: { id: sessionId } });
+      if (!baseSession) throw new Error('测试前置失败：未找到基准节次');
+      const leadCoachId = baseSession.leadCoachId;
+
+      const pastSessionId = await createTestSession(dataSource, {
+        seriesId,
+        leadCoachId,
+        startOffsetMinutes: -(48 * 60 + 120),
+      });
+      const targetSessionId = await createTestSession(dataSource, {
+        seriesId,
+        leadCoachId,
+        startOffsetMinutes: 120,
+      });
+      const futureSessionId = await createTestSession(dataSource, {
+        seriesId,
+        leadCoachId,
+        startOffsetMinutes: 240,
+      });
+      await enrollmentRepo.delete({
+        sessionId: In([pastSessionId, targetSessionId, futureSessionId]),
+        learnerId,
+      });
+
+      const mutation = `
+        mutation {
+          enrollLearnerToSession(input: { sessionId: ${targetSessionId}, learnerId: ${learnerId}, remark: "E2E 插班报名" }) {
+            isNewlyCreated
+          }
+        }
+      `;
+      const res = await executeGql(app, { query: mutation, token: customerToken }).expect(200);
+      const body = res.body as unknown as {
+        data?: { enrollLearnerToSession?: { isNewlyCreated: boolean } };
+        errors?: unknown;
+      };
+      if (body.errors) throw new Error(`GraphQL 错误: ${JSON.stringify(body.errors)}`);
+      expect(body.data?.enrollLearnerToSession?.isNewlyCreated).toBe(true);
+
+      const pastEnrollment = await enrollmentRepo.findOne({
+        where: { sessionId: pastSessionId, learnerId },
+      });
+      const targetEnrollment = await enrollmentRepo.findOne({
+        where: { sessionId: targetSessionId, learnerId },
+      });
+      const futureEnrollment = await enrollmentRepo.findOne({
+        where: { sessionId: futureSessionId, learnerId },
+      });
+      expect(pastEnrollment).toBeNull();
+      expect(targetEnrollment).toBeTruthy();
+      expect(futureEnrollment).toBeTruthy();
+
+      await enrollmentRepo.delete({
+        sessionId: In([pastSessionId, targetSessionId, futureSessionId]),
+        learnerId,
+      });
     });
   });
 
