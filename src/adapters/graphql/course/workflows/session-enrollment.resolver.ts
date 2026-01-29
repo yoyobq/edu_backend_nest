@@ -4,6 +4,7 @@ import { Args, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { mapJwtToUsecaseSession, type UsecaseSession } from '@src/types/auth/session.types';
 import { JwtPayload } from '@src/types/jwt.types';
 import { CancelEnrollmentUsecase } from '@src/usecases/course/workflows/cancel-enrollment.usecase';
+import { CancelSeriesEnrollmentUsecase } from '@src/usecases/course/workflows/cancel-series-enrollment.usecase';
 import {
   EnrollLearnerToSessionUsecase,
   type EnrollLearnerToSessionOutput,
@@ -13,6 +14,8 @@ import { currentUser } from '../../decorators/current-user.decorator';
 import { JwtAuthGuard } from '../../guards/jwt-auth.guard';
 import { CancelEnrollmentInputGql } from './dto/cancel-enrollment.input';
 import { CancelEnrollmentResultGql } from './dto/cancel-enrollment.result';
+import { CancelSeriesEnrollmentInputGql } from './dto/cancel-series-enrollment.input';
+import { CancelSeriesEnrollmentResultGql } from './dto/cancel-series-enrollment.result';
 import {
   EnrollLearnerToSessionInputGql,
   ListLearnerEnrolledSessionIdsBySeriesInputGql,
@@ -33,6 +36,7 @@ export class SessionEnrollmentResolver {
   constructor(
     private readonly enrollUsecase: EnrollLearnerToSessionUsecase,
     private readonly cancelEnrollmentUsecase: CancelEnrollmentUsecase,
+    private readonly cancelSeriesEnrollmentUsecase: CancelSeriesEnrollmentUsecase,
     private readonly listEnrolledSessionIdsUsecase: ListLearnerEnrolledSessionIdsBySeriesUsecase,
   ) {}
 
@@ -67,14 +71,16 @@ export class SessionEnrollmentResolver {
   }
 
   @UseGuards(JwtAuthGuard)
-  @Mutation(() => CancelEnrollmentResultGql, { name: 'cancelEnrollment' })
-  async cancelEnrollment(
+  @Mutation(() => CancelEnrollmentResultGql, { name: 'cancelSessionEnrollment' })
+  async cancelSessionEnrollment(
     @currentUser() user: JwtPayload,
-    @Args('input') { enrollmentId, reason }: CancelEnrollmentInputGql,
+    @Args('input') { enrollmentId, sessionId, learnerId, reason }: CancelEnrollmentInputGql,
   ): Promise<CancelEnrollmentResultGql> {
     const session: UsecaseSession = mapJwtToUsecaseSession(user);
     const result = await this.cancelEnrollmentUsecase.execute(session, {
       enrollmentId,
+      sessionId,
+      learnerId,
       reason: reason ?? null,
     });
     return {
@@ -88,6 +94,31 @@ export class SessionEnrollmentResolver {
       },
       isUpdated: result.isUpdated,
     } as CancelEnrollmentResultGql;
+  }
+
+  /**
+   * 取消学员在某开课班中的报名（批量取消该开课班下的多节课报名）
+   * @param user 当前登录用户的 JWT 载荷
+   * @param input 取消输入（开课班与学员与原因）
+   */
+  @UseGuards(JwtAuthGuard)
+  @Mutation(() => CancelSeriesEnrollmentResultGql, { name: 'cancelSeriesEnrollment' })
+  async cancelSeriesEnrollment(
+    @currentUser() user: JwtPayload,
+    @Args('input') input: CancelSeriesEnrollmentInputGql,
+  ): Promise<CancelSeriesEnrollmentResultGql> {
+    const session: UsecaseSession = mapJwtToUsecaseSession(user);
+    const result = await this.cancelSeriesEnrollmentUsecase.execute({
+      session,
+      seriesId: input.seriesId,
+      learnerId: input.learnerId,
+      reason: input.reason ?? null,
+    });
+    return {
+      canceledEnrollmentIds: result.canceledEnrollmentIds,
+      unchangedEnrollmentIds: result.unchangedEnrollmentIds,
+      failed: result.failed,
+    } as CancelSeriesEnrollmentResultGql;
   }
 
   /**

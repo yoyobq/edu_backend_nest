@@ -22,6 +22,7 @@ import { SetSessionCoachPayoutUsecase } from '@src/usecases/course/sessions/upda
 import { ViewSessionsBySeriesUsecase } from '@src/usecases/course/sessions/view-sessions-by-series.usecase';
 import { BatchRecordAttendanceUsecase } from '@src/usecases/course/workflows/batch-record-attendance.usecase';
 import { CancelEnrollmentUsecase } from '@src/usecases/course/workflows/cancel-enrollment.usecase';
+import { CancelSeriesEnrollmentUsecase } from '@src/usecases/course/workflows/cancel-series-enrollment.usecase';
 import { CancelSessionUsecase } from '@src/usecases/course/workflows/cancel-session.usecase';
 import { CloseSessionUsecase } from '@src/usecases/course/workflows/close-session.usecase';
 import { EnrollLearnerToSessionUsecase } from '@src/usecases/course/workflows/enroll-learner-to-session.usecase';
@@ -47,6 +48,7 @@ import { RestoreSessionUsecase } from '@src/usecases/course/workflows/restore-se
     EnrollLearnerToSessionUsecase,
     ListLearnerEnrolledSessionIdsBySeriesUsecase,
     CancelEnrollmentUsecase,
+    CancelSeriesEnrollmentUsecase,
     CancelSessionUsecase,
     RestoreSessionUsecase,
     CloseSessionUsecase,
@@ -66,6 +68,7 @@ import { RestoreSessionUsecase } from '@src/usecases/course/workflows/restore-se
     EnrollLearnerToSessionUsecase,
     ListLearnerEnrolledSessionIdsBySeriesUsecase,
     CancelEnrollmentUsecase,
+    CancelSeriesEnrollmentUsecase,
     CancelSessionUsecase,
     RestoreSessionUsecase,
     CloseSessionUsecase,
