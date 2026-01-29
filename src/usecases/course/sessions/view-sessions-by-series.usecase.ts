@@ -4,6 +4,7 @@ import { IdentityTypeEnum } from '@app-types/models/account.types';
 import { hasRole } from '@core/account/policy/role-access.policy';
 import { DomainError, PERMISSION_ERROR } from '@core/common/errors/domain-error';
 import { Injectable } from '@nestjs/common';
+import { CoachService } from '@src/modules/account/identities/training/coach/coach.service';
 import { CourseSessionEntity } from '@src/modules/course/sessions/course-session.entity';
 import { CourseSeriesAccessPolicy } from '@src/usecases/course/sessions/course-series-access.policy';
 import {
@@ -23,6 +24,7 @@ export class ViewSessionsBySeriesUsecase {
   constructor(
     private readonly listSessionsBySeriesUsecase: ListSessionsBySeriesUsecase,
     private readonly courseSeriesAccessPolicy: CourseSeriesAccessPolicy,
+    private readonly coachService: CoachService,
   ) {}
 
   /**
@@ -66,5 +68,56 @@ export class ViewSessionsBySeriesUsecase {
     }
 
     return await this.listSessionsBySeriesUsecase.execute(query);
+  }
+
+  /**
+   * 带权限与可见性裁剪地读取节次列表并补充主教练姓名（customer 安全视图）
+   * @param session 用例会话
+   * @param query 查询参数
+   * @returns 节次实体与主教练姓名的列表
+   */
+  async executeWithLeadCoachName(
+    session: UsecaseSession,
+    query: ListSessionsBySeriesQuery,
+  ): Promise<
+    ReadonlyArray<{
+      readonly session: CourseSessionEntity;
+      readonly leadCoachName: string | null;
+    }>
+  > {
+    const sessions = await this.execute(session, query);
+    const nameMap = await this.loadLeadCoachNameMap(sessions);
+    return sessions.map((item) => ({
+      session: item,
+      leadCoachName: nameMap.get(item.leadCoachId) ?? null,
+    }));
+  }
+
+  /**
+   * 批量加载主教练姓名映射
+   * @param sessions 节次实体列表
+   * @returns 教练 ID 到姓名的映射
+   */
+  private async loadLeadCoachNameMap(
+    sessions: ReadonlyArray<CourseSessionEntity>,
+  ): Promise<Map<number, string>> {
+    if (sessions.length === 0) {
+      return new Map<number, string>();
+    }
+
+    const coachIds = Array.from(new Set(sessions.map((item) => item.leadCoachId)));
+    const coaches = await Promise.all(
+      coachIds.map(async (coachId) => {
+        const coach = await this.coachService.findById(coachId);
+        return { coachId, name: coach?.name ?? null };
+      }),
+    );
+
+    return coaches.reduce<Map<number, string>>((map, coach) => {
+      if (coach.name) {
+        map.set(coach.coachId, coach.name);
+      }
+      return map;
+    }, new Map<number, string>());
   }
 }

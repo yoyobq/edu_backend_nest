@@ -255,4 +255,30 @@ export class ParticipationEnrollmentService {
     const { learnerId } = params;
     return await this.enrollmentRepository.find({ where: { learnerId, isCanceled: 0 } });
   }
+
+  /**
+   * 按学员与开课班查询其已报名的节次 ID 列表（仅有效报名）
+   * @param params 查询参数对象：learnerId、seriesId、manager
+   * @returns 节次 ID 列表
+   */
+  async listActiveSessionIdsByLearnerAndSeries(params: {
+    readonly learnerId: number;
+    readonly seriesId: number;
+    readonly manager?: EntityManager;
+  }): Promise<number[]> {
+    const repo = params.manager
+      ? params.manager.getRepository(ParticipationEnrollmentEntity)
+      : this.enrollmentRepository;
+    const rows = await repo
+      .createQueryBuilder('e')
+      .select('e.session_id', 'sessionId')
+      .innerJoin('course_sessions', 's', 's.id = e.session_id AND s.series_id = :seriesId', {
+        seriesId: params.seriesId,
+      })
+      .where('e.learner_id = :learnerId', { learnerId: params.learnerId })
+      .andWhere('e.is_canceled = 0')
+      .orderBy('s.start_time', 'ASC')
+      .getRawMany<{ sessionId: number }>();
+    return rows.map((row) => Number(row.sessionId));
+  }
 }

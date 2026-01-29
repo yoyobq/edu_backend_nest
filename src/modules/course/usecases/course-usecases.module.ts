@@ -25,6 +25,7 @@ import { CancelEnrollmentUsecase } from '@src/usecases/course/workflows/cancel-e
 import { CancelSessionUsecase } from '@src/usecases/course/workflows/cancel-session.usecase';
 import { CloseSessionUsecase } from '@src/usecases/course/workflows/close-session.usecase';
 import { EnrollLearnerToSessionUsecase } from '@src/usecases/course/workflows/enroll-learner-to-session.usecase';
+import { ListLearnerEnrolledSessionIdsBySeriesUsecase } from '@src/usecases/course/workflows/list-learner-enrolled-session-ids-by-series.usecase';
 import { LoadSessionAttendanceSheetUsecase } from '@src/usecases/course/workflows/load-session-attendance-sheet.usecase';
 import { RestoreSessionUsecase } from '@src/usecases/course/workflows/restore-session.usecase';
 
@@ -44,6 +45,7 @@ import { RestoreSessionUsecase } from '@src/usecases/course/workflows/restore-se
   ],
   providers: [
     EnrollLearnerToSessionUsecase,
+    ListLearnerEnrolledSessionIdsBySeriesUsecase,
     CancelEnrollmentUsecase,
     CancelSessionUsecase,
     RestoreSessionUsecase,
@@ -62,6 +64,7 @@ import { RestoreSessionUsecase } from '@src/usecases/course/workflows/restore-se
   ],
   exports: [
     EnrollLearnerToSessionUsecase,
+    ListLearnerEnrolledSessionIdsBySeriesUsecase,
     CancelEnrollmentUsecase,
     CancelSessionUsecase,
     RestoreSessionUsecase,

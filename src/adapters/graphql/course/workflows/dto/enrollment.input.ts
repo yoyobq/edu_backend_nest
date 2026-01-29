@@ -26,3 +26,19 @@ export class EnrollLearnerToSessionInputGql {
   @MaxLength(255)
   readonly remark?: string | null;
 }
+
+/**
+ * 查询学员在指定开课班中的已报名节次 ID 列表输入
+ */
+@InputType()
+export class ListLearnerEnrolledSessionIdsBySeriesInputGql {
+  /** 开课班 ID */
+  @Field(() => Int)
+  @IsInt()
+  readonly seriesId!: number;
+
+  /** 学员 ID */
+  @Field(() => Int)
+  @IsInt()
+  readonly learnerId!: number;
+}

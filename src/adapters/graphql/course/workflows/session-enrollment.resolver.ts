@@ -1,6 +1,6 @@
 // src/adapters/graphql/course/workflows/session-enrollment.resolver.ts
 import { UseGuards } from '@nestjs/common';
-import { Args, Mutation, Resolver } from '@nestjs/graphql';
+import { Args, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { mapJwtToUsecaseSession, type UsecaseSession } from '@src/types/auth/session.types';
 import { JwtPayload } from '@src/types/jwt.types';
 import { CancelEnrollmentUsecase } from '@src/usecases/course/workflows/cancel-enrollment.usecase';
@@ -8,12 +8,20 @@ import {
   EnrollLearnerToSessionUsecase,
   type EnrollLearnerToSessionOutput,
 } from '@src/usecases/course/workflows/enroll-learner-to-session.usecase';
+import { ListLearnerEnrolledSessionIdsBySeriesUsecase } from '@src/usecases/course/workflows/list-learner-enrolled-session-ids-by-series.usecase';
 import { currentUser } from '../../decorators/current-user.decorator';
 import { JwtAuthGuard } from '../../guards/jwt-auth.guard';
 import { CancelEnrollmentInputGql } from './dto/cancel-enrollment.input';
 import { CancelEnrollmentResultGql } from './dto/cancel-enrollment.result';
-import { EnrollLearnerToSessionInputGql } from './dto/enrollment.input';
-import { EnrollLearnerToSessionResultGql, EnrollmentOutputGql } from './dto/enrollment.result';
+import {
+  EnrollLearnerToSessionInputGql,
+  ListLearnerEnrolledSessionIdsBySeriesInputGql,
+} from './dto/enrollment.input';
+import {
+  EnrollLearnerToSessionResultGql,
+  EnrollmentOutputGql,
+  ListLearnerEnrolledSessionIdsBySeriesResultGql,
+} from './dto/enrollment.result';
 
 /**
  * 节次报名 GraphQL Resolver
@@ -25,6 +33,7 @@ export class SessionEnrollmentResolver {
   constructor(
     private readonly enrollUsecase: EnrollLearnerToSessionUsecase,
     private readonly cancelEnrollmentUsecase: CancelEnrollmentUsecase,
+    private readonly listEnrolledSessionIdsUsecase: ListLearnerEnrolledSessionIdsBySeriesUsecase,
   ) {}
 
   /**
@@ -79,5 +88,27 @@ export class SessionEnrollmentResolver {
       },
       isUpdated: result.isUpdated,
     } as CancelEnrollmentResultGql;
+  }
+
+  /**
+   * 查询学员在指定开课班中的已报名节次 ID 列表
+   * @param user 当前登录用户的 JWT 载荷
+   * @param input 查询输入（开课班与学员）
+   */
+  @UseGuards(JwtAuthGuard)
+  @Query(() => ListLearnerEnrolledSessionIdsBySeriesResultGql, {
+    name: 'listLearnerEnrolledSessionIdsBySeries',
+  })
+  async listLearnerEnrolledSessionIdsBySeries(
+    @currentUser() user: JwtPayload,
+    @Args('input') input: ListLearnerEnrolledSessionIdsBySeriesInputGql,
+  ): Promise<ListLearnerEnrolledSessionIdsBySeriesResultGql> {
+    const session: UsecaseSession = mapJwtToUsecaseSession(user);
+    const result = await this.listEnrolledSessionIdsUsecase.execute({
+      session,
+      seriesId: input.seriesId,
+      learnerId: input.learnerId,
+    });
+    return { sessionIds: result.sessionIds };
   }
 }

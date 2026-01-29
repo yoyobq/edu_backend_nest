@@ -76,6 +76,9 @@ export class CourseSessionSafeViewDTO {
   @Field(() => ID, { description: '主教练 ID' })
   leadCoachId!: number;
 
+  @Field(() => String, { description: '主教练姓名', nullable: true })
+  leadCoachName?: string | null;
+
   @Field(() => String, { description: '地点文本' })
   locationText!: string;
 

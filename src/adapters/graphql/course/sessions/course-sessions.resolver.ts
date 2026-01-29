@@ -56,13 +56,23 @@ function toCourseSessionDTO(entity: CourseSessionEntity): CourseSessionDTO {
   return dto;
 }
 
-function toCourseSessionSafeViewDTO(entity: CourseSessionEntity): CourseSessionSafeViewDTO {
+/**
+ * 将节次实体映射为安全视图 DTO（补充主教练姓名）
+ * @param entity 节次实体
+ * @param leadCoachName 主教练姓名
+ * @returns 安全视图 DTO
+ */
+function toCourseSessionSafeViewDTO(
+  entity: CourseSessionEntity,
+  leadCoachName: string | null,
+): CourseSessionSafeViewDTO {
   const dto = new CourseSessionSafeViewDTO();
   dto.id = entity.id;
   dto.seriesId = entity.seriesId;
   dto.startTime = entity.startTime;
   dto.endTime = entity.endTime;
   dto.leadCoachId = entity.leadCoachId;
+  dto.leadCoachName = leadCoachName;
   dto.locationText = entity.locationText;
   dto.extraCoaches = entity.extraCoachesJson
     ? entity.extraCoachesJson.map((c) => {
@@ -138,15 +148,15 @@ export class CourseSessionsResolver {
   ): Promise<CustomerCourseSessionsBySeriesResult> {
     const mode = input.mode ?? 'RECENT_WINDOW';
     const session = mapJwtToUsecaseSession(user);
-    const sessions =
+    const sessionItems =
       mode === 'ALL'
-        ? await this.viewSessionsBySeriesUsecase.execute(session, {
+        ? await this.viewSessionsBySeriesUsecase.executeWithLeadCoachName(session, {
             mode: 'ALL',
             seriesId: input.seriesId,
             maxSessions: input.maxSessions ?? 200,
             statusFilter: input.statusFilter,
           })
-        : await this.viewSessionsBySeriesUsecase.execute(session, {
+        : await this.viewSessionsBySeriesUsecase.executeWithLeadCoachName(session, {
             mode: 'RECENT_WINDOW',
             seriesId: input.seriesId,
             baseTime: input.baseTime ?? new Date(),
@@ -156,7 +166,9 @@ export class CourseSessionsResolver {
           });
 
     const result = new CustomerCourseSessionsBySeriesResult();
-    result.items = sessions.map((s) => toCourseSessionSafeViewDTO(s));
+    result.items = sessionItems.map((item) =>
+      toCourseSessionSafeViewDTO(item.session, item.leadCoachName),
+    );
     return result;
   }
 

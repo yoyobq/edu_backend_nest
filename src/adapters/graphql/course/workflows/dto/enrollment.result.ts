@@ -34,3 +34,12 @@ export class EnrollLearnerToSessionResultGql {
   @Field(() => Boolean)
   readonly isNewlyCreated!: boolean;
 }
+
+/**
+ * 学员已报名节次 ID 列表输出
+ */
+@ObjectType()
+export class ListLearnerEnrolledSessionIdsBySeriesResultGql {
+  @Field(() => [Int])
+  readonly sessionIds!: number[];
+}

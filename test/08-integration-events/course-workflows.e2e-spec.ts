@@ -1460,6 +1460,33 @@ describe('08-Integration-Events 课程工作流：报名触发与 Outbox 分发 
       expect(handler.calls).toBe(baselineCalls);
     });
 
+    it('查询学员在开课班的已报名节次 ID 列表', async () => {
+      const ensureMutation = `
+        mutation {
+          enrollLearnerToSession(input: { sessionId: ${sessionId}, learnerId: ${learnerId}, remark: "E2E 查询前置" }) {
+            isNewlyCreated
+          }
+        }
+      `;
+      await executeGql(app, { query: ensureMutation, token: customerToken }).expect(200);
+
+      const query = `
+        query {
+          listLearnerEnrolledSessionIdsBySeries(input: { seriesId: ${seriesId}, learnerId: ${learnerId} }) {
+            sessionIds
+          }
+        }
+      `;
+      const res = await executeGql(app, { query, token: customerToken }).expect(200);
+      const body = res.body as unknown as {
+        data?: { listLearnerEnrolledSessionIdsBySeries?: { sessionIds: number[] } };
+        errors?: unknown;
+      };
+      if (body.errors) throw new Error(`GraphQL 错误: ${JSON.stringify(body.errors)}`);
+      const ids = body.data?.listLearnerEnrolledSessionIdsBySeries?.sessionIds ?? [];
+      expect(ids).toContain(sessionId);
+    });
+
     it('半路报名仅为未来节次创建报名', async () => {
       const sessionRepo = dataSource.getRepository(CourseSessionEntity);
       const enrollmentRepo = dataSource.getRepository(ParticipationEnrollmentEntity);
