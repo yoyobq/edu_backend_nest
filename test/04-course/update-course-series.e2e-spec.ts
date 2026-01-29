@@ -10,6 +10,11 @@ import { initGraphQLSchema } from '../../src/adapters/graphql/schema/schema.init
 import { AppModule } from '../../src/app.module';
 import { CourseCatalogEntity } from '../../src/modules/course/catalogs/course-catalog.entity';
 import { CourseSeriesEntity } from '../../src/modules/course/series/course-series.entity';
+import {
+  getAccountIdByLoginName,
+  getCoachIdByAccountId,
+  getLearnerIdByAccountId,
+} from '../utils/e2e-graphql-utils';
 import { cleanupTestAccounts, seedTestAccounts, testAccountsConfig } from '../utils/test-accounts';
 
 describe('Update Course Series (e2e)', () => {
@@ -33,7 +38,7 @@ describe('Update Course Series (e2e)', () => {
     dataSource = moduleFixture.get<DataSource>(DataSource);
 
     await cleanupTestAccounts(dataSource);
-    await seedTestAccounts({ dataSource, includeKeys: ['manager', 'coach'] });
+    await seedTestAccounts({ dataSource, includeKeys: ['manager', 'coach', 'learner'] });
 
     managerToken = await loginAndGetToken(
       testAccountsConfig.manager.loginName,
@@ -140,6 +145,77 @@ describe('Update Course Series (e2e)', () => {
 
     if (res.body.errors) throw new Error(`创建草稿失败: ${JSON.stringify(res.body.errors)}`);
     return Number(res.body.data.createCourseSeriesDraft.id);
+  };
+
+  /**
+   * 应用排期并返回首个节次 ID
+   * @param params 包含 seriesId 与 auth 的参数对象
+   * @returns 首个节次 ID
+   */
+  const applyScheduleAndGetSessionId = async (params: {
+    readonly seriesId: number;
+    readonly auth: string;
+    readonly leadCoachId?: number;
+  }): Promise<number> => {
+    const previewQuery = `
+      query { previewCourseSeriesSchedule(input: { seriesId: ${params.seriesId} }) { previewHash } }
+    `;
+    const previewRes = await request(app.getHttpServer())
+      .post('/graphql')
+      .set('Authorization', params.auth)
+      .send({ query: previewQuery })
+      .expect(200);
+    if (previewRes.body.errors)
+      throw new Error(`预览失败: ${JSON.stringify(previewRes.body.errors)}`);
+    const previewHash = previewRes.body.data.previewCourseSeriesSchedule.previewHash as string;
+
+    const leadCoachPart =
+      typeof params.leadCoachId === 'number' ? `, leadCoachId: ${params.leadCoachId}` : '';
+    const applyMutation = `
+      mutation {
+        applyCourseSeriesSchedule(input: { seriesId: ${params.seriesId}, previewHash: "${previewHash}"${leadCoachPart} }) {
+          seriesId
+          status
+          createdSessions
+        }
+      }
+    `;
+    const applyRes = await request(app.getHttpServer())
+      .post('/graphql')
+      .set('Authorization', params.auth)
+      .send({ query: applyMutation })
+      .expect(200);
+    if (applyRes.body.errors)
+      throw new Error(`应用排期失败: ${JSON.stringify(applyRes.body.errors)}`);
+
+    const rows = await dataSource.query(
+      'SELECT id FROM course_sessions WHERE series_id = ? ORDER BY id ASC LIMIT 1',
+      [params.seriesId],
+    );
+    const sessionId = Number(rows?.[0]?.id ?? 0);
+    if (!sessionId) throw new Error('未生成节次，无法继续测试');
+    return sessionId;
+  };
+
+  /**
+   * 获取测试学员 ID
+   * @returns Learner 身份 ID
+   */
+  const getTestLearnerId = async (): Promise<number> => {
+    const accountId = await getAccountIdByLoginName(
+      dataSource,
+      testAccountsConfig.learner.loginName,
+    );
+    return getLearnerIdByAccountId(dataSource, accountId);
+  };
+
+  /**
+   * 获取测试教练 ID
+   * @returns Coach 身份 ID
+   */
+  const getTestCoachId = async (): Promise<number> => {
+    const accountId = await getAccountIdByLoginName(dataSource, testAccountsConfig.coach.loginName);
+    return getCoachIdByAccountId(dataSource, accountId);
   };
 
   const cleanupSeriesAndCatalogs = async (): Promise<void> => {
@@ -317,6 +393,67 @@ describe('Update Course Series (e2e)', () => {
       // 根据项目惯例，可能返回 COURSE_SERIES_NOT_FOUND 或类似
       // 这里暂时断言有错误即可，最好能断言 code
       // 如果是 TypeORM findOneOrFail 抛出的 EntityNotFoundError，可能会被全局过滤器捕获
+    });
+  });
+
+  describe('closeCourseSeries', () => {
+    it('封班后写入 remark 且禁止报名', async () => {
+      const catalogId = await ensureCatalog();
+      const seriesId = await createDraftSeries({
+        catalogId,
+        auth: managerTokenWithBearer,
+        remark: 'E2E 更新测试 (close)',
+      });
+      const leadCoachId = await getTestCoachId();
+      const sessionId = await applyScheduleAndGetSessionId({
+        seriesId,
+        auth: managerTokenWithBearer,
+        leadCoachId,
+      });
+
+      const closeReason = 'E2E 封班原因';
+      const closeMutation = `
+        mutation {
+          closeCourseSeries(input: { seriesId: ${seriesId}, closeReason: "${closeReason}" }) {
+            id
+            status
+            remark
+          }
+        }
+      `;
+      const closeRes = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', managerTokenWithBearer)
+        .send({ query: closeMutation })
+        .expect(200);
+      if (closeRes.body.errors)
+        throw new Error(`封班失败: ${JSON.stringify(closeRes.body.errors)}`);
+      const closed = closeRes.body.data.closeCourseSeries as {
+        id: number | string;
+        status: string;
+        remark?: string | null;
+      };
+      expect(Number(closed.id)).toBe(seriesId);
+      expect(closed.status).toBe('CLOSED');
+      expect(closed.remark ?? '').toMatch(`封班原因：${closeReason}`);
+
+      const learnerId = await getTestLearnerId();
+      const enrollMutation = `
+        mutation {
+          enrollLearnerToSession(input: { sessionId: ${sessionId}, learnerId: ${learnerId}, remark: "E2E 报名" }) {
+            isNewlyCreated
+          }
+        }
+      `;
+      const enrollRes = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', managerTokenWithBearer)
+        .send({ query: enrollMutation })
+        .expect(200);
+      const err = (enrollRes.body.errors?.[0] ?? null) as {
+        extensions?: { errorCode?: string };
+      } | null;
+      expect(err?.extensions?.errorCode).toBe('ENROLLMENT_OPERATION_NOT_ALLOWED');
     });
   });
 });
