@@ -76,6 +76,7 @@ export class ApplySeriesScheduleUsecase {
       };
     }
 
+    const leaveCutoffHoursOverride = series.leaveCutoffHours ?? 12;
     const items = [
       ...toCreate.map((occ) => ({
         seriesId: series.id,
@@ -83,6 +84,7 @@ export class ApplySeriesScheduleUsecase {
         endTime: occ.endTime,
         leadCoachId,
         locationText: '馆内',
+        leaveCutoffHoursOverride,
         remark: null,
       })),
       ...customSessions.map((s) => ({
@@ -91,6 +93,7 @@ export class ApplySeriesScheduleUsecase {
         endTime: s.endTime,
         leadCoachId,
         locationText: s.locationText?.trim() ? s.locationText.trim() : '馆内',
+        leaveCutoffHoursOverride,
         remark: s.remark ?? null,
       })),
     ].sort((a, b) => {

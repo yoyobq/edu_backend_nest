@@ -232,6 +232,7 @@ export class CourseSessionsService {
       readonly endTime: Date;
       readonly leadCoachId: number;
       readonly locationText: string;
+      readonly leaveCutoffHoursOverride?: number | null;
       readonly remark?: string | null;
     }>;
     readonly manager?: EntityManager;
@@ -249,6 +250,7 @@ export class CourseSessionsService {
           endTime: it.endTime,
           leadCoachId: it.leadCoachId,
           locationText: it.locationText,
+          leaveCutoffHoursOverride: it.leaveCutoffHoursOverride ?? null,
           status: SessionStatus.SCHEDULED,
           remark: it.remark ?? null,
         });
