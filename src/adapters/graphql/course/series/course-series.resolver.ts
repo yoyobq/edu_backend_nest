@@ -15,6 +15,7 @@ import {
   PublishSeriesUsecase,
   type PublishSeriesOutput,
 } from '@src/usecases/course/series/publish-series.usecase';
+import { SearchSeriesForCustomerUsecase } from '@src/usecases/course/series/search-series-for-customer.usecase';
 import { SearchSeriesUsecase } from '@src/usecases/course/series/search-series.usecase';
 import {
   CloseSeriesUsecase,
@@ -26,8 +27,9 @@ import { currentUser } from '../../decorators/current-user.decorator';
 import { Roles } from '../../decorators/roles.decorator';
 import { JwtAuthGuard } from '../../guards/jwt-auth.guard';
 import { RolesGuard } from '../../guards/roles.guard';
-import { CourseSeriesDTO } from './dto/course-series.dto';
+import { CourseSeriesDTO, CourseSeriesSafeViewDTO } from './dto/course-series.dto';
 import {
+  PaginatedCustomerCourseSeriesResultDTO,
   PaginatedCourseSeriesResultDTO,
   PreviewOccurrenceDTO,
   PreviewSeriesScheduleResultDTO,
@@ -51,6 +53,7 @@ export class CourseSeriesResolver {
     private readonly applyScheduleUsecase: ApplySeriesScheduleUsecase,
     private readonly publishUsecase: PublishSeriesUsecase,
     private readonly searchUsecase: SearchSeriesUsecase,
+    private readonly searchForCustomerUsecase: SearchSeriesForCustomerUsecase,
     private readonly updateUsecase: UpdateSeriesUsecase,
     private readonly closeUsecase: CloseSeriesUsecase,
   ) {}
@@ -260,6 +263,72 @@ export class CourseSeriesResolver {
       dto.updatedAt = series.updatedAt;
       dto.createdBy = series.createdBy;
       dto.updatedBy = series.updatedBy;
+      return dto;
+    });
+    output.total = res.total;
+    output.page = res.page;
+    output.pageSize = res.pageSize;
+    output.pageInfo = res.pageInfo
+      ? { hasNext: res.pageInfo.hasNext ?? false, nextCursor: res.pageInfo.nextCursor }
+      : undefined;
+    return output;
+  }
+
+  /**
+   * customer 搜索开课班（安全视图）
+   * @param user 当前用户信息
+   * @param input 搜索与分页输入
+   */
+  @UseGuards(JwtAuthGuard)
+  @ValidateInput()
+  @Query(() => PaginatedCustomerCourseSeriesResultDTO, {
+    name: 'searchCourseSeriesForCustomer',
+    description: '搜索与分页开课班（customer 安全视图）',
+  })
+  async searchCourseSeriesForCustomer(
+    @Args('input') input: SearchCourseSeriesInputGql,
+    @currentUser() user: JwtPayload,
+  ): Promise<PaginatedCustomerCourseSeriesResultDTO> {
+    const session: UsecaseSession = mapJwtToUsecaseSession(user);
+    const pagination = mapGqlToCoreParams({ ...input.pagination, sorts: input.sorts });
+
+    const res = await this.searchForCustomerUsecase.execute({
+      session,
+      params: {
+        query: input.query,
+        filters: {
+          ...(typeof input.activeOnly === 'boolean' ? { activeOnly: input.activeOnly } : {}),
+          ...(Array.isArray(input.statuses) && input.statuses.length > 0
+            ? { statuses: input.statuses }
+            : {}),
+          ...(typeof input.classMode === 'string' ? { classMode: input.classMode } : {}),
+          ...(typeof input.startDateFrom === 'string'
+            ? { startDateFrom: input.startDateFrom }
+            : {}),
+          ...(typeof input.startDateTo === 'string' ? { startDateTo: input.startDateTo } : {}),
+          ...(typeof input.endDateFrom === 'string' ? { endDateFrom: input.endDateFrom } : {}),
+          ...(typeof input.endDateTo === 'string' ? { endDateTo: input.endDateTo } : {}),
+        },
+        pagination,
+      },
+    });
+
+    const output = new PaginatedCustomerCourseSeriesResultDTO();
+    output.items = res.items.map((series) => {
+      const dto = new CourseSeriesSafeViewDTO();
+      dto.id = series.id;
+      dto.catalogId = series.catalogId;
+      dto.title = series.title;
+      dto.description = series.description;
+      dto.venueType = series.venueType;
+      dto.classMode = series.classMode;
+      dto.startDate = series.startDate;
+      dto.endDate = series.endDate;
+      dto.recurrenceRule = series.recurrenceRule;
+      dto.leaveCutoffHours = series.leaveCutoffHours;
+      dto.pricePerSession = series.pricePerSession;
+      dto.maxLearners = series.maxLearners;
+      dto.status = series.status;
       return dto;
     });
     output.total = res.total;

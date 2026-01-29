@@ -164,6 +164,82 @@ export class CourseSeriesService {
     });
   }
 
+  /**
+   * 面向 customer 的分页搜索开课班
+   * 仅返回“已发布且未结束”的开课班
+   * @param args 查询参数对象（分页参数 + customerId + 可选关键词）
+   * @returns 分页后的开课班结果
+   */
+  async searchSeriesForCustomer(args: {
+    readonly params: PaginationParams;
+    readonly customerId: number;
+    readonly query?: string;
+    readonly filters?: SearchCourseSeriesFilters;
+  }): Promise<PaginatedResult<CourseSeriesEntity>> {
+    const qb = this.buildSearchSeriesQuery();
+    this.applyClassModeFilter({ qb, classMode: args.filters?.classMode });
+    this.applyDateRangeFilter({
+      qb,
+      startDateFrom: args.filters?.startDateFrom,
+      startDateTo: args.filters?.startDateTo,
+      endDateFrom: args.filters?.endDateFrom,
+      endDateTo: args.filters?.endDateTo,
+    });
+    this.applyTitleQuery({ qb, query: args.query });
+    this.applyCustomerAccessFilter({ qb, customerId: args.customerId });
+
+    const { allowedSorts, defaultSorts, resolveColumn } = this.getSeriesPaginationSpec();
+    return await this.paginationService.paginateQuery<CourseSeriesEntity>({
+      qb,
+      params: args.params,
+      allowedSorts,
+      defaultSorts,
+      cursorKey: { primary: 'createdAt', tieBreaker: 'id' },
+      resolveColumn,
+      accessors: {
+        primary: (row) => {
+          const value = (row as Record<string, unknown>)['createdAt'];
+          if (value instanceof Date) {
+            const yyyy = value.getFullYear();
+            const mm = String(value.getMonth() + 1).padStart(2, '0');
+            const dd = String(value.getDate()).padStart(2, '0');
+            const hh = String(value.getHours()).padStart(2, '0');
+            const min = String(value.getMinutes()).padStart(2, '0');
+            const ss = String(value.getSeconds()).padStart(2, '0');
+            return `${yyyy}-${mm}-${dd} ${hh}:${min}:${ss}`;
+          }
+          if (typeof value === 'string') {
+            const asPlain = value.includes('T') ? value.replace('T', ' ').replace(/Z$/, '') : value;
+            return asPlain.length >= 19 ? asPlain.slice(0, 19) : asPlain;
+          }
+          if (typeof value === 'number') return value;
+          return null;
+        },
+        tieBreaker: (row) => {
+          const value = (row as Record<string, unknown>)['id'];
+          if (typeof value === 'number' || typeof value === 'string') return value;
+          return null;
+        },
+      },
+    });
+  }
+
+  /**
+   * 应用 customer 的访问过滤（可见开课班）
+   * @param params 参数对象：qb、customerId
+   */
+  private applyCustomerAccessFilter(params: {
+    readonly qb: SelectQueryBuilder<CourseSeriesEntity>;
+    readonly customerId: number;
+  }): void {
+    const { qb } = params;
+    const today = this.toLocalDateString(new Date());
+    qb.andWhere('series.status = :publishedStatus AND series.endDate >= :today', {
+      publishedStatus: CourseSeriesStatus.PUBLISHED,
+      today,
+    });
+  }
+
   private buildSearchSeriesQuery(): SelectQueryBuilder<CourseSeriesEntity> {
     return this.seriesRepo.createQueryBuilder('series').select('series');
   }
@@ -271,6 +347,18 @@ export class CourseSeriesService {
     const q = (params.query ?? '').trim();
     if (q.length === 0) return;
     qb.andWhere('series.title LIKE :kw', { kw: `%${q}%` });
+  }
+
+  /**
+   * 转换为本地日期字符串（YYYY-MM-DD）
+   * @param date 日期对象
+   * @returns 本地日期字符串
+   */
+  private toLocalDateString(date: Date): string {
+    const yyyy = date.getFullYear();
+    const mm = String(date.getMonth() + 1).padStart(2, '0');
+    const dd = String(date.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
   }
 
   private getSeriesPaginationSpec(): {

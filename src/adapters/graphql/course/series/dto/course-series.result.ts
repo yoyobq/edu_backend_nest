@@ -2,7 +2,7 @@
 import { Field, Int, ObjectType } from '@nestjs/graphql';
 import { CourseSeriesStatus } from '@app-types/models/course-series.types';
 import { paginatedTypeFactory } from '@src/adapters/graphql/pagination.type-factory';
-import { CourseSeriesDTO } from './course-series.dto';
+import { CourseSeriesDTO, CourseSeriesSafeViewDTO } from './course-series.dto';
 
 @ObjectType({ description: '预览的冲突信息' })
 export class PreviewConflictDTO {
@@ -72,3 +72,8 @@ export class PublishSeriesResultDTO {
 
 @ObjectType({ description: '开课班分页结果' })
 export class PaginatedCourseSeriesResultDTO extends paginatedTypeFactory(CourseSeriesDTO) {}
+
+@ObjectType({ description: '开课班分页结果（安全视图）' })
+export class PaginatedCustomerCourseSeriesResultDTO extends paginatedTypeFactory(
+  CourseSeriesSafeViewDTO,
+) {}

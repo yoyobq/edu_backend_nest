@@ -1,5 +1,6 @@
 // src/modules/course/series/course-series.module.ts
 import { CoachServiceModule } from '@modules/account/identities/training/coach/coach-service.module';
+import { CustomerServiceModule } from '@modules/account/identities/training/customer/customer-service.module';
 import { ManagerServiceModule } from '@modules/account/identities/training/manager/manager-service.module';
 import { PaginationModule } from '@modules/common/pagination.module';
 import { CourseCatalogsModule } from '@modules/course/catalogs/course-catalogs.module';
@@ -10,6 +11,7 @@ import { CreateSeriesUsecase } from '@src/usecases/course/series/create-series.u
 import { DeleteSeriesUsecase } from '@src/usecases/course/series/delete-series.usecase';
 import { GetSeriesUsecase } from '@src/usecases/course/series/get-series.usecase';
 import { ListSeriesUsecase } from '@src/usecases/course/series/list-series.usecase';
+import { SearchSeriesForCustomerUsecase } from '@src/usecases/course/series/search-series-for-customer.usecase';
 import { SearchSeriesUsecase } from '@src/usecases/course/series/search-series.usecase';
 import {
   CloseSeriesUsecase,
@@ -28,6 +30,7 @@ import { CourseSeriesService } from './course-series.service';
     PaginationModule,
     CourseCatalogsModule,
     CoachServiceModule,
+    CustomerServiceModule,
     ManagerServiceModule,
     IntegrationEventsModule,
   ],
@@ -41,6 +44,7 @@ import { CourseSeriesService } from './course-series.service';
     GetSeriesUsecase,
     ListSeriesUsecase,
     SearchSeriesUsecase,
+    SearchSeriesForCustomerUsecase,
   ],
   exports: [
     TypeOrmModule,
@@ -52,6 +56,7 @@ import { CourseSeriesService } from './course-series.service';
     GetSeriesUsecase,
     ListSeriesUsecase,
     SearchSeriesUsecase,
+    SearchSeriesForCustomerUsecase,
   ],
 })
 export class CourseSeriesModule {}
