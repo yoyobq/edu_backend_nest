@@ -11,7 +11,10 @@ import { DeleteSeriesUsecase } from '@src/usecases/course/series/delete-series.u
 import { GetSeriesUsecase } from '@src/usecases/course/series/get-series.usecase';
 import { ListSeriesUsecase } from '@src/usecases/course/series/list-series.usecase';
 import { SearchSeriesUsecase } from '@src/usecases/course/series/search-series.usecase';
-import { UpdateSeriesUsecase } from '@src/usecases/course/series/update-series.usecase';
+import {
+  CloseSeriesUsecase,
+  UpdateSeriesUsecase,
+} from '@src/usecases/course/series/update-series.usecase';
 import { CourseSeriesEntity } from './course-series.entity';
 import { CourseSeriesService } from './course-series.service';
 
@@ -33,6 +36,7 @@ import { CourseSeriesService } from './course-series.service';
     // CRUD 用例
     CreateSeriesUsecase,
     UpdateSeriesUsecase,
+    CloseSeriesUsecase,
     DeleteSeriesUsecase,
     GetSeriesUsecase,
     ListSeriesUsecase,
@@ -43,6 +47,7 @@ import { CourseSeriesService } from './course-series.service';
     CourseSeriesService,
     CreateSeriesUsecase,
     UpdateSeriesUsecase,
+    CloseSeriesUsecase,
     DeleteSeriesUsecase,
     GetSeriesUsecase,
     ListSeriesUsecase,

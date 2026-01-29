@@ -16,7 +16,10 @@ import {
   type PublishSeriesOutput,
 } from '@src/usecases/course/series/publish-series.usecase';
 import { SearchSeriesUsecase } from '@src/usecases/course/series/search-series.usecase';
-import { UpdateSeriesUsecase } from '@src/usecases/course/series/update-series.usecase';
+import {
+  CloseSeriesUsecase,
+  UpdateSeriesUsecase,
+} from '@src/usecases/course/series/update-series.usecase';
 import { IdentityTypeEnum } from '@app-types/models/account.types';
 import { CourseSeriesEntity } from '@src/modules/course/series/course-series.entity';
 import { currentUser } from '../../decorators/current-user.decorator';
@@ -34,6 +37,7 @@ import { CreateCourseSeriesDraftInput } from './dto/create-course-series-draft.i
 import { PreviewSeriesScheduleInput } from './dto/preview-series-schedule.input';
 import {
   ApplyCourseSeriesScheduleInput,
+  CloseCourseSeriesInput,
   PublishCourseSeriesInput,
 } from './dto/publish-course-series.input';
 import { SearchCourseSeriesInputGql } from './dto/search-course-series.input';
@@ -48,6 +52,7 @@ export class CourseSeriesResolver {
     private readonly publishUsecase: PublishSeriesUsecase,
     private readonly searchUsecase: SearchSeriesUsecase,
     private readonly updateUsecase: UpdateSeriesUsecase,
+    private readonly closeUsecase: CloseSeriesUsecase,
   ) {}
 
   @UseGuards(JwtAuthGuard)
@@ -323,6 +328,50 @@ export class CourseSeriesResolver {
     dto.status = result.series.status;
     dto.publishedAt = result.series.publishedAt ?? null;
     dto.createdSessions = result.createdSessions;
+    return dto;
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(IdentityTypeEnum.MANAGER, IdentityTypeEnum.ADMIN, IdentityTypeEnum.COACH)
+  @Mutation(() => CourseSeriesDTO, {
+    name: 'closeCourseSeries',
+    description: '封班（停止新增报名与排期，仅更新状态）',
+  })
+  /**
+   * 封班
+   * @param user 当前用户信息
+   * @param input 封班输入参数
+   */
+  async closeCourseSeries(
+    @currentUser() user: JwtPayload,
+    @Args('input') input: CloseCourseSeriesInput,
+  ): Promise<CourseSeriesDTO> {
+    const session: UsecaseSession = mapJwtToUsecaseSession(user);
+    const series = await this.closeUsecase.execute({
+      session,
+      id: input.seriesId,
+      reason: input.closeReason ?? null,
+    });
+    const dto = new CourseSeriesDTO();
+    dto.id = series.id;
+    dto.catalogId = series.catalogId;
+    dto.title = series.title;
+    dto.description = series.description;
+    dto.venueType = series.venueType;
+    dto.classMode = series.classMode;
+    dto.startDate = series.startDate;
+    dto.endDate = series.endDate;
+    dto.recurrenceRule = series.recurrenceRule;
+    dto.leaveCutoffHours = series.leaveCutoffHours;
+    dto.pricePerSession = series.pricePerSession;
+    dto.teachingFeeRef = series.teachingFeeRef;
+    dto.maxLearners = series.maxLearners;
+    dto.status = series.status;
+    dto.remark = series.remark;
+    dto.createdAt = series.createdAt;
+    dto.updatedAt = series.updatedAt;
+    dto.createdBy = series.createdBy;
+    dto.updatedBy = series.updatedBy;
     return dto;
   }
 }

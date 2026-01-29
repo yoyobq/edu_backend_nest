@@ -95,3 +95,100 @@ export class UpdateSeriesUsecase {
     }
   }
 }
+
+@Injectable()
+export class CloseSeriesUsecase {
+  constructor(
+    private readonly seriesService: CourseSeriesService,
+    private readonly coachService: CoachService,
+  ) {}
+
+  /**
+   * 判断会话是否包含指定角色
+   * @param session 会话信息
+   * @param role 角色名称
+   */
+  private hasRole(session: UsecaseSession, role: string): boolean {
+    return (session.roles ?? []).some((r) => String(r).toUpperCase() === role);
+  }
+
+  /**
+   * 校验封班权限
+   * @param session 会话信息
+   * @param series 开课班实体
+   */
+  private async assertCanClose(session: UsecaseSession, series: CourseSeriesEntity): Promise<void> {
+    const isAdmin = this.hasRole(session, 'ADMIN');
+    const isManager = this.hasRole(session, 'MANAGER');
+    const isCoach = this.hasRole(session, 'COACH');
+
+    if (!isAdmin && !isManager && !isCoach) {
+      throw new DomainError(PERMISSION_ERROR.ACCESS_DENIED, '无权封班');
+    }
+
+    if (isAdmin || isManager) return;
+
+    const coach = await this.coachService.findByAccountId(session.accountId);
+    if (!coach) {
+      throw new DomainError(PERMISSION_ERROR.ACCESS_DENIED, '当前账户未绑定 Coach 身份');
+    }
+
+    const owned = series.publisherType === PublisherType.COACH && series.publisherId === coach.id;
+    if (!owned) {
+      throw new DomainError(PERMISSION_ERROR.ACCESS_DENIED, '无权封班该开课班');
+    }
+  }
+
+  /**
+   * 执行封班
+   * @param args 封班参数对象
+   * @returns 更新后的开课班实体
+   */
+  async execute(args: {
+    readonly session: UsecaseSession;
+    readonly id: number;
+    readonly reason?: string | null;
+  }): Promise<CourseSeriesEntity> {
+    try {
+      const series = await this.seriesService.findById(args.id);
+      if (!series) {
+        throw new DomainError(COURSE_SERIES_ERROR.SERIES_NOT_FOUND, '开课班不存在');
+      }
+
+      await this.assertCanClose(args.session, series);
+
+      if (series.status === CourseSeriesStatus.CLOSED) {
+        return series;
+      }
+
+      if (
+        series.status !== CourseSeriesStatus.SCHEDULED &&
+        series.status !== CourseSeriesStatus.PUBLISHED &&
+        series.status !== CourseSeriesStatus.PENDING_APPROVAL
+      ) {
+        throw new DomainError(COURSE_SERIES_ERROR.INVALID_PARAMS, '当前状态不支持封班');
+      }
+
+      const patch: Partial<CourseSeriesEntity> = { status: CourseSeriesStatus.CLOSED };
+      const normalizedReason = args.reason?.trim();
+      if (normalizedReason) {
+        const prefix = '封班原因：';
+        patch.remark = series.remark
+          ? `${series.remark}\n${prefix}${normalizedReason}`
+          : `${prefix}${normalizedReason}`;
+      }
+      if (args.session.accountId) {
+        patch.updatedBy = args.session.accountId;
+      }
+
+      const updated = await this.seriesService.update(args.id, patch);
+      if (!updated) {
+        throw new DomainError(COURSE_SERIES_ERROR.SERIES_NOT_FOUND, '开课班不存在');
+      }
+      return updated;
+    } catch (error) {
+      if (error instanceof DomainError) throw error;
+      throw new DomainError(COURSE_SERIES_ERROR.SERIES_UPDATE_FAILED, '封班失败', { error });
+    }
+  }
+}

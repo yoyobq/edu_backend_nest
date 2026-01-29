@@ -1,5 +1,6 @@
 // src/usecases/course/workflows/enroll-learner-to-session.usecase.ts
 import { SessionStatus } from '@app-types/models/course-session.types';
+import { CourseSeriesStatus } from '@app-types/models/course-series.types';
 import {
   DomainError,
   ENROLLMENT_ERROR,
@@ -220,6 +221,12 @@ export class EnrollLearnerToSessionUsecase {
     const series = await this.seriesService.findById(sessionModel.seriesId);
     if (!series) {
       throw new DomainError(SESSION_ERROR.INVALID_PARAMS, '节次引用的系列不存在');
+    }
+    if (
+      series.status === CourseSeriesStatus.CLOSED ||
+      series.status === CourseSeriesStatus.FINISHED
+    ) {
+      throw new DomainError(ENROLLMENT_ERROR.OPERATION_NOT_ALLOWED, '当前开课班已封班或结课');
     }
     const count = await this.enrollmentService.countEffectiveBySession({
       sessionId: sessionModel.id,
