@@ -253,6 +253,8 @@ async function createTestSeries(
  * 创建一个测试课程节次并返回其 ID
  * 关联系列、主教练与地点
  */
+const createTestSessionSeq = { value: 0 };
+
 async function createTestSession(
   ds: DataSource,
   params: {
@@ -263,7 +265,8 @@ async function createTestSession(
 ): Promise<number> {
   const repo = ds.getRepository(CourseSessionEntity);
   const base = Date.now() + 48 * 3600 * 1000;
-  const start = new Date(base + (params.startOffsetMinutes ?? 0) * 60 * 1000);
+  const uniqueSecondOffset = (createTestSessionSeq.value++ % 3600) * 1000;
+  const start = new Date(base + (params.startOffsetMinutes ?? 0) * 60 * 1000 + uniqueSecondOffset);
   const end = new Date(start.getTime() + 60 * 60 * 1000);
   const created = await repo.save(
     repo.create({
@@ -1555,6 +1558,12 @@ describe('08-Integration-Events 课程工作流：报名触发与 Outbox 分发 
    * - 重复取消幂等：不触发 EnrollmentCancelled 新事件
    */
   describe('CancelEnrollmentUsecase', () => {
+    let leadCoachIdForCancel: number;
+    let regretSessionId: number;
+    let regretExpiredSessionId: number;
+    let adminPastSessionId: number;
+    let regretExpiredEnrollmentId: number;
+
     beforeAll(async () => {
       // 通过服务保障报名存在，避免 GraphQL 侧偶发校验干扰
       const customerAccountId = await getAccountIdByLoginName(
@@ -1573,7 +1582,202 @@ describe('08-Integration-Events 课程工作流：报名触发与 Outbox 分发 
         customerId: customer.id,
         remark: 'E2E 取消前置报名',
       });
+
+      const sessionRepo = dataSource.getRepository(CourseSessionEntity);
+      const baseSession = await sessionRepo.findOne({ where: { id: sessionId } });
+      if (!baseSession) throw new Error('测试前置失败：未找到基准节次');
+      leadCoachIdForCancel = baseSession.leadCoachId;
+
+      regretSessionId = await createTestSession(dataSource, {
+        seriesId,
+        leadCoachId: leadCoachIdForCancel,
+        startOffsetMinutes: 120,
+      });
+      regretExpiredSessionId = await createTestSession(dataSource, {
+        seriesId,
+        leadCoachId: leadCoachIdForCancel,
+        startOffsetMinutes: 240,
+      });
+      adminPastSessionId = await createTestSession(dataSource, {
+        seriesId,
+        leadCoachId: leadCoachIdForCancel,
+        startOffsetMinutes: -120,
+      });
+
+      const enrRepo = dataSource.getRepository(ParticipationEnrollmentEntity);
+      await enrRepo.delete({
+        sessionId: In([regretSessionId, regretExpiredSessionId, adminPastSessionId]),
+        learnerId,
+      });
+      await enrollmentService.create({
+        sessionId: regretSessionId,
+        learnerId,
+        customerId: customer.id,
+        remark: 'E2E Customer 当场后悔报名',
+      });
+      const regretExpiredEnrollment = await enrollmentService.create({
+        sessionId: regretExpiredSessionId,
+        learnerId,
+        customerId: customer.id,
+        remark: 'E2E Customer 超时撤销报名',
+      });
+      regretExpiredEnrollmentId = regretExpiredEnrollment.id;
+      await enrollmentService.create({
+        sessionId: adminPastSessionId,
+        learnerId,
+        customerId: customer.id,
+        remark: 'E2E Admin 纠错取消报名',
+      });
     });
+
+    it('用户当场后悔：10 分钟内可 cancel（不做请假阈值判断）', async () => {
+      const sessionRepo = dataSource.getRepository(CourseSessionEntity);
+      const freshSession = await sessionRepo.findOne({ where: { id: regretSessionId } });
+      if (!freshSession) throw new Error('测试前置失败：未找到节次');
+
+      const hoursUntilStart = Math.ceil(
+        (freshSession.startTime.getTime() - Date.now()) / (3600 * 1000),
+      );
+      const overrideHours = hoursUntilStart + 1;
+      await sessionRepo.update(
+        { id: regretSessionId },
+        { leaveCutoffHoursOverride: overrideHours },
+      );
+
+      const baselineCalls = cancelHandler.calls;
+      const mutation = `
+        mutation {
+          cancelSessionEnrollment(input: { sessionId: ${regretSessionId}, learnerId: ${learnerId}, reason: "E2E 用户当场后悔撤销" }) {
+            isUpdated
+            enrollment { id sessionId learnerId customerId isCanceled cancelReason }
+          }
+        }
+      `;
+      const res = await executeGql(app, { query: mutation, token: customerToken }).expect(200);
+      const body = res.body as unknown as {
+        data?: {
+          cancelSessionEnrollment?: {
+            isUpdated: boolean;
+            enrollment: { isCanceled: 0 | 1; cancelReason: string | null; sessionId: number };
+          };
+        };
+        errors?: unknown;
+      };
+      if (body.errors) throw new Error(`GraphQL 错误: ${JSON.stringify(body.errors)}`);
+      expect(body.data?.cancelSessionEnrollment?.isUpdated).toBe(true);
+      expect(body.data?.cancelSessionEnrollment?.enrollment.sessionId).toBe(regretSessionId);
+      expect(body.data?.cancelSessionEnrollment?.enrollment.isCanceled).toBe(1);
+      expect(body.data?.cancelSessionEnrollment?.enrollment.cancelReason).toBe(
+        'E2E 用户当场后悔撤销',
+      );
+
+      await sleep(250);
+      expect(cancelHandler.calls).toBeGreaterThan(baselineCalls);
+    });
+
+    it('用户超过 10 分钟：不可 cancel', async () => {
+      const enrollmentRepo = dataSource.getRepository(ParticipationEnrollmentEntity);
+      await enrollmentRepo
+        .createQueryBuilder()
+        .update(ParticipationEnrollmentEntity)
+        .set({ createdAt: new Date(Date.now() - 11 * 60 * 1000) })
+        .where('id = :id', { id: regretExpiredEnrollmentId })
+        .execute();
+
+      const baselineCalls = cancelHandler.calls;
+      const mutation = `
+        mutation {
+          cancelSessionEnrollment(input: { enrollmentId: ${regretExpiredEnrollmentId}, reason: "E2E 用户超时撤销" }) {
+            isUpdated
+            enrollment { id }
+          }
+        }
+      `;
+      const res = await executeGql(app, { query: mutation, token: customerToken }).expect(200);
+      const body = res.body as unknown as { errors?: Array<{ message?: string }> };
+      expect(Array.isArray(body.errors)).toBe(true);
+      expect(body.errors?.[0]?.message ?? '').toContain('短时间内撤销');
+
+      await sleep(250);
+      expect(cancelHandler.calls).toBe(baselineCalls);
+    });
+
+    it('管理员超过 10 分钟：仍可 cancel', async () => {
+      const baselineCalls = cancelHandler.calls;
+      const mutation = `
+        mutation {
+          cancelSessionEnrollment(input: { sessionId: ${regretExpiredSessionId}, learnerId: ${learnerId}, reason: "E2E 管理员超时仍可取消" }) {
+            isUpdated
+            enrollment { id sessionId learnerId isCanceled cancelReason }
+          }
+        }
+      `;
+      const res = await executeGql(app, { query: mutation, token: adminToken }).expect(200);
+      const body = res.body as unknown as {
+        data?: {
+          cancelSessionEnrollment?: {
+            isUpdated: boolean;
+            enrollment: {
+              sessionId: number;
+              learnerId: number;
+              isCanceled: 0 | 1;
+              cancelReason: string | null;
+            };
+          };
+        };
+        errors?: unknown;
+      };
+      if (body.errors) throw new Error(`GraphQL 错误: ${JSON.stringify(body.errors)}`);
+      expect(body.data?.cancelSessionEnrollment?.isUpdated).toBe(true);
+      expect(body.data?.cancelSessionEnrollment?.enrollment.sessionId).toBe(regretExpiredSessionId);
+      expect(body.data?.cancelSessionEnrollment?.enrollment.learnerId).toBe(learnerId);
+      expect(body.data?.cancelSessionEnrollment?.enrollment.isCanceled).toBe(1);
+      expect(body.data?.cancelSessionEnrollment?.enrollment.cancelReason).toBe(
+        'E2E 管理员超时仍可取消',
+      );
+
+      await sleep(250);
+      expect(cancelHandler.calls).toBeGreaterThan(baselineCalls);
+    });
+
+    it('管理员纠错：允许对已开始节次执行 cancel', async () => {
+      const enrollmentRepo = dataSource.getRepository(ParticipationEnrollmentEntity);
+      const enrollment = await enrollmentRepo.findOne({
+        where: { sessionId: adminPastSessionId, learnerId },
+      });
+      if (!enrollment) throw new Error('测试前置失败：未找到报名记录');
+
+      const baselineCalls = cancelHandler.calls;
+      const mutation = `
+        mutation {
+          cancelSessionEnrollment(input: { enrollmentId: ${enrollment.id}, reason: "E2E 管理员纠错取消" }) {
+            isUpdated
+            enrollment { id sessionId isCanceled cancelReason }
+          }
+        }
+      `;
+      const res = await executeGql(app, { query: mutation, token: adminToken }).expect(200);
+      const body = res.body as unknown as {
+        data?: {
+          cancelSessionEnrollment?: {
+            isUpdated: boolean;
+            enrollment: { isCanceled: 0 | 1; cancelReason: string | null; sessionId: number };
+          };
+        };
+        errors?: unknown;
+      };
+      if (body.errors) throw new Error(`GraphQL 错误: ${JSON.stringify(body.errors)}`);
+      expect(body.data?.cancelSessionEnrollment?.isUpdated).toBe(true);
+      expect(body.data?.cancelSessionEnrollment?.enrollment.sessionId).toBe(adminPastSessionId);
+      expect(body.data?.cancelSessionEnrollment?.enrollment.isCanceled).toBe(1);
+      expect(body.data?.cancelSessionEnrollment?.enrollment.cancelReason).toBe(
+        'E2E 管理员纠错取消',
+      );
+
+      await sleep(250);
+      expect(cancelHandler.calls).toBeGreaterThan(baselineCalls);
+    });
+
     it('超过取消阈值：返回领域错误并不触发事件', async () => {
       // 读取报名与节次信息（使用前序用例创建的数据）
       const enrollmentRepo = dataSource.getRepository(ParticipationEnrollmentEntity);
@@ -1595,15 +1799,15 @@ describe('08-Integration-Events 课程工作流：报名触发与 Outbox 分发 
 
       const mutation = `
         mutation {
-          cancelEnrollment(input: { enrollmentId: ${enrollment.id}, reason: "E2E 超过阈值取消" }) {
+          cancelSessionEnrollment(input: { enrollmentId: ${enrollment.id}, reason: "E2E 超过阈值取消" }) {
             isUpdated
             enrollment { id sessionId learnerId customerId isCanceled cancelReason }
           }
         }
       `;
-      const res = await executeGql(app, { query: mutation, token: customerToken }).expect(200);
+      const res = await executeGql(app, { query: mutation, token: managerToken }).expect(200);
       const body = res.body as unknown as {
-        data?: { cancelEnrollment?: { isUpdated: boolean } };
+        data?: { cancelSessionEnrollment?: { isUpdated: boolean } };
         errors?: Array<{ message: string }>;
       };
 
@@ -1632,7 +1836,7 @@ describe('08-Integration-Events 课程工作流：报名触发与 Outbox 分发 
 
       const mutation = `
         mutation {
-          cancelEnrollment(input: { enrollmentId: ${enrollment.id}, reason: "E2E 首次取消" }) {
+          cancelSessionEnrollment(input: { enrollmentId: ${enrollment.id}, reason: "E2E 首次取消" }) {
             isUpdated
             enrollment { id sessionId learnerId customerId isCanceled cancelReason }
           }
@@ -1641,7 +1845,7 @@ describe('08-Integration-Events 课程工作流：报名触发与 Outbox 分发 
       const res = await executeGql(app, { query: mutation, token: customerToken }).expect(200);
       const body = res.body as unknown as {
         data?: {
-          cancelEnrollment?: {
+          cancelSessionEnrollment?: {
             isUpdated: boolean;
             enrollment: {
               id: number;
@@ -1656,8 +1860,8 @@ describe('08-Integration-Events 课程工作流：报名触发与 Outbox 分发 
         errors?: unknown;
       };
       if (body.errors) throw new Error(`GraphQL 错误: ${JSON.stringify(body.errors)}`);
-      expect(body.data?.cancelEnrollment?.isUpdated).toBe(true);
-      expect(body.data?.cancelEnrollment?.enrollment.isCanceled).toBe(1);
+      expect(body.data?.cancelSessionEnrollment?.isUpdated).toBe(true);
+      expect(body.data?.cancelSessionEnrollment?.enrollment.isCanceled).toBe(1);
 
       // 等待 Outbox 分发，并断言消费情况
       await sleep(300);
@@ -1678,7 +1882,7 @@ describe('08-Integration-Events 课程工作流：报名触发与 Outbox 分发 
       const baselineCalls = cancelHandler.calls;
       const mutation = `
         mutation {
-          cancelEnrollment(input: { enrollmentId: ${enrollment.id}, reason: "E2E 重复取消" }) {
+          cancelSessionEnrollment(input: { enrollmentId: ${enrollment.id}, reason: "E2E 重复取消" }) {
             isUpdated
             enrollment { id sessionId learnerId customerId isCanceled cancelReason }
           }
@@ -1686,11 +1890,11 @@ describe('08-Integration-Events 课程工作流：报名触发与 Outbox 分发 
       `;
       const res = await executeGql(app, { query: mutation, token: customerToken }).expect(200);
       const body = res.body as unknown as {
-        data?: { cancelEnrollment?: { isUpdated: boolean } };
+        data?: { cancelSessionEnrollment?: { isUpdated: boolean } };
         errors?: unknown;
       };
       if (body.errors) throw new Error(`GraphQL 错误: ${JSON.stringify(body.errors)}`);
-      expect(body.data?.cancelEnrollment?.isUpdated).toBe(false);
+      expect(body.data?.cancelSessionEnrollment?.isUpdated).toBe(false);
 
       await sleep(250);
       if ('snapshot' in store && typeof store.snapshot === 'function') {
@@ -1700,6 +1904,286 @@ describe('08-Integration-Events 课程工作流：报名触发与 Outbox 分发 
       }
       // 不产生新的事件消费
       expect(cancelHandler.calls).toBe(baselineCalls);
+    });
+  });
+
+  describe('CancelSeriesEnrollmentUsecase', () => {
+    let cancelSeriesId: number;
+    let seriesEnrollmentSessionIds: number[] = [];
+    let seriesEnrollmentIds: number[] = [];
+
+    beforeAll(async () => {
+      const catalogId = await ensureTestCatalog(dataSource);
+      const managerAccountId = await getAccountIdByLoginName(
+        dataSource,
+        testAccountsConfig.manager.loginName,
+      );
+      const managerId = await getManagerIdByAccountId(dataSource, managerAccountId);
+      cancelSeriesId = await createTestSeries(dataSource, catalogId, managerId);
+
+      const customerAccountId = await getAccountIdByLoginName(
+        dataSource,
+        testAccountsConfig.customer.loginName,
+      );
+      const customerService = app.get<CustomerService>(CustomerService);
+      const customer = await customerService.findByAccountId(customerAccountId);
+      if (!customer) throw new Error('测试前置失败：未找到 Customer 身份');
+
+      const sessionRepo = dataSource.getRepository(CourseSessionEntity);
+      const baseSession = await sessionRepo.findOne({ where: { id: sessionId } });
+      if (!baseSession) throw new Error('测试前置失败：未找到基准节次');
+
+      const leadCoachId = baseSession.leadCoachId;
+      const s1 = await createTestSession(dataSource, {
+        seriesId: cancelSeriesId,
+        leadCoachId,
+        startOffsetMinutes: 80,
+      });
+      const s2 = await createTestSession(dataSource, {
+        seriesId: cancelSeriesId,
+        leadCoachId,
+        startOffsetMinutes: 120,
+      });
+      const s3 = await createTestSession(dataSource, {
+        seriesId: cancelSeriesId,
+        leadCoachId,
+        startOffsetMinutes: 160,
+      });
+      seriesEnrollmentSessionIds = [s1, s2, s3];
+
+      const enrollmentRepo = dataSource.getRepository(ParticipationEnrollmentEntity);
+      await enrollmentRepo.delete({ sessionId: In(seriesEnrollmentSessionIds), learnerId });
+
+      const enrollmentService = app.get<ParticipationEnrollmentService>(
+        ParticipationEnrollmentService,
+      );
+      const e1 = await enrollmentService.create({
+        sessionId: s1,
+        learnerId,
+        customerId: customer.id,
+        remark: 'E2E 批量取消前置报名 1',
+      });
+      const e2 = await enrollmentService.create({
+        sessionId: s2,
+        learnerId,
+        customerId: customer.id,
+        remark: 'E2E 批量取消前置报名 2',
+      });
+      const e3 = await enrollmentService.create({
+        sessionId: s3,
+        learnerId,
+        customerId: customer.id,
+        remark: 'E2E 批量取消前置报名 3',
+      });
+      seriesEnrollmentIds = [e1.id, e2.id, e3.id];
+    });
+
+    afterAll(async () => {
+      const enrollmentRepo = dataSource.getRepository(ParticipationEnrollmentEntity);
+      await enrollmentRepo.delete({ id: In(seriesEnrollmentIds) });
+
+      const sessionRepo = dataSource.getRepository(CourseSessionEntity);
+      await sessionRepo.delete({ id: In(seriesEnrollmentSessionIds) });
+
+      await dataSource.getRepository(CourseSeriesEntity).delete({ id: cancelSeriesId });
+    });
+
+    it('批量取消开课班报名：返回成功列表并更新报名状态', async () => {
+      const baselineCalls = cancelHandler.calls;
+      const reason = 'E2E 批量取消开课班';
+      const mutation = `
+        mutation {
+          cancelSeriesEnrollment(input: { seriesId: ${cancelSeriesId}, learnerId: ${learnerId}, reason: "${reason}" }) {
+            canceledEnrollmentIds
+            unchangedEnrollmentIds
+            failed { enrollmentId code message }
+          }
+        }
+      `;
+      const res = await executeGql(app, { query: mutation, token: managerToken }).expect(200);
+      const body = res.body as unknown as {
+        data?: {
+          cancelSeriesEnrollment?: {
+            canceledEnrollmentIds: number[];
+            unchangedEnrollmentIds: number[];
+            failed: Array<{ enrollmentId: number; code: string; message: string }>;
+          };
+        };
+        errors?: unknown;
+      };
+      if (body.errors) throw new Error(`GraphQL 错误: ${JSON.stringify(body.errors)}`);
+      const r = body.data?.cancelSeriesEnrollment;
+      expect(r).toBeTruthy();
+      expect(new Set(r!.canceledEnrollmentIds)).toEqual(new Set(seriesEnrollmentIds));
+      expect(r!.unchangedEnrollmentIds).toEqual([]);
+      expect(r!.failed).toEqual([]);
+
+      const enrollmentRepo = dataSource.getRepository(ParticipationEnrollmentEntity);
+      const rows = await enrollmentRepo.find({ where: { id: In(seriesEnrollmentIds) } });
+      expect(rows).toHaveLength(seriesEnrollmentIds.length);
+      for (const row of rows) {
+        expect(row.isCanceled).toBe(1);
+        expect(row.cancelReason).toBe(reason);
+      }
+
+      await sleep(400);
+      expect(cancelHandler.calls).toBeGreaterThan(baselineCalls);
+    });
+
+    it('重复批量取消幂等：返回空列表并不触发新事件', async () => {
+      const baselineCalls = cancelHandler.calls;
+      const mutation = `
+        mutation {
+          cancelSeriesEnrollment(input: { seriesId: ${cancelSeriesId}, learnerId: ${learnerId}, reason: "E2E 批量重复取消" }) {
+            canceledEnrollmentIds
+            unchangedEnrollmentIds
+            failed { enrollmentId }
+          }
+        }
+      `;
+      const res = await executeGql(app, { query: mutation, token: managerToken }).expect(200);
+      const body = res.body as unknown as {
+        data?: {
+          cancelSeriesEnrollment?: {
+            canceledEnrollmentIds: number[];
+            unchangedEnrollmentIds: number[];
+          };
+        };
+        errors?: unknown;
+      };
+      if (body.errors) throw new Error(`GraphQL 错误: ${JSON.stringify(body.errors)}`);
+      const r = body.data?.cancelSeriesEnrollment;
+      expect(r).toBeTruthy();
+      expect(r!.canceledEnrollmentIds).toEqual([]);
+      expect(r!.unchangedEnrollmentIds).toEqual([]);
+
+      await sleep(300);
+      expect(cancelHandler.calls).toBe(baselineCalls);
+    });
+  });
+
+  describe('CancelSeriesEnrollmentUsecase (customer)', () => {
+    let cancelSeriesId: number;
+    let sessionIds: number[] = [];
+    let enrollmentIds: number[] = [];
+
+    beforeAll(async () => {
+      const catalogId = await ensureTestCatalog(dataSource);
+      const managerAccountId = await getAccountIdByLoginName(
+        dataSource,
+        testAccountsConfig.manager.loginName,
+      );
+      const managerId = await getManagerIdByAccountId(dataSource, managerAccountId);
+      cancelSeriesId = await createTestSeries(dataSource, catalogId, managerId);
+
+      const customerAccountId = await getAccountIdByLoginName(
+        dataSource,
+        testAccountsConfig.customer.loginName,
+      );
+      const customerService = app.get<CustomerService>(CustomerService);
+      const customer = await customerService.findByAccountId(customerAccountId);
+      if (!customer) throw new Error('测试前置失败：未找到 Customer 身份');
+
+      const sessionRepo = dataSource.getRepository(CourseSessionEntity);
+      const baseSession = await sessionRepo.findOne({ where: { id: sessionId } });
+      if (!baseSession) throw new Error('测试前置失败：未找到基准节次');
+
+      const leadCoachId = baseSession.leadCoachId;
+      const s1 = await createTestSession(dataSource, {
+        seriesId: cancelSeriesId,
+        leadCoachId,
+        startOffsetMinutes: 90,
+      });
+      const s2 = await createTestSession(dataSource, {
+        seriesId: cancelSeriesId,
+        leadCoachId,
+        startOffsetMinutes: 130,
+      });
+      const s3 = await createTestSession(dataSource, {
+        seriesId: cancelSeriesId,
+        leadCoachId,
+        startOffsetMinutes: 170,
+      });
+      sessionIds = [s1, s2, s3];
+
+      const enrollmentRepo = dataSource.getRepository(ParticipationEnrollmentEntity);
+      await enrollmentRepo.delete({ sessionId: In(sessionIds), learnerId });
+
+      const enrollmentService = app.get<ParticipationEnrollmentService>(
+        ParticipationEnrollmentService,
+      );
+      const e1 = await enrollmentService.create({
+        sessionId: s1,
+        learnerId,
+        customerId: customer.id,
+        remark: 'E2E customer 批量取消前置报名 1',
+      });
+      const e2 = await enrollmentService.create({
+        sessionId: s2,
+        learnerId,
+        customerId: customer.id,
+        remark: 'E2E customer 批量取消前置报名 2',
+      });
+      const e3 = await enrollmentService.create({
+        sessionId: s3,
+        learnerId,
+        customerId: customer.id,
+        remark: 'E2E customer 批量取消前置报名 3',
+      });
+      enrollmentIds = [e1.id, e2.id, e3.id];
+    });
+
+    afterAll(async () => {
+      const enrollmentRepo = dataSource.getRepository(ParticipationEnrollmentEntity);
+      await enrollmentRepo.delete({ id: In(enrollmentIds) });
+
+      const sessionRepo = dataSource.getRepository(CourseSessionEntity);
+      await sessionRepo.delete({ id: In(sessionIds) });
+
+      await dataSource.getRepository(CourseSeriesEntity).delete({ id: cancelSeriesId });
+    });
+
+    it('customer 在报名后 10 分钟内可批量撤销', async () => {
+      const baselineCalls = cancelHandler.calls;
+      const reason = 'E2E customer 10min 批量撤销';
+      const mutation = `
+        mutation {
+          cancelSeriesEnrollment(input: { seriesId: ${cancelSeriesId}, learnerId: ${learnerId}, reason: "${reason}" }) {
+            canceledEnrollmentIds
+            unchangedEnrollmentIds
+            failed { enrollmentId code message }
+          }
+        }
+      `;
+      const res = await executeGql(app, { query: mutation, token: customerToken }).expect(200);
+      const body = res.body as unknown as {
+        data?: {
+          cancelSeriesEnrollment?: {
+            canceledEnrollmentIds: number[];
+            unchangedEnrollmentIds: number[];
+            failed: Array<{ enrollmentId: number; code: string; message: string }>;
+          };
+        };
+        errors?: unknown;
+      };
+      if (body.errors) throw new Error(`GraphQL 错误: ${JSON.stringify(body.errors)}`);
+
+      const r = body.data?.cancelSeriesEnrollment;
+      expect(r).toBeTruthy();
+      expect(new Set(r!.canceledEnrollmentIds)).toEqual(new Set(enrollmentIds));
+      expect(r!.unchangedEnrollmentIds).toEqual([]);
+      expect(r!.failed).toEqual([]);
+
+      const enrollmentRepo = dataSource.getRepository(ParticipationEnrollmentEntity);
+      const rows = await enrollmentRepo.find({ where: { id: In(enrollmentIds) } });
+      expect(rows).toHaveLength(enrollmentIds.length);
+      for (const row of rows) {
+        expect(row.isCanceled).toBe(1);
+        expect(row.cancelReason).toBe(reason);
+      }
+
+      await sleep(500);
+      expect(cancelHandler.calls).toBeGreaterThanOrEqual(baselineCalls + enrollmentIds.length);
     });
   });
 
