@@ -27,6 +27,30 @@ export class EnrollmentOutputGql {
 }
 
 @ObjectType()
+export class EnrollmentDetailOutputGql {
+  @Field(() => Int)
+  readonly id!: number;
+
+  @Field(() => Int)
+  readonly sessionId!: number;
+
+  @Field(() => Int)
+  readonly learnerId!: number;
+
+  @Field(() => Int)
+  readonly customerId!: number;
+
+  @Field(() => Int)
+  readonly isCanceled!: 0 | 1;
+
+  @Field(() => String, { nullable: true })
+  readonly remark!: string | null;
+
+  @Field(() => String, { nullable: true })
+  readonly cancelReason!: string | null;
+}
+
+@ObjectType()
 export class EnrollLearnerToSessionResultGql {
   @Field(() => EnrollmentOutputGql)
   readonly enrollment!: EnrollmentOutputGql;

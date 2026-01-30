@@ -94,3 +94,14 @@ export class HasCustomerEnrollmentBySeriesInputGql {
   @IsInt()
   readonly customerId!: number;
 }
+
+/**
+ * 查询节次报名列表输入
+ */
+@InputType()
+export class ListSessionEnrollmentsInputGql {
+  /** 节次 ID */
+  @Field(() => Int)
+  @IsInt()
+  readonly sessionId!: number;
+}

@@ -500,6 +500,45 @@ describe('08-Integration-Events 课程报名工作流 (e2e)', () => {
       expect(ids).toContain(sessionId);
     });
 
+    it('查询节次报名列表', async () => {
+      const ensureMutation = `
+        mutation {
+          enrollLearnerToSession(input: { sessionId: ${sessionId}, learnerId: ${learnerId}, remark: "E2E 节次报名查询前置" }) {
+            isNewlyCreated
+          }
+        }
+      `;
+      await executeGql(app, { query: ensureMutation, token: customerToken }).expect(200);
+
+      const query = `
+        query {
+          listSessionEnrollments(input: { sessionId: ${sessionId} }) {
+            id
+            sessionId
+            learnerId
+            customerId
+            isCanceled
+            remark
+            cancelReason
+          }
+        }
+      `;
+      const res = await executeGql(app, { query, token: managerToken }).expect(200);
+      const body = res.body as unknown as {
+        data?: {
+          listSessionEnrollments?: Array<{ id: number; sessionId: number; learnerId: number }>;
+        };
+        errors?: unknown;
+      };
+      if (body.errors) throw new Error(`GraphQL 错误: ${JSON.stringify(body.errors)}`);
+      const items = body.data?.listSessionEnrollments ?? [];
+      expect(items.length).toBeGreaterThan(0);
+      const target = items.find(
+        (item) => item.sessionId === sessionId && item.learnerId === learnerId,
+      );
+      expect(target).toBeTruthy();
+    });
+
     it('半路报名仅为目标节次创建报名', async () => {
       const sessionRepo = dataSource.getRepository(CourseSessionEntity);
       const enrollmentRepo = dataSource.getRepository(ParticipationEnrollmentEntity);

@@ -16,6 +16,7 @@ import {
 import { HasCustomerEnrollmentBySeriesUsecase } from '@src/usecases/course/workflows/has-customer-enrollment-by-series.usecase';
 import { HasLearnerEnrollmentUsecase } from '@src/usecases/course/workflows/has-learner-enrollment.usecase';
 import { ListLearnerEnrolledSessionIdsBySeriesUsecase } from '@src/usecases/course/workflows/list-learner-enrolled-session-ids-by-series.usecase';
+import { ListSessionEnrollmentsUsecase } from '@src/usecases/course/workflows/list-session-enrollments.usecase';
 import { currentUser } from '../../decorators/current-user.decorator';
 import { JwtAuthGuard } from '../../guards/jwt-auth.guard';
 import { CancelEnrollmentInputGql } from './dto/cancel-enrollment.input';
@@ -28,11 +29,13 @@ import {
   HasCustomerEnrollmentBySeriesInputGql,
   HasLearnerEnrollmentInputGql,
   ListLearnerEnrolledSessionIdsBySeriesInputGql,
+  ListSessionEnrollmentsInputGql,
 } from './dto/enrollment.input';
 import {
   EnrollLearnerToSeriesFailedItemGql,
   EnrollLearnerToSeriesResultGql,
   EnrollLearnerToSessionResultGql,
+  EnrollmentDetailOutputGql,
   EnrollmentOutputGql,
   HasCustomerEnrollmentBySeriesResultGql,
   HasLearnerEnrollmentResultGql,
@@ -54,6 +57,7 @@ export class SessionEnrollmentResolver {
     private readonly listEnrolledSessionIdsUsecase: ListLearnerEnrolledSessionIdsBySeriesUsecase,
     private readonly hasCustomerEnrollmentBySeriesUsecase: HasCustomerEnrollmentBySeriesUsecase,
     private readonly hasLearnerEnrollmentUsecase: HasLearnerEnrollmentUsecase,
+    private readonly listSessionEnrollmentsUsecase: ListSessionEnrollmentsUsecase,
   ) {}
 
   /**
@@ -190,6 +194,33 @@ export class SessionEnrollmentResolver {
       learnerId: input.learnerId,
     });
     return { sessionIds: result.sessionIds };
+  }
+
+  /**
+   * 查询节次报名列表
+   * @param user 当前登录用户的 JWT 载荷
+   * @param input 查询输入（节次）
+   */
+  @UseGuards(JwtAuthGuard)
+  @Query(() => [EnrollmentDetailOutputGql], { name: 'listSessionEnrollments' })
+  async listSessionEnrollments(
+    @currentUser() user: JwtPayload,
+    @Args('input') input: ListSessionEnrollmentsInputGql,
+  ): Promise<EnrollmentDetailOutputGql[]> {
+    const session: UsecaseSession = mapJwtToUsecaseSession(user);
+    const result = await this.listSessionEnrollmentsUsecase.execute({
+      session,
+      sessionId: input.sessionId,
+    });
+    return result.items.map((item) => ({
+      id: item.id,
+      sessionId: item.sessionId,
+      learnerId: item.learnerId,
+      customerId: item.customerId,
+      isCanceled: item.isCanceled,
+      remark: item.remark,
+      cancelReason: item.cancelReason,
+    }));
   }
 
   /**
