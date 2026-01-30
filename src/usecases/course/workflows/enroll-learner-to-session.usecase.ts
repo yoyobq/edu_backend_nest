@@ -1,6 +1,8 @@
 // src/usecases/course/workflows/enroll-learner-to-session.usecase.ts
+import { IdentityTypeEnum } from '@app-types/models/account.types';
 import { CourseSeriesStatus } from '@app-types/models/course-series.types';
 import { SessionStatus } from '@app-types/models/course-session.types';
+import { hasRole } from '@core/account/policy/role-access.policy';
 import {
   DomainError,
   ENROLLMENT_ERROR,
@@ -13,6 +15,7 @@ import { type IOutboxWriterPort } from '@core/common/integration-events/outbox.p
 import { Inject, Injectable } from '@nestjs/common';
 import { CustomerService } from '@src/modules/account/identities/training/customer/account-customer.service';
 import { LearnerService } from '@src/modules/account/identities/training/learner/account-learner.service';
+import { ManagerService } from '@src/modules/account/identities/training/manager/manager.service';
 import { INTEGRATION_EVENTS_TOKENS } from '@src/modules/common/integration-events/events.tokens';
 import { CourseSeriesService } from '@src/modules/course/series/course-series.service';
 import { CourseSessionsService } from '@src/modules/course/sessions/course-sessions.service';
@@ -57,6 +60,7 @@ export class EnrollLearnerToSessionUsecase {
     private readonly seriesService: CourseSeriesService,
     private readonly learnerService: LearnerService,
     private readonly customerService: CustomerService,
+    private readonly managerService: ManagerService,
     private readonly enrollmentService: ParticipationEnrollmentService,
     /** Outbox 写入端口（通过 modules 层 DI 注入实现） */
     @Inject(INTEGRATION_EVENTS_TOKENS.OUTBOX_WRITER_PORT)
@@ -78,10 +82,9 @@ export class EnrollLearnerToSessionUsecase {
      * 2. 幂等创建或恢复报名记录
      * 3. 若为新建报名，则构造 EnrollmentCreated 集成事件入箱（Outbox），由调度器异步分发
      */
-    this.ensurePermissions(session);
     const foundSession = await this.validateSessionOrThrow(input.sessionId);
     const { customerId } = await this.validateLearnerOrThrow(input.learnerId);
-    await this.ensureSelfServiceOwnership(session, customerId);
+    await this.assertAccess({ session, learnerCustomerId: customerId });
     const existing = await this.enrollmentService.findByUnique({
       sessionId: input.sessionId,
       learnerId: input.learnerId,
@@ -99,7 +102,12 @@ export class EnrollLearnerToSessionUsecase {
         isNewlyCreated: false,
       };
     }
-    await this.ensureCapacityOrThrow(foundSession);
+    const series = await this.requireSeries(foundSession.seriesId);
+    this.ensureSeriesStatusOrThrow(series);
+    const skipCapacityCheck = this.shouldSkipCapacityCheck(session);
+    if (!skipCapacityCheck) {
+      await this.ensureCapacityOrThrow({ sessionId: foundSession.id, series });
+    }
     // 重复报名同一节次应视为幂等，不应触发时间冲突
     await this.ensureNoScheduleConflictOrThrow(
       input.learnerId,
@@ -130,85 +138,48 @@ export class EnrollLearnerToSessionUsecase {
       await this.outboxWriter.enqueue({ envelope });
     }
 
-    await this.tryBulkEnrollOtherSessions({
-      session,
-      input,
-      foundSession,
-      customerId,
-    });
-
     return result;
   }
 
-  private async tryBulkEnrollOtherSessions(params: {
+  /**
+   * 权限校验：customer 仅可操作自己名下学员，manager/admin 需具备管理权限
+   */
+  private async assertAccess(params: {
     readonly session: UsecaseSession;
-    readonly input: EnrollLearnerToSessionInput;
-    readonly foundSession: NonNullable<Awaited<ReturnType<CourseSessionsService['findById']>>>;
-    readonly customerId: number;
+    readonly learnerCustomerId: number;
   }): Promise<void> {
-    const series = await this.seriesService.findById(params.foundSession.seriesId);
-    if (!series) {
-      throw new DomainError(SESSION_ERROR.INVALID_PARAMS, '节次引用的系列不存在');
+    const isCustomer = hasRole(params.session.roles, IdentityTypeEnum.CUSTOMER);
+    const isManager = hasRole(params.session.roles, IdentityTypeEnum.MANAGER);
+    const isAdmin = hasRole(params.session.roles, IdentityTypeEnum.ADMIN);
+
+    if (!isCustomer && !isManager && !isAdmin) {
+      throw new DomainError(PERMISSION_ERROR.INSUFFICIENT_PERMISSIONS, '缺少所需角色');
     }
-    const now = new Date();
-    const allSessions = await this.sessionsService.listAllBySeries({
-      seriesId: params.foundSession.seriesId,
-      maxSessions: 200,
-      statusFilter: [SessionStatus.SCHEDULED],
-    });
-    const otherSessions = allSessions.filter(
-      (s) => s.id !== params.foundSession.id && s.startTime.getTime() >= now.getTime(),
-    );
-    if (otherSessions.length === 0) return;
-    const eligibleSessionIds: number[] = [];
-    for (const s of otherSessions) {
-      const count = await this.enrollmentService.countEffectiveBySession({ sessionId: s.id });
-      if (count < series.maxLearners) {
-        eligibleSessionIds.push(s.id);
+
+    if (isAdmin) return;
+
+    if (isManager) {
+      const manager = await this.managerService.findByAccountId(params.session.accountId);
+      if (!manager) {
+        throw new DomainError(PERMISSION_ERROR.ACCESS_DENIED, '当前账户未绑定 Manager 身份');
       }
+      const ok = await this.managerService.hasPermissionForCustomer(
+        manager.id,
+        params.learnerCustomerId,
+      );
+      if (!ok) {
+        throw new DomainError(PERMISSION_ERROR.ACCESS_DENIED, 'Manager 无权限管理该客户');
+      }
+      return;
     }
-    if (eligibleSessionIds.length === 0) return;
-    const createdList = await this.enrollmentService.bulkCreateBySessionIds({
-      sessionIds: eligibleSessionIds,
-      learnerId: params.input.learnerId,
-      customerId: params.customerId,
-      remark: params.input.remark ?? null,
-      createdBy: params.session.accountId,
-    });
-    for (const created of createdList) {
-      const env = buildEnvelope({
-        type: 'EnrollmentCreated',
-        aggregateType: 'Enrollment',
-        aggregateId: created.id,
-        payload: {
-          sessionId: created.sessionId,
-          learnerId: created.learnerId,
-          customerId: created.customerId,
-          remark: created.remark ?? null,
-        },
-        priority: 6,
-      });
-      await this.outboxWriter.enqueue({ envelope: env });
-    }
-  }
 
-  /**
-   * 权限校验：允许 admin / manager / customer
-   * customer 仅能操作自己名下学员
-   */
-  private ensurePermissions(session: UsecaseSession): void {
-    const allowed = ['admin', 'manager', 'customer'];
-    const ok = session.roles?.some((r) => allowed.includes(String(r).toLowerCase()));
-    if (!ok) {
-      throw new DomainError(PERMISSION_ERROR.INSUFFICIENT_PERMISSIONS, '无权执行报名');
+    const customer = await this.customerService.findByAccountId(params.session.accountId);
+    if (!customer) {
+      throw new DomainError(PERMISSION_ERROR.ACCESS_DENIED, '当前账户未绑定 Customer 身份');
     }
-  }
-
-  /**
-   * 是否为客户身份
-   */
-  private isCustomer(session: UsecaseSession): boolean {
-    return session.roles?.some((r) => String(r).toLowerCase() === 'customer') ?? false;
+    if (customer.id !== params.learnerCustomerId) {
+      throw new DomainError(LEARNER_ERROR.LEARNER_CUSTOMER_MISMATCH, '学员不属于当前客户');
+    }
   }
 
   /**
@@ -272,42 +243,56 @@ export class EnrollLearnerToSessionUsecase {
   }
 
   /**
-   * 自助场景的客户归属校验
-   * @param session 当前用例会话
-   * @param customerId 目标学员归属客户 ID
+   * 是否跳过容量校验
    */
-  private async ensureSelfServiceOwnership(
-    session: UsecaseSession,
-    customerId: number,
-  ): Promise<void> {
-    if (!this.isCustomer(session)) return;
-    const customer = await this.customerService.findByAccountId(session.accountId);
-    if (!customer || customer.id !== customerId) {
-      throw new DomainError(PERMISSION_ERROR.ACCESS_DENIED, '无权为该学员报名');
-    }
+  private shouldSkipCapacityCheck(session: UsecaseSession): boolean {
+    const isAdmin = hasRole(session.roles, IdentityTypeEnum.ADMIN);
+    const isManager = hasRole(session.roles, IdentityTypeEnum.MANAGER);
+    return isAdmin || isManager;
   }
 
   /**
-   * 容量校验：系列容量与当前有效报名人数
-   * @param sessionModel 目标节次模型
+   * 读取开课班并校验存在性
+   * @param seriesId 开课班 ID
+   * @returns 开课班实体
    */
-  private async ensureCapacityOrThrow(
-    sessionModel: NonNullable<Awaited<ReturnType<CourseSessionsService['findById']>>>,
-  ): Promise<void> {
-    const series = await this.seriesService.findById(sessionModel.seriesId);
+  private async requireSeries(
+    seriesId: number,
+  ): Promise<NonNullable<Awaited<ReturnType<CourseSeriesService['findById']>>>> {
+    const series = await this.seriesService.findById(seriesId);
     if (!series) {
       throw new DomainError(SESSION_ERROR.INVALID_PARAMS, '节次引用的系列不存在');
     }
+    return series;
+  }
+
+  /**
+   * 开课班状态校验
+   * @param series 开课班实体
+   */
+  private ensureSeriesStatusOrThrow(
+    series: NonNullable<Awaited<ReturnType<CourseSeriesService['findById']>>>,
+  ): void {
     if (
       series.status === CourseSeriesStatus.CLOSED ||
       series.status === CourseSeriesStatus.FINISHED
     ) {
       throw new DomainError(ENROLLMENT_ERROR.OPERATION_NOT_ALLOWED, '当前开课班已封班或结课');
     }
+  }
+
+  /**
+   * 容量校验：系列容量与当前有效报名人数
+   * @param params 节次与系列参数
+   */
+  private async ensureCapacityOrThrow(params: {
+    readonly sessionId: number;
+    readonly series: NonNullable<Awaited<ReturnType<CourseSeriesService['findById']>>>;
+  }): Promise<void> {
     const count = await this.enrollmentService.countEffectiveBySession({
-      sessionId: sessionModel.id,
+      sessionId: params.sessionId,
     });
-    if (count >= series.maxLearners) {
+    if (count >= params.series.maxLearners) {
       throw new DomainError(ENROLLMENT_ERROR.CAPACITY_EXCEEDED, '该节次容量已满');
     }
   }

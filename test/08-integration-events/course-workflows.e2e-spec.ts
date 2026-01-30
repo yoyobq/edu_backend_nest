@@ -35,7 +35,7 @@ import { ParticipationEnrollmentEntity } from '@src/modules/participation/enroll
 import { ParticipationEnrollmentService } from '@src/modules/participation/enrollment/participation-enrollment.service';
 import { AccountStatus, IdentityTypeEnum } from '@src/types/models/account.types';
 import { ParticipationAttendanceStatus } from '@src/types/models/attendance.types';
-import { UserState } from '@src/types/models/user-info.types';
+import { Gender, UserState } from '@src/types/models/user-info.types';
 import request from 'supertest';
 import { DataSource, In } from 'typeorm';
 import { initGraphQLSchema } from '../../src/adapters/graphql/schema/schema.init';
@@ -310,6 +310,35 @@ async function getLearnerIdByAccountId(ds: DataSource, accountId: number): Promi
   const learner = await ds.getRepository(LearnerEntity).findOne({ where: { accountId } });
   if (!learner) throw new Error(`未找到学员身份: accountId=${accountId}`);
   return learner.id;
+}
+
+/**
+ * 创建额外 Learner 记录（同一 Customer），用于容量测试
+ * @param params 创建参数对象（数据源、客户 ID、名称后缀）
+ */
+async function createExtraLearnerForCustomer(params: {
+  readonly ds: DataSource;
+  readonly customerId: number;
+  readonly nameSuffix: string;
+}): Promise<number> {
+  const repo = params.ds.getRepository(LearnerEntity);
+  const created = await repo.save(
+    repo.create({
+      accountId: null,
+      customerId: params.customerId,
+      name: `E2E_${params.nameSuffix}_${Date.now()}`,
+      gender: Gender.SECRET,
+      birthDate: null,
+      avatarUrl: null,
+      specialNeeds: 'E2E 容量测试',
+      countPerSession: 1,
+      deactivatedAt: null,
+      remark: `E2E 容量测试学员 - ${params.nameSuffix}`,
+      createdBy: null,
+      updatedBy: null,
+    }),
+  );
+  return created.id;
 }
 
 /**
@@ -1490,7 +1519,7 @@ describe('08-Integration-Events 课程工作流：报名触发与 Outbox 分发 
       expect(ids).toContain(sessionId);
     });
 
-    it('半路报名仅为未来节次创建报名', async () => {
+    it('半路报名仅为目标节次创建报名', async () => {
       const sessionRepo = dataSource.getRepository(CourseSessionEntity);
       const enrollmentRepo = dataSource.getRepository(ParticipationEnrollmentEntity);
       const baseSession = await sessionRepo.findOne({ where: { id: sessionId } });
@@ -1543,11 +1572,183 @@ describe('08-Integration-Events 课程工作流：报名触发与 Outbox 分发 
       });
       expect(pastEnrollment).toBeNull();
       expect(targetEnrollment).toBeTruthy();
-      expect(futureEnrollment).toBeTruthy();
+      expect(futureEnrollment).toBeNull();
 
       await enrollmentRepo.delete({
         sessionId: In([pastSessionId, targetSessionId, futureSessionId]),
         learnerId,
+      });
+    });
+  });
+
+  /**
+   * EnrollLearnerToSeriesUsecase 容量校验与角色跳过 (e2e)
+   */
+  describe('EnrollLearnerToSeriesUsecase - 容量校验与角色跳过 (e2e)', () => {
+    let capacitySeriesId: number;
+    let capacitySessionId: number;
+    let fillerLearnerId: number;
+    let managerTargetLearnerId: number;
+    let adminTargetLearnerId: number;
+
+    beforeAll(async () => {
+      const catalogId = await ensureTestCatalog(dataSource);
+      const managerAccountId = await getAccountIdByLoginName(
+        dataSource,
+        testAccountsConfig.manager.loginName,
+      );
+      const managerId = await getManagerIdByAccountId(dataSource, managerAccountId);
+      capacitySeriesId = await createTestSeries(dataSource, catalogId, managerId);
+      await dataSource
+        .getRepository(CourseSeriesEntity)
+        .update({ id: capacitySeriesId }, { maxLearners: 1 });
+
+      const coachAccountId = await getAccountIdByLoginName(
+        dataSource,
+        testAccountsConfig.coach.loginName,
+      );
+      const coachId = await getCoachIdByAccountId(dataSource, coachAccountId);
+      capacitySessionId = await createTestSession(dataSource, {
+        seriesId: capacitySeriesId,
+        leadCoachId: coachId,
+        startOffsetMinutes: 24 * 60,
+      });
+
+      const customerAccountId = await getAccountIdByLoginName(
+        dataSource,
+        testAccountsConfig.customer.loginName,
+      );
+      const customerService = app.get<CustomerService>(CustomerService);
+      const customer = await customerService.findByAccountId(customerAccountId);
+      if (!customer) throw new Error('前置失败：未找到 Customer 身份');
+
+      fillerLearnerId = await createExtraLearnerForCustomer({
+        ds: dataSource,
+        customerId: customer.id,
+        nameSuffix: 'capacity_filler',
+      });
+      managerTargetLearnerId = await createExtraLearnerForCustomer({
+        ds: dataSource,
+        customerId: customer.id,
+        nameSuffix: 'capacity_manager',
+      });
+      adminTargetLearnerId = await createExtraLearnerForCustomer({
+        ds: dataSource,
+        customerId: customer.id,
+        nameSuffix: 'capacity_admin',
+      });
+
+      const enrollmentService = app.get<ParticipationEnrollmentService>(
+        ParticipationEnrollmentService,
+      );
+      await enrollmentService.create({
+        sessionId: capacitySessionId,
+        learnerId: fillerLearnerId,
+        customerId: customer.id,
+        remark: 'E2E 容量占位',
+        createdBy: null,
+      });
+    });
+
+    it('customer 报名容量已满节次：返回 ENROLLMENT_CAPACITY_EXCEEDED', async () => {
+      const mutation = `
+        mutation {
+          enrollLearnerToSeries(input: { seriesId: ${capacitySeriesId}, learnerId: ${managerTargetLearnerId}, remark: "E2E 容量校验 - customer" }) {
+            createdEnrollmentIds
+            restoredEnrollmentIds
+            unchangedEnrollmentIds
+            failed { sessionId code message }
+          }
+        }
+      `;
+      const res = await executeGql(app, { query: mutation, token: customerToken }).expect(200);
+      const body = res.body as unknown as {
+        data?: {
+          enrollLearnerToSeries?: {
+            createdEnrollmentIds: number[];
+            restoredEnrollmentIds: number[];
+            unchangedEnrollmentIds: number[];
+            failed: Array<{ sessionId: number; code: string; message: string }>;
+          };
+        };
+        errors?: unknown;
+      };
+      if (body.errors) throw new Error(`GraphQL 错误: ${JSON.stringify(body.errors)}`);
+      const result = body.data?.enrollLearnerToSeries;
+      expect(result).toBeDefined();
+      expect(result?.createdEnrollmentIds.length).toBe(0);
+      expect(result?.failed.length).toBeGreaterThanOrEqual(1);
+      expect(result?.failed[0]?.code).toBe('ENROLLMENT_CAPACITY_EXCEEDED');
+    });
+
+    it('manager 报名容量已满节次：跳过容量校验并创建', async () => {
+      const mutation = `
+        mutation {
+          enrollLearnerToSeries(input: { seriesId: ${capacitySeriesId}, learnerId: ${managerTargetLearnerId}, remark: "E2E 容量校验 - manager" }) {
+            createdEnrollmentIds
+            restoredEnrollmentIds
+            unchangedEnrollmentIds
+            failed { sessionId code message }
+          }
+        }
+      `;
+      const res = await executeGql(app, { query: mutation, token: managerToken }).expect(200);
+      const body = res.body as unknown as {
+        data?: {
+          enrollLearnerToSeries?: {
+            createdEnrollmentIds: number[];
+            restoredEnrollmentIds: number[];
+            unchangedEnrollmentIds: number[];
+            failed: Array<{ sessionId: number; code: string; message: string }>;
+          };
+        };
+        errors?: unknown;
+      };
+      if (body.errors) throw new Error(`GraphQL 错误: ${JSON.stringify(body.errors)}`);
+      const result = body.data?.enrollLearnerToSeries;
+      expect(result).toBeDefined();
+      expect(result?.failed.length).toBe(0);
+      expect(result?.createdEnrollmentIds.length).toBe(1);
+    });
+
+    it('admin 报名容量已满节次：跳过容量校验并创建', async () => {
+      const mutation = `
+        mutation {
+          enrollLearnerToSeries(input: { seriesId: ${capacitySeriesId}, learnerId: ${adminTargetLearnerId}, remark: "E2E 容量校验 - admin" }) {
+            createdEnrollmentIds
+            restoredEnrollmentIds
+            unchangedEnrollmentIds
+            failed { sessionId code message }
+          }
+        }
+      `;
+      const res = await executeGql(app, { query: mutation, token: adminToken }).expect(200);
+      const body = res.body as unknown as {
+        data?: {
+          enrollLearnerToSeries?: {
+            createdEnrollmentIds: number[];
+            restoredEnrollmentIds: number[];
+            unchangedEnrollmentIds: number[];
+            failed: Array<{ sessionId: number; code: string; message: string }>;
+          };
+        };
+        errors?: unknown;
+      };
+      if (body.errors) throw new Error(`GraphQL 错误: ${JSON.stringify(body.errors)}`);
+      const result = body.data?.enrollLearnerToSeries;
+      expect(result).toBeDefined();
+      expect(result?.failed.length).toBe(0);
+      expect(result?.createdEnrollmentIds.length).toBe(1);
+    });
+
+    afterAll(async () => {
+      await dataSource
+        .getRepository(ParticipationEnrollmentEntity)
+        .delete({ sessionId: capacitySessionId });
+      await dataSource.getRepository(CourseSessionEntity).delete({ id: capacitySessionId });
+      await dataSource.getRepository(CourseSeriesEntity).delete({ id: capacitySeriesId });
+      await dataSource.getRepository(LearnerEntity).delete({
+        id: In([fillerLearnerId, managerTargetLearnerId, adminTargetLearnerId]),
       });
     });
   });
