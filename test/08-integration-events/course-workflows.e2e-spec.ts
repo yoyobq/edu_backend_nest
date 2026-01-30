@@ -729,6 +729,122 @@ describe('08-Integration-Events 课程工作流：报名触发与 Outbox 分发 
     });
   });
 
+  /**
+   * ListSessionLeaveRequests GraphQL - 正例 (e2e)
+   * 验证：返回已请假的明细行（含请假原因与学员）
+   */
+  describe('ListSessionLeaveRequests GraphQL - 正例 (e2e)', () => {
+    let attendanceService: ParticipationAttendanceService;
+    let enrollmentId: number;
+    let learnerName: string;
+
+    /**
+     * 初始化请假前置数据
+     */
+    beforeAll(async () => {
+      attendanceService = app.get<ParticipationAttendanceService>(ParticipationAttendanceService);
+
+      const enrRepo = dataSource.getRepository(ParticipationEnrollmentEntity);
+      const existed = await enrRepo.findOne({ where: { sessionId, learnerId } });
+      if (!existed) {
+        const mutation = `
+          mutation {
+            enrollLearnerToSession(input: { sessionId: ${sessionId}, learnerId: ${learnerId}, remark: "E2E 请假查询前置报名" }) {
+              isNewlyCreated
+            }
+          }
+        `;
+        const res = await executeGql(app, { query: mutation, token: customerToken }).expect(200);
+        const body = res.body as unknown as {
+          data?: { enrollLearnerToSession?: { isNewlyCreated: boolean } };
+          errors?: unknown;
+        };
+        if (body.errors) throw new Error(`GraphQL 错误: ${JSON.stringify(body.errors)}`);
+      }
+      const latest = await enrRepo.findOne({ where: { sessionId, learnerId } });
+      if (!latest) throw new Error('前置失败：未找到报名记录');
+      enrollmentId = latest.id;
+
+      const learnerRepo = dataSource.getRepository(LearnerEntity);
+      const learner = await learnerRepo.findOne({ where: { id: learnerId } });
+      if (!learner) throw new Error('前置失败：未找到学员');
+      learnerName = learner.name;
+
+      await attendanceService.upsertByEnrollment({
+        enrollmentId,
+        sessionId,
+        learnerId,
+        status: ParticipationAttendanceStatus.EXCUSED,
+        countApplied: '0.00',
+        confirmedByCoachId: null,
+        confirmedAt: new Date(),
+        remark: 'E2E 请假原因',
+      });
+    });
+
+    /**
+     * 校验返回字段完整性与数据正确性
+     */
+    it('查询已请假列表应返回原因与学员信息', async () => {
+      const query = `
+        query {
+          listSessionLeaveRequests(sessionId: ${sessionId}) {
+            sessionId
+            items {
+              enrollmentId
+              learnerId
+              learnerName
+              reason
+              confirmedAt
+            }
+          }
+        }
+      `;
+      const res = await executeGql(app, { query, token: coachToken }).expect(200);
+      const body = res.body as unknown as {
+        data?: {
+          listSessionLeaveRequests?: {
+            sessionId: number;
+            items: Array<{
+              enrollmentId: number;
+              learnerId: number;
+              learnerName: string;
+              reason: string | null;
+              confirmedAt: string | null;
+            }>;
+          };
+        };
+        errors?: unknown;
+      };
+      if (body.errors) throw new Error(`GraphQL 错误: ${JSON.stringify(body.errors)}`);
+      const list = body.data?.listSessionLeaveRequests;
+      const item = list?.items.find((r) => r.enrollmentId === enrollmentId);
+      expect(item).toBeTruthy();
+      expect(item?.learnerId).toBe(learnerId);
+      expect(item?.learnerName).toBe(learnerName);
+      expect(item?.reason).toBe('E2E 请假原因');
+      expect(item?.confirmedAt).toBeTruthy();
+    });
+
+    /**
+     * 清理测试数据
+     */
+    afterAll(async () => {
+      await dataSource
+        .createQueryBuilder()
+        .delete()
+        .from(ParticipationAttendanceRecordEntity)
+        .where('session_id = :sid AND learner_id = :lid', { sid: sessionId, lid: learnerId })
+        .execute();
+      await dataSource
+        .createQueryBuilder()
+        .delete()
+        .from(ParticipationEnrollmentEntity)
+        .where('session_id = :sid AND learner_id = :lid', { sid: sessionId, lid: learnerId })
+        .execute();
+    });
+  });
+
   describe('RecordSessionAttendance GraphQL - 正例 (e2e)', () => {
     let enrollmentId: number;
 

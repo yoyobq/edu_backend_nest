@@ -5,9 +5,14 @@ import { mapJwtToUsecaseSession, type UsecaseSession } from '@src/types/auth/ses
 import { JwtPayload } from '@src/types/jwt.types';
 import { LoadSessionAttendanceSheetUsecase } from '@src/usecases/course/workflows/load-session-attendance-sheet.usecase';
 import { BatchRecordAttendanceUsecase } from '@src/usecases/course/workflows/batch-record-attendance.usecase';
+import { ListSessionLeaveRequestsUsecase } from '@src/usecases/course/workflows/list-session-leave-requests.usecase';
 import { currentUser } from '../../decorators/current-user.decorator';
 import { JwtAuthGuard } from '../../guards/jwt-auth.guard';
-import { AttendanceSheetGql, AttendanceSheetRowGql } from './dto/session-attendance.result';
+import {
+  AttendanceSheetGql,
+  AttendanceSheetRowGql,
+  SessionLeaveRequestListGql,
+} from './dto/session-attendance.result';
 import {
   RecordSessionAttendanceInputGql,
   RecordSessionAttendanceResultGql,
@@ -22,6 +27,7 @@ export class SessionAttendanceResolver {
   constructor(
     private readonly loadUsecase: LoadSessionAttendanceSheetUsecase,
     private readonly recordUsecase: BatchRecordAttendanceUsecase,
+    private readonly listLeaveRequestsUsecase: ListSessionLeaveRequestsUsecase,
   ) {}
 
   /**
@@ -49,6 +55,31 @@ export class SessionAttendanceResolver {
         confirmedAt: r.confirmedAt,
         finalized: r.finalized,
         isCanceled: r.isCanceled,
+      })),
+    };
+  }
+
+  /**
+   * 查询节次已请假列表
+   * @param user 当前登录用户的 JWT 载荷
+   * @param sessionId 节次 ID
+   */
+  @UseGuards(JwtAuthGuard)
+  @Query(() => SessionLeaveRequestListGql, { name: 'listSessionLeaveRequests' })
+  async listSessionLeaveRequests(
+    @currentUser() user: JwtPayload,
+    @Args('sessionId', { type: () => Int }) sessionId: number,
+  ): Promise<SessionLeaveRequestListGql> {
+    const session: UsecaseSession = mapJwtToUsecaseSession(user);
+    const result = await this.listLeaveRequestsUsecase.execute({ session, sessionId });
+    return {
+      sessionId: result.sessionId,
+      items: result.items.map((item) => ({
+        enrollmentId: item.enrollmentId,
+        learnerId: item.learnerId,
+        learnerName: item.learnerName,
+        reason: item.reason,
+        confirmedAt: item.confirmedAt,
       })),
     };
   }

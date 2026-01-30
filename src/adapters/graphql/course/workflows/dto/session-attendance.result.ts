@@ -45,3 +45,30 @@ export class AttendanceSheetGql {
   @Field(() => [AttendanceSheetRowGql])
   rows!: AttendanceSheetRowGql[];
 }
+
+@ObjectType()
+export class SessionLeaveRequestRowGql {
+  @Field(() => Int)
+  enrollmentId!: number;
+
+  @Field(() => Int)
+  learnerId!: number;
+
+  @Field(() => String)
+  learnerName!: string;
+
+  @Field(() => String, { nullable: true })
+  reason!: string | null;
+
+  @Field(() => Date, { nullable: true })
+  confirmedAt!: Date | null;
+}
+
+@ObjectType()
+export class SessionLeaveRequestListGql {
+  @Field(() => Int)
+  sessionId!: number;
+
+  @Field(() => [SessionLeaveRequestRowGql])
+  items!: SessionLeaveRequestRowGql[];
+}

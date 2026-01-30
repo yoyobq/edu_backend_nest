@@ -95,6 +95,48 @@ export class ParticipationAttendanceService {
   }
 
   /**
+   * 按节次查询已请假记录（EXCUSED）
+   * @param params 参数对象：sessionId
+   * @returns 请假明细行（含学员与原因）
+   */
+  async listExcusedRowsBySession(params: { readonly sessionId: number }): Promise<
+    ReadonlyArray<{
+      enrollmentId: number;
+      learnerId: number;
+      learnerName: string;
+      reason: string | null;
+      confirmedAt: Date | null;
+    }>
+  > {
+    const rows = await this.attendanceRepository
+      .createQueryBuilder('a')
+      .innerJoin(LearnerEntity, 'l', 'l.id = a.learner_id')
+      .where('a.session_id = :sessionId', { sessionId: params.sessionId })
+      .andWhere('a.status = :status', { status: ParticipationAttendanceStatus.EXCUSED })
+      .select('a.enrollment_id', 'enrollmentId')
+      .addSelect('a.learner_id', 'learnerId')
+      .addSelect('l.name', 'learnerName')
+      .addSelect('a.remark', 'reason')
+      .addSelect('a.confirmed_at', 'confirmedAt')
+      .orderBy('a.confirmed_at', 'ASC')
+      .addOrderBy('a.enrollment_id', 'ASC')
+      .getRawMany<{
+        enrollmentId: number;
+        learnerId: number;
+        learnerName: string;
+        reason: string | null;
+        confirmedAt: Date | null;
+      }>();
+    return rows.map((row) => ({
+      enrollmentId: Number(row.enrollmentId),
+      learnerId: Number(row.learnerId),
+      learnerName: row.learnerName,
+      reason: row.reason ?? null,
+      confirmedAt: row.confirmedAt ? new Date(row.confirmedAt) : null,
+    }));
+  }
+
+  /**
    * 按学员查询所有出勤记录
    * @param learnerId 学员 ID
    * @returns 出勤记录实体列表
