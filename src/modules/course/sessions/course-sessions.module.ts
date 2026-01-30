@@ -3,7 +3,6 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { CustomerServiceModule } from '@src/modules/account/identities/training/customer/customer-service.module';
 import { ParticipationEnrollmentModule } from '@src/modules/participation/enrollment/participation-enrollment.module';
-import { ListSessionsBySeriesUsecase } from '@src/usecases/course/sessions/list-sessions-by-series.usecase';
 import { CourseSessionEntity } from './course-session.entity';
 import { CourseSessionsService } from './course-sessions.service';
 
@@ -17,7 +16,7 @@ import { CourseSessionsService } from './course-sessions.service';
     CustomerServiceModule,
     ParticipationEnrollmentModule,
   ],
-  providers: [CourseSessionsService, ListSessionsBySeriesUsecase],
-  exports: [TypeOrmModule, CourseSessionsService, ListSessionsBySeriesUsecase],
+  providers: [CourseSessionsService],
+  exports: [TypeOrmModule, CourseSessionsService],
 })
 export class CourseSessionsModule {}

@@ -14,7 +14,7 @@ import { CourseCatalogsModule } from '@src/modules/course/catalogs/course-catalo
 import { PayoutSeriesRuleModule } from '@src/modules/course/payout-series-rule/payout-series-rule.module';
 import { CourseSeriesModule } from '@src/modules/course/series/course-series.module';
 import { CourseSessionCoachesModule } from '@src/modules/course/session-coaches/course-session-coaches.module';
-import { CourseUsecasesModule } from '@src/modules/course/usecases/course-usecases.module';
+import { CourseUsecasesModule } from '@src/usecases/course/course-usecases.module';
 import { ParticipationAttendanceModule } from '@src/modules/participation/attendance/participation-attendance.module';
 import { ParticipationEnrollmentModule } from '@src/modules/participation/enrollment/participation-enrollment.module';
 import { PayoutSessionAdjustmentsModule } from '@src/modules/payout/session-adjustments/payout-session-adjustments.module';

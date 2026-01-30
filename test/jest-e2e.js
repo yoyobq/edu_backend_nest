@@ -9,7 +9,7 @@ const ENABLED_SPECS = [
   // '02-register/register.e2e-spec.ts',
   // '03-roles-guard/roles-guard.e2e-spec.ts',
   // '04-course/course-catalogs.e2e-spec.ts',
-  // '04-course/create-series-draft.e2e-spec.ts',
+  '04-course/create-series-draft.e2e-spec.ts',
   // '04-course/update-course-series.e2e-spec.ts',
   // '04-course/update-course-session.e2e-spec.ts',
   // '04-course/course-sessions-by-series.e2e-spec.ts',
@@ -28,7 +28,7 @@ const ENABLED_SPECS = [
   // '07-pagination-sort-search/search.e2e-spec.ts',
   // '08-integration-events/session-adjustments.e2e-spec.ts',
   // '08-integration-events/outbox-dispatcher.e2e-spec.ts',
-  '08-integration-events/course-workflows.e2e-spec.ts',
+  // '08-integration-events/course-workflows.e2e-spec.ts',
   // '09-user-info/update-visible-user-info.e2e-spec.ts',
 ];
 

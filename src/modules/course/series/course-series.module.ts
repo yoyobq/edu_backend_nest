@@ -7,16 +7,6 @@ import { CourseCatalogsModule } from '@modules/course/catalogs/course-catalogs.m
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { IntegrationEventsModule } from '@src/modules/common/integration-events/integration-events.module';
-import { CreateSeriesUsecase } from '@src/usecases/course/series/create-series.usecase';
-import { DeleteSeriesUsecase } from '@src/usecases/course/series/delete-series.usecase';
-import { GetSeriesUsecase } from '@src/usecases/course/series/get-series.usecase';
-import { ListSeriesUsecase } from '@src/usecases/course/series/list-series.usecase';
-import { SearchSeriesForCustomerUsecase } from '@src/usecases/course/series/search-series-for-customer.usecase';
-import { SearchSeriesUsecase } from '@src/usecases/course/series/search-series.usecase';
-import {
-  CloseSeriesUsecase,
-  UpdateSeriesUsecase,
-} from '@src/usecases/course/series/update-series.usecase';
 import { CourseSeriesEntity } from './course-series.entity';
 import { CourseSeriesService } from './course-series.service';
 
@@ -34,29 +24,7 @@ import { CourseSeriesService } from './course-series.service';
     ManagerServiceModule,
     IntegrationEventsModule,
   ],
-  providers: [
-    CourseSeriesService,
-    // CRUD 用例
-    CreateSeriesUsecase,
-    UpdateSeriesUsecase,
-    CloseSeriesUsecase,
-    DeleteSeriesUsecase,
-    GetSeriesUsecase,
-    ListSeriesUsecase,
-    SearchSeriesUsecase,
-    SearchSeriesForCustomerUsecase,
-  ],
-  exports: [
-    TypeOrmModule,
-    CourseSeriesService,
-    CreateSeriesUsecase,
-    UpdateSeriesUsecase,
-    CloseSeriesUsecase,
-    DeleteSeriesUsecase,
-    GetSeriesUsecase,
-    ListSeriesUsecase,
-    SearchSeriesUsecase,
-    SearchSeriesForCustomerUsecase,
-  ],
+  providers: [CourseSeriesService],
+  exports: [TypeOrmModule, CourseSeriesService],
 })
 export class CourseSeriesModule {}
