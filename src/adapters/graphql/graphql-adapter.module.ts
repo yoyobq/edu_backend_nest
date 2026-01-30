@@ -15,13 +15,13 @@ import { PayoutSeriesRuleModule } from '@src/modules/course/payout-series-rule/p
 import { CourseSeriesModule } from '@src/modules/course/series/course-series.module';
 import { CourseSessionCoachesModule } from '@src/modules/course/session-coaches/course-session-coaches.module';
 import { CourseUsecasesModule } from '@src/usecases/course/course-usecases.module';
+import { IdentityManagementUsecasesModule } from '@src/usecases/identity-management/identity-management-usecases.module';
 import { ParticipationAttendanceModule } from '@src/modules/participation/attendance/participation-attendance.module';
 import { ParticipationEnrollmentModule } from '@src/modules/participation/enrollment/participation-enrollment.module';
 import { PayoutSessionAdjustmentsModule } from '@src/modules/payout/session-adjustments/payout-session-adjustments.module';
 
 import { Module } from '@nestjs/common';
 import { AccountInstallerModule } from '@src/modules/account/account-installer.module';
-import { IdentityManagementModule } from '@src/modules/identity-management/identity-management.module';
 
 // Resolvers
 import { SearchSessionAdjustmentsUsecase } from '@src/usecases/payout/search-session-adjustments.usecase';
@@ -77,7 +77,7 @@ import { RolesGuard } from './guards/roles.guard';
     PayoutSeriesRuleModule, // 导入结算规则模块，提供 usecase 与服务
     PayoutSessionAdjustmentsModule, // 导入课次调整模块，提供服务供用例间接调用
     VerificationRecordModule, // 导入验证记录模块（包含验证流程相关组件）
-    IdentityManagementModule, // 导入身份管理模块
+    IdentityManagementUsecasesModule, // 导入身份管理用例模块
     ManagerServiceModule, // 导入经理服务模块，供用例权限校验
     CourseUsecasesModule, // 导入课程用例模块（承载跨模块编排）
   ],

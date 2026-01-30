@@ -9,35 +9,10 @@ import { LearnerIdentityModule } from '@src/modules/account/identities/training/
 import { ManagerServiceModule } from '@src/modules/account/identities/training/manager/manager-service.module';
 import { AuthModule } from '@src/modules/auth/auth.module';
 import { MembershipLevelsModule } from '@src/modules/membership-levels/membership-levels.module';
-import { DeactivateCoachUsecase } from '@src/usecases/identity-management/coach/deactivate-coach.usecase';
-import { ListCoachesUsecase } from '@src/usecases/identity-management/coach/list-coaches.usecase';
-import { ReactivateCoachUsecase } from '@src/usecases/identity-management/coach/reactivate-coach.usecase';
-import { GetMyCoachUsecase } from '@src/usecases/identity-management/coach/get-my-coach.usecase';
-import { UpdateCoachUsecase } from '@src/usecases/identity-management/coach/update-coach.usecase';
-import { UpgradeToCoachUsecase } from '@src/usecases/identity-management/coach/upgrade-to-coach.usecase';
-import { UpgradeToCustomerUsecase } from '@src/usecases/identity-management/customer/upgrade-to-customer.usecase';
-import { CreateLearnerUsecase } from '@src/usecases/identity-management/learner/create-learner.usecase';
-import { GetMembershipLevelByIdUsecase } from '@src/usecases/membership-levels/get-membership-level-by-id.usecase';
-import { ListMembershipLevelsUsecase } from '@src/usecases/membership-levels/list-membership-levels.usecase';
-// 移除旧的 UpdateLearnerUsecase 注入，改为拆分后的两条用例
-import { DeactivateCustomerUsecase } from '@src/usecases/identity-management/customer/deactivate-customer.usecase';
-import { GetCustomerUsecase } from '@src/usecases/identity-management/customer/get-customer.usecase';
-import { ListCustomersUsecase } from '@src/usecases/identity-management/customer/list-customers.usecase';
-import { ReactivateCustomerUsecase } from '@src/usecases/identity-management/customer/reactivate-customer.usecase';
-import { UpdateCustomerUsecase } from '@src/usecases/identity-management/customer/update-customer.usecase';
-import { DeleteLearnerUsecase } from '@src/usecases/identity-management/learner/delete-learner.usecase';
-import { GetLearnerUsecase } from '@src/usecases/identity-management/learner/get-learner.usecase';
-import { ListLearnersUsecase } from '@src/usecases/identity-management/learner/list-learners.usecase';
-import { UpdateLearnerByCustomerUsecase } from '@src/usecases/identity-management/learner/update-learner-by-customer.usecase';
-import { UpdateLearnerByManagerUsecase } from '@src/usecases/identity-management/learner/update-learner-by-manager.usecase';
-import { DeactivateManagerUsecase } from '@src/usecases/identity-management/manager/deactivate-manager.usecase';
-import { ListManagersUsecase } from '@src/usecases/identity-management/manager/list-managers.usecase';
-import { ReactivateManagerUsecase } from '@src/usecases/identity-management/manager/reactivate-manager.usecase';
-import { UpdateManagerUsecase } from '@src/usecases/identity-management/manager/update-manager.usecase';
 
 /**
  * 身份管理模块
- * 提供身份升级、转换等相关功能
+ * 聚合身份相关服务模块
  */
 @Module({
   imports: [
@@ -49,66 +24,6 @@ import { UpdateManagerUsecase } from '@src/usecases/identity-management/manager/
     ManagerServiceModule, // 提供 ManagerService
     MembershipLevelsModule, // 会员等级服务
     AuthModule, // 提供认证相关服务
-  ],
-  providers: [
-    UpgradeToCustomerUsecase, // 升级为客户用例
-    UpgradeToCoachUsecase, // 升级为教练用例
-    GetMembershipLevelByIdUsecase, // 新增：读取会员等级信息用例
-    ListMembershipLevelsUsecase, // 新增：列出会员等级列表用例
-    // 客户管理相关用例
-    UpdateCustomerUsecase,
-    DeactivateCustomerUsecase,
-    ReactivateCustomerUsecase,
-    ListCustomersUsecase,
-    GetCustomerUsecase,
-    // 教练管理相关用例
-    UpdateCoachUsecase,
-    DeactivateCoachUsecase,
-    ReactivateCoachUsecase,
-    ListCoachesUsecase,
-    GetMyCoachUsecase,
-    // 学员管理相关用例
-    CreateLearnerUsecase,
-    UpdateLearnerByCustomerUsecase,
-    UpdateLearnerByManagerUsecase,
-    DeleteLearnerUsecase,
-    GetLearnerUsecase,
-    ListLearnersUsecase,
-    // 经理管理相关用例
-    ListManagersUsecase,
-    UpdateManagerUsecase,
-    DeactivateManagerUsecase,
-    ReactivateManagerUsecase,
-  ],
-  exports: [
-    UpgradeToCustomerUsecase, // 导出用例供其他模块使用
-    UpgradeToCoachUsecase, // 导出教练升级用例
-    GetMembershipLevelByIdUsecase, // 导出读取会员等级信息用例
-    ListMembershipLevelsUsecase, // 导出会员等级列表用例
-    // 导出客户管理相关用例
-    UpdateCustomerUsecase,
-    DeactivateCustomerUsecase,
-    ReactivateCustomerUsecase,
-    ListCustomersUsecase,
-    GetCustomerUsecase,
-    // 导出教练管理相关用例
-    UpdateCoachUsecase,
-    DeactivateCoachUsecase,
-    ReactivateCoachUsecase,
-    ListCoachesUsecase,
-    GetMyCoachUsecase,
-    // 导出学员管理相关用例
-    CreateLearnerUsecase,
-    UpdateLearnerByCustomerUsecase,
-    UpdateLearnerByManagerUsecase,
-    DeleteLearnerUsecase,
-    GetLearnerUsecase,
-    ListLearnersUsecase,
-    // 导出经理管理相关用例
-    ListManagersUsecase,
-    UpdateManagerUsecase,
-    DeactivateManagerUsecase,
-    ReactivateManagerUsecase,
   ],
 })
 export class IdentityManagementModule {}
