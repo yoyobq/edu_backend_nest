@@ -1,6 +1,7 @@
 // src/modules/participation-enrollment/participation-enrollment.service.ts
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { LearnerEntity } from '@src/modules/account/identities/training/learner/account-learner.entity';
 import { EntityManager, In, Repository } from 'typeorm';
 import { ParticipationEnrollmentEntity } from './participation-enrollment.entity';
 
@@ -323,5 +324,79 @@ export class ParticipationEnrollmentService {
       .orderBy('s.start_time', 'ASC')
       .getRawMany<{ id: number }>();
     return rows.map((row) => Number(row.id));
+  }
+
+  async listActiveSeriesIdsByCustomer(params: {
+    readonly customerId: number;
+    readonly manager?: EntityManager;
+  }): Promise<number[]> {
+    const repo = params.manager
+      ? params.manager.getRepository(ParticipationEnrollmentEntity)
+      : this.enrollmentRepository;
+    const rows = await repo
+      .createQueryBuilder('e')
+      .select('s.series_id', 'seriesId')
+      .addSelect('MIN(s.start_time)', 'firstStartTime')
+      .innerJoin('course_sessions', 's', 's.id = e.session_id')
+      .where('e.customer_id = :customerId', { customerId: params.customerId })
+      .andWhere('e.is_canceled = 0')
+      .groupBy('s.series_id')
+      .orderBy('MIN(s.start_time)', 'ASC')
+      .addOrderBy('s.series_id', 'ASC')
+      .getRawMany<{ seriesId: number }>();
+    return rows.map((row) => Number(row.seriesId));
+  }
+
+  async listActiveSessionIdsByCustomer(params: {
+    readonly customerId: number;
+    readonly manager?: EntityManager;
+  }): Promise<number[]> {
+    const repo = params.manager
+      ? params.manager.getRepository(ParticipationEnrollmentEntity)
+      : this.enrollmentRepository;
+    const rows = await repo
+      .createQueryBuilder('e')
+      .select('e.session_id', 'sessionId')
+      .innerJoin('course_sessions', 's', 's.id = e.session_id')
+      .where('e.customer_id = :customerId', { customerId: params.customerId })
+      .andWhere('e.is_canceled = 0')
+      .groupBy('e.session_id')
+      .addGroupBy('s.start_time')
+      .orderBy('s.start_time', 'ASC')
+      .addOrderBy('e.session_id', 'ASC')
+      .getRawMany<{ sessionId: number }>();
+    return rows.map((row) => Number(row.sessionId));
+  }
+
+  /**
+   * 按 customer 查询有效报名节次与学员明细
+   * @param params 查询参数对象：customerId、manager
+   * @returns 报名明细列表（含 sessionId、learnerId、learnerName）
+   */
+  async listActiveSessionItemsByCustomer(params: {
+    readonly customerId: number;
+    readonly manager?: EntityManager;
+  }): Promise<ReadonlyArray<{ sessionId: number; learnerId: number; learnerName: string }>> {
+    const repo = params.manager
+      ? params.manager.getRepository(ParticipationEnrollmentEntity)
+      : this.enrollmentRepository;
+    const rows = await repo
+      .createQueryBuilder('e')
+      .select('e.session_id', 'sessionId')
+      .addSelect('e.learner_id', 'learnerId')
+      .addSelect('l.name', 'learnerName')
+      .innerJoin('course_sessions', 's', 's.id = e.session_id')
+      .innerJoin(LearnerEntity, 'l', 'l.id = e.learner_id')
+      .where('e.customer_id = :customerId', { customerId: params.customerId })
+      .andWhere('e.is_canceled = 0')
+      .orderBy('s.start_time', 'ASC')
+      .addOrderBy('e.session_id', 'ASC')
+      .addOrderBy('e.learner_id', 'ASC')
+      .getRawMany<{ sessionId: number; learnerId: number; learnerName: string }>();
+    return rows.map((row) => ({
+      sessionId: Number(row.sessionId),
+      learnerId: Number(row.learnerId),
+      learnerName: row.learnerName,
+    }));
   }
 }

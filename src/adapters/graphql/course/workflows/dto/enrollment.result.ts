@@ -102,6 +102,39 @@ export class ListLearnerEnrolledSessionIdsBySeriesResultGql {
 }
 
 /**
+ * 当前账号已报名开课班 ID 列表输出
+ */
+@ObjectType()
+export class ListCurrentAccountEnrolledSeriesIdsResultGql {
+  @Field(() => [Int])
+  readonly seriesIds!: number[];
+}
+
+/**
+ * 当前账号已报名节次 ID 列表输出
+ */
+@ObjectType()
+export class CurrentAccountEnrolledSessionItemGql {
+  @Field(() => Int)
+  readonly sessionId!: number;
+
+  @Field(() => Int)
+  readonly learnerId!: number;
+
+  @Field(() => String)
+  readonly learnerName!: string;
+}
+
+@ObjectType()
+export class ListCurrentAccountEnrolledSessionsResultGql {
+  @Field(() => [Int])
+  readonly sessionIds!: number[];
+
+  @Field(() => [CurrentAccountEnrolledSessionItemGql])
+  readonly enrollments!: CurrentAccountEnrolledSessionItemGql[];
+}
+
+/**
  * 学员是否存在已报名的开课班输出
  */
 @ObjectType()

@@ -15,6 +15,8 @@ import {
 } from '@src/usecases/course/workflows/enroll-learner-to-session.usecase';
 import { HasCustomerEnrollmentBySeriesUsecase } from '@src/usecases/course/workflows/has-customer-enrollment-by-series.usecase';
 import { HasLearnerEnrollmentUsecase } from '@src/usecases/course/workflows/has-learner-enrollment.usecase';
+import { ListCurrentAccountEnrolledSeriesIdsUsecase } from '@src/usecases/course/workflows/list-current-account-enrolled-series-ids.usecase';
+import { ListCurrentAccountEnrolledSessionIdsUsecase } from '@src/usecases/course/workflows/list-current-account-enrolled-session-ids.usecase';
 import { ListLearnerEnrolledSessionIdsBySeriesUsecase } from '@src/usecases/course/workflows/list-learner-enrolled-session-ids-by-series.usecase';
 import { ListSessionEnrollmentsUsecase } from '@src/usecases/course/workflows/list-session-enrollments.usecase';
 import { currentUser } from '../../decorators/current-user.decorator';
@@ -39,6 +41,8 @@ import {
   EnrollmentOutputGql,
   HasCustomerEnrollmentBySeriesResultGql,
   HasLearnerEnrollmentResultGql,
+  ListCurrentAccountEnrolledSeriesIdsResultGql,
+  ListCurrentAccountEnrolledSessionsResultGql,
   ListLearnerEnrolledSessionIdsBySeriesResultGql,
 } from './dto/enrollment.result';
 
@@ -57,6 +61,8 @@ export class SessionEnrollmentResolver {
     private readonly listEnrolledSessionIdsUsecase: ListLearnerEnrolledSessionIdsBySeriesUsecase,
     private readonly hasCustomerEnrollmentBySeriesUsecase: HasCustomerEnrollmentBySeriesUsecase,
     private readonly hasLearnerEnrollmentUsecase: HasLearnerEnrollmentUsecase,
+    private readonly listCurrentAccountEnrolledSeriesIdsUsecase: ListCurrentAccountEnrolledSeriesIdsUsecase,
+    private readonly listCurrentAccountEnrolledSessionIdsUsecase: ListCurrentAccountEnrolledSessionIdsUsecase,
     private readonly listSessionEnrollmentsUsecase: ListSessionEnrollmentsUsecase,
   ) {}
 
@@ -194,6 +200,45 @@ export class SessionEnrollmentResolver {
       learnerId: input.learnerId,
     });
     return { sessionIds: result.sessionIds };
+  }
+
+  /**
+   * 查询当前账号名下已报名的开课班 ID 列表
+   * @param user 当前登录用户的 JWT 载荷
+   */
+  @UseGuards(JwtAuthGuard)
+  @Query(() => ListCurrentAccountEnrolledSeriesIdsResultGql, {
+    name: 'listCurrentAccountEnrolledSeriesIds',
+  })
+  async listCurrentAccountEnrolledSeriesIds(
+    @currentUser() user: JwtPayload,
+  ): Promise<ListCurrentAccountEnrolledSeriesIdsResultGql> {
+    const session: UsecaseSession = mapJwtToUsecaseSession(user);
+    const result = await this.listCurrentAccountEnrolledSeriesIdsUsecase.execute({ session });
+    return { seriesIds: result.seriesIds };
+  }
+
+  /**
+   * 查询当前账号名下已报名的节次 ID 列表
+   * @param user 当前登录用户的 JWT 载荷
+   */
+  @UseGuards(JwtAuthGuard)
+  @Query(() => ListCurrentAccountEnrolledSessionsResultGql, {
+    name: 'listCurrentAccountEnrolledSessions',
+  })
+  async listCurrentAccountEnrolledSessions(
+    @currentUser() user: JwtPayload,
+  ): Promise<ListCurrentAccountEnrolledSessionsResultGql> {
+    const session: UsecaseSession = mapJwtToUsecaseSession(user);
+    const result = await this.listCurrentAccountEnrolledSessionIdsUsecase.execute({ session });
+    return {
+      sessionIds: result.sessionIds,
+      enrollments: result.items.map((item) => ({
+        sessionId: item.sessionId,
+        learnerId: item.learnerId,
+        learnerName: item.learnerName,
+      })),
+    };
   }
 
   /**
