@@ -7,18 +7,7 @@ import { CoachServiceModule } from '@modules/account/identities/training/coach/c
 import { ManagerServiceModule } from '@modules/account/identities/training/manager/manager-service.module';
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { ConsumeVerificationRecordUsecase } from '@src/usecases/verification-record/consume-verification-record.usecase';
-import { CreateVerificationRecordUsecase } from '@src/usecases/verification-record/create-verification-record.usecase';
-import { FindVerificationRecordUsecase } from '@src/usecases/verification-record/find-verification-record.usecase';
-import { InviteCoachHandler } from '@src/usecases/verification/coach/invite-coach.handler';
-import { ConsumeVerificationFlowUsecase } from '@src/usecases/verification/consume-verification-flow.usecase';
-import { AcceptInviteCoachUsecase } from '@src/usecases/verification/invite/accept-invite-coach.usecase';
-import { AcceptInviteManagerUsecase } from '@src/usecases/verification/invite/accept-invite-manager.usecase';
-import { InviteManagerHandler } from '@src/usecases/verification/manager/invite-manager.handler';
-import { ResetPasswordHandler } from '@src/usecases/verification/password/reset-password.handler';
-import { ResetPasswordUsecase } from '@src/usecases/verification/password/reset-password.usecase';
 import { VerificationRecordReadRepository } from './repositories/verification-record.read.repo';
-import { VerificationFlowInitializerService } from './services/verification-flow-initializer.service';
 import { VerificationReadService } from './services/verification-read.service';
 import { VerificationRecordEntity } from './verification-record.entity';
 import { VerificationRecordService } from './verification-record.service';
@@ -40,18 +29,6 @@ import { VerificationRecordService } from './verification-record.service';
     VerificationRecordReadRepository,
     VerificationReadService,
     VerificationCodeHelper,
-    CreateVerificationRecordUsecase,
-    ConsumeVerificationRecordUsecase,
-    FindVerificationRecordUsecase,
-    // 验证流程相关
-    ConsumeVerificationFlowUsecase,
-    ResetPasswordUsecase,
-    ResetPasswordHandler,
-    InviteCoachHandler,
-    AcceptInviteCoachUsecase,
-    InviteManagerHandler,
-    AcceptInviteManagerUsecase,
-    VerificationFlowInitializerService,
   ],
   exports: [
     TypeOrmModule,
@@ -59,13 +36,6 @@ import { VerificationRecordService } from './verification-record.service';
     VerificationRecordReadRepository,
     VerificationReadService,
     VerificationCodeHelper,
-    CreateVerificationRecordUsecase,
-    ConsumeVerificationRecordUsecase,
-    FindVerificationRecordUsecase,
-    // 验证流程相关
-    ConsumeVerificationFlowUsecase,
-    ResetPasswordUsecase,
-    ResetPasswordHandler,
   ],
 })
 export class VerificationRecordModule {}

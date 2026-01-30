@@ -6,8 +6,11 @@ import { Injectable } from '@nestjs/common';
 import { VerificationReadService } from '@src/modules/verification-record/services/verification-read.service';
 import { VerificationRecordService } from '@src/modules/verification-record/verification-record.service';
 import { ConsumeVerificationRecordUsecase } from '@src/usecases/verification-record/consume-verification-record.usecase';
+import { InviteCoachHandler } from './coach/invite-coach.handler';
 import { InviteCoachHandlerResult } from './coach/invite-coach-result.types';
+import { InviteManagerHandler } from './manager/invite-manager.handler';
 import { InviteManagerHandlerResult } from './manager/invite-manager-result.types';
+import { ResetPasswordHandler } from './password/reset-password.handler';
 import {
   ConsumeVerificationFlowParams,
   VerificationFlowContext,
@@ -37,7 +40,14 @@ export class ConsumeVerificationFlowUsecase {
     private readonly consumeVerificationRecordUsecase: ConsumeVerificationRecordUsecase,
     private readonly verificationRecordService: VerificationRecordService,
     private readonly verificationReadService: VerificationReadService,
-  ) {}
+    private readonly resetPasswordHandler: ResetPasswordHandler,
+    private readonly inviteCoachHandler: InviteCoachHandler,
+    private readonly inviteManagerHandler: InviteManagerHandler,
+  ) {
+    this.registerHandler(this.resetPasswordHandler);
+    this.registerHandler(this.inviteCoachHandler);
+    this.registerHandler(this.inviteManagerHandler);
+  }
 
   /**
    * 注册验证流程处理器

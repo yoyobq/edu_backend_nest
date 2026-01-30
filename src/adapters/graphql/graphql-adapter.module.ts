@@ -4,7 +4,6 @@ import { AuthModule } from '@modules/auth/auth.module';
 import { PaginationModule } from '@modules/common/pagination.module';
 import { RegisterModule } from '@modules/register/register.module';
 import { ThirdPartyAuthModule } from '@modules/third-party-auth/third-party-auth.module';
-import { VerificationRecordModule } from '@modules/verification-record/verification-record.module';
 import { CoachServiceModule } from '@src/modules/account/identities/training/coach/coach-service.module';
 import { CustomerServiceModule } from '@src/modules/account/identities/training/customer/customer-service.module';
 import { LearnerIdentityModule } from '@src/modules/account/identities/training/learner/learner.module';
@@ -16,6 +15,7 @@ import { CourseSeriesModule } from '@src/modules/course/series/course-series.mod
 import { CourseSessionCoachesModule } from '@src/modules/course/session-coaches/course-session-coaches.module';
 import { CourseUsecasesModule } from '@src/usecases/course/course-usecases.module';
 import { IdentityManagementUsecasesModule } from '@src/usecases/identity-management/identity-management-usecases.module';
+import { VerificationUsecasesModule } from '@src/usecases/verification/verification-usecases.module';
 import { ParticipationAttendanceModule } from '@src/modules/participation/attendance/participation-attendance.module';
 import { ParticipationEnrollmentModule } from '@src/modules/participation/enrollment/participation-enrollment.module';
 import { PayoutSessionAdjustmentsModule } from '@src/modules/payout/session-adjustments/payout-session-adjustments.module';
@@ -76,7 +76,7 @@ import { RolesGuard } from './guards/roles.guard';
     IntegrationEventsModule,
     PayoutSeriesRuleModule, // 导入结算规则模块，提供 usecase 与服务
     PayoutSessionAdjustmentsModule, // 导入课次调整模块，提供服务供用例间接调用
-    VerificationRecordModule, // 导入验证记录模块（包含验证流程相关组件）
+    VerificationUsecasesModule, // 导入验证流程用例模块
     IdentityManagementUsecasesModule, // 导入身份管理用例模块
     ManagerServiceModule, // 导入经理服务模块，供用例权限校验
     CourseUsecasesModule, // 导入课程用例模块（承载跨模块编排）
