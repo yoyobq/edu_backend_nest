@@ -28,7 +28,8 @@ const ENABLED_SPECS = [
   // '07-pagination-sort-search/search.e2e-spec.ts',
   // '08-integration-events/session-adjustments.e2e-spec.ts',
   // '08-integration-events/outbox-dispatcher.e2e-spec.ts',
-  '08-integration-events/course-workflows.e2e-spec.ts',
+  // '08-integration-events/course-workflows.e2e-spec.ts',
+  '08-integration-events/course-enrollment-workflows.e2e-spec.ts',
   // '09-user-info/update-visible-user-info.e2e-spec.ts',
 ];
 
