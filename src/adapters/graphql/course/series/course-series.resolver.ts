@@ -22,7 +22,6 @@ import {
   UpdateSeriesUsecase,
 } from '@src/usecases/course/series/update-series.usecase';
 import { IdentityTypeEnum } from '@app-types/models/account.types';
-import { CourseSeriesEntity } from '@src/modules/course/series/course-series.entity';
 import { currentUser } from '../../decorators/current-user.decorator';
 import { Roles } from '../../decorators/roles.decorator';
 import { JwtAuthGuard } from '../../guards/jwt-auth.guard';
@@ -44,6 +43,8 @@ import {
 } from './dto/publish-course-series.input';
 import { SearchCourseSeriesInputGql } from './dto/search-course-series.input';
 import { UpdateCourseSeriesInput } from './dto/update-course-series.input';
+
+type UpdateSeriesData = Parameters<UpdateSeriesUsecase['execute']>[0]['data'];
 
 @Resolver(() => CourseSeriesDTO)
 export class CourseSeriesResolver {
@@ -105,8 +106,8 @@ export class CourseSeriesResolver {
     const session: UsecaseSession = mapJwtToUsecaseSession(user);
     const { id, pricePerSession, teachingFeeRef, ...rest } = input;
 
-    // 手动构造 Partial<CourseSeriesEntity>，处理类型转换
-    const data: Partial<CourseSeriesEntity> = {
+    // 手动构造更新数据，处理类型转换
+    const data: UpdateSeriesData = {
       ...rest,
     };
 

@@ -6,7 +6,6 @@ import { UseGuards } from '@nestjs/common';
 import { Args, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { currentUser } from '@src/adapters/graphql/decorators/current-user.decorator';
 import { JwtAuthGuard } from '@src/adapters/graphql/guards/jwt-auth.guard';
-import { CustomerEntity } from '@src/modules/account/identities/training/customer/account-customer.entity';
 import { DeactivateCustomerUsecase } from '@src/usecases/identity-management/customer/deactivate-customer.usecase';
 import { GetCustomerUsecase } from '@src/usecases/identity-management/customer/get-customer.usecase';
 import {
@@ -29,6 +28,8 @@ import {
   UpdateCustomerResult,
 } from './dto/customer.result';
 import { ListCustomersOutput } from './dto/customers.list';
+
+type CustomerEntityView = Awaited<ReturnType<UpdateCustomerUsecase['execute']>>;
 
 /**
  * Customer 管理 GraphQL 解析器
@@ -58,7 +59,7 @@ export class CustomerResolver {
     @Args('input') input: UpdateCustomerInput,
     @currentUser() user: JwtPayload,
   ): Promise<UpdateCustomerResult> {
-    const entity: CustomerEntity = await this.updateCustomerUsecase.execute({
+    const entity = await this.updateCustomerUsecase.execute({
       currentAccountId: Number(user.sub),
       customerId: input.customerId,
       name: input.name,
@@ -187,7 +188,7 @@ export class CustomerResolver {
    * @returns GraphQL 输出 DTO
    */
   private async mapCustomerEntityToType(
-    entity: CustomerEntity,
+    entity: CustomerEntityView,
     userState?: UserState | null,
     loginHistory?: { ip: string; timestamp: string; audience?: string }[] | null,
     userPhone?: string | null,

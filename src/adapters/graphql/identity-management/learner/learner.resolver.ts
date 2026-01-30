@@ -5,7 +5,6 @@ import { UseGuards } from '@nestjs/common';
 import { Args, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { currentUser } from '@src/adapters/graphql/decorators/current-user.decorator';
 import { JwtAuthGuard } from '@src/adapters/graphql/guards/jwt-auth.guard';
-import { LearnerEntity } from '@src/modules/account/identities/training/learner/account-learner.entity';
 import { OrderDirection } from '@src/types/common/sort.types';
 import { CreateLearnerUsecase } from '@src/usecases/identity-management/learner/create-learner.usecase';
 import { DeleteLearnerUsecase } from '@src/usecases/identity-management/learner/delete-learner.usecase';
@@ -23,6 +22,9 @@ import { GetLearnerInput } from './dto/learner.input.get';
 import { ListLearnersInput } from './dto/learner.input.list';
 import { UpdateLearnerInput } from './dto/learner.input.update';
 import { ListLearnersOutput } from './dto/learners.list';
+
+type CreateLearnerResult = Awaited<ReturnType<CreateLearnerUsecase['execute']>>;
+type LearnerView = CreateLearnerResult['learner'];
 
 /**
  * 学员管理 GraphQL Resolver
@@ -81,7 +83,7 @@ export class LearnerResolver {
     const isManager =
       Array.isArray(user.accessGroup) &&
       user.accessGroup.some((r) => String(r).toUpperCase() === 'MANAGER');
-    const result: LearnerEntity = isManager
+    const result = isManager
       ? await this.updateLearnerByManagerUsecase.execute(accountId, {
           id: input.learnerId,
           customerId: input.customerId,
@@ -142,7 +144,7 @@ export class LearnerResolver {
     const isManager =
       Array.isArray(user.accessGroup) &&
       user.accessGroup.some((r) => String(r).toUpperCase() === 'MANAGER');
-    const result: LearnerEntity = await this.getLearnerUsecase.execute(
+    const result = await this.getLearnerUsecase.execute(
       Number(user.sub),
       input.learnerId,
       input.customerId,
@@ -177,9 +179,7 @@ export class LearnerResolver {
     );
 
     return {
-      learners: result.items.map((learner: LearnerEntity) =>
-        this.mapLearnerEntityToOutput(learner),
-      ),
+      learners: result.items.map((learner) => this.mapLearnerEntityToOutput(learner)),
       pagination: {
         page: result.page,
         limit: result.limit,
@@ -196,7 +196,7 @@ export class LearnerResolver {
    * @param learner 学员实体
    * @returns GraphQL 输出 DTO
    */
-  private mapLearnerEntityToOutput(learner: LearnerEntity): LearnerOutput {
+  private mapLearnerEntityToOutput(learner: LearnerView): LearnerOutput {
     return {
       id: learner.id,
       customerId: learner.customerId,

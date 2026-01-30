@@ -2,12 +2,12 @@
 import { mapJwtToUsecaseSession } from '@app-types/auth/session.types';
 import { JwtPayload } from '@app-types/jwt.types';
 import { SessionCoachRemovedReason } from '@app-types/models/course-session-coach.types';
+import type { SessionStatus } from '@app-types/models/course-session.types';
 import { UseGuards } from '@nestjs/common';
 import { Args, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { Roles } from '@src/adapters/graphql/decorators/roles.decorator';
 import { JwtAuthGuard } from '@src/adapters/graphql/guards/jwt-auth.guard';
 import { RolesGuard } from '@src/adapters/graphql/guards/roles.guard';
-import { CourseSessionEntity } from '@src/modules/course/sessions/course-session.entity';
 import { GenerateSessionCoachesForSeriesUsecase } from '@src/usecases/course/sessions/generate-session-coaches-for-series.usecase';
 import { SyncSessionCoachesRosterUsecase } from '@src/usecases/course/sessions/sync-session-coaches-roster.usecase';
 import { UpdateSessionBasicInfoUsecase } from '@src/usecases/course/sessions/update-session-basic-info.usecase';
@@ -29,7 +29,30 @@ import { SyncSessionCoachesRosterInputGql } from './dto/sync-session-coaches-ros
 import { SyncSessionCoachesRosterResultGql } from './dto/sync-session-coaches-roster.result';
 import { UpdateCourseSessionInput } from './dto/update-course-session.input';
 
-function toCourseSessionDTO(entity: CourseSessionEntity): CourseSessionDTO {
+type CourseSessionExtraCoachView = {
+  readonly id: number;
+  readonly name: string;
+  readonly level: string;
+};
+
+type CourseSessionView = {
+  readonly id: number;
+  readonly seriesId: number;
+  readonly startTime: Date;
+  readonly endTime: Date;
+  readonly leadCoachId: number;
+  readonly locationText: string;
+  readonly leaveCutoffHoursOverride: number | null;
+  readonly extraCoachesJson: ReadonlyArray<CourseSessionExtraCoachView> | null;
+  readonly status: SessionStatus;
+  readonly remark: string | null;
+  readonly attendanceConfirmedAt: Date | null;
+  readonly attendanceConfirmedBy: number | null;
+  readonly createdAt: Date;
+  readonly updatedAt: Date;
+};
+
+function toCourseSessionDTO(entity: CourseSessionView): CourseSessionDTO {
   const dto = new CourseSessionDTO();
   dto.id = entity.id;
   dto.seriesId = entity.seriesId;
@@ -63,7 +86,7 @@ function toCourseSessionDTO(entity: CourseSessionEntity): CourseSessionDTO {
  * @returns 安全视图 DTO
  */
 function toCourseSessionSafeViewDTO(
-  entity: CourseSessionEntity,
+  entity: CourseSessionView,
   leadCoachName: string | null,
 ): CourseSessionSafeViewDTO {
   const dto = new CourseSessionSafeViewDTO();

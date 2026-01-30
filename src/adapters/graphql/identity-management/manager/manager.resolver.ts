@@ -10,8 +10,7 @@ import { currentUser } from '@src/adapters/graphql/decorators/current-user.decor
 import { JwtAuthGuard } from '@src/adapters/graphql/guards/jwt-auth.guard';
 import { ListManagersInput } from '@src/adapters/graphql/identity-management/manager/dto/manager.input.list';
 import { ListManagersOutput } from '@src/adapters/graphql/identity-management/manager/dto/managers.list';
-import { AccountService } from '@src/modules/account/base/services/account.service';
-import { ManagerEntity } from '@src/modules/account/identities/training/manager/account-manager.entity';
+import { GetAccountByIdUsecase } from '@src/usecases/account/get-account-by-id.usecase';
 import { GetVisibleUserInfoUsecase } from '@src/usecases/account/get-visible-user-info.usecase';
 import { DeactivateManagerUsecase } from '@src/usecases/identity-management/manager/deactivate-manager.usecase';
 import {
@@ -29,6 +28,8 @@ import {
   UpdateManagerResult,
 } from './dto/manager.result';
 
+type ManagerEntityView = Awaited<ReturnType<UpdateManagerUsecase['execute']>>;
+
 /**
  * Manager 管理 GraphQL 解析器
  * - 提供更新、下线、上线三个操作与列表查询
@@ -41,7 +42,7 @@ export class ManagerResolver {
     private readonly deactivateManagerUsecase: DeactivateManagerUsecase,
     private readonly reactivateManagerUsecase: ReactivateManagerUsecase,
     private readonly listManagersUsecase: ListManagersUsecase,
-    private readonly accountService: AccountService,
+    private readonly getAccountByIdUsecase: GetAccountByIdUsecase,
     private readonly getVisibleUserInfoUsecase: GetVisibleUserInfoUsecase,
   ) {}
 
@@ -57,7 +58,7 @@ export class ManagerResolver {
     @Args('input') input: UpdateManagerInput,
     @currentUser() user: JwtPayload,
   ): Promise<UpdateManagerResult> {
-    const entity: ManagerEntity = await this.updateManagerUsecase.execute({
+    const entity = await this.updateManagerUsecase.execute({
       currentAccountId: Number(user.sub),
       managerId: input.managerId,
       name: input.name,
@@ -80,8 +81,12 @@ export class ManagerResolver {
         phone = null;
         userState = null;
       }
-      const acc = await this.accountService.findOneById(entity.accountId);
-      loginHistory = acc?.recentLoginHistory ?? null;
+      try {
+        const account = await this.getAccountByIdUsecase.execute(entity.accountId);
+        loginHistory = account.recentLoginHistory ?? null;
+      } catch {
+        loginHistory = null;
+      }
     }
     return {
       manager: this.mapManagerEntityToType(entity, {
@@ -136,7 +141,7 @@ export class ManagerResolver {
    * @returns GraphQL 输出 DTO
    */
   private mapManagerEntityToType(
-    entity: ManagerEntity,
+    entity: ManagerEntityView,
     extras?: {
       userState?: UserState | null;
       userPhone?: string | null;

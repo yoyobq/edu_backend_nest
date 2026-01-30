@@ -7,7 +7,6 @@ import { Args, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { LoginHistoryItem } from '@src/adapters/graphql/account/enums/login-history.types';
 import { currentUser } from '@src/adapters/graphql/decorators/current-user.decorator';
 import { JwtAuthGuard } from '@src/adapters/graphql/guards/jwt-auth.guard';
-import { CoachEntity } from '@src/modules/account/identities/training/coach/account-coach.entity';
 import { DeactivateCoachUsecase } from '@src/usecases/identity-management/coach/deactivate-coach.usecase';
 import { GetMyCoachUsecase } from '@src/usecases/identity-management/coach/get-my-coach.usecase';
 import {
@@ -27,6 +26,8 @@ import {
   UpdateCoachResult,
 } from './dto/coach.result';
 import { ListCoachesOutput } from './dto/coaches.list';
+
+type CoachEntityView = Awaited<ReturnType<UpdateCoachUsecase['execute']>>;
 
 /**
  * Coach 管理 GraphQL 解析器
@@ -55,7 +56,7 @@ export class CoachResolver {
     @Args('input') input: UpdateCoachInput,
     @currentUser() user: JwtPayload,
   ): Promise<UpdateCoachResult> {
-    const entity: CoachEntity = await this.updateCoachUsecase.execute({
+    const entity = await this.updateCoachUsecase.execute({
       currentAccountId: Number(user.sub),
       coachId: input.coachId,
       name: input.name,
@@ -113,7 +114,7 @@ export class CoachResolver {
    * @returns GraphQL 输出 DTO
    */
   private mapCoachEntityToType(
-    entity: CoachEntity,
+    entity: CoachEntityView,
     userState?: UserState | null,
     loginHistory?: LoginHistoryItem[] | null,
     userPhone?: string | null,

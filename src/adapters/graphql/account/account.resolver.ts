@@ -11,7 +11,7 @@ import {
 import { UserAccountDTO } from '@src/adapters/graphql/account/dto/user-account.dto';
 import { currentUser } from '@src/adapters/graphql/decorators/current-user.decorator';
 import { JwtAuthGuard } from '@src/adapters/graphql/guards/jwt-auth.guard';
-import { AccountService } from '@src/modules/account/base/services/account.service';
+import { GetAccountByIdUsecase } from '@src/usecases/account/get-account-by-id.usecase';
 import { ConsumeVerificationFlowUsecase } from '@src/usecases/verification/consume-verification-flow.usecase';
 
 /**
@@ -20,7 +20,7 @@ import { ConsumeVerificationFlowUsecase } from '@src/usecases/verification/consu
 @Resolver()
 export class AccountResolver {
   constructor(
-    private readonly accountService: AccountService,
+    private readonly getAccountByIdUsecase: GetAccountByIdUsecase,
     private readonly consumeVerificationFlowUsecase: ConsumeVerificationFlowUsecase,
   ) {}
 
@@ -40,7 +40,7 @@ export class AccountResolver {
     // if (args.id !== _user.sub) {
     //   throw new ForbiddenException('只能查看自己的账户信息');
     // }
-    return await this.accountService.getAccountById(args.id);
+    return await this.getAccountByIdUsecase.execute(args.id);
   }
 
   /**
