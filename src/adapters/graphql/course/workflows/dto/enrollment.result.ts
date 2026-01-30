@@ -43,3 +43,12 @@ export class ListLearnerEnrolledSessionIdsBySeriesResultGql {
   @Field(() => [Int])
   readonly sessionIds!: number[];
 }
+
+/**
+ * customer 在开课班中的预约状态输出
+ */
+@ObjectType()
+export class HasCustomerEnrollmentBySeriesResultGql {
+  @Field(() => Boolean)
+  readonly hasEnrollment!: boolean;
+}

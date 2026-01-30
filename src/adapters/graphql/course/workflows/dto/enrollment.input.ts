@@ -42,3 +42,19 @@ export class ListLearnerEnrolledSessionIdsBySeriesInputGql {
   @IsInt()
   readonly learnerId!: number;
 }
+
+/**
+ * 查询 customer 在指定开课班中的预约状态输入
+ */
+@InputType()
+export class HasCustomerEnrollmentBySeriesInputGql {
+  /** 开课班 ID */
+  @Field(() => Int)
+  @IsInt()
+  readonly seriesId!: number;
+
+  /** 客户 ID */
+  @Field(() => Int)
+  @IsInt()
+  readonly customerId!: number;
+}

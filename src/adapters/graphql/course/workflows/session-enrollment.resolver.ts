@@ -9,6 +9,7 @@ import {
   EnrollLearnerToSessionUsecase,
   type EnrollLearnerToSessionOutput,
 } from '@src/usecases/course/workflows/enroll-learner-to-session.usecase';
+import { HasCustomerEnrollmentBySeriesUsecase } from '@src/usecases/course/workflows/has-customer-enrollment-by-series.usecase';
 import { ListLearnerEnrolledSessionIdsBySeriesUsecase } from '@src/usecases/course/workflows/list-learner-enrolled-session-ids-by-series.usecase';
 import { currentUser } from '../../decorators/current-user.decorator';
 import { JwtAuthGuard } from '../../guards/jwt-auth.guard';
@@ -18,11 +19,13 @@ import { CancelSeriesEnrollmentInputGql } from './dto/cancel-series-enrollment.i
 import { CancelSeriesEnrollmentResultGql } from './dto/cancel-series-enrollment.result';
 import {
   EnrollLearnerToSessionInputGql,
+  HasCustomerEnrollmentBySeriesInputGql,
   ListLearnerEnrolledSessionIdsBySeriesInputGql,
 } from './dto/enrollment.input';
 import {
   EnrollLearnerToSessionResultGql,
   EnrollmentOutputGql,
+  HasCustomerEnrollmentBySeriesResultGql,
   ListLearnerEnrolledSessionIdsBySeriesResultGql,
 } from './dto/enrollment.result';
 
@@ -38,6 +41,7 @@ export class SessionEnrollmentResolver {
     private readonly cancelEnrollmentUsecase: CancelEnrollmentUsecase,
     private readonly cancelSeriesEnrollmentUsecase: CancelSeriesEnrollmentUsecase,
     private readonly listEnrolledSessionIdsUsecase: ListLearnerEnrolledSessionIdsBySeriesUsecase,
+    private readonly hasCustomerEnrollmentBySeriesUsecase: HasCustomerEnrollmentBySeriesUsecase,
   ) {}
 
   /**
@@ -141,5 +145,27 @@ export class SessionEnrollmentResolver {
       learnerId: input.learnerId,
     });
     return { sessionIds: result.sessionIds };
+  }
+
+  /**
+   * 判断 customer 在指定开课班中是否已预约
+   * @param user 当前登录用户的 JWT 载荷
+   * @param input 查询输入（开课班与 customer）
+   */
+  @UseGuards(JwtAuthGuard)
+  @Query(() => HasCustomerEnrollmentBySeriesResultGql, {
+    name: 'hasCustomerEnrollmentBySeries',
+  })
+  async hasCustomerEnrollmentBySeries(
+    @currentUser() user: JwtPayload,
+    @Args('input') input: HasCustomerEnrollmentBySeriesInputGql,
+  ): Promise<HasCustomerEnrollmentBySeriesResultGql> {
+    const session: UsecaseSession = mapJwtToUsecaseSession(user);
+    const result = await this.hasCustomerEnrollmentBySeriesUsecase.execute({
+      session,
+      seriesId: input.seriesId,
+      customerId: input.customerId,
+    });
+    return { hasEnrollment: result.hasEnrollment };
   }
 }
