@@ -10,6 +10,7 @@ import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { AppModule } from '@src/app.module';
 import { CustomerService } from '@src/modules/account/identities/training/customer/account-customer.service';
+import { LearnerEntity } from '@src/modules/account/identities/training/learner/account-learner.entity';
 import { CourseCatalogEntity } from '@src/modules/course/catalogs/course-catalog.entity';
 import { CourseSeriesEntity } from '@src/modules/course/series/course-series.entity';
 import { CourseSessionEntity } from '@src/modules/course/sessions/course-session.entity';
@@ -341,5 +342,81 @@ describe('Session/Series Lists (e2e)', () => {
       (item) => Number(item.id) === sessionId && Number(item.seriesId) === seriesId,
     );
     expect(hit).toBeTruthy();
+  });
+
+  /**
+   * 查询当前账号名下已报名的开课班 ID 列表
+   */
+  it('查询当前账号名下已报名的开课班 ID 列表', async () => {
+    const mutation = `
+      mutation {
+        enrollLearnerToSession(input: { sessionId: ${sessionId}, learnerId: ${learnerId}, remark: "E2E account series ids" }) {
+          isNewlyCreated
+        }
+      }
+    `;
+    await executeGql(app, mutation, customerToken).expect(200);
+
+    const query = `
+      query {
+        listCurrentAccountEnrolledSeriesIds {
+          seriesIds
+        }
+      }
+    `;
+    const res = await executeGql(app, query, customerToken).expect(200);
+    const body = res.body as unknown as {
+      data?: { listCurrentAccountEnrolledSeriesIds?: { seriesIds: number[] } };
+      errors?: unknown;
+    };
+    if (body.errors) throw new Error(`GraphQL 错误: ${JSON.stringify(body.errors)}`);
+    const seriesIds = body.data?.listCurrentAccountEnrolledSeriesIds?.seriesIds ?? [];
+    expect(seriesIds).toContain(seriesId);
+  });
+
+  /**
+   * 查询当前账号名下已报名的节次 ID 列表
+   */
+  it('查询当前账号名下已报名的节次 ID 列表', async () => {
+    const mutation = `
+      mutation {
+        enrollLearnerToSession(input: { sessionId: ${sessionId}, learnerId: ${learnerId}, remark: "E2E account session ids" }) {
+          isNewlyCreated
+        }
+      }
+    `;
+    await executeGql(app, mutation, customerToken).expect(200);
+
+    const query = `
+      query {
+        listCurrentAccountEnrolledSessions {
+          sessionIds
+          enrollments { sessionId learnerId learnerName }
+        }
+      }
+    `;
+    const res = await executeGql(app, query, customerToken).expect(200);
+    const body = res.body as unknown as {
+      data?: {
+        listCurrentAccountEnrolledSessions?: {
+          sessionIds: number[];
+          enrollments: Array<{ sessionId: number; learnerId: number; learnerName: string }>;
+        };
+      };
+      errors?: unknown;
+    };
+    if (body.errors) throw new Error(`GraphQL 错误: ${JSON.stringify(body.errors)}`);
+    const sessionIds = body.data?.listCurrentAccountEnrolledSessions?.sessionIds ?? [];
+    const items = body.data?.listCurrentAccountEnrolledSessions?.enrollments ?? [];
+    const learner = await dataSource
+      .getRepository(LearnerEntity)
+      .findOne({ where: { id: learnerId } });
+    if (!learner) throw new Error('E2E 预期的 learner 记录不存在');
+    const hit = items.find(
+      (item) => Number(item.sessionId) === sessionId && Number(item.learnerId) === learnerId,
+    );
+    expect(sessionIds).toContain(sessionId);
+    expect(hit).toBeTruthy();
+    expect(hit?.learnerName).toBe(learner.name);
   });
 });
