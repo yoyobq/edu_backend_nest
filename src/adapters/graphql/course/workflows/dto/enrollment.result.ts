@@ -36,6 +36,39 @@ export class EnrollLearnerToSessionResultGql {
 }
 
 /**
+ * 批量报名开课班失败明细
+ */
+@ObjectType()
+export class EnrollLearnerToSeriesFailedItemGql {
+  @Field(() => Int)
+  readonly sessionId!: number;
+
+  @Field(() => String)
+  readonly code!: string;
+
+  @Field(() => String)
+  readonly message!: string;
+}
+
+/**
+ * 学员报名到开课班结果输出
+ */
+@ObjectType()
+export class EnrollLearnerToSeriesResultGql {
+  @Field(() => [Int])
+  readonly createdEnrollmentIds!: number[];
+
+  @Field(() => [Int])
+  readonly restoredEnrollmentIds!: number[];
+
+  @Field(() => [Int])
+  readonly unchangedEnrollmentIds!: number[];
+
+  @Field(() => [EnrollLearnerToSeriesFailedItemGql])
+  readonly failed!: EnrollLearnerToSeriesFailedItemGql[];
+}
+
+/**
  * 学员已报名节次 ID 列表输出
  */
 @ObjectType()

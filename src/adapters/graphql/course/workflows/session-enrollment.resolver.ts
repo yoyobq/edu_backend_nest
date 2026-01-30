@@ -6,6 +6,10 @@ import { JwtPayload } from '@src/types/jwt.types';
 import { CancelEnrollmentUsecase } from '@src/usecases/course/workflows/cancel-enrollment.usecase';
 import { CancelSeriesEnrollmentUsecase } from '@src/usecases/course/workflows/cancel-series-enrollment.usecase';
 import {
+  EnrollLearnerToSeriesUsecase,
+  type EnrollLearnerToSeriesOutput,
+} from '@src/usecases/course/workflows/enroll-learner-to-series.usecase';
+import {
   EnrollLearnerToSessionUsecase,
   type EnrollLearnerToSessionOutput,
 } from '@src/usecases/course/workflows/enroll-learner-to-session.usecase';
@@ -18,11 +22,14 @@ import { CancelEnrollmentResultGql } from './dto/cancel-enrollment.result';
 import { CancelSeriesEnrollmentInputGql } from './dto/cancel-series-enrollment.input';
 import { CancelSeriesEnrollmentResultGql } from './dto/cancel-series-enrollment.result';
 import {
+  EnrollLearnerToSeriesInputGql,
   EnrollLearnerToSessionInputGql,
   HasCustomerEnrollmentBySeriesInputGql,
   ListLearnerEnrolledSessionIdsBySeriesInputGql,
 } from './dto/enrollment.input';
 import {
+  EnrollLearnerToSeriesFailedItemGql,
+  EnrollLearnerToSeriesResultGql,
   EnrollLearnerToSessionResultGql,
   EnrollmentOutputGql,
   HasCustomerEnrollmentBySeriesResultGql,
@@ -38,6 +45,7 @@ import {
 export class SessionEnrollmentResolver {
   constructor(
     private readonly enrollUsecase: EnrollLearnerToSessionUsecase,
+    private readonly enrollSeriesUsecase: EnrollLearnerToSeriesUsecase,
     private readonly cancelEnrollmentUsecase: CancelEnrollmentUsecase,
     private readonly cancelSeriesEnrollmentUsecase: CancelSeriesEnrollmentUsecase,
     private readonly listEnrolledSessionIdsUsecase: ListLearnerEnrolledSessionIdsBySeriesUsecase,
@@ -72,6 +80,39 @@ export class SessionEnrollmentResolver {
       },
       isNewlyCreated: result.isNewlyCreated,
     } as EnrollLearnerToSessionResultGql;
+  }
+
+  /**
+   * 学员报名到指定开课班（批量报名该开课班下未来节次）
+   * @param user 当前登录用户的 JWT 载荷
+   * @param input 报名输入（开课班/学员/备注）
+   */
+  @UseGuards(JwtAuthGuard)
+  @Mutation(() => EnrollLearnerToSeriesResultGql, { name: 'enrollLearnerToSeries' })
+  async enrollLearnerToSeries(
+    @currentUser() user: JwtPayload,
+    @Args('input') input: EnrollLearnerToSeriesInputGql,
+  ): Promise<EnrollLearnerToSeriesResultGql> {
+    const session: UsecaseSession = mapJwtToUsecaseSession(user);
+    const result: EnrollLearnerToSeriesOutput = await this.enrollSeriesUsecase.execute({
+      session,
+      seriesId: input.seriesId,
+      learnerId: input.learnerId,
+      remark: input.remark ?? null,
+    });
+    return {
+      createdEnrollmentIds: result.createdEnrollmentIds,
+      restoredEnrollmentIds: result.restoredEnrollmentIds,
+      unchangedEnrollmentIds: result.unchangedEnrollmentIds,
+      failed: result.failed.map(
+        (item) =>
+          ({
+            sessionId: item.sessionId,
+            code: item.code,
+            message: item.message,
+          }) as EnrollLearnerToSeriesFailedItemGql,
+      ),
+    } as EnrollLearnerToSeriesResultGql;
   }
 
   @UseGuards(JwtAuthGuard)

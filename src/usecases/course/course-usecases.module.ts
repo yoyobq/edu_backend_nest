@@ -56,6 +56,7 @@ import { CancelEnrollmentUsecase } from '@src/usecases/course/workflows/cancel-e
 import { CancelSeriesEnrollmentUsecase } from '@src/usecases/course/workflows/cancel-series-enrollment.usecase';
 import { CancelSessionUsecase } from '@src/usecases/course/workflows/cancel-session.usecase';
 import { CloseSessionUsecase } from '@src/usecases/course/workflows/close-session.usecase';
+import { EnrollLearnerToSeriesUsecase } from '@src/usecases/course/workflows/enroll-learner-to-series.usecase';
 import { EnrollLearnerToSessionUsecase } from '@src/usecases/course/workflows/enroll-learner-to-session.usecase';
 import { HasCustomerEnrollmentBySeriesUsecase } from '@src/usecases/course/workflows/has-customer-enrollment-by-series.usecase';
 import { ListLearnerEnrolledSessionIdsBySeriesUsecase } from '@src/usecases/course/workflows/list-learner-enrolled-session-ids-by-series.usecase';
@@ -107,6 +108,7 @@ import { RestoreSessionUsecase } from '@src/usecases/course/workflows/restore-se
     SetSessionCoachPayoutUsecase,
     CourseSeriesAccessPolicy,
     EnrollLearnerToSessionUsecase,
+    EnrollLearnerToSeriesUsecase,
     HasCustomerEnrollmentBySeriesUsecase,
     ListLearnerEnrolledSessionIdsBySeriesUsecase,
     CancelEnrollmentUsecase,
@@ -155,6 +157,7 @@ import { RestoreSessionUsecase } from '@src/usecases/course/workflows/restore-se
     SetSessionCoachPayoutUsecase,
     CourseSeriesAccessPolicy,
     EnrollLearnerToSessionUsecase,
+    EnrollLearnerToSeriesUsecase,
     HasCustomerEnrollmentBySeriesUsecase,
     ListLearnerEnrolledSessionIdsBySeriesUsecase,
     CancelEnrollmentUsecase,
