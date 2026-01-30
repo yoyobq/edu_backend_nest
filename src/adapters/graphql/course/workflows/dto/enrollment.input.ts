@@ -69,6 +69,17 @@ export class ListLearnerEnrolledSessionIdsBySeriesInputGql {
 }
 
 /**
+ * 查询学员是否存在已报名的开课班输入
+ */
+@InputType()
+export class HasLearnerEnrollmentInputGql {
+  /** 学员 ID */
+  @Field(() => Int)
+  @IsInt()
+  readonly learnerId!: number;
+}
+
+/**
  * 查询 customer 在指定开课班中的预约状态输入
  */
 @InputType()

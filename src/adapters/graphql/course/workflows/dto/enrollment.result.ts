@@ -78,6 +78,15 @@ export class ListLearnerEnrolledSessionIdsBySeriesResultGql {
 }
 
 /**
+ * 学员是否存在已报名的开课班输出
+ */
+@ObjectType()
+export class HasLearnerEnrollmentResultGql {
+  @Field(() => Boolean)
+  readonly hasEnrollment!: boolean;
+}
+
+/**
  * customer 在开课班中的预约状态输出
  */
 @ObjectType()

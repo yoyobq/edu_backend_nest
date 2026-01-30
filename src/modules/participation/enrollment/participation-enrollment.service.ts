@@ -38,6 +38,23 @@ export class ParticipationEnrollmentService {
   }
 
   /**
+   * 判断某 learner 在任意 series 下是否存在有效报名
+   * @param params 查询参数对象：learnerId
+   * @returns 是否存在有效报名
+   */
+  async hasActiveEnrollmentByLearner(params: { readonly learnerId: number }): Promise<boolean> {
+    const row = await this.enrollmentRepository
+      .createQueryBuilder('e')
+      .select('1', 'one')
+      .innerJoin('course_sessions', 's', 's.id = e.session_id')
+      .where('e.learner_id = :learnerId', { learnerId: params.learnerId })
+      .andWhere('e.is_canceled = 0')
+      .limit(1)
+      .getRawOne<{ one: number }>();
+    return !!row;
+  }
+
+  /**
    * 按 ID 查询报名
    * @param id 报名 ID
    */
