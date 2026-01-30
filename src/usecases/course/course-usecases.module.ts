@@ -4,13 +4,13 @@ import { PaginationModule } from '@modules/common/pagination.module';
 import { Module } from '@nestjs/common';
 import { CoachServiceModule } from '@src/modules/account/identities/training/coach/coach-service.module';
 import { CustomerServiceModule } from '@src/modules/account/identities/training/customer/customer-service.module';
-import { LearnerIdentityModule } from '@src/modules/account/identities/training/learner/learner.module';
+import { LearnerServiceModule } from '@src/modules/account/identities/training/learner/learner-service.module';
 import { ManagerServiceModule } from '@src/modules/account/identities/training/manager/manager-service.module';
-import { CourseCatalogsModule } from '@src/modules/course/catalogs/course-catalogs.module';
-import { PayoutSeriesRuleModule } from '@src/modules/course/payout-series-rule/payout-series-rule.module';
-import { CourseSeriesModule } from '@src/modules/course/series/course-series.module';
-import { CourseSessionCoachesModule } from '@src/modules/course/session-coaches/course-session-coaches.module';
-import { CourseSessionsModule } from '@src/modules/course/sessions/course-sessions.module';
+import { CourseCatalogServiceModule } from '@src/modules/course/catalogs/course-catalog-service.module';
+import { PayoutSeriesRuleServiceModule } from '@src/modules/course/payout-series-rule/payout-series-rule-service.module';
+import { CourseSeriesServiceModule } from '@src/modules/course/series/course-series-service.module';
+import { CourseSessionCoachesServiceModule } from '@src/modules/course/session-coaches/course-session-coaches-service.module';
+import { CourseSessionsServiceModule } from '@src/modules/course/sessions/course-sessions-service.module';
 import { ParticipationAttendanceModule } from '@src/modules/participation/attendance/participation-attendance.module';
 import { ParticipationEnrollmentModule } from '@src/modules/participation/enrollment/participation-enrollment.module';
 import { CreateCatalogUsecase } from '@src/usecases/course/catalogs/create-catalog.usecase';
@@ -66,15 +66,15 @@ import { RestoreSessionUsecase } from '@src/usecases/course/workflows/restore-se
   imports: [
     PaginationModule,
     IntegrationEventsModule,
-    CourseCatalogsModule,
-    CourseSeriesModule,
-    CourseSessionsModule,
-    CourseSessionCoachesModule,
-    PayoutSeriesRuleModule,
+    CourseCatalogServiceModule,
+    CourseSeriesServiceModule,
+    CourseSessionsServiceModule,
+    CourseSessionCoachesServiceModule,
+    PayoutSeriesRuleServiceModule,
     ParticipationEnrollmentModule,
     ParticipationAttendanceModule,
     CustomerServiceModule,
-    LearnerIdentityModule,
+    LearnerServiceModule,
     CoachServiceModule,
     ManagerServiceModule,
   ],
