@@ -773,20 +773,20 @@ describe('08-Integration-Events 课程工作流：报名触发与 Outbox 分发 
     });
 
     /**
-     * 校验返回字段与落库出勤状态
+     * 校验返回字段与报名状态
      */
-    it('学员请假应返回 EXCUSED 并写入出勤记录', async () => {
+    it('学员请假应更新报名状态为 LEAVE', async () => {
       const mutation = `
         mutation RequestLeave($input: RequestSessionLeaveInputGql!) {
           requestSessionLeave(input: $input) {
             isUpdated
-            attendance {
-              enrollmentId
+            enrollment {
+              id
               sessionId
               learnerId
+              customerId
               status
-              reason
-              confirmedAt
+              statusReason
             }
           }
         }
@@ -807,13 +807,13 @@ describe('08-Integration-Events 课程工作流：报名触发与 Outbox 分发 
         data?: {
           requestSessionLeave?: {
             isUpdated: boolean;
-            attendance: {
-              enrollmentId: number;
+            enrollment: {
+              id: number;
               sessionId: number;
               learnerId: number;
+              customerId: number;
               status: string;
-              reason: string | null;
-              confirmedAt: string | null;
+              statusReason: string | null;
             };
           };
         };
@@ -822,18 +822,15 @@ describe('08-Integration-Events 课程工作流：报名触发与 Outbox 分发 
       if (body.errors) throw new Error(`GraphQL 错误: ${JSON.stringify(body.errors)}`);
       const result = body.data?.requestSessionLeave;
       expect(result?.isUpdated).toBe(true);
-      expect(result?.attendance.enrollmentId).toBe(enrollmentId);
-      expect(result?.attendance.sessionId).toBe(sessionId);
-      expect(result?.attendance.learnerId).toBe(learnerId);
-      expect(result?.attendance.status).toBe(ParticipationAttendanceStatus.EXCUSED);
-      expect(result?.attendance.reason).toBe(ParticipationEnrollmentStatusReason.LEAVE_OTHER);
-      expect(result?.attendance.confirmedAt).toBeTruthy();
+      expect(result?.enrollment.id).toBe(enrollmentId);
+      expect(result?.enrollment.sessionId).toBe(sessionId);
+      expect(result?.enrollment.learnerId).toBe(learnerId);
+      expect(result?.enrollment.status).toBe(ParticipationEnrollmentStatus.LEAVE);
+      expect(result?.enrollment.statusReason).toBe(ParticipationEnrollmentStatusReason.LEAVE_OTHER);
 
       const attendanceRepo = dataSource.getRepository(ParticipationAttendanceRecordEntity);
       const row = await attendanceRepo.findOne({ where: { enrollmentId, sessionId, learnerId } });
-      if (!row) throw new Error('请假后未找到出勤记录');
-      expect(row.status).toBe(ParticipationAttendanceStatus.EXCUSED);
-      expect(row.remark).toBe(ParticipationEnrollmentStatusReason.LEAVE_OTHER);
+      expect(row).toBeNull();
     });
 
     /**

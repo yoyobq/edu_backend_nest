@@ -142,6 +142,12 @@ export class CurrentAccountEnrolledSessionItemGql {
 
   @Field(() => String)
   readonly learnerName!: string;
+
+  @Field(() => ParticipationEnrollmentStatus)
+  readonly status!: ParticipationEnrollmentStatus;
+
+  @Field(() => ParticipationEnrollmentStatusReason, { nullable: true })
+  readonly statusReason!: ParticipationEnrollmentStatusReason | null;
 }
 
 @ObjectType()

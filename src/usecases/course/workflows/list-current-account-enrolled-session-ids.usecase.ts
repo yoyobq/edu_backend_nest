@@ -5,6 +5,10 @@ import { Injectable } from '@nestjs/common';
 import { CustomerService } from '@src/modules/account/identities/training/customer/account-customer.service';
 import { ParticipationEnrollmentService } from '@src/modules/participation/enrollment/participation-enrollment.service';
 import type { UsecaseSession } from '@src/types/auth/session.types';
+import {
+  ParticipationEnrollmentStatus,
+  ParticipationEnrollmentStatusReason,
+} from '@src/types/models/participation-enrollment.types';
 
 export interface ListCurrentAccountEnrolledSessionIdsInput {
   readonly session: UsecaseSession;
@@ -14,6 +18,8 @@ export interface ListCurrentAccountEnrolledSessionItem {
   readonly sessionId: number;
   readonly learnerId: number;
   readonly learnerName: string;
+  readonly status: ParticipationEnrollmentStatus;
+  readonly statusReason: ParticipationEnrollmentStatusReason | null;
 }
 
 export interface ListCurrentAccountEnrolledSessionIdsOutput {

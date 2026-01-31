@@ -15,6 +15,7 @@ import { CourseCatalogEntity } from '@src/modules/course/catalogs/course-catalog
 import { CourseSeriesEntity } from '@src/modules/course/series/course-series.entity';
 import { CourseSessionEntity } from '@src/modules/course/sessions/course-session.entity';
 import { ParticipationEnrollmentEntity } from '@src/modules/participation/enrollment/participation-enrollment.entity';
+import { ParticipationEnrollmentStatus } from '@src/types/models/participation-enrollment.types';
 import { DataSource } from 'typeorm';
 import { initGraphQLSchema } from '../../src/adapters/graphql/schema/schema.init';
 import {
@@ -391,7 +392,7 @@ describe('Session/Series Lists (e2e)', () => {
       query {
         listCurrentAccountEnrolledSessions {
           sessionIds
-          enrollments { sessionId learnerId learnerName }
+          enrollments { sessionId learnerId learnerName status statusReason }
         }
       }
     `;
@@ -400,7 +401,13 @@ describe('Session/Series Lists (e2e)', () => {
       data?: {
         listCurrentAccountEnrolledSessions?: {
           sessionIds: number[];
-          enrollments: Array<{ sessionId: number; learnerId: number; learnerName: string }>;
+          enrollments: Array<{
+            sessionId: number;
+            learnerId: number;
+            learnerName: string;
+            status: ParticipationEnrollmentStatus;
+            statusReason: string | null;
+          }>;
         };
       };
       errors?: unknown;
@@ -418,5 +425,7 @@ describe('Session/Series Lists (e2e)', () => {
     expect(sessionIds).toContain(sessionId);
     expect(hit).toBeTruthy();
     expect(hit?.learnerName).toBe(learner.name);
+    expect(hit?.status).toBe(ParticipationEnrollmentStatus.ENROLLED);
+    expect(hit?.statusReason ?? null).toBeNull();
   });
 });

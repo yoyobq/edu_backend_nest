@@ -443,12 +443,20 @@ export class ParticipationEnrollmentService {
   /**
    * 按 customer 查询有效报名节次与学员明细
    * @param params 查询参数对象：customerId、manager
-   * @returns 报名明细列表（含 sessionId、learnerId、learnerName）
+   * @returns 报名明细列表（含 sessionId、learnerId、learnerName、status、statusReason）
    */
   async listActiveSessionItemsByCustomer(params: {
     readonly customerId: number;
     readonly manager?: EntityManager;
-  }): Promise<ReadonlyArray<{ sessionId: number; learnerId: number; learnerName: string }>> {
+  }): Promise<
+    ReadonlyArray<{
+      sessionId: number;
+      learnerId: number;
+      learnerName: string;
+      status: ParticipationEnrollmentStatus;
+      statusReason: ParticipationEnrollmentStatusReason | null;
+    }>
+  > {
     const repo = params.manager
       ? params.manager.getRepository(ParticipationEnrollmentEntity)
       : this.enrollmentRepository;
@@ -457,6 +465,8 @@ export class ParticipationEnrollmentService {
       .select('e.session_id', 'sessionId')
       .addSelect('e.learner_id', 'learnerId')
       .addSelect('l.name', 'learnerName')
+      .addSelect('e.status', 'status')
+      .addSelect('e.status_reason', 'statusReason')
       .innerJoin('course_sessions', 's', 's.id = e.session_id')
       .innerJoin(LearnerEntity, 'l', 'l.id = e.learner_id')
       .where('e.customer_id = :customerId', { customerId: params.customerId })
@@ -466,11 +476,19 @@ export class ParticipationEnrollmentService {
       .orderBy('s.start_time', 'ASC')
       .addOrderBy('e.session_id', 'ASC')
       .addOrderBy('e.learner_id', 'ASC')
-      .getRawMany<{ sessionId: number; learnerId: number; learnerName: string }>();
+      .getRawMany<{
+        sessionId: number;
+        learnerId: number;
+        learnerName: string;
+        status: ParticipationEnrollmentStatus;
+        statusReason: ParticipationEnrollmentStatusReason | null;
+      }>();
     return rows.map((row) => ({
       sessionId: Number(row.sessionId),
       learnerId: Number(row.learnerId),
       learnerName: row.learnerName,
+      status: row.status,
+      statusReason: row.statusReason ?? null,
     }));
   }
 }

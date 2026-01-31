@@ -273,6 +273,8 @@ export class SessionEnrollmentResolver {
         sessionId: item.sessionId,
         learnerId: item.learnerId,
         learnerName: item.learnerName,
+        status: item.status,
+        statusReason: item.statusReason,
       })),
     };
   }
