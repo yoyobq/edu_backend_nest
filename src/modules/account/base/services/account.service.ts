@@ -204,6 +204,35 @@ export class AccountService {
     return await this.userInfoRepository.save(userInfo);
   }
 
+  /**
+   * 更新用户 accessGroup 并同步 metaDigest
+   */
+  async updateUserInfoAccessGroup(params: {
+    accountId: number;
+    accessGroup: IdentityTypeEnum[];
+    manager: EntityManager;
+  }): Promise<{ isUpdated: boolean }> {
+    const { accountId, accessGroup, manager } = params;
+    const repository = manager.getRepository(UserInfoEntity);
+    const userInfo = await repository.findOne({ where: { accountId } });
+    if (!userInfo) {
+      throw new DomainError(ACCOUNT_ERROR.USER_INFO_NOT_FOUND, '用户信息不存在');
+    }
+
+    const current = userInfo.accessGroup ?? [];
+    const isSame =
+      current.length === accessGroup.length && current.every((v, i) => v === accessGroup[i]);
+    if (isSame) {
+      return { isUpdated: false };
+    }
+
+    userInfo.accessGroup = accessGroup;
+    userInfo.metaDigest = accessGroup;
+    userInfo.updatedAt = new Date();
+    await repository.save(userInfo);
+    return { isUpdated: true };
+  }
+
   /** 事务执行（使用 AccountEntity 的 manager） */
   async runTransaction<T>(callback: (manager: EntityManager) => Promise<T>): Promise<T> {
     return await this.accountRepository.manager.transaction(callback);

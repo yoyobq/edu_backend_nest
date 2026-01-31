@@ -496,3 +496,137 @@ export class UpdateVisibleUserInfoUsecase {
     }
   }
 }
+
+export interface UpdateAccessGroupParams {
+  session: UsecaseSession;
+  targetAccountId: number;
+  accessGroup: IdentityTypeEnum[];
+  identityHint?: IdentityTypeEnum;
+}
+
+export interface UpdateAccessGroupResult {
+  accountId: number;
+  accessGroup: IdentityTypeEnum[];
+  identityHint: IdentityTypeEnum;
+  isUpdated: boolean;
+}
+
+@Injectable()
+export class UpdateAccessGroupUsecase {
+  constructor(private readonly accountService: AccountService) {}
+
+  /**
+   * 执行访问组更新
+   * 规则：
+   * - 仅允许 admin / manager 操作
+   * - 访问组不能为空
+   * - identityHint 必须包含在访问组中
+   */
+  async execute(params: UpdateAccessGroupParams): Promise<UpdateAccessGroupResult> {
+    const { session, targetAccountId, accessGroup, identityHint } = params;
+
+    if (!Number.isInteger(targetAccountId) || targetAccountId <= 0) {
+      throw new DomainError(PERMISSION_ERROR.ACCESS_DENIED, '非法的目标账户 ID');
+    }
+
+    const allowed =
+      hasRole(session.roles, IdentityTypeEnum.ADMIN) ||
+      hasRole(session.roles, IdentityTypeEnum.MANAGER);
+    if (!allowed) {
+      throw new DomainError(PERMISSION_ERROR.ACCESS_DENIED, '仅 admin / manager 可调整访问组');
+    }
+
+    const normalizedAccessGroup = this.normalizeAccessGroup(accessGroup);
+    if (normalizedAccessGroup.length === 0) {
+      throw new DomainError(ACCOUNT_ERROR.OPERATION_NOT_SUPPORTED, '访问组不能为空');
+    }
+
+    const finalIdentityHint = this.resolveIdentityHint({
+      requested: identityHint,
+      accessGroup: normalizedAccessGroup,
+    });
+    if (!finalIdentityHint) {
+      throw new DomainError(ACCOUNT_ERROR.OPERATION_NOT_SUPPORTED, '无法生成身份提示');
+    }
+
+    return await this.accountService.runTransaction(async (manager) => {
+      const account = await this.accountService.lockByIdForUpdate(targetAccountId, manager);
+      const accessGroupUpdate = await this.accountService.updateUserInfoAccessGroup({
+        accountId: targetAccountId,
+        accessGroup: normalizedAccessGroup,
+        manager,
+      });
+      const currentIdentityHint = this.normalizeIdentityHint(account.identityHint);
+      const identityHintChanged = currentIdentityHint !== finalIdentityHint;
+
+      if (identityHintChanged) {
+        await this.accountService.updateAccount(
+          targetAccountId,
+          { identityHint: finalIdentityHint },
+          manager,
+        );
+      }
+
+      return {
+        accountId: targetAccountId,
+        accessGroup: normalizedAccessGroup,
+        identityHint: finalIdentityHint,
+        isUpdated: accessGroupUpdate.isUpdated || identityHintChanged,
+      };
+    });
+  }
+
+  /**
+   * 解析身份提示
+   */
+  private resolveIdentityHint(params: {
+    requested?: IdentityTypeEnum;
+    accessGroup: IdentityTypeEnum[];
+  }): IdentityTypeEnum | undefined {
+    const { requested, accessGroup } = params;
+    if (requested) {
+      if (!accessGroup.includes(requested)) {
+        throw new DomainError(ACCOUNT_ERROR.OPERATION_NOT_SUPPORTED, '身份提示必须包含在访问组中');
+      }
+      return requested;
+    }
+
+    const priority: IdentityTypeEnum[] = [
+      IdentityTypeEnum.ADMIN,
+      IdentityTypeEnum.MANAGER,
+      IdentityTypeEnum.COACH,
+      IdentityTypeEnum.CUSTOMER,
+      IdentityTypeEnum.LEARNER,
+      IdentityTypeEnum.STAFF,
+      IdentityTypeEnum.STUDENT,
+      IdentityTypeEnum.REGISTRANT,
+      IdentityTypeEnum.GUEST,
+    ];
+
+    return priority.find((role) => accessGroup.includes(role)) ?? accessGroup[0];
+  }
+
+  /**
+   * 规范化身份提示
+   */
+  private normalizeIdentityHint(value: string | null): IdentityTypeEnum | null {
+    if (!value) return null;
+    const enumValues = Object.values(IdentityTypeEnum) as string[];
+    return enumValues.includes(value) ? (value as IdentityTypeEnum) : null;
+  }
+
+  /**
+   * 去重访问组并保持顺序
+   */
+  private normalizeAccessGroup(input: IdentityTypeEnum[]): IdentityTypeEnum[] {
+    const out: IdentityTypeEnum[] = [];
+    const seen = new Set<IdentityTypeEnum>();
+    for (const item of input) {
+      if (!seen.has(item)) {
+        seen.add(item);
+        out.push(item);
+      }
+    }
+    return out;
+  }
+}

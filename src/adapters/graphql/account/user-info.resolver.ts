@@ -1,4 +1,5 @@
 // 文件位置：src/adapters/graphql/account/user-info.resolver.ts
+import { IdentityTypeEnum } from '@app-types/models/account.types';
 import { UserInfoView } from '@app-types/models/auth.types';
 import { type GeographicInfo } from '@app-types/models/user-info.types';
 import { UseGuards } from '@nestjs/common';
@@ -6,12 +7,22 @@ import { Args, Int, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { mapJwtToUsecaseSession, type UsecaseSession } from '@src/types/auth/session.types';
 import { JwtPayload } from '@src/types/jwt.types';
 import { GetVisibleUserInfoUsecase } from '@src/usecases/account/get-visible-user-info.usecase';
-import { UpdateVisibleUserInfoUsecase } from '@src/usecases/account/update-visible-user-info.usecase';
+import {
+  UpdateAccessGroupUsecase,
+  UpdateVisibleUserInfoUsecase,
+} from '@src/usecases/account/update-visible-user-info.usecase';
 import { currentUser } from '../decorators/current-user.decorator';
+import { Roles } from '../decorators/roles.decorator';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
+import { RolesGuard } from '../guards/roles.guard';
 import { BasicUserInfoDTO } from './dto/basic-user-info.dto';
 import { UserInfoDTO } from './dto/user-info.dto';
-import { UpdateUserInfoInput, UpdateUserInfoResult } from './dto/user-info.update.input';
+import {
+  UpdateAccessGroupInput,
+  UpdateAccessGroupResult,
+  UpdateUserInfoInput,
+  UpdateUserInfoResult,
+} from './dto/user-info.update.input';
 
 /**
  * 用户信息 GraphQL 解析器
@@ -22,6 +33,7 @@ export class UserInfoResolver {
   constructor(
     private readonly getVisibleUserInfoUsecase: GetVisibleUserInfoUsecase,
     private readonly updateVisibleUserInfoUsecase: UpdateVisibleUserInfoUsecase,
+    private readonly updateAccessGroupUsecase: UpdateAccessGroupUsecase,
   ) {}
 
   /**
@@ -157,6 +169,28 @@ export class UserInfoResolver {
     return {
       isUpdated,
       userInfo: this.mapViewToDTO(view),
+    };
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(IdentityTypeEnum.MANAGER, IdentityTypeEnum.ADMIN)
+  @Mutation(() => UpdateAccessGroupResult, { name: 'updateAccessGroup' })
+  async updateAccessGroup(
+    @currentUser() user: JwtPayload,
+    @Args('input') input: UpdateAccessGroupInput,
+  ): Promise<UpdateAccessGroupResult> {
+    const session: UsecaseSession = mapJwtToUsecaseSession(user);
+    const result = await this.updateAccessGroupUsecase.execute({
+      session,
+      targetAccountId: input.accountId,
+      accessGroup: input.accessGroup,
+      identityHint: input.identityHint,
+    });
+    return {
+      accountId: result.accountId,
+      accessGroup: result.accessGroup,
+      identityHint: result.identityHint,
+      isUpdated: result.isUpdated,
     };
   }
 }

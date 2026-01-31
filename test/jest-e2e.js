@@ -32,6 +32,7 @@ const ENABLED_SPECS = [
   // '08-integration-events/course-enrollment-workflows.e2e-spec.ts',
   // '08-integration-events/session-series-list.e2e-spec.ts',
   // '09-user-info/update-visible-user-info.e2e-spec.ts',
+  '09-user-info/update-access-group.e2e-spec.ts',
 ];
 
 /** 可选：命令行临时指定（逗号分隔）

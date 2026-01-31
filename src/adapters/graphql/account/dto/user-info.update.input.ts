@@ -1,8 +1,19 @@
 // 文件位置：src/adapters/graphql/account/dto/user-info.update.input.ts
 
+import { IdentityTypeEnum } from '@app-types/models/account.types';
 import { Gender, UserState } from '@app-types/models/user-info.types';
 import { Field, InputType, ObjectType } from '@nestjs/graphql';
-import { IsEnum, IsInt, IsOptional, IsString, MaxLength } from 'class-validator';
+import {
+  ArrayNotEmpty,
+  ArrayUnique,
+  IsArray,
+  IsEnum,
+  IsInt,
+  IsOptional,
+  IsString,
+  MaxLength,
+  Min,
+} from 'class-validator';
 import GraphQLJSON from 'graphql-type-json';
 import { UserInfoDTO } from './user-info.dto';
 
@@ -78,4 +89,39 @@ export class UpdateUserInfoResult {
 
   @Field(() => UserInfoDTO, { description: '更新后的用户信息视图' })
   userInfo!: UserInfoDTO;
+}
+
+@InputType()
+export class UpdateAccessGroupInput {
+  @Field(() => Number, { description: '目标账户 ID' })
+  @IsInt()
+  @Min(1)
+  accountId!: number;
+
+  @Field(() => [IdentityTypeEnum], { description: '访问组' })
+  @IsArray()
+  @ArrayNotEmpty()
+  @ArrayUnique()
+  @IsEnum(IdentityTypeEnum, { each: true })
+  accessGroup!: IdentityTypeEnum[];
+
+  @Field(() => IdentityTypeEnum, { nullable: true, description: '身份提示' })
+  @IsOptional()
+  @IsEnum(IdentityTypeEnum)
+  identityHint?: IdentityTypeEnum;
+}
+
+@ObjectType()
+export class UpdateAccessGroupResult {
+  @Field(() => Number, { description: '账户 ID' })
+  accountId!: number;
+
+  @Field(() => [IdentityTypeEnum], { description: '访问组' })
+  accessGroup!: IdentityTypeEnum[];
+
+  @Field(() => IdentityTypeEnum, { description: '身份提示' })
+  identityHint!: IdentityTypeEnum;
+
+  @Field(() => Boolean, { description: '是否发生更新（幂等）' })
+  isUpdated!: boolean;
 }
