@@ -32,6 +32,7 @@ export interface UpdateVisibleUserInfoParams {
   session: UsecaseSession;
   targetAccountId: number;
   patch: UserInfoPatch;
+  identityHint?: IdentityTypeEnum;
 }
 
 export interface UpdateVisibleUserInfoResult {
@@ -54,7 +55,7 @@ export class UpdateVisibleUserInfoUsecase {
    * - 幂等：无字段变更则直接返回当前视图
    */
   async execute(params: UpdateVisibleUserInfoParams): Promise<UpdateVisibleUserInfoResult> {
-    const { session, targetAccountId } = params;
+    const { session, targetAccountId, identityHint } = params;
     const patch = params.patch ?? {};
 
     if (!Number.isInteger(targetAccountId) || targetAccountId <= 0) {
@@ -82,7 +83,14 @@ export class UpdateVisibleUserInfoUsecase {
           isSelf,
           isAdmin: isAdminRole,
         });
-        if (Object.keys(sanitized).length === 0) {
+        const resolvedIdentityHint = this.sanitizeIdentityHint({
+          requested: identityHint,
+          accessGroup: current.accessGroup,
+          isSelf,
+        });
+        const hasUserInfoUpdate = Object.keys(sanitized).length > 0;
+        const shouldUpdateIdentityHint = typeof resolvedIdentityHint !== 'undefined';
+        if (!hasUserInfoUpdate && !shouldUpdateIdentityHint) {
           const view = await this.fetchUserInfoUsecase.executeStrict({
             accountId: targetAccountId,
             manager,
@@ -90,15 +98,30 @@ export class UpdateVisibleUserInfoUsecase {
           return { view, isUpdated: false };
         }
 
-        // 应用更新并保存
-        this.applyPatchToEntity(current, sanitized);
-        await manager.getRepository(UserInfoEntity).save(current);
+        let identityHintChanged = false;
+        if (hasUserInfoUpdate) {
+          // 应用更新并保存
+          this.applyPatchToEntity(current, sanitized);
+          await manager.getRepository(UserInfoEntity).save(current);
+        }
+        if (shouldUpdateIdentityHint && resolvedIdentityHint) {
+          const account = await this.accountService.lockByIdForUpdate(targetAccountId, manager);
+          const currentIdentityHint = this.normalizeIdentityHint(account.identityHint);
+          if (currentIdentityHint !== resolvedIdentityHint) {
+            await this.accountService.updateAccount(
+              targetAccountId,
+              { identityHint: resolvedIdentityHint },
+              manager,
+            );
+            identityHintChanged = true;
+          }
+        }
 
         const view = await this.fetchUserInfoUsecase.executeStrict({
           accountId: targetAccountId,
           manager,
         });
-        return { view, isUpdated: true };
+        return { view, isUpdated: hasUserInfoUpdate || identityHintChanged };
       },
     );
 
@@ -434,6 +457,30 @@ export class UpdateVisibleUserInfoUsecase {
   }
 
   /**
+   * 校验并解析登录 hint 更新
+   */
+  private sanitizeIdentityHint(params: {
+    requested?: IdentityTypeEnum;
+    accessGroup: IdentityTypeEnum[];
+    isSelf: boolean;
+  }): IdentityTypeEnum | undefined {
+    const { requested, accessGroup, isSelf } = params;
+    if (typeof requested === 'undefined') {
+      return undefined;
+    }
+    if (!isSelf) {
+      throw new DomainError(PERMISSION_ERROR.INSUFFICIENT_PERMISSIONS, '仅允许本人修改登录提示');
+    }
+    if (!accessGroup || accessGroup.length === 0) {
+      throw new DomainError(ACCOUNT_ERROR.OPERATION_NOT_SUPPORTED, '访问组不能为空');
+    }
+    if (!accessGroup.includes(requested)) {
+      throw new DomainError(ACCOUNT_ERROR.OPERATION_NOT_SUPPORTED, '身份提示必须包含在访问组中');
+    }
+    return requested;
+  }
+
+  /**
    * 字段允许策略（isSelf / isManager）
    * - manager 自改：允许 nickname / gender / birthDate / avatarUrl / email / signature / address / phone / tags / geographic / userState
    * - manager 改他人：仅允许 nickname / avatarUrl / phone
@@ -479,6 +526,15 @@ export class UpdateVisibleUserInfoUsecase {
       return flags.isSelf ? selfManagerAllowed.includes(key) : managerOtherAllowed.includes(key);
     }
     return nonManagerAllowed.includes(key);
+  }
+
+  /**
+   * 规范化登录 hint
+   */
+  private normalizeIdentityHint(value: string | null): IdentityTypeEnum | null {
+    if (!value) return null;
+    const enumValues = Object.values(IdentityTypeEnum) as string[];
+    return enumValues.includes(value) ? (value as IdentityTypeEnum) : null;
   }
 
   /**

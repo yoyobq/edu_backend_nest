@@ -165,6 +165,7 @@ export class UserInfoResolver {
         geographic: geoPatch,
         userState: input.userState,
       },
+      identityHint: input.identityHint,
     });
     return {
       isUpdated,

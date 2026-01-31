@@ -1,17 +1,17 @@
 // src/adapters/graphql/verification-record/verification-record.resolver.ts
 
-import { UseGuards } from '@nestjs/common';
-import { Args, Mutation, Query, Resolver } from '@nestjs/graphql';
-import { currentUser } from '@src/adapters/graphql/decorators/current-user.decorator';
-import { Public } from '@src/adapters/graphql/decorators/public.decorator';
-import { JwtAuthGuard } from '@src/adapters/graphql/guards/jwt-auth.guard';
-import { JwtPayload } from '@src/types/jwt.types';
 import { IdentityTypeEnum } from '@app-types/models/account.types';
 import {
   SubjectType,
   VerificationRecordStatus,
   VerificationRecordType,
 } from '@app-types/models/verification-record.types';
+import { UseGuards } from '@nestjs/common';
+import { Args, Mutation, Query, Resolver } from '@nestjs/graphql';
+import { currentUser } from '@src/adapters/graphql/decorators/current-user.decorator';
+import { Public } from '@src/adapters/graphql/decorators/public.decorator';
+import { JwtAuthGuard } from '@src/adapters/graphql/guards/jwt-auth.guard';
+import { JwtPayload } from '@src/types/jwt.types';
 import { ConsumeVerificationRecordUsecase } from '@src/usecases/verification-record/consume-verification-record.usecase';
 import { CreateVerificationRecordUsecase } from '@src/usecases/verification-record/create-verification-record.usecase';
 import { FindVerificationRecordUsecase } from '@src/usecases/verification-record/find-verification-record.usecase';
@@ -139,6 +139,7 @@ export class VerificationRecordResolver {
         notBefore: result.notBefore,
         subjectType: result.subjectType,
         subjectId: result.subjectId,
+        publicPayload: result.publicPayload ?? null,
       };
     } catch {
       return null;

@@ -6,6 +6,7 @@ import {
   VerificationRecordType,
 } from '@app-types/models/verification-record.types';
 import { Field, Int, ObjectType } from '@nestjs/graphql';
+import GraphQLJSON from 'graphql-type-json';
 
 /**
  * 公开验证记录数据传输对象
@@ -33,4 +34,7 @@ export class PublicVerificationRecordDTO {
 
   @Field(() => Int, { description: '主体 ID', nullable: true })
   subjectId!: number | null;
+
+  @Field(() => GraphQLJSON, { description: '公开载荷数据', nullable: true })
+  publicPayload!: Record<string, unknown> | null;
 }

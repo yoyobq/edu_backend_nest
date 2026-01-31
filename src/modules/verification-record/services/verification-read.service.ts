@@ -127,7 +127,7 @@ export class VerificationReadService {
    * @param payload 原始载荷数据
    * @returns 公开载荷数据
    */
-  private extractPublicPayload(
+  extractPublicPayload(
     payload: Record<string, unknown> | null,
   ): VerificationRecordPublicPayload | null {
     if (!payload) {
@@ -147,7 +147,15 @@ export class VerificationReadService {
       'inviteUrl',
       'roleName',
       'coachName', // 教练姓名字段，用于 INVITE_COACH 类型
+      'coachLevel',
+      'avatarUrl',
+      'specialty',
+      'remark',
       'managerName', // 管理员姓名字段，用于 INVITE_MANAGER 类型
+      'department',
+      'orgId',
+      'projectId',
+      'trainingCenterId',
     ];
 
     for (const field of allowedFields) {

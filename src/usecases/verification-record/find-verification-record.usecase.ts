@@ -7,6 +7,7 @@ import {
 import { DomainError, VERIFICATION_RECORD_ERROR } from '@core/common/errors/domain-error';
 import { Injectable } from '@nestjs/common';
 import { VerificationRecordEntity } from '@src/modules/verification-record/verification-record.entity';
+import { VerificationReadService } from '@src/modules/verification-record/services/verification-read.service';
 import { VerificationRecordService } from '@src/modules/verification-record/verification-record.service';
 
 /**
@@ -29,7 +30,10 @@ export interface FindVerificationRecordUsecaseParams {
  */
 @Injectable()
 export class FindVerificationRecordUsecase {
-  constructor(private readonly verificationRecordService: VerificationRecordService) {}
+  constructor(
+    private readonly verificationRecordService: VerificationRecordService,
+    private readonly verificationReadService: VerificationReadService,
+  ) {}
 
   /**
    * 根据 token 查找可消费的活跃验证记录
@@ -39,7 +43,9 @@ export class FindVerificationRecordUsecase {
    */
   async findActiveConsumableByToken(
     params: FindVerificationRecordUsecaseParams,
-  ): Promise<VerificationRecordEntity | null> {
+  ): Promise<
+    (VerificationRecordEntity & { publicPayload: Record<string, unknown> | null }) | null
+  > {
     try {
       const now = new Date();
       const { token, forAccountId, expectedType, ignoreTargetRestriction } = params;
@@ -84,8 +90,13 @@ export class FindVerificationRecordUsecase {
       }
 
       const record = await queryBuilder.getOne();
+      if (!record) {
+        return null;
+      }
 
-      return record;
+      return Object.assign(record, {
+        publicPayload: this.verificationReadService.extractPublicPayload(record.payload),
+      });
     } catch (error) {
       throw new DomainError(
         VERIFICATION_RECORD_ERROR.QUERY_FAILED,
