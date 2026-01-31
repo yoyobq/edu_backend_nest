@@ -49,12 +49,13 @@ export class SessionAttendanceResolver {
       rows: result.rows.map((r) => ({
         enrollmentId: r.enrollmentId,
         learnerId: r.learnerId,
-        status: String(r.status),
+        status: String(r.attendanceStatus),
         countApplied: r.countApplied,
         confirmedByCoachId: r.confirmedByCoachId,
         confirmedAt: r.confirmedAt,
         finalized: r.finalized,
-        isCanceled: r.isCanceled,
+        enrollmentStatus: r.status,
+        enrollmentStatusReason: r.statusReason,
       })),
     };
   }

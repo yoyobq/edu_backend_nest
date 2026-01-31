@@ -1,5 +1,9 @@
 // 文件位置：src/adapters/graphql/course/workflows/dto/session-attendance.result.ts
 import { Field, Int, ObjectType } from '@nestjs/graphql';
+import {
+  ParticipationEnrollmentStatus,
+  ParticipationEnrollmentStatusReason,
+} from '@src/types/models/participation-enrollment.types';
 
 /**
  * 节次点名行 GraphQL 输出类型
@@ -27,8 +31,11 @@ export class AttendanceSheetRowGql {
   @Field(() => Boolean)
   finalized!: boolean;
 
-  @Field(() => Int)
-  isCanceled!: 0 | 1;
+  @Field(() => ParticipationEnrollmentStatus)
+  enrollmentStatus!: ParticipationEnrollmentStatus;
+
+  @Field(() => ParticipationEnrollmentStatusReason, { nullable: true })
+  enrollmentStatusReason!: ParticipationEnrollmentStatusReason | null;
 }
 
 /**

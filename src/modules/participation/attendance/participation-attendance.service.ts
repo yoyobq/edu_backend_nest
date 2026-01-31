@@ -1,10 +1,14 @@
 // src/modules/participation-attendance/participation-attendance.service.ts
+import { ParticipationAttendanceStatus } from '@app-types/models/attendance.types';
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { LearnerEntity } from '@src/modules/account/identities/training/learner/account-learner.entity';
 import { CourseSeriesEntity } from '@src/modules/course/series/course-series.entity';
 import { CourseSessionEntity } from '@src/modules/course/sessions/course-session.entity';
-import { LearnerEntity } from '@src/modules/account/identities/training/learner/account-learner.entity';
-import { ParticipationAttendanceStatus } from '@app-types/models/attendance.types';
+import {
+  ParticipationEnrollmentStatus,
+  ParticipationEnrollmentStatusReason,
+} from '@src/types/models/participation-enrollment.types';
 import { EntityManager, In, IsNull, Repository } from 'typeorm';
 import { ParticipationAttendanceRecordEntity } from './participation-attendance-record.entity';
 
@@ -734,12 +738,13 @@ export class ParticipationAttendanceService {
 export type AttendanceSheetRow = {
   enrollmentId: number;
   learnerId: number;
-  status: ParticipationAttendanceStatus;
+  attendanceStatus: ParticipationAttendanceStatus;
   countApplied: string;
   confirmedByCoachId: number | null;
   confirmedAt: Date | null;
   finalized: boolean;
-  isCanceled: 0 | 1;
+  status: ParticipationEnrollmentStatus;
+  statusReason: ParticipationEnrollmentStatusReason | null;
 };
 
 /**

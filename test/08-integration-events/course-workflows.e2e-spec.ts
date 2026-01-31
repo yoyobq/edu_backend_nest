@@ -550,7 +550,7 @@ describe('08-Integration-Events 课程工作流：报名触发与 Outbox 分发 
       }
 
       const query = `
-        query { loadSessionAttendanceSheet(sessionId: ${sessionId}) { sessionId isFinalized rows { enrollmentId learnerId status countApplied confirmedByCoachId confirmedAt finalized isCanceled } } }
+        query { loadSessionAttendanceSheet(sessionId: ${sessionId}) { sessionId isFinalized rows { enrollmentId learnerId status countApplied confirmedByCoachId confirmedAt finalized enrollmentStatus enrollmentStatusReason } } }
       `;
       const res = await executeGql(app, { query, token: coachToken }).expect(200);
       const body = res.body as unknown as {
@@ -566,7 +566,8 @@ describe('08-Integration-Events 课程工作流：报名触发与 Outbox 分发 
               confirmedByCoachId: number | null;
               confirmedAt: string | null;
               finalized: boolean;
-              isCanceled: 0 | 1;
+              enrollmentStatus: ParticipationEnrollmentStatus;
+              enrollmentStatusReason: ParticipationEnrollmentStatusReason | null;
             }>;
           };
         };
@@ -579,7 +580,8 @@ describe('08-Integration-Events 课程工作流：报名触发与 Outbox 分发 
       expect(row?.status).toBe(ParticipationAttendanceStatus.NO_SHOW);
       // 计次来源于 learner.countPerSession（种子为 1）
       expect(row?.countApplied).toBe('1.00');
-      expect(row?.isCanceled).toBe(0);
+      expect(row?.enrollmentStatus).toBe(ParticipationEnrollmentStatus.ENROLLED);
+      expect(row?.enrollmentStatusReason).toBeNull();
     });
 
     it('再次读取：存在出勤记录时返回持久化状态与计次', async () => {
@@ -602,7 +604,7 @@ describe('08-Integration-Events 课程工作流：报名触发与 Outbox 分发 
       });
 
       const query = `
-        query { loadSessionAttendanceSheet(sessionId: ${sessionId}) { sessionId isFinalized rows { enrollmentId learnerId status countApplied confirmedByCoachId confirmedAt finalized isCanceled } } }
+        query { loadSessionAttendanceSheet(sessionId: ${sessionId}) { sessionId isFinalized rows { enrollmentId learnerId status countApplied confirmedByCoachId confirmedAt finalized enrollmentStatus enrollmentStatusReason } } }
       `;
       const res = await executeGql(app, { query, token: coachToken }).expect(200);
       const body = res.body as unknown as {
@@ -618,7 +620,8 @@ describe('08-Integration-Events 课程工作流：报名触发与 Outbox 分发 
               confirmedByCoachId: number | null;
               confirmedAt: string | null;
               finalized: boolean;
-              isCanceled: 0 | 1;
+              enrollmentStatus: ParticipationEnrollmentStatus;
+              enrollmentStatusReason: ParticipationEnrollmentStatusReason | null;
             }>;
           };
         };
@@ -630,7 +633,8 @@ describe('08-Integration-Events 课程工作流：报名触发与 Outbox 分发 
       expect(row).toBeTruthy();
       expect(row?.status).toBe(ParticipationAttendanceStatus.PRESENT);
       expect(row?.countApplied).toBe('1.00');
-      expect(row?.isCanceled).toBe(0);
+      expect(row?.enrollmentStatus).toBe(ParticipationEnrollmentStatus.ENROLLED);
+      expect(row?.enrollmentStatusReason).toBeNull();
     });
 
     it('首次读取与再次读取的数据结构完全一致', async () => {
@@ -646,7 +650,7 @@ describe('08-Integration-Events 课程工作流：报名触发与 Outbox 分发 
         .execute();
 
       const q1 = `
-        query { loadSessionAttendanceSheet(sessionId: ${sessionId}) { sessionId isFinalized rows { enrollmentId learnerId status countApplied confirmedByCoachId confirmedAt finalized isCanceled } } }
+        query { loadSessionAttendanceSheet(sessionId: ${sessionId}) { sessionId isFinalized rows { enrollmentId learnerId status countApplied confirmedByCoachId confirmedAt finalized enrollmentStatus enrollmentStatusReason } } }
       `;
       const r1 = await executeGql(app, { query: q1, token: coachToken }).expect(200);
       const b1 = r1.body as unknown as {
@@ -662,7 +666,8 @@ describe('08-Integration-Events 课程工作流：报名触发与 Outbox 分发 
               confirmedByCoachId: number | null;
               confirmedAt: string | null;
               finalized: boolean;
-              isCanceled: 0 | 1;
+              enrollmentStatus: ParticipationEnrollmentStatus;
+              enrollmentStatusReason: ParticipationEnrollmentStatusReason | null;
             }>;
           };
         };
@@ -683,7 +688,7 @@ describe('08-Integration-Events 课程工作流：报名触发与 Outbox 分发 
       });
 
       const q2 = `
-        query { loadSessionAttendanceSheet(sessionId: ${sessionId}) { sessionId isFinalized rows { enrollmentId learnerId status countApplied confirmedByCoachId confirmedAt finalized isCanceled } } }
+        query { loadSessionAttendanceSheet(sessionId: ${sessionId}) { sessionId isFinalized rows { enrollmentId learnerId status countApplied confirmedByCoachId confirmedAt finalized enrollmentStatus enrollmentStatusReason } } }
       `;
       const r2 = await executeGql(app, { query: q2, token: coachToken }).expect(200);
       const b2 = r2.body as unknown as {
@@ -699,7 +704,8 @@ describe('08-Integration-Events 课程工作流：报名触发与 Outbox 分发 
               confirmedByCoachId: number | null;
               confirmedAt: string | null;
               finalized: boolean;
-              isCanceled: 0 | 1;
+              enrollmentStatus: ParticipationEnrollmentStatus;
+              enrollmentStatusReason: ParticipationEnrollmentStatusReason | null;
             }>;
           };
         };

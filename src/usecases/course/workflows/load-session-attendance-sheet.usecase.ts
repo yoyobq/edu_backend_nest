@@ -13,7 +13,10 @@ import {
 } from '@src/modules/participation/attendance/participation-attendance.service';
 import { ParticipationEnrollmentService } from '@src/modules/participation/enrollment/participation-enrollment.service';
 import { type UsecaseSession } from '@src/types/auth/session.types';
-import { ParticipationEnrollmentStatus } from '@src/types/models/participation-enrollment.types';
+import {
+  ParticipationEnrollmentStatus,
+  ParticipationEnrollmentStatusReason,
+} from '@src/types/models/participation-enrollment.types';
 
 /**
  * 加载节次点名视图 用例
@@ -81,7 +84,12 @@ export class LoadSessionAttendanceSheetUsecase {
    * 构建点名表行（合并 enrollment 与 attendance）
    */
   private makeRow(input: {
-    readonly e: { id: number; learnerId: number; status: ParticipationEnrollmentStatus };
+    readonly e: {
+      id: number;
+      learnerId: number;
+      status: ParticipationEnrollmentStatus;
+      statusReason: ParticipationEnrollmentStatusReason | null;
+    };
     readonly a: {
       status?: ParticipationAttendanceStatus;
       countApplied?: string;
@@ -93,7 +101,7 @@ export class LoadSessionAttendanceSheetUsecase {
   }): AttendanceSheetRow {
     const canceled: 0 | 1 = input.e.status === ParticipationEnrollmentStatus.CANCELED ? 1 : 0;
     const isLeave = input.e.status === ParticipationEnrollmentStatus.LEAVE;
-    const status = this.deriveStatus({ a: input.a, isCanceled: canceled, isLeave });
+    const attendanceStatus = this.deriveStatus({ a: input.a, isCanceled: canceled, isLeave });
     const countApplied = this.deriveCountApplied({
       a: input.a,
       isCanceled: canceled,
@@ -103,12 +111,13 @@ export class LoadSessionAttendanceSheetUsecase {
     return {
       enrollmentId: input.e.id,
       learnerId: input.e.learnerId,
-      status,
+      attendanceStatus,
       countApplied,
       confirmedByCoachId: input.a?.confirmedByCoachId ?? null,
       confirmedAt: input.a?.confirmedAt ?? null,
       finalized: (input.a?.finalizedAt ?? null) != null,
-      isCanceled: canceled,
+      status: input.e.status,
+      statusReason: input.e.statusReason ?? null,
     };
   }
 
@@ -179,8 +188,8 @@ export class LoadSessionAttendanceSheetUsecase {
    * 比较两个点名表行的展示顺序（按出勤状态枚举顺序 + enrollmentId）
    */
   private compareRowOrder(left: AttendanceSheetRow, right: AttendanceSheetRow): number {
-    const li = this.getStatusIndex(left.status);
-    const ri = this.getStatusIndex(right.status);
+    const li = this.getStatusIndex(left.attendanceStatus);
+    const ri = this.getStatusIndex(right.attendanceStatus);
     if (li !== ri) return li - ri;
     return left.enrollmentId - right.enrollmentId;
   }
