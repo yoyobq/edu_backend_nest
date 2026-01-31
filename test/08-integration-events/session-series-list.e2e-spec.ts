@@ -267,9 +267,9 @@ describe('Session/Series Lists (e2e)', () => {
           sessionId
           learnerId
           customerId
-          isCanceled
+          status
+          statusReason
           remark
-          cancelReason
         }
       }
     `;

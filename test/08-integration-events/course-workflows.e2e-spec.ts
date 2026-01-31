@@ -35,6 +35,10 @@ import { ParticipationEnrollmentEntity } from '@src/modules/participation/enroll
 import { ParticipationEnrollmentService } from '@src/modules/participation/enrollment/participation-enrollment.service';
 import { AccountStatus, IdentityTypeEnum } from '@src/types/models/account.types';
 import { ParticipationAttendanceStatus } from '@src/types/models/attendance.types';
+import {
+  ParticipationEnrollmentStatus,
+  ParticipationEnrollmentStatusReason,
+} from '@src/types/models/participation-enrollment.types';
 import { UserState } from '@src/types/models/user-info.types';
 import request from 'supertest';
 import { DataSource, In } from 'typeorm';
@@ -791,7 +795,7 @@ describe('08-Integration-Events 课程工作流：报名触发与 Outbox 分发 
         input: {
           sessionId,
           learnerId,
-          reason: 'E2E 请假原因',
+          reason: ParticipationEnrollmentStatusReason.LEAVE_OTHER,
         },
       };
       const res = await request(app.getHttpServer())
@@ -822,14 +826,14 @@ describe('08-Integration-Events 课程工作流：报名触发与 Outbox 分发 
       expect(result?.attendance.sessionId).toBe(sessionId);
       expect(result?.attendance.learnerId).toBe(learnerId);
       expect(result?.attendance.status).toBe(ParticipationAttendanceStatus.EXCUSED);
-      expect(result?.attendance.reason).toBe('E2E 请假原因');
+      expect(result?.attendance.reason).toBe(ParticipationEnrollmentStatusReason.LEAVE_OTHER);
       expect(result?.attendance.confirmedAt).toBeTruthy();
 
       const attendanceRepo = dataSource.getRepository(ParticipationAttendanceRecordEntity);
       const row = await attendanceRepo.findOne({ where: { enrollmentId, sessionId, learnerId } });
       if (!row) throw new Error('请假后未找到出勤记录');
       expect(row.status).toBe(ParticipationAttendanceStatus.EXCUSED);
-      expect(row.remark).toBe('E2E 请假原因');
+      expect(row.remark).toBe(ParticipationEnrollmentStatusReason.LEAVE_OTHER);
     });
 
     /**
@@ -900,7 +904,7 @@ describe('08-Integration-Events 课程工作流：报名触发与 Outbox 分发 
         countApplied: '0.00',
         confirmedByCoachId: null,
         confirmedAt: new Date(),
-        remark: 'E2E 请假原因',
+        remark: ParticipationEnrollmentStatusReason.LEAVE_OTHER,
       });
     });
 
@@ -944,7 +948,7 @@ describe('08-Integration-Events 课程工作流：报名触发与 Outbox 分发 
       expect(item).toBeTruthy();
       expect(item?.learnerId).toBe(learnerId);
       expect(item?.learnerName).toBe(learnerName);
-      expect(item?.reason).toBe('E2E 请假原因');
+      expect(item?.reason).toBe(ParticipationEnrollmentStatusReason.LEAVE_OTHER);
       expect(item?.confirmedAt).toBeTruthy();
     });
 
@@ -1706,9 +1710,9 @@ describe('08-Integration-Events 课程工作流：报名触发与 Outbox 分发 
       const baselineCalls = cancelHandler.calls;
       const mutation = `
         mutation {
-          cancelSessionEnrollment(input: { sessionId: ${regretSessionId}, learnerId: ${learnerId}, reason: "E2E 用户当场后悔撤销" }) {
+          cancelSessionEnrollment(input: { sessionId: ${regretSessionId}, learnerId: ${learnerId}, reason: CUSTOMER_REGRET }) {
             isUpdated
-            enrollment { id sessionId learnerId customerId isCanceled cancelReason }
+            enrollment { id sessionId learnerId customerId status statusReason }
           }
         }
       `;
@@ -1717,7 +1721,11 @@ describe('08-Integration-Events 课程工作流：报名触发与 Outbox 分发 
         data?: {
           cancelSessionEnrollment?: {
             isUpdated: boolean;
-            enrollment: { isCanceled: 0 | 1; cancelReason: string | null; sessionId: number };
+            enrollment: {
+              sessionId: number;
+              status: ParticipationEnrollmentStatus;
+              statusReason: ParticipationEnrollmentStatusReason | null;
+            };
           };
         };
         errors?: unknown;
@@ -1725,9 +1733,11 @@ describe('08-Integration-Events 课程工作流：报名触发与 Outbox 分发 
       if (body.errors) throw new Error(`GraphQL 错误: ${JSON.stringify(body.errors)}`);
       expect(body.data?.cancelSessionEnrollment?.isUpdated).toBe(true);
       expect(body.data?.cancelSessionEnrollment?.enrollment.sessionId).toBe(regretSessionId);
-      expect(body.data?.cancelSessionEnrollment?.enrollment.isCanceled).toBe(1);
-      expect(body.data?.cancelSessionEnrollment?.enrollment.cancelReason).toBe(
-        'E2E 用户当场后悔撤销',
+      expect(body.data?.cancelSessionEnrollment?.enrollment.status).toBe(
+        ParticipationEnrollmentStatus.CANCELED,
+      );
+      expect(body.data?.cancelSessionEnrollment?.enrollment.statusReason).toBe(
+        ParticipationEnrollmentStatusReason.CUSTOMER_REGRET,
       );
 
       await sleep(250);
@@ -1746,7 +1756,7 @@ describe('08-Integration-Events 课程工作流：报名触发与 Outbox 分发 
       const baselineCalls = cancelHandler.calls;
       const mutation = `
         mutation {
-          cancelSessionEnrollment(input: { enrollmentId: ${regretExpiredEnrollmentId}, reason: "E2E 用户超时撤销" }) {
+          cancelSessionEnrollment(input: { enrollmentId: ${regretExpiredEnrollmentId}, reason: CUSTOMER_REGRET }) {
             isUpdated
             enrollment { id }
           }
@@ -1765,9 +1775,9 @@ describe('08-Integration-Events 课程工作流：报名触发与 Outbox 分发 
       const baselineCalls = cancelHandler.calls;
       const mutation = `
         mutation {
-          cancelSessionEnrollment(input: { sessionId: ${regretExpiredSessionId}, learnerId: ${learnerId}, reason: "E2E 管理员超时仍可取消" }) {
+          cancelSessionEnrollment(input: { sessionId: ${regretExpiredSessionId}, learnerId: ${learnerId}, reason: ADMIN_FORCE_CANCEL }) {
             isUpdated
-            enrollment { id sessionId learnerId isCanceled cancelReason }
+            enrollment { id sessionId learnerId status statusReason }
           }
         }
       `;
@@ -1779,8 +1789,8 @@ describe('08-Integration-Events 课程工作流：报名触发与 Outbox 分发 
             enrollment: {
               sessionId: number;
               learnerId: number;
-              isCanceled: 0 | 1;
-              cancelReason: string | null;
+              status: ParticipationEnrollmentStatus;
+              statusReason: ParticipationEnrollmentStatusReason | null;
             };
           };
         };
@@ -1790,9 +1800,11 @@ describe('08-Integration-Events 课程工作流：报名触发与 Outbox 分发 
       expect(body.data?.cancelSessionEnrollment?.isUpdated).toBe(true);
       expect(body.data?.cancelSessionEnrollment?.enrollment.sessionId).toBe(regretExpiredSessionId);
       expect(body.data?.cancelSessionEnrollment?.enrollment.learnerId).toBe(learnerId);
-      expect(body.data?.cancelSessionEnrollment?.enrollment.isCanceled).toBe(1);
-      expect(body.data?.cancelSessionEnrollment?.enrollment.cancelReason).toBe(
-        'E2E 管理员超时仍可取消',
+      expect(body.data?.cancelSessionEnrollment?.enrollment.status).toBe(
+        ParticipationEnrollmentStatus.CANCELED,
+      );
+      expect(body.data?.cancelSessionEnrollment?.enrollment.statusReason).toBe(
+        ParticipationEnrollmentStatusReason.ADMIN_FORCE_CANCEL,
       );
 
       await sleep(250);
@@ -1809,9 +1821,9 @@ describe('08-Integration-Events 课程工作流：报名触发与 Outbox 分发 
       const baselineCalls = cancelHandler.calls;
       const mutation = `
         mutation {
-          cancelSessionEnrollment(input: { enrollmentId: ${enrollment.id}, reason: "E2E 管理员纠错取消" }) {
+          cancelSessionEnrollment(input: { enrollmentId: ${enrollment.id}, reason: ADMIN_CORRECTION }) {
             isUpdated
-            enrollment { id sessionId isCanceled cancelReason }
+            enrollment { id sessionId status statusReason }
           }
         }
       `;
@@ -1820,7 +1832,11 @@ describe('08-Integration-Events 课程工作流：报名触发与 Outbox 分发 
         data?: {
           cancelSessionEnrollment?: {
             isUpdated: boolean;
-            enrollment: { isCanceled: 0 | 1; cancelReason: string | null; sessionId: number };
+            enrollment: {
+              sessionId: number;
+              status: ParticipationEnrollmentStatus;
+              statusReason: ParticipationEnrollmentStatusReason | null;
+            };
           };
         };
         errors?: unknown;
@@ -1828,9 +1844,11 @@ describe('08-Integration-Events 课程工作流：报名触发与 Outbox 分发 
       if (body.errors) throw new Error(`GraphQL 错误: ${JSON.stringify(body.errors)}`);
       expect(body.data?.cancelSessionEnrollment?.isUpdated).toBe(true);
       expect(body.data?.cancelSessionEnrollment?.enrollment.sessionId).toBe(adminPastSessionId);
-      expect(body.data?.cancelSessionEnrollment?.enrollment.isCanceled).toBe(1);
-      expect(body.data?.cancelSessionEnrollment?.enrollment.cancelReason).toBe(
-        'E2E 管理员纠错取消',
+      expect(body.data?.cancelSessionEnrollment?.enrollment.status).toBe(
+        ParticipationEnrollmentStatus.CANCELED,
+      );
+      expect(body.data?.cancelSessionEnrollment?.enrollment.statusReason).toBe(
+        ParticipationEnrollmentStatusReason.ADMIN_CORRECTION,
       );
 
       await sleep(250);
@@ -1858,9 +1876,9 @@ describe('08-Integration-Events 课程工作流：报名触发与 Outbox 分发 
 
       const mutation = `
         mutation {
-          cancelSessionEnrollment(input: { enrollmentId: ${enrollment.id}, reason: "E2E 超过阈值取消" }) {
+          cancelSessionEnrollment(input: { enrollmentId: ${enrollment.id}, reason: ADMIN_FORCE_CANCEL }) {
             isUpdated
-            enrollment { id sessionId learnerId customerId isCanceled cancelReason }
+            enrollment { id sessionId learnerId customerId status statusReason }
           }
         }
       `;
@@ -1895,9 +1913,9 @@ describe('08-Integration-Events 课程工作流：报名触发与 Outbox 分发 
 
       const mutation = `
         mutation {
-          cancelSessionEnrollment(input: { enrollmentId: ${enrollment.id}, reason: "E2E 首次取消" }) {
+          cancelSessionEnrollment(input: { enrollmentId: ${enrollment.id}, reason: CUSTOMER_REGRET }) {
             isUpdated
-            enrollment { id sessionId learnerId customerId isCanceled cancelReason }
+            enrollment { id sessionId learnerId customerId status statusReason }
           }
         }
       `;
@@ -1911,8 +1929,8 @@ describe('08-Integration-Events 课程工作流：报名触发与 Outbox 分发 
               sessionId: number;
               learnerId: number;
               customerId: number;
-              isCanceled: 0 | 1;
-              cancelReason: string | null;
+              status: ParticipationEnrollmentStatus;
+              statusReason: ParticipationEnrollmentStatusReason | null;
             };
           };
         };
@@ -1920,7 +1938,9 @@ describe('08-Integration-Events 课程工作流：报名触发与 Outbox 分发 
       };
       if (body.errors) throw new Error(`GraphQL 错误: ${JSON.stringify(body.errors)}`);
       expect(body.data?.cancelSessionEnrollment?.isUpdated).toBe(true);
-      expect(body.data?.cancelSessionEnrollment?.enrollment.isCanceled).toBe(1);
+      expect(body.data?.cancelSessionEnrollment?.enrollment.status).toBe(
+        ParticipationEnrollmentStatus.CANCELED,
+      );
 
       // 等待 Outbox 分发，并断言消费情况
       await sleep(300);
@@ -1941,9 +1961,9 @@ describe('08-Integration-Events 课程工作流：报名触发与 Outbox 分发 
       const baselineCalls = cancelHandler.calls;
       const mutation = `
         mutation {
-          cancelSessionEnrollment(input: { enrollmentId: ${enrollment.id}, reason: "E2E 重复取消" }) {
+          cancelSessionEnrollment(input: { enrollmentId: ${enrollment.id}, reason: CUSTOMER_REGRET }) {
             isUpdated
-            enrollment { id sessionId learnerId customerId isCanceled cancelReason }
+            enrollment { id sessionId learnerId customerId status statusReason }
           }
         }
       `;
@@ -2049,10 +2069,10 @@ describe('08-Integration-Events 课程工作流：报名触发与 Outbox 分发 
 
     it('批量取消开课班报名：返回成功列表并更新报名状态', async () => {
       const baselineCalls = cancelHandler.calls;
-      const reason = 'E2E 批量取消开课班';
+      const reason = ParticipationEnrollmentStatusReason.ADMIN_FORCE_CANCEL;
       const mutation = `
         mutation {
-          cancelSeriesEnrollment(input: { seriesId: ${cancelSeriesId}, learnerId: ${learnerId}, reason: "${reason}" }) {
+          cancelSeriesEnrollment(input: { seriesId: ${cancelSeriesId}, learnerId: ${learnerId}, reason: ${reason} }) {
             canceledEnrollmentIds
             unchangedEnrollmentIds
             failed { enrollmentId code message }
@@ -2081,8 +2101,8 @@ describe('08-Integration-Events 课程工作流：报名触发与 Outbox 分发 
       const rows = await enrollmentRepo.find({ where: { id: In(seriesEnrollmentIds) } });
       expect(rows).toHaveLength(seriesEnrollmentIds.length);
       for (const row of rows) {
-        expect(row.isCanceled).toBe(1);
-        expect(row.cancelReason).toBe(reason);
+        expect(row.status).toBe(ParticipationEnrollmentStatus.CANCELED);
+        expect(row.statusReason).toBe(reason);
       }
 
       await sleep(400);
@@ -2093,7 +2113,7 @@ describe('08-Integration-Events 课程工作流：报名触发与 Outbox 分发 
       const baselineCalls = cancelHandler.calls;
       const mutation = `
         mutation {
-          cancelSeriesEnrollment(input: { seriesId: ${cancelSeriesId}, learnerId: ${learnerId}, reason: "E2E 批量重复取消" }) {
+          cancelSeriesEnrollment(input: { seriesId: ${cancelSeriesId}, learnerId: ${learnerId}, reason: ADMIN_FORCE_CANCEL }) {
             canceledEnrollmentIds
             unchangedEnrollmentIds
             failed { enrollmentId }
@@ -2204,10 +2224,10 @@ describe('08-Integration-Events 课程工作流：报名触发与 Outbox 分发 
 
     it('customer 在报名后 10 分钟内可批量撤销', async () => {
       const baselineCalls = cancelHandler.calls;
-      const reason = 'E2E customer 10min 批量撤销';
+      const reason = ParticipationEnrollmentStatusReason.CUSTOMER_REGRET;
       const mutation = `
         mutation {
-          cancelSeriesEnrollment(input: { seriesId: ${cancelSeriesId}, learnerId: ${learnerId}, reason: "${reason}" }) {
+          cancelSeriesEnrollment(input: { seriesId: ${cancelSeriesId}, learnerId: ${learnerId}, reason: ${reason} }) {
             canceledEnrollmentIds
             unchangedEnrollmentIds
             failed { enrollmentId code message }
@@ -2237,8 +2257,8 @@ describe('08-Integration-Events 课程工作流：报名触发与 Outbox 分发 
       const rows = await enrollmentRepo.find({ where: { id: In(enrollmentIds) } });
       expect(rows).toHaveLength(enrollmentIds.length);
       for (const row of rows) {
-        expect(row.isCanceled).toBe(1);
-        expect(row.cancelReason).toBe(reason);
+        expect(row.status).toBe(ParticipationEnrollmentStatus.CANCELED);
+        expect(row.statusReason).toBe(reason);
       }
 
       await sleep(500);

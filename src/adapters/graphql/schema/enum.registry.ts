@@ -30,7 +30,10 @@ import {
   ManagerSortField,
   OrderDirection,
 } from '@src/types/common/sort.types';
-import { ParticipationEnrollmentStatusReason } from '@src/types/models/participation-enrollment.types';
+import {
+  ParticipationEnrollmentStatus,
+  ParticipationEnrollmentStatusReason,
+} from '@src/types/models/participation-enrollment.types';
 
 /**
  * 枚举注册配置接口
@@ -197,6 +200,16 @@ const ENUM_CONFIGS: Record<string, EnumConfig> = {
       LEAVE_SICK: { description: '病假' },
       LEAVE_PERSONAL: { description: '事假' },
       LEAVE_OTHER: { description: '其他请假' },
+    },
+  },
+  PARTICIPATION_ENROLLMENT_STATUS: {
+    enumType: ParticipationEnrollmentStatus,
+    name: 'ParticipationEnrollmentStatus',
+    description: '报名状态枚举',
+    valuesMap: {
+      ENROLLED: { description: '有效预约' },
+      CANCELED: { description: '已取消' },
+      LEAVE: { description: '已请假' },
     },
   },
 
@@ -381,6 +394,7 @@ const EXPECTED_ENUMS = [
   'VenueType',
   'CourseSeriesStatus',
   'ParticipationEnrollmentStatusReason',
+  'ParticipationEnrollmentStatus',
 ];
 
 /**

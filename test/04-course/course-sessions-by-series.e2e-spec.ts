@@ -17,6 +17,7 @@ import { CourseSessionCoachEntity } from '@src/modules/course/session-coaches/co
 import { CourseSessionCoachesService } from '@src/modules/course/session-coaches/course-session-coaches.service';
 import { CourseSessionEntity } from '@src/modules/course/sessions/course-session.entity';
 import { ParticipationEnrollmentEntity } from '@src/modules/participation/enrollment/participation-enrollment.entity';
+import { ParticipationEnrollmentStatus } from '@src/types/models/participation-enrollment.types';
 import request from 'supertest';
 import { DataSource } from 'typeorm';
 import {
@@ -107,7 +108,15 @@ describe('Course Sessions By Series (e2e)', () => {
    */
   async function createSeries(params: { readonly catalogId: number }): Promise<number> {
     const repo = dataSource.getRepository(CourseSeriesEntity);
-    const today = new Date().toISOString().slice(0, 10);
+    const now = new Date();
+    const startDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(
+      now.getDate(),
+    ).padStart(2, '0')}`;
+    const endDateValue = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+    const endDate = `${endDateValue.getFullYear()}-${String(endDateValue.getMonth() + 1).padStart(
+      2,
+      '0',
+    )}-${String(endDateValue.getDate()).padStart(2, '0')}`;
     const series = repo.create({
       catalogId: params.catalogId,
       publisherType: PublisherType.MANAGER,
@@ -123,8 +132,8 @@ describe('Course Sessions By Series (e2e)', () => {
       remark: E2E_SERIES_REMARK,
       createdBy: managerAccountId,
       updatedBy: managerAccountId,
-      startDate: today,
-      endDate: today,
+      startDate,
+      endDate,
     } as unknown as Partial<CourseSeriesEntity>);
     const saved = await repo.save(series);
     return saved.id;
@@ -566,10 +575,10 @@ describe('Course Sessions By Series (e2e)', () => {
         sessionId: sessions[0]?.id,
         learnerId: learner.id,
         customerId,
-        isCanceled: 0,
-        canceledAt: null,
-        canceledBy: null,
-        cancelReason: null,
+        status: ParticipationEnrollmentStatus.ENROLLED,
+        statusChangedAt: null,
+        statusChangedBy: null,
+        statusReason: null,
         remark: 'E2E enrollment for invisible series',
         createdBy: customerAccountId,
         updatedBy: customerAccountId,

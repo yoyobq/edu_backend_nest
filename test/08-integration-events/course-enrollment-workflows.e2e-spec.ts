@@ -413,7 +413,8 @@ describe('08-Integration-Events 课程报名工作流 (e2e)', () => {
               sessionId
               learnerId
               customerId
-              isCanceled
+              status
+              statusReason
               remark
             }
           }
@@ -429,7 +430,8 @@ describe('08-Integration-Events 课程报名工作流 (e2e)', () => {
               sessionId: number;
               learnerId: number;
               customerId: number;
-              isCanceled: 0 | 1;
+              status: string;
+              statusReason: string | null;
               remark: string | null;
             };
           };
@@ -454,7 +456,7 @@ describe('08-Integration-Events 课程报名工作流 (e2e)', () => {
         mutation {
           enrollLearnerToSession(input: { sessionId: ${sessionId}, learnerId: ${learnerId}, remark: "E2E 重复报名" }) {
             isNewlyCreated
-            enrollment { id sessionId learnerId customerId isCanceled remark }
+            enrollment { id sessionId learnerId customerId status statusReason remark }
           }
         }
       `;
@@ -517,9 +519,9 @@ describe('08-Integration-Events 课程报名工作流 (e2e)', () => {
             sessionId
             learnerId
             customerId
-            isCanceled
+            status
+            statusReason
             remark
-            cancelReason
           }
         }
       `;
