@@ -19,6 +19,7 @@ import { ListCurrentAccountEnrolledSeriesIdsUsecase } from '@src/usecases/course
 import { ListCurrentAccountEnrolledSessionIdsUsecase } from '@src/usecases/course/workflows/list-current-account-enrolled-session-ids.usecase';
 import { ListLearnerEnrolledSessionIdsBySeriesUsecase } from '@src/usecases/course/workflows/list-learner-enrolled-session-ids-by-series.usecase';
 import { ListSessionEnrollmentsUsecase } from '@src/usecases/course/workflows/list-session-enrollments.usecase';
+import { RequestSessionLeaveUsecase } from '@src/usecases/course/workflows/request-session-leave.usecase';
 import { currentUser } from '../../decorators/current-user.decorator';
 import { JwtAuthGuard } from '../../guards/jwt-auth.guard';
 import { CancelEnrollmentInputGql } from './dto/cancel-enrollment.input';
@@ -32,6 +33,7 @@ import {
   HasLearnerEnrollmentInputGql,
   ListLearnerEnrolledSessionIdsBySeriesInputGql,
   ListSessionEnrollmentsInputGql,
+  RequestSessionLeaveInputGql,
 } from './dto/enrollment.input';
 import {
   EnrollLearnerToSeriesFailedItemGql,
@@ -44,6 +46,7 @@ import {
   ListCurrentAccountEnrolledSeriesIdsResultGql,
   ListCurrentAccountEnrolledSessionsResultGql,
   ListLearnerEnrolledSessionIdsBySeriesResultGql,
+  RequestSessionLeaveResultGql,
 } from './dto/enrollment.result';
 
 /**
@@ -64,6 +67,7 @@ export class SessionEnrollmentResolver {
     private readonly listCurrentAccountEnrolledSeriesIdsUsecase: ListCurrentAccountEnrolledSeriesIdsUsecase,
     private readonly listCurrentAccountEnrolledSessionIdsUsecase: ListCurrentAccountEnrolledSessionIdsUsecase,
     private readonly listSessionEnrollmentsUsecase: ListSessionEnrollmentsUsecase,
+    private readonly requestSessionLeaveUsecase: RequestSessionLeaveUsecase,
   ) {}
 
   /**
@@ -94,6 +98,36 @@ export class SessionEnrollmentResolver {
       },
       isNewlyCreated: result.isNewlyCreated,
     } as EnrollLearnerToSessionResultGql;
+  }
+
+  /**
+   * 学员请假（节次）
+   * @param user 当前登录用户的 JWT 载荷
+   * @param input 请假输入
+   */
+  @UseGuards(JwtAuthGuard)
+  @Mutation(() => RequestSessionLeaveResultGql, { name: 'requestSessionLeave' })
+  async requestSessionLeave(
+    @currentUser() user: JwtPayload,
+    @Args('input') input: RequestSessionLeaveInputGql,
+  ): Promise<RequestSessionLeaveResultGql> {
+    const session: UsecaseSession = mapJwtToUsecaseSession(user);
+    const result = await this.requestSessionLeaveUsecase.execute(session, {
+      sessionId: input.sessionId,
+      learnerId: input.learnerId,
+      reason: input.reason ?? null,
+    });
+    return {
+      attendance: {
+        enrollmentId: result.attendance.enrollmentId,
+        sessionId: result.attendance.sessionId,
+        learnerId: result.attendance.learnerId,
+        status: result.attendance.status,
+        reason: result.attendance.reason,
+        confirmedAt: result.attendance.confirmedAt,
+      },
+      isUpdated: result.isUpdated,
+    } as RequestSessionLeaveResultGql;
   }
 
   /**

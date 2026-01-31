@@ -28,6 +28,31 @@ export class EnrollLearnerToSessionInputGql {
 }
 
 /**
+ * 用户请假 GraphQL 输入
+ * 定义供适配层传参的结构，统一由 Resolver 派发到 usecase。
+ */
+@InputType()
+export class RequestSessionLeaveInputGql {
+  /** 节次 ID */
+  @Field(() => Int)
+  @IsInt()
+  readonly sessionId!: number;
+
+  /** 学员 ID */
+  @Field(() => Int)
+  @IsInt()
+  readonly learnerId!: number;
+
+  /** 请假原因，可选 */
+  @Field(() => String, { nullable: true })
+  @IsOptional()
+  @IsString()
+  @MinLength(0)
+  @MaxLength(255)
+  readonly reason?: string | null;
+}
+
+/**
  * 学员报名到开课班的 GraphQL 输入
  * 定义供适配层传参的结构，统一由 Resolver 派发到 usecase。
  */

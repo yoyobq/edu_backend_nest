@@ -60,6 +60,42 @@ export class EnrollLearnerToSessionResultGql {
 }
 
 /**
+ * 用户请假出勤信息输出
+ */
+@ObjectType()
+export class SessionLeaveAttendanceGql {
+  @Field(() => Int)
+  readonly enrollmentId!: number;
+
+  @Field(() => Int)
+  readonly sessionId!: number;
+
+  @Field(() => Int)
+  readonly learnerId!: number;
+
+  @Field(() => String)
+  readonly status!: string;
+
+  @Field(() => String, { nullable: true })
+  readonly reason!: string | null;
+
+  @Field(() => Date, { nullable: true })
+  readonly confirmedAt!: Date | null;
+}
+
+/**
+ * 用户请假结果输出
+ */
+@ObjectType()
+export class RequestSessionLeaveResultGql {
+  @Field(() => SessionLeaveAttendanceGql)
+  readonly attendance!: SessionLeaveAttendanceGql;
+
+  @Field(() => Boolean)
+  readonly isUpdated!: boolean;
+}
+
+/**
  * 批量报名开课班失败明细
  */
 @ObjectType()

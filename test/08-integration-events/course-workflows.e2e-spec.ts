@@ -730,6 +730,128 @@ describe('08-Integration-Events 课程工作流：报名触发与 Outbox 分发 
   });
 
   /**
+   * RequestSessionLeave GraphQL - 正例 (e2e)
+   * 验证：学员请假写入 EXCUSED 出勤并返回完整字段
+   */
+  describe('RequestSessionLeave GraphQL - 正例 (e2e)', () => {
+    let enrollmentId: number;
+
+    /**
+     * 初始化请假前置数据
+     */
+    beforeAll(async () => {
+      const attendanceRepo = dataSource.getRepository(ParticipationAttendanceRecordEntity);
+      const enrollmentRepo = dataSource.getRepository(ParticipationEnrollmentEntity);
+
+      await attendanceRepo.delete({ sessionId, learnerId });
+      await enrollmentRepo.delete({ sessionId, learnerId });
+
+      const mutation = `
+        mutation {
+          enrollLearnerToSession(input: { sessionId: ${sessionId}, learnerId: ${learnerId}, remark: "E2E 请假前置报名" }) {
+            isNewlyCreated
+          }
+        }
+      `;
+      const res = await executeGql(app, { query: mutation, token: customerToken }).expect(200);
+      const body = res.body as unknown as {
+        data?: { enrollLearnerToSession?: { isNewlyCreated: boolean } };
+        errors?: unknown;
+      };
+      if (body.errors) throw new Error(`GraphQL 错误: ${JSON.stringify(body.errors)}`);
+
+      const latest = await enrollmentRepo.findOne({ where: { sessionId, learnerId } });
+      if (!latest) throw new Error('前置失败：未找到报名记录');
+      enrollmentId = latest.id;
+
+      const sessionRepo = dataSource.getRepository(CourseSessionEntity);
+      await sessionRepo.update({ id: sessionId }, { leaveCutoffHoursOverride: 0 });
+    });
+
+    /**
+     * 校验返回字段与落库出勤状态
+     */
+    it('学员请假应返回 EXCUSED 并写入出勤记录', async () => {
+      const mutation = `
+        mutation RequestLeave($input: RequestSessionLeaveInputGql!) {
+          requestSessionLeave(input: $input) {
+            isUpdated
+            attendance {
+              enrollmentId
+              sessionId
+              learnerId
+              status
+              reason
+              confirmedAt
+            }
+          }
+        }
+      `;
+      const variables = {
+        input: {
+          sessionId,
+          learnerId,
+          reason: 'E2E 请假原因',
+        },
+      };
+      const res = await request(app.getHttpServer())
+        .post('/graphql')
+        .send({ query: mutation, variables })
+        .set('Authorization', `Bearer ${customerToken}`)
+        .expect(200);
+      const body = res.body as unknown as {
+        data?: {
+          requestSessionLeave?: {
+            isUpdated: boolean;
+            attendance: {
+              enrollmentId: number;
+              sessionId: number;
+              learnerId: number;
+              status: string;
+              reason: string | null;
+              confirmedAt: string | null;
+            };
+          };
+        };
+        errors?: unknown;
+      };
+      if (body.errors) throw new Error(`GraphQL 错误: ${JSON.stringify(body.errors)}`);
+      const result = body.data?.requestSessionLeave;
+      expect(result?.isUpdated).toBe(true);
+      expect(result?.attendance.enrollmentId).toBe(enrollmentId);
+      expect(result?.attendance.sessionId).toBe(sessionId);
+      expect(result?.attendance.learnerId).toBe(learnerId);
+      expect(result?.attendance.status).toBe(ParticipationAttendanceStatus.EXCUSED);
+      expect(result?.attendance.reason).toBe('E2E 请假原因');
+      expect(result?.attendance.confirmedAt).toBeTruthy();
+
+      const attendanceRepo = dataSource.getRepository(ParticipationAttendanceRecordEntity);
+      const row = await attendanceRepo.findOne({ where: { enrollmentId, sessionId, learnerId } });
+      if (!row) throw new Error('请假后未找到出勤记录');
+      expect(row.status).toBe(ParticipationAttendanceStatus.EXCUSED);
+      expect(row.remark).toBe('E2E 请假原因');
+    });
+
+    /**
+     * 清理测试数据
+     */
+    afterAll(async () => {
+      await dataSource
+        .createQueryBuilder()
+        .delete()
+        .from(ParticipationAttendanceRecordEntity)
+        .where('session_id = :sid AND learner_id = :lid', { sid: sessionId, lid: learnerId })
+        .execute();
+      await dataSource
+        .createQueryBuilder()
+        .delete()
+        .from(ParticipationEnrollmentEntity)
+        .where('session_id = :sid AND learner_id = :lid', { sid: sessionId, lid: learnerId })
+        .execute();
+    });
+  });
+
+  /**
    * ListSessionLeaveRequests GraphQL - 正例 (e2e)
    * 验证：返回已请假的明细行（含请假原因与学员）
    */
