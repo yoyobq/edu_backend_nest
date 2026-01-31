@@ -21,6 +21,10 @@ import { CourseSeriesService } from '@src/modules/course/series/course-series.se
 import { CourseSessionsService } from '@src/modules/course/sessions/course-sessions.service';
 import { ParticipationEnrollmentService } from '@src/modules/participation/enrollment/participation-enrollment.service';
 import { type UsecaseSession } from '@src/types/auth/session.types';
+import {
+  ParticipationEnrollmentStatus,
+  ParticipationEnrollmentStatusReason,
+} from '@src/types/models/participation-enrollment.types';
 
 /**
  * 为学员报名到节次用例
@@ -47,7 +51,8 @@ export interface EnrollLearnerToSessionOutput {
     readonly sessionId: number;
     readonly learnerId: number;
     readonly customerId: number;
-    readonly isCanceled: 0 | 1;
+    readonly status: ParticipationEnrollmentStatus;
+    readonly statusReason: ParticipationEnrollmentStatusReason | null;
     readonly remark: string | null;
   };
   readonly isNewlyCreated: boolean;
@@ -89,14 +94,15 @@ export class EnrollLearnerToSessionUsecase {
       sessionId: input.sessionId,
       learnerId: input.learnerId,
     });
-    if (existing && (existing.isCanceled ?? 0) === 0) {
+    if (existing && existing.status === ParticipationEnrollmentStatus.ENROLLED) {
       return {
         enrollment: {
           id: existing.id,
           sessionId: existing.sessionId,
           learnerId: existing.learnerId,
           customerId: existing.customerId,
-          isCanceled: (existing.isCanceled ?? 0) as 0 | 1,
+          status: existing.status,
+          statusReason: existing.statusReason ?? null,
           remark: existing.remark ?? null,
         },
         isNewlyCreated: false,
@@ -345,7 +351,7 @@ export class EnrollLearnerToSessionUsecase {
     });
 
     if (existing) {
-      if ((existing.isCanceled ?? 0) === 1) {
+      if (existing.status === ParticipationEnrollmentStatus.CANCELED) {
         const restored = await this.enrollmentService.restore(existing.id, {
           updatedBy: session.accountId,
         });
@@ -355,7 +361,8 @@ export class EnrollLearnerToSessionUsecase {
             sessionId: restored.sessionId,
             learnerId: restored.learnerId,
             customerId: restored.customerId,
-            isCanceled: (restored.isCanceled ?? 0) as 0 | 1,
+            status: restored.status,
+            statusReason: restored.statusReason ?? null,
             remark: restored.remark ?? null,
           },
           isNewlyCreated: false,
@@ -367,7 +374,8 @@ export class EnrollLearnerToSessionUsecase {
           sessionId: existing.sessionId,
           learnerId: existing.learnerId,
           customerId: existing.customerId,
-          isCanceled: (existing.isCanceled ?? 0) as 0 | 1,
+          status: existing.status,
+          statusReason: existing.statusReason ?? null,
           remark: existing.remark ?? null,
         },
         isNewlyCreated: false,
@@ -387,7 +395,8 @@ export class EnrollLearnerToSessionUsecase {
         sessionId: created.sessionId,
         learnerId: created.learnerId,
         customerId: created.customerId,
-        isCanceled: (created.isCanceled ?? 0) as 0 | 1,
+        status: created.status,
+        statusReason: created.statusReason ?? null,
         remark: created.remark ?? null,
       },
       isNewlyCreated: created.createdAt.getTime() === created.updatedAt.getTime(),

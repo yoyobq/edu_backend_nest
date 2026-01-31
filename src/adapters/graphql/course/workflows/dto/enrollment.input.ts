@@ -1,6 +1,7 @@
 // src/adapters/graphql/course/workflows/dto/enrollment.input.ts
 import { Field, InputType, Int } from '@nestjs/graphql';
-import { IsInt, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import { ParticipationEnrollmentStatusReason } from '@src/types/models/participation-enrollment.types';
+import { IsEnum, IsInt, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
 
 /**
  * 学员报名到节次的 GraphQL 输入
@@ -44,12 +45,10 @@ export class RequestSessionLeaveInputGql {
   readonly learnerId!: number;
 
   /** 请假原因，可选 */
-  @Field(() => String, { nullable: true })
+  @Field(() => ParticipationEnrollmentStatusReason, { nullable: true })
   @IsOptional()
-  @IsString()
-  @MinLength(0)
-  @MaxLength(255)
-  readonly reason?: string | null;
+  @IsEnum(ParticipationEnrollmentStatusReason)
+  readonly reason?: ParticipationEnrollmentStatusReason | null;
 }
 
 /**

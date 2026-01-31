@@ -1,6 +1,7 @@
 // src/adapters/graphql/course/workflows/dto/cancel-enrollment.input.ts
 import { Field, InputType, Int } from '@nestjs/graphql';
-import { IsInt, IsOptional, IsString, MaxLength, Min, MinLength } from 'class-validator';
+import { ParticipationEnrollmentStatusReason } from '@src/types/models/participation-enrollment.types';
+import { IsEnum, IsInt, IsOptional, Min } from 'class-validator';
 
 /**
  * 取消报名的 GraphQL 输入
@@ -30,12 +31,10 @@ export class CancelEnrollmentInputGql {
   readonly learnerId?: number;
 
   /** 取消原因，可选 */
-  @Field(() => String, { nullable: true })
+  @Field(() => ParticipationEnrollmentStatusReason, { nullable: true })
   @IsOptional()
-  @IsString()
-  @MinLength(0)
-  @MaxLength(255)
-  readonly reason?: string | null;
+  @IsEnum(ParticipationEnrollmentStatusReason)
+  readonly reason?: ParticipationEnrollmentStatusReason | null;
 }
 
 // 文件末尾保留换行

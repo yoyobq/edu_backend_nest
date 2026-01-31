@@ -15,13 +15,14 @@ import { ManagerService } from '@src/modules/account/identities/training/manager
 import { CourseSeriesService } from '@src/modules/course/series/course-series.service';
 import { ParticipationEnrollmentService } from '@src/modules/participation/enrollment/participation-enrollment.service';
 import type { UsecaseSession } from '@src/types/auth/session.types';
+import { ParticipationEnrollmentStatusReason } from '@src/types/models/participation-enrollment.types';
 import { CancelEnrollmentUsecase } from './cancel-enrollment.usecase';
 
 export interface CancelSeriesEnrollmentInput {
   readonly session: UsecaseSession;
   readonly seriesId: number;
   readonly learnerId: number;
-  readonly reason?: string | null;
+  readonly reason?: ParticipationEnrollmentStatusReason | null;
 }
 
 export interface CancelSeriesEnrollmentFailedItem {

@@ -1,10 +1,11 @@
 // src/usecases/course/workflows/load-session-attendance-sheet.usecase.ts
+import { ParticipationAttendanceStatus } from '@app-types/models/attendance.types';
 import { DomainError, PERMISSION_ERROR, SESSION_ERROR } from '@core/common/errors/domain-error';
 import { Injectable } from '@nestjs/common';
 import { CoachService } from '@src/modules/account/identities/training/coach/coach.service';
 import { LearnerService } from '@src/modules/account/identities/training/learner/account-learner.service';
-import { CourseSessionsService } from '@src/modules/course/sessions/course-sessions.service';
 import { CourseSessionCoachesService } from '@src/modules/course/session-coaches/course-session-coaches.service';
+import { CourseSessionsService } from '@src/modules/course/sessions/course-sessions.service';
 import {
   ParticipationAttendanceService,
   type AttendanceSheet,
@@ -12,7 +13,7 @@ import {
 } from '@src/modules/participation/attendance/participation-attendance.service';
 import { ParticipationEnrollmentService } from '@src/modules/participation/enrollment/participation-enrollment.service';
 import { type UsecaseSession } from '@src/types/auth/session.types';
-import { ParticipationAttendanceStatus } from '@app-types/models/attendance.types';
+import { ParticipationEnrollmentStatus } from '@src/types/models/participation-enrollment.types';
 
 /**
  * 加载节次点名视图 用例
@@ -80,7 +81,7 @@ export class LoadSessionAttendanceSheetUsecase {
    * 构建点名表行（合并 enrollment 与 attendance）
    */
   private makeRow(input: {
-    readonly e: { id: number; learnerId: number; isCanceled: number };
+    readonly e: { id: number; learnerId: number; status: ParticipationEnrollmentStatus };
     readonly a: {
       status?: ParticipationAttendanceStatus;
       countApplied?: string;
@@ -90,11 +91,13 @@ export class LoadSessionAttendanceSheetUsecase {
     } | null;
     readonly defaultCount: number;
   }): AttendanceSheetRow {
-    const canceled: 0 | 1 = input.e.isCanceled === 1 ? 1 : 0;
-    const status = this.deriveStatus({ a: input.a, isCanceled: canceled });
+    const canceled: 0 | 1 = input.e.status === ParticipationEnrollmentStatus.CANCELED ? 1 : 0;
+    const isLeave = input.e.status === ParticipationEnrollmentStatus.LEAVE;
+    const status = this.deriveStatus({ a: input.a, isCanceled: canceled, isLeave });
     const countApplied = this.deriveCountApplied({
       a: input.a,
       isCanceled: canceled,
+      isLeave,
       defaultCount: input.defaultCount,
     });
     return {
@@ -115,12 +118,13 @@ export class LoadSessionAttendanceSheetUsecase {
   private deriveStatus(input: {
     readonly a: { status?: ParticipationAttendanceStatus } | null;
     readonly isCanceled: 0 | 1;
+    readonly isLeave: boolean;
   }): ParticipationAttendanceStatus {
     const s = input.a?.status;
     if (s != null) return s;
-    return input.isCanceled === 1
-      ? ParticipationAttendanceStatus.CANCELLED
-      : ParticipationAttendanceStatus.NO_SHOW;
+    if (input.isCanceled === 1) return ParticipationAttendanceStatus.CANCELLED;
+    if (input.isLeave) return ParticipationAttendanceStatus.EXCUSED;
+    return ParticipationAttendanceStatus.NO_SHOW;
   }
 
   /**
@@ -129,11 +133,12 @@ export class LoadSessionAttendanceSheetUsecase {
   private deriveCountApplied(input: {
     readonly a: { countApplied?: string } | null;
     readonly isCanceled: 0 | 1;
+    readonly isLeave: boolean;
     readonly defaultCount: number | string;
   }): string {
     const v = input.a?.countApplied;
     if (v != null) return v;
-    if (input.isCanceled === 1) return '0.00';
+    if (input.isCanceled === 1 || input.isLeave) return '0.00';
     const num =
       typeof input.defaultCount === 'number'
         ? input.defaultCount

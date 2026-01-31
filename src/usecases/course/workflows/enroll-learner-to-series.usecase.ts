@@ -23,6 +23,7 @@ import { CourseSeriesService } from '@src/modules/course/series/course-series.se
 import { CourseSessionsService } from '@src/modules/course/sessions/course-sessions.service';
 import { ParticipationEnrollmentService } from '@src/modules/participation/enrollment/participation-enrollment.service';
 import type { UsecaseSession } from '@src/types/auth/session.types';
+import { ParticipationEnrollmentStatus } from '@src/types/models/participation-enrollment.types';
 
 export interface EnrollLearnerToSeriesInput {
   readonly session: UsecaseSession;
@@ -112,7 +113,7 @@ export class EnrollLearnerToSeriesUsecase {
           sessionId: session.id,
           learnerId: input.learnerId,
         });
-        if (existing && (existing.isCanceled ?? 0) === 0) {
+        if (existing && existing.status !== ParticipationEnrollmentStatus.CANCELED) {
           unchangedEnrollmentIds.push(existing.id);
           continue;
         }
@@ -124,7 +125,7 @@ export class EnrollLearnerToSeriesUsecase {
           await this.ensureCapacityOrThrow({ sessionId: session.id, seriesId: series.id });
         }
 
-        if (existing && (existing.isCanceled ?? 0) === 1) {
+        if (existing && existing.status === ParticipationEnrollmentStatus.CANCELED) {
           const restored = await this.enrollmentService.restore(existing.id, {
             updatedBy: input.session.accountId,
           });

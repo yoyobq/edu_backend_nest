@@ -1,5 +1,4 @@
 // src/usecases/course/workflows/cancel-enrollment.usecase.ts
-import { ParticipationAttendanceStatus } from '@app-types/models/attendance.types';
 import { SessionStatus } from '@app-types/models/course-session.types';
 import {
   DomainError,
@@ -15,9 +14,12 @@ import { CustomerService } from '@src/modules/account/identities/training/custom
 import { INTEGRATION_EVENTS_TOKENS } from '@src/modules/common/integration-events/events.tokens';
 import { CourseSeriesService } from '@src/modules/course/series/course-series.service';
 import { CourseSessionsService } from '@src/modules/course/sessions/course-sessions.service';
-import { ParticipationAttendanceService } from '@src/modules/participation/attendance/participation-attendance.service';
 import { ParticipationEnrollmentService } from '@src/modules/participation/enrollment/participation-enrollment.service';
 import { type UsecaseSession } from '@src/types/auth/session.types';
+import {
+  ParticipationEnrollmentStatus,
+  ParticipationEnrollmentStatusReason,
+} from '@src/types/models/participation-enrollment.types';
 import { DataSource } from 'typeorm';
 
 const CUSTOMER_REGRET_MILLIS = 10 * 60 * 1000;
@@ -33,7 +35,7 @@ export interface CancelEnrollmentInput {
   readonly enrollmentId?: number;
   readonly sessionId?: number;
   readonly learnerId?: number;
-  readonly reason?: string | null;
+  readonly reason?: ParticipationEnrollmentStatusReason | null;
 }
 
 export interface CancelEnrollmentOutput {
@@ -42,8 +44,8 @@ export interface CancelEnrollmentOutput {
     readonly sessionId: number;
     readonly learnerId: number;
     readonly customerId: number;
-    readonly isCanceled: 0 | 1;
-    readonly cancelReason: string | null;
+    readonly status: ParticipationEnrollmentStatus;
+    readonly statusReason: ParticipationEnrollmentStatusReason | null;
   };
   readonly isUpdated: boolean;
 }
@@ -56,7 +58,6 @@ export class CancelEnrollmentUsecase {
     private readonly seriesService: CourseSeriesService,
     private readonly enrollmentService: ParticipationEnrollmentService,
     private readonly customerService: CustomerService,
-    private readonly attendanceService: ParticipationAttendanceService,
     @Inject(INTEGRATION_EVENTS_TOKENS.OUTBOX_WRITER_PORT)
     private readonly outboxWriter: IOutboxWriterPort,
   ) {}
@@ -73,7 +74,8 @@ export class CancelEnrollmentUsecase {
     this.ensurePermissions(session);
     const enrollment = await this.loadEnrollmentFromInputOrThrow(input);
     await this.ensureCustomerOwnershipIfNeeded(session, enrollment.customerId);
-    const idempotent = await this.tryIdempotentReturn(enrollment);
+    this.ensureCancelReasonOrThrow({ reason: input.reason ?? null });
+    const idempotent = this.tryIdempotentReturn(enrollment);
     if (idempotent) return idempotent;
     const sessionEntity = await this.loadCancelableSessionOrThrow({
       session,
@@ -215,29 +217,22 @@ export class CancelEnrollmentUsecase {
   }
 
   /**
-   * 幂等返回：当报名已取消时，补写出勤为 CANCELLED/0 并直接返回
+   * 幂等返回：当报名已取消时直接返回
    * @param enrollment 报名实体
    * @returns 取消结果或 null（表示需继续流程）
    */
-  private async tryIdempotentReturn(
+  private tryIdempotentReturn(
     enrollment: NonNullable<Awaited<ReturnType<ParticipationEnrollmentService['findById']>>>,
-  ): Promise<CancelEnrollmentOutput | null> {
-    if ((enrollment.isCanceled ?? 0) !== 1) return null;
-    await this.attendanceService.upsertByEnrollment({
-      enrollmentId: enrollment.id,
-      sessionId: enrollment.sessionId,
-      learnerId: enrollment.learnerId,
-      status: ParticipationAttendanceStatus.CANCELLED,
-      countApplied: '0.00',
-    });
+  ): CancelEnrollmentOutput | null {
+    if (enrollment.status !== ParticipationEnrollmentStatus.CANCELED) return null;
     return {
       enrollment: {
         id: enrollment.id,
         sessionId: enrollment.sessionId,
         learnerId: enrollment.learnerId,
         customerId: enrollment.customerId,
-        isCanceled: 1,
-        cancelReason: enrollment.cancelReason ?? null,
+        status: enrollment.status,
+        statusReason: enrollment.statusReason ?? null,
       },
       isUpdated: false,
     };
@@ -329,29 +324,21 @@ export class CancelEnrollmentUsecase {
   }
 
   /**
-   * 事务取消报名并写入出勤 CANCELLED/0，入箱 EnrollmentCancelled 事件
+   * 事务取消报名并入箱 EnrollmentCancelled 事件
    * @param params 事务所需上下文与入参
    * @returns 更新后的报名实体
    */
   private async performCancelTxn(params: {
     session: UsecaseSession;
     enrollment: NonNullable<Awaited<ReturnType<ParticipationEnrollmentService['findById']>>>;
-    reason: string | null;
+    reason: ParticipationEnrollmentStatusReason | null;
     beforeCutoff: boolean;
     seriesId: number;
   }) {
     const updated = await this.dataSource.transaction(async () => {
       const u = await this.enrollmentService.cancel(params.enrollment.id, {
         canceledBy: params.session.accountId,
-        cancelReason: params.reason ?? null,
-      });
-
-      await this.attendanceService.upsertByEnrollment({
-        enrollmentId: u.id,
-        sessionId: u.sessionId,
-        learnerId: u.learnerId,
-        status: ParticipationAttendanceStatus.CANCELLED,
-        countApplied: '0.00',
+        statusReason: params.reason ?? null,
       });
 
       const envelope = buildEnvelope({
@@ -365,7 +352,7 @@ export class CancelEnrollmentUsecase {
           learnerId: u.learnerId,
           customerId: u.customerId,
           canceledBy: params.session.accountId,
-          cancelReason: params.reason ?? null,
+          statusReason: params.reason ?? null,
           beforeCutoff: params.beforeCutoff,
         },
         priority: 5,
@@ -390,10 +377,32 @@ export class CancelEnrollmentUsecase {
         sessionId: updated.sessionId,
         learnerId: updated.learnerId,
         customerId: updated.customerId,
-        isCanceled: (updated.isCanceled ?? 1) as 0 | 1,
-        cancelReason: updated.cancelReason ?? null,
+        status: updated.status,
+        statusReason: updated.statusReason ?? null,
       },
       isUpdated: true,
     };
+  }
+
+  /**
+   * 判断原因是否为 LEAVE 枚举
+   * @param reason 报名状态原因
+   */
+  private isLeaveReason(reason: ParticipationEnrollmentStatusReason): boolean {
+    return reason.startsWith('LEAVE_');
+  }
+
+  /**
+   * 校验取消原因为非 LEAVE 枚举
+   * @param params 原因参数对象
+   */
+  private ensureCancelReasonOrThrow(params: {
+    readonly reason: ParticipationEnrollmentStatusReason | null;
+  }): void {
+    if (params.reason == null) return;
+    if (!this.isLeaveReason(params.reason)) return;
+    throw new DomainError(ENROLLMENT_ERROR.INVALID_PARAMS, '取消原因非法', {
+      reason: params.reason,
+    });
   }
 }

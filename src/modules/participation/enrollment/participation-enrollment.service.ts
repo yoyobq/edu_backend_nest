@@ -2,6 +2,10 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { LearnerEntity } from '@src/modules/account/identities/training/learner/account-learner.entity';
+import {
+  ParticipationEnrollmentStatus,
+  ParticipationEnrollmentStatusReason,
+} from '@src/types/models/participation-enrollment.types';
 import { EntityManager, In, Repository } from 'typeorm';
 import { ParticipationEnrollmentEntity } from './participation-enrollment.entity';
 
@@ -25,6 +29,10 @@ export class ParticipationEnrollmentService {
     readonly customerId: number;
     readonly seriesId: number;
   }): Promise<boolean> {
+    const activeStatuses = [
+      ParticipationEnrollmentStatus.ENROLLED,
+      ParticipationEnrollmentStatus.LEAVE,
+    ];
     const row = await this.enrollmentRepository
       .createQueryBuilder('e')
       .select('1', 'one')
@@ -32,7 +40,7 @@ export class ParticipationEnrollmentService {
         seriesId: params.seriesId,
       })
       .where('e.customer_id = :customerId', { customerId: params.customerId })
-      .andWhere('e.is_canceled = 0')
+      .andWhere('e.status IN (:...statuses)', { statuses: activeStatuses })
       .limit(1)
       .getRawOne<{ one: number }>();
     return !!row;
@@ -44,12 +52,16 @@ export class ParticipationEnrollmentService {
    * @returns 是否存在有效报名
    */
   async hasActiveEnrollmentByLearner(params: { readonly learnerId: number }): Promise<boolean> {
+    const activeStatuses = [
+      ParticipationEnrollmentStatus.ENROLLED,
+      ParticipationEnrollmentStatus.LEAVE,
+    ];
     const row = await this.enrollmentRepository
       .createQueryBuilder('e')
       .select('1', 'one')
       .innerJoin('course_sessions', 's', 's.id = e.session_id')
       .where('e.learner_id = :learnerId', { learnerId: params.learnerId })
-      .andWhere('e.is_canceled = 0')
+      .andWhere('e.status IN (:...statuses)', { statuses: activeStatuses })
       .limit(1)
       .getRawOne<{ one: number }>();
     return !!row;
@@ -133,10 +145,10 @@ export class ParticipationEnrollmentService {
       sessionId: data.sessionId,
       learnerId: data.learnerId,
       customerId: data.customerId,
-      isCanceled: 0,
-      canceledAt: null,
-      canceledBy: null,
-      cancelReason: null,
+      status: ParticipationEnrollmentStatus.ENROLLED,
+      statusChangedAt: null,
+      statusChangedBy: null,
+      statusReason: null,
       remark: data.remark ?? null,
       createdBy: data.createdBy ?? null,
       updatedBy: data.createdBy ?? null,
@@ -151,19 +163,61 @@ export class ParticipationEnrollmentService {
    */
   async cancel(
     id: number,
-    params: { canceledBy?: number | null; cancelReason?: string | null },
+    params: {
+      canceledBy?: number | null;
+      statusReason?: ParticipationEnrollmentStatusReason | null;
+    },
   ): Promise<ParticipationEnrollmentEntity> {
+    const statusReason =
+      params.statusReason != null &&
+      Object.values(ParticipationEnrollmentStatusReason).includes(params.statusReason)
+        ? params.statusReason
+        : null;
     await this.enrollmentRepository.update(
       { id },
       {
-        isCanceled: 1,
-        canceledAt: new Date(),
-        canceledBy: params.canceledBy ?? null,
-        cancelReason: params.cancelReason ?? null,
+        status: ParticipationEnrollmentStatus.CANCELED,
+        statusChangedAt: new Date(),
+        statusChangedBy: params.canceledBy ?? null,
+        statusReason,
       },
     );
     const fresh = await this.enrollmentRepository.findOne({ where: { id } });
     if (!fresh) throw new Error('取消后的报名未找到');
+    return fresh;
+  }
+
+  /**
+   * 更新报名状态
+   * @param params 状态更新参数对象
+   */
+  async updateStatus(params: {
+    readonly id: number;
+    readonly status: ParticipationEnrollmentStatus;
+    readonly reason?: ParticipationEnrollmentStatusReason | null;
+    readonly statusChangedBy?: number | null;
+    readonly manager?: EntityManager;
+  }): Promise<ParticipationEnrollmentEntity> {
+    const repo = params.manager
+      ? params.manager.getRepository(ParticipationEnrollmentEntity)
+      : this.enrollmentRepository;
+    const statusReason =
+      params.status !== ParticipationEnrollmentStatus.ENROLLED &&
+      params.reason != null &&
+      Object.values(ParticipationEnrollmentStatusReason).includes(params.reason)
+        ? params.reason
+        : null;
+    await repo.update(
+      { id: params.id },
+      {
+        status: params.status,
+        statusChangedAt: new Date(),
+        statusChangedBy: params.statusChangedBy ?? null,
+        statusReason,
+      },
+    );
+    const fresh = await repo.findOne({ where: { id: params.id } });
+    if (!fresh) throw new Error('更新后的报名未找到');
     return fresh;
   }
 
@@ -182,10 +236,10 @@ export class ParticipationEnrollmentService {
     await repo.update(
       { id },
       {
-        isCanceled: 0,
-        canceledAt: null,
-        canceledBy: null,
-        cancelReason: null,
+        status: ParticipationEnrollmentStatus.ENROLLED,
+        statusChangedAt: new Date(),
+        statusChangedBy: params.updatedBy ?? null,
+        statusReason: null,
         updatedBy: params.updatedBy ?? null,
       },
     );
@@ -208,13 +262,18 @@ export class ParticipationEnrollmentService {
 
   /**
    * 统计某节次的有效报名人数
-   * 有效报名定义：`isCanceled = 0`
+   * 有效报名定义：`status != CANCELED`
    * @param params 统计参数对象
    * @returns 有效报名计数
    */
   async countEffectiveBySession(params: { sessionId: number }): Promise<number> {
     const { sessionId } = params;
-    return await this.enrollmentRepository.count({ where: { sessionId, isCanceled: 0 } });
+    return await this.enrollmentRepository.count({
+      where: {
+        sessionId,
+        status: In([ParticipationEnrollmentStatus.ENROLLED, ParticipationEnrollmentStatus.LEAVE]),
+      },
+    });
   }
 
   /**
@@ -249,10 +308,10 @@ export class ParticipationEnrollmentService {
         sessionId,
         learnerId: params.learnerId,
         customerId: params.customerId,
-        isCanceled: 0,
-        canceledAt: null,
-        canceledBy: null,
-        cancelReason: null,
+        status: ParticipationEnrollmentStatus.ENROLLED,
+        statusChangedAt: null,
+        statusChangedBy: null,
+        statusReason: null,
         remark: params.remark ?? null,
         createdBy: params.createdBy ?? null,
         updatedBy: params.createdBy ?? null,
@@ -263,7 +322,7 @@ export class ParticipationEnrollmentService {
 
   /**
    * 按学员查询其有效报名列表
-   * 有效报名定义：`isCanceled = 0`
+   * 有效报名定义：`status != CANCELED`
    * @param params 查询参数对象
    * @returns 该学员的有效报名列表
    */
@@ -271,7 +330,12 @@ export class ParticipationEnrollmentService {
     learnerId: number;
   }): Promise<ParticipationEnrollmentEntity[]> {
     const { learnerId } = params;
-    return await this.enrollmentRepository.find({ where: { learnerId, isCanceled: 0 } });
+    return await this.enrollmentRepository.find({
+      where: {
+        learnerId,
+        status: In([ParticipationEnrollmentStatus.ENROLLED, ParticipationEnrollmentStatus.LEAVE]),
+      },
+    });
   }
 
   /**
@@ -294,7 +358,9 @@ export class ParticipationEnrollmentService {
         seriesId: params.seriesId,
       })
       .where('e.learner_id = :learnerId', { learnerId: params.learnerId })
-      .andWhere('e.is_canceled = 0')
+      .andWhere('e.status IN (:...statuses)', {
+        statuses: [ParticipationEnrollmentStatus.ENROLLED, ParticipationEnrollmentStatus.LEAVE],
+      })
       .orderBy('s.start_time', 'ASC')
       .getRawMany<{ sessionId: number }>();
     return rows.map((row) => Number(row.sessionId));
@@ -320,7 +386,9 @@ export class ParticipationEnrollmentService {
         seriesId: params.seriesId,
       })
       .where('e.learner_id = :learnerId', { learnerId: params.learnerId })
-      .andWhere('e.is_canceled = 0')
+      .andWhere('e.status IN (:...statuses)', {
+        statuses: [ParticipationEnrollmentStatus.ENROLLED, ParticipationEnrollmentStatus.LEAVE],
+      })
       .orderBy('s.start_time', 'ASC')
       .getRawMany<{ id: number }>();
     return rows.map((row) => Number(row.id));
@@ -339,7 +407,9 @@ export class ParticipationEnrollmentService {
       .addSelect('MIN(s.start_time)', 'firstStartTime')
       .innerJoin('course_sessions', 's', 's.id = e.session_id')
       .where('e.customer_id = :customerId', { customerId: params.customerId })
-      .andWhere('e.is_canceled = 0')
+      .andWhere('e.status IN (:...statuses)', {
+        statuses: [ParticipationEnrollmentStatus.ENROLLED, ParticipationEnrollmentStatus.LEAVE],
+      })
       .groupBy('s.series_id')
       .orderBy('MIN(s.start_time)', 'ASC')
       .addOrderBy('s.series_id', 'ASC')
@@ -359,7 +429,9 @@ export class ParticipationEnrollmentService {
       .select('e.session_id', 'sessionId')
       .innerJoin('course_sessions', 's', 's.id = e.session_id')
       .where('e.customer_id = :customerId', { customerId: params.customerId })
-      .andWhere('e.is_canceled = 0')
+      .andWhere('e.status IN (:...statuses)', {
+        statuses: [ParticipationEnrollmentStatus.ENROLLED, ParticipationEnrollmentStatus.LEAVE],
+      })
       .groupBy('e.session_id')
       .addGroupBy('s.start_time')
       .orderBy('s.start_time', 'ASC')
@@ -388,7 +460,9 @@ export class ParticipationEnrollmentService {
       .innerJoin('course_sessions', 's', 's.id = e.session_id')
       .innerJoin(LearnerEntity, 'l', 'l.id = e.learner_id')
       .where('e.customer_id = :customerId', { customerId: params.customerId })
-      .andWhere('e.is_canceled = 0')
+      .andWhere('e.status IN (:...statuses)', {
+        statuses: [ParticipationEnrollmentStatus.ENROLLED, ParticipationEnrollmentStatus.LEAVE],
+      })
       .orderBy('s.start_time', 'ASC')
       .addOrderBy('e.session_id', 'ASC')
       .addOrderBy('e.learner_id', 'ASC')

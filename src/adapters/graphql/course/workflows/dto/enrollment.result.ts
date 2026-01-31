@@ -1,5 +1,9 @@
 // src/adapters/graphql/course/workflows/dto/enrollment.result.ts
 import { Field, Int, ObjectType } from '@nestjs/graphql';
+import {
+  ParticipationEnrollmentStatus,
+  ParticipationEnrollmentStatusReason,
+} from '@src/types/models/participation-enrollment.types';
 
 /**
  * 学员报名结果的 GraphQL 输出类型
@@ -19,8 +23,11 @@ export class EnrollmentOutputGql {
   @Field(() => Int)
   readonly customerId!: number;
 
-  @Field(() => Int)
-  readonly isCanceled!: 0 | 1;
+  @Field(() => ParticipationEnrollmentStatus)
+  readonly status!: ParticipationEnrollmentStatus;
+
+  @Field(() => ParticipationEnrollmentStatusReason, { nullable: true })
+  readonly statusReason!: ParticipationEnrollmentStatusReason | null;
 
   @Field(() => String, { nullable: true })
   readonly remark!: string | null;
@@ -40,14 +47,14 @@ export class EnrollmentDetailOutputGql {
   @Field(() => Int)
   readonly customerId!: number;
 
-  @Field(() => Int)
-  readonly isCanceled!: 0 | 1;
+  @Field(() => ParticipationEnrollmentStatus)
+  readonly status!: ParticipationEnrollmentStatus;
+
+  @Field(() => ParticipationEnrollmentStatusReason, { nullable: true })
+  readonly statusReason!: ParticipationEnrollmentStatusReason | null;
 
   @Field(() => String, { nullable: true })
   readonly remark!: string | null;
-
-  @Field(() => String, { nullable: true })
-  readonly cancelReason!: string | null;
 }
 
 @ObjectType()
@@ -60,36 +67,12 @@ export class EnrollLearnerToSessionResultGql {
 }
 
 /**
- * 用户请假出勤信息输出
- */
-@ObjectType()
-export class SessionLeaveAttendanceGql {
-  @Field(() => Int)
-  readonly enrollmentId!: number;
-
-  @Field(() => Int)
-  readonly sessionId!: number;
-
-  @Field(() => Int)
-  readonly learnerId!: number;
-
-  @Field(() => String)
-  readonly status!: string;
-
-  @Field(() => String, { nullable: true })
-  readonly reason!: string | null;
-
-  @Field(() => Date, { nullable: true })
-  readonly confirmedAt!: Date | null;
-}
-
-/**
  * 用户请假结果输出
  */
 @ObjectType()
 export class RequestSessionLeaveResultGql {
-  @Field(() => SessionLeaveAttendanceGql)
-  readonly attendance!: SessionLeaveAttendanceGql;
+  @Field(() => EnrollmentOutputGql)
+  readonly enrollment!: EnrollmentOutputGql;
 
   @Field(() => Boolean)
   readonly isUpdated!: boolean;

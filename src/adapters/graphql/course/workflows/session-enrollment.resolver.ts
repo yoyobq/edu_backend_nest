@@ -93,7 +93,8 @@ export class SessionEnrollmentResolver {
         sessionId: result.enrollment.sessionId,
         learnerId: result.enrollment.learnerId,
         customerId: result.enrollment.customerId,
-        isCanceled: result.enrollment.isCanceled,
+        status: result.enrollment.status,
+        statusReason: result.enrollment.statusReason,
         remark: result.enrollment.remark,
       },
       isNewlyCreated: result.isNewlyCreated,
@@ -118,13 +119,14 @@ export class SessionEnrollmentResolver {
       reason: input.reason ?? null,
     });
     return {
-      attendance: {
-        enrollmentId: result.attendance.enrollmentId,
-        sessionId: result.attendance.sessionId,
-        learnerId: result.attendance.learnerId,
-        status: result.attendance.status,
-        reason: result.attendance.reason,
-        confirmedAt: result.attendance.confirmedAt,
+      enrollment: {
+        id: result.enrollment.id,
+        sessionId: result.enrollment.sessionId,
+        learnerId: result.enrollment.learnerId,
+        customerId: result.enrollment.customerId,
+        status: result.enrollment.status,
+        statusReason: result.enrollment.statusReason,
+        remark: null,
       },
       isUpdated: result.isUpdated,
     } as RequestSessionLeaveResultGql;
@@ -182,8 +184,8 @@ export class SessionEnrollmentResolver {
         sessionId: result.enrollment.sessionId,
         learnerId: result.enrollment.learnerId,
         customerId: result.enrollment.customerId,
-        isCanceled: result.enrollment.isCanceled,
-        cancelReason: result.enrollment.cancelReason,
+        status: result.enrollment.status,
+        statusReason: result.enrollment.statusReason,
       },
       isUpdated: result.isUpdated,
     } as CancelEnrollmentResultGql;
@@ -296,9 +298,9 @@ export class SessionEnrollmentResolver {
       sessionId: item.sessionId,
       learnerId: item.learnerId,
       customerId: item.customerId,
-      isCanceled: item.isCanceled,
+      status: item.status,
+      statusReason: item.statusReason,
       remark: item.remark,
-      cancelReason: item.cancelReason,
     }));
   }
 

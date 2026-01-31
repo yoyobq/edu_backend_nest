@@ -1,5 +1,9 @@
 // src/adapters/graphql/course/workflows/dto/cancel-enrollment.result.ts
 import { Field, Int, ObjectType } from '@nestjs/graphql';
+import {
+  ParticipationEnrollmentStatus,
+  ParticipationEnrollmentStatusReason,
+} from '@src/types/models/participation-enrollment.types';
 
 /**
  * 取消报名结果的 GraphQL 输出类型
@@ -19,11 +23,11 @@ export class CancelEnrollmentOutputGql {
   @Field(() => Int)
   readonly customerId!: number;
 
-  @Field(() => Int)
-  readonly isCanceled!: 0 | 1;
+  @Field(() => ParticipationEnrollmentStatus)
+  readonly status!: ParticipationEnrollmentStatus;
 
-  @Field(() => String, { nullable: true })
-  readonly cancelReason!: string | null;
+  @Field(() => ParticipationEnrollmentStatusReason, { nullable: true })
+  readonly statusReason!: ParticipationEnrollmentStatusReason | null;
 }
 
 @ObjectType()

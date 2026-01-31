@@ -30,6 +30,7 @@ import {
   ManagerSortField,
   OrderDirection,
 } from '@src/types/common/sort.types';
+import { ParticipationEnrollmentStatusReason } from '@src/types/models/participation-enrollment.types';
 
 /**
  * 枚举注册配置接口
@@ -181,6 +182,21 @@ const ENUM_CONFIGS: Record<string, EnumConfig> = {
       SCHEDULED: { description: '已排期' },
       CANCELED: { description: '已取消' },
       FINISHED: { description: '已结课' },
+    },
+  },
+  PARTICIPATION_ENROLLMENT_STATUS_REASON: {
+    enumType: ParticipationEnrollmentStatusReason,
+    name: 'ParticipationEnrollmentStatusReason',
+    description: '报名状态原因枚举',
+    valuesMap: {
+      ADMIN_CORRECTION: { description: '管理员纠错' },
+      ADMIN_FORCE_CANCEL: { description: '管理员强制取消' },
+      CUSTOMER_REGRET: { description: '客户撤销' },
+      SCHEDULE_CHANGED: { description: '课表变更' },
+      SYSTEM_INVALID_ENROLLMENT: { description: '系统异常报名' },
+      LEAVE_SICK: { description: '病假' },
+      LEAVE_PERSONAL: { description: '事假' },
+      LEAVE_OTHER: { description: '其他请假' },
     },
   },
 
@@ -364,6 +380,7 @@ const EXPECTED_ENUMS = [
   'ClassMode',
   'VenueType',
   'CourseSeriesStatus',
+  'ParticipationEnrollmentStatusReason',
 ];
 
 /**

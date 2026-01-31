@@ -1,4 +1,5 @@
 // 文件位置：src/usecases/course/workflows/batch-record-attendance.usecase.ts
+import { ParticipationAttendanceStatus } from '@app-types/models/attendance.types';
 import {
   ATTENDANCE_ERROR,
   DomainError,
@@ -21,7 +22,7 @@ import { CourseSessionsService } from '@src/modules/course/sessions/course-sessi
 import { ParticipationAttendanceService } from '@src/modules/participation/attendance/participation-attendance.service';
 import { ParticipationEnrollmentService } from '@src/modules/participation/enrollment/participation-enrollment.service';
 import { type UsecaseSession } from '@src/types/auth/session.types';
-import { ParticipationAttendanceStatus } from '@app-types/models/attendance.types';
+import { ParticipationEnrollmentStatus } from '@src/types/models/participation-enrollment.types';
 import { createHash } from 'crypto';
 import { DataSource, EntityManager } from 'typeorm';
 
@@ -266,21 +267,16 @@ export class BatchRecordAttendanceUsecase {
       if (enr.sessionId !== params.sessionId) {
         throw new DomainError(ENROLLMENT_ERROR.OPERATION_NOT_ALLOWED, '报名不属于该节次');
       }
+      const isCanceled: 0 | 1 = enr.status === ParticipationEnrollmentStatus.CANCELED ? 1 : 0;
       // 禁止未取消报名时标记为 CANCELLED，保持语义一致
-      if (
-        Number(enr.isCanceled ?? 0) === 0 &&
-        item.status === ParticipationAttendanceStatus.CANCELLED
-      ) {
+      if (isCanceled === 0 && item.status === ParticipationAttendanceStatus.CANCELLED) {
         throw new DomainError(
           ENROLLMENT_ERROR.OPERATION_NOT_ALLOWED,
           '未取消的报名不允许标记为 CANCELLED，请使用 EXCUSED 或 NO_SHOW',
           { enrollmentId: item.enrollmentId, status: item.status },
         );
       }
-      if (
-        Number(enr.isCanceled ?? 0) === 1 &&
-        item.status !== ParticipationAttendanceStatus.CANCELLED
-      ) {
+      if (isCanceled === 1 && item.status !== ParticipationAttendanceStatus.CANCELLED) {
         throw new DomainError(
           ENROLLMENT_ERROR.OPERATION_NOT_ALLOWED,
           '已取消报名仅允许保持取消状态，若要修改出勤，请管理员修改报名状态',
@@ -289,7 +285,7 @@ export class BatchRecordAttendanceUsecase {
       }
       const applied = this.calcCountApplied({
         status: item.status,
-        isCanceled: Number(enr.isCanceled ?? 0) === 1 ? 1 : 0,
+        isCanceled,
         defaultCount: params.learnerCountMap.get(enr.learnerId) ?? 1,
         override: params.canOverrideCount ? item.countApplied : undefined,
       });

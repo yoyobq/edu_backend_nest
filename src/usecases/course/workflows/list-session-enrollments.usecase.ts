@@ -5,6 +5,10 @@ import { CourseSessionCoachesService } from '@src/modules/course/session-coaches
 import { CourseSessionsService } from '@src/modules/course/sessions/course-sessions.service';
 import { ParticipationEnrollmentService } from '@src/modules/participation/enrollment/participation-enrollment.service';
 import type { UsecaseSession } from '@src/types/auth/session.types';
+import {
+  ParticipationEnrollmentStatus,
+  ParticipationEnrollmentStatusReason,
+} from '@src/types/models/participation-enrollment.types';
 
 export interface ListSessionEnrollmentsInput {
   readonly session: UsecaseSession;
@@ -16,9 +20,9 @@ export interface ListSessionEnrollmentsOutputItem {
   readonly sessionId: number;
   readonly learnerId: number;
   readonly customerId: number;
-  readonly isCanceled: 0 | 1;
+  readonly status: ParticipationEnrollmentStatus;
+  readonly statusReason: ParticipationEnrollmentStatusReason | null;
   readonly remark: string | null;
-  readonly cancelReason: string | null;
 }
 
 export interface ListSessionEnrollmentsOutput {
@@ -53,15 +57,17 @@ export class ListSessionEnrollmentsUsecase {
       return c !== 0 ? c : a.id - b.id;
     });
     return {
-      items: enrollments.map((e) => ({
-        id: e.id,
-        sessionId: e.sessionId,
-        learnerId: e.learnerId,
-        customerId: e.customerId,
-        isCanceled: (e.isCanceled ?? 0) as 0 | 1,
-        remark: e.remark ?? null,
-        cancelReason: e.cancelReason ?? null,
-      })),
+      items: enrollments.map((e) => {
+        return {
+          id: e.id,
+          sessionId: e.sessionId,
+          learnerId: e.learnerId,
+          customerId: e.customerId,
+          status: e.status,
+          statusReason: e.statusReason ?? null,
+          remark: e.remark ?? null,
+        };
+      }),
     };
   }
 

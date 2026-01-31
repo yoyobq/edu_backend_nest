@@ -77,6 +77,7 @@ export function initGraphQLSchema(): {
       'OrderDirection',
       'PaginationMode',
       'SortDirection',
+      'ParticipationEnrollmentStatusReason',
     ];
 
     // 生成 Schema 指纹

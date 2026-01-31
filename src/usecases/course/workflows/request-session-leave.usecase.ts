@@ -1,5 +1,4 @@
 // 文件位置：/var/www/backend/src/usecases/course/workflows/request-session-leave.usecase.ts
-import { ParticipationAttendanceStatus } from '@app-types/models/attendance.types';
 import {
   DomainError,
   ENROLLMENT_ERROR,
@@ -10,9 +9,12 @@ import { Injectable } from '@nestjs/common';
 import { CustomerService } from '@src/modules/account/identities/training/customer/account-customer.service';
 import { CourseSeriesService } from '@src/modules/course/series/course-series.service';
 import { CourseSessionsService } from '@src/modules/course/sessions/course-sessions.service';
-import { ParticipationAttendanceService } from '@src/modules/participation/attendance/participation-attendance.service';
 import { ParticipationEnrollmentService } from '@src/modules/participation/enrollment/participation-enrollment.service';
 import { type UsecaseSession } from '@src/types/auth/session.types';
+import {
+  ParticipationEnrollmentStatus,
+  ParticipationEnrollmentStatusReason,
+} from '@src/types/models/participation-enrollment.types';
 
 /**
  * 用户请假输入
@@ -20,20 +22,20 @@ import { type UsecaseSession } from '@src/types/auth/session.types';
 export interface RequestSessionLeaveInput {
   readonly sessionId: number;
   readonly learnerId: number;
-  readonly reason?: string | null;
+  readonly reason?: ParticipationEnrollmentStatusReason | null;
 }
 
 /**
  * 用户请假输出
  */
 export interface RequestSessionLeaveOutput {
-  readonly attendance: {
-    readonly enrollmentId: number;
+  readonly enrollment: {
+    readonly id: number;
     readonly sessionId: number;
     readonly learnerId: number;
-    readonly status: ParticipationAttendanceStatus;
-    readonly reason: string | null;
-    readonly confirmedAt: Date | null;
+    readonly customerId: number;
+    readonly status: ParticipationEnrollmentStatus;
+    readonly statusReason: ParticipationEnrollmentStatusReason | null;
   };
   readonly isUpdated: boolean;
 }
@@ -43,7 +45,7 @@ export interface RequestSessionLeaveOutput {
  * 职责：
  * - 权限：允许 admin / manager / customer
  * - 校验：报名存在且未取消；节次存在；未超过请假截止
- * - 写入：写入出勤为 EXCUSED，并记录原因
+ * - 写入：更新报名状态为 LEAVE 并记录原因
  */
 @Injectable()
 export class RequestSessionLeaveUsecase {
@@ -51,7 +53,6 @@ export class RequestSessionLeaveUsecase {
     private readonly sessionsService: CourseSessionsService,
     private readonly seriesService: CourseSeriesService,
     private readonly enrollmentService: ParticipationEnrollmentService,
-    private readonly attendanceService: ParticipationAttendanceService,
     private readonly customerService: CustomerService,
   ) {}
 
@@ -73,10 +74,9 @@ export class RequestSessionLeaveUsecase {
     });
     this.ensureEnrollmentActiveOrThrow({
       enrollmentId: enrollment.id,
-      isCanceled: enrollment.isCanceled,
+      status: enrollment.status,
     });
     await this.ensureCustomerOwnershipIfNeeded(session, enrollment.customerId);
-    await this.ensureAttendanceNotLockedOrThrow({ sessionId: input.sessionId });
     const { beforeCutoff } = await this.evaluateLeaveCutoff({
       seriesId: sessionEntity.seriesId,
       session: sessionEntity,
@@ -84,31 +84,28 @@ export class RequestSessionLeaveUsecase {
     this.ensureBeforeCutoffOrThrow({ beforeCutoff, sessionEntity });
 
     const reason = input.reason ?? null;
-    const idempotent = await this.tryIdempotentReturn({
-      enrollmentId: enrollment.id,
+    const status = this.resolveStatusFromReason({ reason });
+    this.ensureLeaveReasonOrThrow({ reason, status });
+    const idempotent = this.tryIdempotentReturn({
       reason,
+      enrollment,
     });
     if (idempotent) return idempotent;
 
-    const now = new Date();
-    const updated = await this.attendanceService.upsertByEnrollment({
-      enrollmentId: enrollment.id,
-      sessionId: enrollment.sessionId,
-      learnerId: enrollment.learnerId,
-      status: ParticipationAttendanceStatus.EXCUSED,
-      countApplied: '0.00',
-      confirmedByCoachId: null,
-      confirmedAt: now,
-      remark: reason,
+    const updated = await this.enrollmentService.updateStatus({
+      id: enrollment.id,
+      status,
+      reason,
+      statusChangedBy: session.accountId ?? null,
     });
     return {
-      attendance: {
-        enrollmentId: updated.enrollmentId,
+      enrollment: {
+        id: updated.id,
         sessionId: updated.sessionId,
         learnerId: updated.learnerId,
-        status: ParticipationAttendanceStatus.EXCUSED,
-        reason: updated.remark ?? null,
-        confirmedAt: updated.confirmedAt ?? null,
+        customerId: updated.customerId,
+        status: updated.status,
+        statusReason: updated.statusReason ?? null,
       },
       isUpdated: true,
     };
@@ -164,9 +161,9 @@ export class RequestSessionLeaveUsecase {
    */
   private ensureEnrollmentActiveOrThrow(params: {
     readonly enrollmentId: number;
-    readonly isCanceled: number | null;
+    readonly status: ParticipationEnrollmentStatus;
   }): void {
-    if ((params.isCanceled ?? 0) === 0) return;
+    if (params.status !== ParticipationEnrollmentStatus.CANCELED) return;
     throw new DomainError(ENROLLMENT_ERROR.ENROLLMENT_ALREADY_CANCELED, '报名已取消，无法请假', {
       enrollmentId: params.enrollmentId,
     });
@@ -233,43 +230,64 @@ export class RequestSessionLeaveUsecase {
   }
 
   /**
-   * 校验节次出勤未锁定
-   * @param params 节次参数对象
-   */
-  private async ensureAttendanceNotLockedOrThrow(params: {
-    readonly sessionId: number;
-  }): Promise<void> {
-    const finalized = await this.attendanceService.isFinalizedForSession(params.sessionId);
-    if (!finalized) return;
-    throw new DomainError(
-      SESSION_ERROR.SESSION_LOCKED_FOR_ATTENDANCE,
-      '该节次出勤已锁定，无法请假',
-    );
-  }
-
-  /**
-   * 幂等返回：已为 EXCUSED 且原因一致时直接返回
+   * 幂等返回：已为 LEAVE 且原因一致时直接返回
    * @param params 报名与原因参数对象
    */
-  private async tryIdempotentReturn(params: {
-    readonly enrollmentId: number;
-    readonly reason: string | null;
-  }): Promise<RequestSessionLeaveOutput | null> {
-    const existing = await this.attendanceService.findByEnrollmentId(params.enrollmentId);
-    if (!existing) return null;
-    const isExcused = existing.status === ParticipationAttendanceStatus.EXCUSED;
-    const sameReason = (existing.remark ?? null) === params.reason;
-    if (!isExcused || !sameReason) return null;
+  private tryIdempotentReturn(params: {
+    readonly reason: ParticipationEnrollmentStatusReason | null;
+    readonly enrollment: NonNullable<
+      Awaited<ReturnType<ParticipationEnrollmentService['findByUnique']>>
+    >;
+  }): RequestSessionLeaveOutput | null {
+    const isLeave = params.enrollment.status === ParticipationEnrollmentStatus.LEAVE;
+    const sameReason = (params.enrollment.statusReason ?? null) === params.reason;
+    if (!isLeave || !sameReason) return null;
     return {
-      attendance: {
-        enrollmentId: existing.enrollmentId,
-        sessionId: existing.sessionId,
-        learnerId: existing.learnerId,
-        status: ParticipationAttendanceStatus.EXCUSED,
-        reason: existing.remark ?? null,
-        confirmedAt: existing.confirmedAt ?? null,
+      enrollment: {
+        id: params.enrollment.id,
+        sessionId: params.enrollment.sessionId,
+        learnerId: params.enrollment.learnerId,
+        customerId: params.enrollment.customerId,
+        status: params.enrollment.status,
+        statusReason: params.enrollment.statusReason ?? null,
       },
       isUpdated: false,
     };
+  }
+
+  /**
+   * 判断原因是否为 LEAVE 枚举
+   * @param reason 报名状态原因
+   */
+  private isLeaveReason(reason: ParticipationEnrollmentStatusReason): boolean {
+    return reason.startsWith('LEAVE_');
+  }
+
+  /**
+   * 根据原因推导报名状态
+   * @param params 原因参数对象
+   */
+  private resolveStatusFromReason(params: {
+    readonly reason: ParticipationEnrollmentStatusReason | null;
+  }): ParticipationEnrollmentStatus {
+    if (params.reason == null) return ParticipationEnrollmentStatus.LEAVE;
+    return this.isLeaveReason(params.reason)
+      ? ParticipationEnrollmentStatus.LEAVE
+      : ParticipationEnrollmentStatus.CANCELED;
+  }
+
+  /**
+   * 校验请假原因为 LEAVE 枚举
+   * @param params 原因与状态参数对象
+   */
+  private ensureLeaveReasonOrThrow(params: {
+    readonly reason: ParticipationEnrollmentStatusReason | null;
+    readonly status: ParticipationEnrollmentStatus;
+  }): void {
+    if (params.reason == null) return;
+    if (params.status === ParticipationEnrollmentStatus.LEAVE) return;
+    throw new DomainError(ENROLLMENT_ERROR.INVALID_PARAMS, '请假原因非法', {
+      reason: params.reason,
+    });
   }
 }
