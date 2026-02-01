@@ -84,7 +84,7 @@ export class CancelEnrollmentUsecase {
 
     const { beforeCutoff } = await this.evaluateLeaveCutoff(sessionEntity.seriesId, sessionEntity);
 
-    if (!this.isAdmin(session)) {
+    if (!this.isAdminOrManager(session)) {
       this.ensureBeforeSessionStartOrThrow(sessionEntity);
       if (this.isCustomer(session)) {
         this.ensureWithinCustomerRegretOrThrow(enrollment);
@@ -162,11 +162,15 @@ export class CancelEnrollmentUsecase {
   }
 
   /**
-   * 判断是否为管理员身份
+   * 判断是否为 Admin 或 Manager 身份
    * @param session 用例会话
    */
-  private isAdmin(session: UsecaseSession): boolean {
-    return session.roles?.some((r) => String(r).toLowerCase() === 'admin') ?? false;
+  private isAdminOrManager(session: UsecaseSession): boolean {
+    return (
+      session.roles?.some(
+        (r) => String(r).toLowerCase() === 'admin' || String(r).toLowerCase() === 'manager',
+      ) ?? false
+    );
   }
   /**
    * 加载报名实体并校验存在性
@@ -240,8 +244,8 @@ export class CancelEnrollmentUsecase {
 
   /**
    * 加载可取消报名的节次（仅允许 SCHEDULED 状态）
-   * - Admin：允许取消任意状态的节次报名（用于纠错）
-   * - 非 Admin：仅允许 SCHEDULED 状态
+   * - Admin / Manager：允许取消任意状态的节次报名（用于纠错）
+   * - 非 Admin / Manager：仅允许 SCHEDULED 状态
    * @param params 会话与节次 ID
    * @returns 节次实体
    * @throws DomainError 当节次不存在或状态不允许
@@ -254,7 +258,7 @@ export class CancelEnrollmentUsecase {
     if (!s) {
       throw new DomainError(SESSION_ERROR.SESSION_NOT_FOUND, '对应节次不存在');
     }
-    if (!this.isAdmin(params.session) && s.status !== SessionStatus.SCHEDULED) {
+    if (!this.isAdminOrManager(params.session) && s.status !== SessionStatus.SCHEDULED) {
       throw new DomainError(SESSION_ERROR.SESSION_STATUS_INVALID, '当前节次不可取消报名');
     }
     return s;

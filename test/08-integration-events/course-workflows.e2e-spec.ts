@@ -1629,6 +1629,75 @@ describe('08-Integration-Events 课程工作流：报名触发与 Outbox 分发 
     let regretExpiredSessionId: number;
     let adminPastSessionId: number;
     let regretExpiredEnrollmentId: number;
+    let cancelEventEnrollmentId: number;
+    const loadEnrollmentForCancel = async (): Promise<ParticipationEnrollmentEntity> => {
+      const enrollmentRepo = dataSource.getRepository(ParticipationEnrollmentEntity);
+      const enrollment = await enrollmentRepo.findOne({ where: { sessionId, learnerId } });
+      if (!enrollment) throw new Error('测试前置失败：未找到报名记录');
+      return enrollment;
+    };
+    const loadSessionForCancel = async (): Promise<CourseSessionEntity> => {
+      const sessionRepo = dataSource.getRepository(CourseSessionEntity);
+      const freshSession = await sessionRepo.findOne({ where: { id: sessionId } });
+      if (!freshSession) throw new Error('测试前置失败：未找到节次');
+      return freshSession;
+    };
+    const updateLeaveCutoffOverride = async (hours: number | null): Promise<void> => {
+      const sessionRepo = dataSource.getRepository(CourseSessionEntity);
+      await sessionRepo.update({ id: sessionId }, { leaveCutoffHoursOverride: hours });
+    };
+    const executeManagerCancel = async (
+      enrollmentId: number,
+    ): Promise<{
+      isUpdated: boolean;
+      enrollment?: {
+        id: number;
+        status: ParticipationEnrollmentStatus;
+        statusReason: ParticipationEnrollmentStatusReason | null;
+      };
+    }> => {
+      const mutation = `
+        mutation {
+          cancelSessionEnrollment(input: { enrollmentId: ${enrollmentId}, reason: ADMIN_FORCE_CANCEL }) {
+            isUpdated
+            enrollment { id sessionId learnerId customerId status statusReason }
+          }
+        }
+      `;
+      const res = await executeGql(app, { query: mutation, token: managerToken }).expect(200);
+      const body = res.body as unknown as {
+        data?: {
+          cancelSessionEnrollment?: {
+            isUpdated: boolean;
+            enrollment?: {
+              id: number;
+              status: ParticipationEnrollmentStatus;
+              statusReason: ParticipationEnrollmentStatusReason | null;
+            };
+          };
+        };
+        errors?: Array<{ message: string }>;
+      };
+      if (body.errors) throw new Error(`GraphQL 错误: ${JSON.stringify(body.errors)}`);
+      const result = body.data?.cancelSessionEnrollment;
+      if (!result) throw new Error('测试前置失败：取消报名返回为空');
+      return result;
+    };
+    const assertOutboxConsumed = async (baselineCalls: number): Promise<void> => {
+      await sleep(250);
+      if ('snapshot' in store && typeof store.snapshot === 'function') {
+        const snap = store.snapshot();
+        expect(snap.queued).toBe(0);
+        expect(snap.failed).toBe(0);
+      }
+      expect(cancelHandler.calls).toBeGreaterThan(baselineCalls);
+    };
+    const computeOverrideHours = (freshSession: CourseSessionEntity): number => {
+      const hoursUntilStart = Math.ceil(
+        (freshSession.startTime.getTime() - Date.now()) / (3600 * 1000),
+      );
+      return hoursUntilStart + 1;
+    };
 
     beforeAll(async () => {
       // 通过服务保障报名存在，避免 GraphQL 侧偶发校验干扰
@@ -1694,6 +1763,20 @@ describe('08-Integration-Events 课程工作流：报名触发与 Outbox 分发 
         customerId: customer.id,
         remark: 'E2E Admin 纠错取消报名',
       });
+
+      const cancelEventSessionId = await createTestSession(dataSource, {
+        seriesId,
+        leadCoachId: leadCoachIdForCancel,
+        startOffsetMinutes: 180,
+      });
+      await enrRepo.delete({ sessionId: cancelEventSessionId, learnerId });
+      const cancelEventEnrollment = await enrollmentService.create({
+        sessionId: cancelEventSessionId,
+        learnerId,
+        customerId: customer.id,
+        remark: 'E2E 取消报名触发事件前置报名',
+      });
+      cancelEventEnrollmentId = cancelEventEnrollment.id;
     });
 
     it('用户当场后悔：10 分钟内可 cancel（不做请假阈值判断）', async () => {
@@ -1858,65 +1941,27 @@ describe('08-Integration-Events 课程工作流：报名触发与 Outbox 分发 
       expect(cancelHandler.calls).toBeGreaterThan(baselineCalls);
     });
 
-    it('超过取消阈值：返回领域错误并不触发事件', async () => {
-      // 读取报名与节次信息（使用前序用例创建的数据）
-      const enrollmentRepo = dataSource.getRepository(ParticipationEnrollmentEntity);
-      const enrollment = await enrollmentRepo.findOne({ where: { sessionId, learnerId } });
-      if (!enrollment) throw new Error('测试前置失败：未找到报名记录');
-
-      const sessionRepo = dataSource.getRepository(CourseSessionEntity);
-      const freshSession = await sessionRepo.findOne({ where: { id: sessionId } });
-      if (!freshSession) throw new Error('测试前置失败：未找到节次');
-
-      // 设置节次的请假阈值覆写：大于距离开始的小时数，以确保 now > cutoffTime
-      const hoursUntilStart = Math.ceil(
-        (freshSession.startTime.getTime() - Date.now()) / (3600 * 1000),
-      );
-      const overrideHours = hoursUntilStart + 1; // 覆写值大于剩余小时，触发超过阈值
-      await sessionRepo.update({ id: sessionId }, { leaveCutoffHoursOverride: overrideHours });
-
+    it('超过取消阈值：manager 仍可 cancel 并触发事件', async () => {
+      const enrollment = await loadEnrollmentForCancel();
+      const freshSession = await loadSessionForCancel();
+      const overrideHours = computeOverrideHours(freshSession);
+      await updateLeaveCutoffOverride(overrideHours);
       const baselineCalls = cancelHandler.calls;
-
-      const mutation = `
-        mutation {
-          cancelSessionEnrollment(input: { enrollmentId: ${enrollment.id}, reason: ADMIN_FORCE_CANCEL }) {
-            isUpdated
-            enrollment { id sessionId learnerId customerId status statusReason }
-          }
-        }
-      `;
-      const res = await executeGql(app, { query: mutation, token: managerToken }).expect(200);
-      const body = res.body as unknown as {
-        data?: { cancelSessionEnrollment?: { isUpdated: boolean } };
-        errors?: Array<{ message: string }>;
-      };
-
-      // GraphQL 返回错误（DomainError 被直接抛出）
-      expect(Array.isArray(body.errors)).toBe(true);
-      expect(body.errors && body.errors[0]?.message).toContain('取消阈值');
-
-      // 等待调度器，确认无新增入箱与消费
-      await sleep(250);
-      if ('snapshot' in store && typeof store.snapshot === 'function') {
-        const snap = store.snapshot();
-        expect(snap.queued).toBe(0);
-        expect(snap.failed).toBe(0);
-      }
-      expect(cancelHandler.calls).toBe(baselineCalls);
-
-      // 恢复阈值覆写为默认（允许后续正常取消）
-      await sessionRepo.update({ id: sessionId }, { leaveCutoffHoursOverride: null });
+      const result = await executeManagerCancel(enrollment.id);
+      expect(result.isUpdated).toBe(true);
+      expect(result.enrollment?.id).toBe(enrollment.id);
+      expect(result.enrollment?.status).toBe(ParticipationEnrollmentStatus.CANCELED);
+      expect(result.enrollment?.statusReason).toBe(
+        ParticipationEnrollmentStatusReason.ADMIN_FORCE_CANCEL,
+      );
+      await assertOutboxConsumed(baselineCalls);
+      await updateLeaveCutoffOverride(null);
     });
 
     it('取消报名触发 EnrollmentCancelled 并被 Outbox 消费', async () => {
-      // 前置：读取报名 ID（已由前述用例创建）
-      const enrollmentRepo = dataSource.getRepository(ParticipationEnrollmentEntity);
-      const enrollment = await enrollmentRepo.findOne({ where: { sessionId, learnerId } });
-      if (!enrollment) throw new Error('测试前置失败：未找到报名记录');
-
       const mutation = `
         mutation {
-          cancelSessionEnrollment(input: { enrollmentId: ${enrollment.id}, reason: CUSTOMER_REGRET }) {
+          cancelSessionEnrollment(input: { enrollmentId: ${cancelEventEnrollmentId}, reason: CUSTOMER_REGRET }) {
             isUpdated
             enrollment { id sessionId learnerId customerId status statusReason }
           }
@@ -1956,15 +2001,10 @@ describe('08-Integration-Events 课程工作流：报名触发与 Outbox 分发 
     });
 
     it('重复取消幂等：不触发新的 EnrollmentCancelled 事件', async () => {
-      // 再次读取报名 ID
-      const enrollmentRepo = dataSource.getRepository(ParticipationEnrollmentEntity);
-      const enrollment = await enrollmentRepo.findOne({ where: { sessionId, learnerId } });
-      if (!enrollment) throw new Error('测试前置失败：未找到报名记录');
-
       const baselineCalls = cancelHandler.calls;
       const mutation = `
         mutation {
-          cancelSessionEnrollment(input: { enrollmentId: ${enrollment.id}, reason: CUSTOMER_REGRET }) {
+          cancelSessionEnrollment(input: { enrollmentId: ${cancelEventEnrollmentId}, reason: CUSTOMER_REGRET }) {
             isUpdated
             enrollment { id sessionId learnerId customerId status statusReason }
           }

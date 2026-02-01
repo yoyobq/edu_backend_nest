@@ -669,6 +669,26 @@ export class ParticipationAttendanceService {
     return { updatedCount: updated, unchangedCount: unchanged };
   }
 
+  async bulkInsertMissingByEnrollment(params: {
+    readonly items: ReadonlyArray<UpsertEnrollmentInput>;
+    readonly manager?: EntityManager;
+  }): Promise<number> {
+    const repo = params.manager
+      ? params.manager.getRepository(ParticipationAttendanceRecordEntity)
+      : this.attendanceRepository;
+    const ids = Array.from(new Set(params.items.map((it) => it.enrollmentId)));
+    if (ids.length === 0) return 0;
+    const existingList = await repo.find({ where: { enrollmentId: In(ids) } });
+    const existingSet = new Set<number>(existingList.map((e) => e.enrollmentId));
+    const inserts = params.items
+      .filter((it) => !existingSet.has(it.enrollmentId))
+      .map((it) => this.buildCreateForEnrollment(it));
+    if (inserts.length === 0) return 0;
+    const entities = inserts.map((p) => repo.create(p));
+    await repo.save(entities);
+    return entities.length;
+  }
+
   /**
    * 生成出勤记录的幂等签名（用于“是否有任何变动”的判断）
    * @param rec 出勤记录实体

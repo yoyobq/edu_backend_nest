@@ -57,18 +57,36 @@ export class LoadSessionAttendanceSheetUsecase {
       return c !== 0 ? c : a.id - b.id;
     });
 
-    // 2) 出勤记录（按 session 拉取并索引到 enrollmentId）
-    const attendanceRows = await this.attendanceService.listBySession(sessionId);
-    const byEnrollment = new Map<number, (typeof attendanceRows)[number]>();
-    for (const r of attendanceRows) byEnrollment.set(r.enrollmentId, r);
-
-    // 3) 学员计次比例预取
+    // 2) 学员计次比例预取
     const learnerIds = Array.from(new Set(enrollments.map((e) => e.learnerId)));
     const learners = await this.learnerService.findManyByIds({ ids: learnerIds });
     const learnerCountMap = new Map<number, number>();
     for (const l of learners) learnerCountMap.set(l.id, l.countPerSession);
 
-    // 4) 合成行并排序（按出勤状态枚举顺序）
+    // 3) 出勤记录（按 session 拉取并索引到 enrollmentId）
+    let attendanceRows = await this.attendanceService.listBySession(sessionId);
+    let byEnrollment = new Map<number, (typeof attendanceRows)[number]>();
+    for (const r of attendanceRows) byEnrollment.set(r.enrollmentId, r);
+
+    // 4) 初始化缺失的出勤记录（基于 enrollment 补齐）
+    const initItems = this.buildInitAttendanceItems({
+      enrollments,
+      attendanceMap: byEnrollment,
+      learnerCountMap,
+      sessionId,
+    });
+    if (initItems.length > 0) {
+      const inserted = await this.attendanceService.bulkInsertMissingByEnrollment({
+        items: initItems,
+      });
+      if (inserted > 0) {
+        attendanceRows = await this.attendanceService.listBySession(sessionId);
+        byEnrollment = new Map<number, (typeof attendanceRows)[number]>();
+        for (const r of attendanceRows) byEnrollment.set(r.enrollmentId, r);
+      }
+    }
+
+    // 5) 合成行并排序（按出勤状态枚举顺序）
     const rows: AttendanceSheetRow[] = enrollments.map((e) => {
       const a = byEnrollment.get(e.id) ?? null;
       const defaultCount = learnerCountMap.get(e.learnerId) ?? 1;
@@ -119,6 +137,61 @@ export class LoadSessionAttendanceSheetUsecase {
       status: input.e.status,
       statusReason: input.e.statusReason ?? null,
     };
+  }
+
+  private buildInitAttendanceItems(params: {
+    readonly enrollments: ReadonlyArray<{
+      id: number;
+      learnerId: number;
+      status: ParticipationEnrollmentStatus;
+    }>;
+    readonly attendanceMap: Map<
+      number,
+      {
+        status?: ParticipationAttendanceStatus;
+        countApplied?: string;
+        confirmedByCoachId?: number | null;
+        confirmedAt?: Date | null;
+        finalizedAt?: Date | null;
+      }
+    >;
+    readonly learnerCountMap: Map<number, number>;
+    readonly sessionId: number;
+  }): ReadonlyArray<{
+    enrollmentId: number;
+    sessionId: number;
+    learnerId: number;
+    status: ParticipationAttendanceStatus;
+    countApplied: string;
+  }> {
+    const items: Array<{
+      enrollmentId: number;
+      sessionId: number;
+      learnerId: number;
+      status: ParticipationAttendanceStatus;
+      countApplied: string;
+    }> = [];
+    for (const e of params.enrollments) {
+      if (params.attendanceMap.has(e.id)) continue;
+      const isCanceled: 0 | 1 = e.status === ParticipationEnrollmentStatus.CANCELED ? 1 : 0;
+      const isLeave = e.status === ParticipationEnrollmentStatus.LEAVE;
+      const defaultCount = params.learnerCountMap.get(e.learnerId) ?? 1;
+      const status = this.deriveStatus({ a: null, isCanceled, isLeave });
+      const countApplied = this.deriveCountApplied({
+        a: null,
+        isCanceled,
+        isLeave,
+        defaultCount,
+      });
+      items.push({
+        enrollmentId: e.id,
+        sessionId: params.sessionId,
+        learnerId: e.learnerId,
+        status,
+        countApplied,
+      });
+    }
+    return items;
   }
 
   /**
