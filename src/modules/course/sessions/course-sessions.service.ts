@@ -377,21 +377,25 @@ export class CourseSessionsService {
 
   /**
    * 更新出勤确认信息
-   * @param id 节次 ID
-   * @param data 出勤确认信息
+   * @param params 参数对象：id、 attendanceConfirmedAt、 attendanceConfirmedBy、 manager（可选事务）
    */
-  async updateAttendance(
-    id: number,
-    data: { attendanceConfirmedAt: Date | null; attendanceConfirmedBy: number | null },
-  ): Promise<CourseSessionEntity> {
-    await this.sessionRepository.update(
-      { id },
+  async updateAttendance(params: {
+    id: number;
+    attendanceConfirmedAt: Date | null;
+    attendanceConfirmedBy: number | null;
+    manager?: EntityManager;
+  }): Promise<CourseSessionEntity> {
+    const repo = params.manager
+      ? params.manager.getRepository(CourseSessionEntity)
+      : this.sessionRepository;
+    await repo.update(
+      { id: params.id },
       {
-        attendanceConfirmedAt: data.attendanceConfirmedAt,
-        attendanceConfirmedBy: data.attendanceConfirmedBy,
+        attendanceConfirmedAt: params.attendanceConfirmedAt,
+        attendanceConfirmedBy: params.attendanceConfirmedBy,
       },
     );
-    const fresh = await this.sessionRepository.findOne({ where: { id } });
+    const fresh = await repo.findOne({ where: { id: params.id } });
     if (!fresh) throw new Error('出勤更新后的节次未找到');
     return fresh;
   }

@@ -4,12 +4,15 @@ import { Args, Int, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { mapJwtToUsecaseSession, type UsecaseSession } from '@src/types/auth/session.types';
 import { JwtPayload } from '@src/types/jwt.types';
 import { BatchRecordAttendanceUsecase } from '@src/usecases/course/workflows/batch-record-attendance.usecase';
+import { FinalizeSessionAttendanceUsecase } from '@src/usecases/course/workflows/finalize-session-attendance.usecase';
 import { ListSessionLeaveRequestsUsecase } from '@src/usecases/course/workflows/list-session-leave-requests.usecase';
 import { LoadSessionAttendanceDetailUsecase } from '@src/usecases/course/workflows/load-session-attendance-detail.usecase';
 import { LoadSessionAttendanceSheetUsecase } from '@src/usecases/course/workflows/load-session-attendance-sheet.usecase';
 import { currentUser } from '../../decorators/current-user.decorator';
 import { JwtAuthGuard } from '../../guards/jwt-auth.guard';
 import {
+  FinalizeSessionAttendanceInputGql,
+  FinalizeSessionAttendanceResultGql,
   RecordSessionAttendanceInputGql,
   RecordSessionAttendanceResultGql,
 } from './dto/attendance.input';
@@ -31,6 +34,7 @@ export class SessionAttendanceResolver {
     private readonly loadDetailUsecase: LoadSessionAttendanceDetailUsecase,
     private readonly recordUsecase: BatchRecordAttendanceUsecase,
     private readonly listLeaveRequestsUsecase: ListSessionLeaveRequestsUsecase,
+    private readonly finalizeUsecase: FinalizeSessionAttendanceUsecase,
   ) {}
 
   /**
@@ -141,5 +145,22 @@ export class SessionAttendanceResolver {
       })),
     });
     return { updatedCount: result.updatedCount, unchangedCount: result.unchangedCount };
+  }
+
+  /**
+   * 终审节次出勤
+   * @param user 当前登录用户的 JWT 载荷
+   * @param input 终审输入
+   */
+  @UseGuards(JwtAuthGuard)
+  @Mutation(() => FinalizeSessionAttendanceResultGql, { name: 'finalizeSessionAttendance' })
+  async finalizeSessionAttendance(
+    @currentUser() user: JwtPayload,
+    @Args('input', { type: () => FinalizeSessionAttendanceInputGql })
+    input: FinalizeSessionAttendanceInputGql,
+  ): Promise<FinalizeSessionAttendanceResultGql> {
+    const session: UsecaseSession = mapJwtToUsecaseSession(user);
+    const result = await this.finalizeUsecase.execute(session, { sessionId: input.sessionId });
+    return { updatedCount: result.updatedCount };
   }
 }

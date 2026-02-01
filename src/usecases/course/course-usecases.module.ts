@@ -61,6 +61,7 @@ import { CancelSessionUsecase } from '@src/usecases/course/workflows/cancel-sess
 import { CloseSessionUsecase } from '@src/usecases/course/workflows/close-session.usecase';
 import { EnrollLearnerToSeriesUsecase } from '@src/usecases/course/workflows/enroll-learner-to-series.usecase';
 import { EnrollLearnerToSessionUsecase } from '@src/usecases/course/workflows/enroll-learner-to-session.usecase';
+import { FinalizeSessionAttendanceUsecase } from '@src/usecases/course/workflows/finalize-session-attendance.usecase';
 import { HasCustomerEnrollmentBySeriesUsecase } from '@src/usecases/course/workflows/has-customer-enrollment-by-series.usecase';
 import { HasLearnerEnrollmentUsecase } from '@src/usecases/course/workflows/has-learner-enrollment.usecase';
 import { ListCurrentAccountEnrolledSeriesIdsUsecase } from '@src/usecases/course/workflows/list-current-account-enrolled-series-ids.usecase';
@@ -135,6 +136,7 @@ import { RestoreSessionUsecase } from '@src/usecases/course/workflows/restore-se
     CancelSessionUsecase,
     RestoreSessionUsecase,
     CloseSessionUsecase,
+    FinalizeSessionAttendanceUsecase,
     LoadSessionAttendanceDetailUsecase,
     LoadSessionAttendanceSheetUsecase,
     BatchRecordAttendanceUsecase,
@@ -194,6 +196,7 @@ import { RestoreSessionUsecase } from '@src/usecases/course/workflows/restore-se
     CancelSessionUsecase,
     RestoreSessionUsecase,
     CloseSessionUsecase,
+    FinalizeSessionAttendanceUsecase,
     LoadSessionAttendanceDetailUsecase,
     LoadSessionAttendanceSheetUsecase,
     BatchRecordAttendanceUsecase,

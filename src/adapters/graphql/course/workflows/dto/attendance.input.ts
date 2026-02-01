@@ -61,3 +61,22 @@ export class RecordSessionAttendanceResultGql {
   @Field(() => Int)
   unchangedCount!: number;
 }
+
+/**
+ * 终审节次出勤 GraphQL 输入
+ */
+@InputType()
+export class FinalizeSessionAttendanceInputGql {
+  @Field(() => Int)
+  @IsInt()
+  sessionId!: number;
+}
+
+/**
+ * 终审节次出勤 GraphQL 输出
+ */
+@ObjectType()
+export class FinalizeSessionAttendanceResultGql {
+  @Field(() => Int)
+  updatedCount!: number;
+}
