@@ -1,5 +1,6 @@
 // 文件位置：src/adapters/graphql/course/workflows/dto/session-attendance.result.ts
-import { Field, Int, ObjectType } from '@nestjs/graphql';
+import { Gender } from '@app-types/models/user-info.types';
+import { Field, Float, Int, ObjectType } from '@nestjs/graphql';
 import {
   ParticipationEnrollmentStatus,
   ParticipationEnrollmentStatusReason,
@@ -78,4 +79,67 @@ export class SessionLeaveRequestListGql {
 
   @Field(() => [SessionLeaveRequestRowGql])
   items!: SessionLeaveRequestRowGql[];
+}
+
+/**
+ * 节次出勤明细行 GraphQL 输出类型
+ */
+@ObjectType()
+export class SessionAttendanceDetailItemGql {
+  @Field(() => Int)
+  enrollmentId!: number;
+
+  @Field(() => Int)
+  learnerId!: number;
+
+  @Field(() => String)
+  learnerName!: string;
+
+  @Field(() => Gender)
+  gender!: Gender;
+
+  @Field(() => Int, { nullable: true })
+  age!: number | null;
+
+  @Field(() => String, { nullable: true })
+  avatarUrl!: string | null;
+
+  @Field(() => String, { nullable: true })
+  specialNeeds!: string | null;
+
+  @Field(() => String)
+  attendanceStatus!: string;
+
+  @Field(() => String)
+  countApplied!: string;
+
+  @Field(() => ParticipationEnrollmentStatus)
+  enrollmentStatus!: ParticipationEnrollmentStatus;
+
+  @Field(() => ParticipationEnrollmentStatusReason, { nullable: true })
+  enrollmentStatusReason!: ParticipationEnrollmentStatusReason | null;
+
+  @Field(() => Int)
+  customerId!: number;
+
+  @Field(() => String)
+  customerName!: string;
+
+  @Field(() => String, { nullable: true })
+  customerPhone!: string | null;
+
+  @Field(() => Float)
+  customerRemainingSessions!: number;
+}
+
+/**
+ * 节次出勤明细 GraphQL 输出类型
+ */
+@ObjectType()
+export class SessionAttendanceDetailGql {
+  @Field(() => Int)
+  sessionId!: number;
+
+  @Field(() => [SessionAttendanceDetailItemGql])
+  items!: SessionAttendanceDetailItemGql[];
 }

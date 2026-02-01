@@ -39,7 +39,7 @@ import {
   ParticipationEnrollmentStatus,
   ParticipationEnrollmentStatusReason,
 } from '@src/types/models/participation-enrollment.types';
-import { UserState } from '@src/types/models/user-info.types';
+import { Gender, UserState } from '@src/types/models/user-info.types';
 import request from 'supertest';
 import { DataSource, In } from 'typeorm';
 import { initGraphQLSchema } from '../../src/adapters/graphql/schema/schema.init';
@@ -325,6 +325,195 @@ function executeGql(
   params: { readonly query: string; readonly token?: string },
 ): request.Test {
   return executeGqlUtils({ app, query: params.query, token: params.token });
+}
+
+type AttendanceDetailItemPayload = {
+  enrollmentId: number;
+  learnerId: number;
+  learnerName: string;
+  gender: Gender;
+  age: number | null;
+  avatarUrl: string | null;
+  specialNeeds: string | null;
+  attendanceStatus: string;
+  countApplied: string;
+  enrollmentStatus: ParticipationEnrollmentStatus;
+  enrollmentStatusReason: ParticipationEnrollmentStatusReason | null;
+  customerId: number;
+  customerName: string;
+  customerPhone: string | null;
+  customerRemainingSessions: number;
+};
+
+type AttendanceDetailPayload = {
+  sessionId: number;
+  items: AttendanceDetailItemPayload[];
+};
+
+type AttendanceDetailExpectations = {
+  enrollmentId: number;
+  customerId: number;
+  learnerName: string;
+  gender: Gender;
+  birthDate: string | null;
+  avatarUrl: string | null;
+  specialNeeds: string | null;
+  customerName: string;
+  customerPhone: string | null;
+  customerRemainingSessions: number;
+  enrollmentStatus: ParticipationEnrollmentStatus;
+  enrollmentStatusReason: ParticipationEnrollmentStatusReason | null;
+  countApplied: string;
+  attendanceStatus: ParticipationAttendanceStatus;
+  age: number | null;
+};
+
+async function ensureEnrollmentForAttendanceDetail(params: {
+  readonly app: INestApplication;
+  readonly dataSource: DataSource;
+  readonly sessionId: number;
+  readonly learnerId: number;
+  readonly customerToken: string;
+}): Promise<ParticipationEnrollmentEntity> {
+  const attendanceRepo = params.dataSource.getRepository(ParticipationAttendanceRecordEntity);
+  const enrollmentRepo = params.dataSource.getRepository(ParticipationEnrollmentEntity);
+
+  await attendanceRepo.delete({ sessionId: params.sessionId, learnerId: params.learnerId });
+  await enrollmentRepo.delete({ sessionId: params.sessionId, learnerId: params.learnerId });
+
+  const mutation = `
+    mutation {
+      enrollLearnerToSession(input: { sessionId: ${params.sessionId}, learnerId: ${params.learnerId}, remark: "E2E 出勤明细报名" }) {
+        isNewlyCreated
+      }
+    }
+  `;
+  const res = await executeGql(params.app, {
+    query: mutation,
+    token: params.customerToken,
+  }).expect(200);
+  const body = res.body as unknown as {
+    data?: { enrollLearnerToSession?: { isNewlyCreated: boolean } };
+    errors?: unknown;
+  };
+  if (body.errors) throw new Error(`GraphQL 错误: ${JSON.stringify(body.errors)}`);
+
+  const enrollment = await enrollmentRepo.findOne({
+    where: { sessionId: params.sessionId, learnerId: params.learnerId },
+  });
+  if (!enrollment) throw new Error('前置失败：未找到报名记录');
+  return enrollment;
+}
+
+async function loadExpectedLearnerForAttendanceDetail(params: {
+  readonly dataSource: DataSource;
+  readonly learnerId: number;
+}): Promise<{
+  name: string;
+  gender: Gender;
+  birthDate: string | null;
+  avatarUrl: string | null;
+  specialNeeds: string | null;
+  countPerSession: number;
+}> {
+  const learner = await params.dataSource
+    .getRepository(LearnerEntity)
+    .findOne({ where: { id: params.learnerId } });
+  if (!learner) throw new Error('前置失败：未找到学员信息');
+  return {
+    name: learner.name,
+    gender: learner.gender,
+    birthDate: learner.birthDate ?? null,
+    avatarUrl: learner.avatarUrl ?? null,
+    specialNeeds: learner.specialNeeds ?? null,
+    countPerSession: Number(learner.countPerSession),
+  };
+}
+
+async function loadExpectedCustomerForAttendanceDetail(params: {
+  readonly app: INestApplication;
+  readonly dataSource: DataSource;
+  readonly customerLoginName: string;
+}): Promise<{
+  id: number;
+  name: string;
+  phone: string | null;
+  remainingSessions: number;
+}> {
+  const customerAccountId = await getAccountIdByLoginName(
+    params.dataSource,
+    params.customerLoginName,
+  );
+  const customerService = params.app.get<CustomerService>(CustomerService);
+  const customer = await customerService.findByAccountId(customerAccountId);
+  if (!customer) throw new Error('前置失败：未找到 Customer 身份');
+  return {
+    id: customer.id,
+    name: customer.name,
+    phone: customer.contactPhone ?? null,
+    remainingSessions: Number(customer.remainingSessions),
+  };
+}
+
+function computeExpectedAgeForAttendanceDetail(params: {
+  readonly birthDate: string | null;
+}): number | null {
+  if (!params.birthDate) return null;
+  const parts = params.birthDate.split('-').map((value) => Number(value));
+  if (parts.length !== 3 || parts.some((value) => Number.isNaN(value))) return null;
+  const [year, month, day] = parts;
+  const today = new Date();
+  let age = today.getFullYear() - year;
+  const hasBirthdayPassed =
+    today.getMonth() + 1 > month || (today.getMonth() + 1 === month && today.getDate() >= day);
+  if (!hasBirthdayPassed) age -= 1;
+  return age >= 0 ? age : null;
+}
+
+function computeExpectedCountApplied(params: { readonly countPerSession: number }): string {
+  const count = params.countPerSession;
+  const safe = Number.isFinite(count) ? count : 0;
+  return safe.toFixed(2);
+}
+
+async function querySessionAttendanceDetail(params: {
+  readonly app: INestApplication;
+  readonly sessionId: number;
+  readonly token: string;
+}): Promise<AttendanceDetailPayload> {
+  const query = `
+    query {
+      loadSessionAttendanceDetail(sessionId: ${params.sessionId}) {
+        sessionId
+        items {
+          enrollmentId
+          learnerId
+          learnerName
+          gender
+          age
+          avatarUrl
+          specialNeeds
+          attendanceStatus
+          countApplied
+          enrollmentStatus
+          enrollmentStatusReason
+          customerId
+          customerName
+          customerPhone
+          customerRemainingSessions
+        }
+      }
+    }
+  `;
+  const res = await executeGql(params.app, { query, token: params.token }).expect(200);
+  const body = res.body as unknown as {
+    data?: { loadSessionAttendanceDetail?: AttendanceDetailPayload };
+    errors?: unknown;
+  };
+  if (body.errors) throw new Error(`GraphQL 错误: ${JSON.stringify(body.errors)}`);
+  const payload = body.data?.loadSessionAttendanceDetail;
+  if (!payload) throw new Error('GraphQL 返回为空');
+  return payload;
 }
 
 /**
@@ -724,6 +913,84 @@ describe('08-Integration-Events 课程工作流：报名触发与 Outbox 分发 
 
     afterAll(async () => {
       // 清理：移除当前 session/learner 的出勤与报名，避免影响后续“新报名”用例
+      await dataSource
+        .createQueryBuilder()
+        .delete()
+        .from(ParticipationAttendanceRecordEntity)
+        .where('session_id = :sid AND learner_id = :lid', { sid: sessionId, lid: learnerId })
+        .execute();
+      await dataSource
+        .createQueryBuilder()
+        .delete()
+        .from(ParticipationEnrollmentEntity)
+        .where('session_id = :sid AND learner_id = :lid', { sid: sessionId, lid: learnerId })
+        .execute();
+    });
+  });
+
+  describe('LoadSessionAttendanceDetail GraphQL - 正例 (e2e)', () => {
+    let expected: AttendanceDetailExpectations;
+
+    beforeAll(async () => {
+      const enrollment = await ensureEnrollmentForAttendanceDetail({
+        app,
+        dataSource,
+        sessionId,
+        learnerId,
+        customerToken,
+      });
+      const learner = await loadExpectedLearnerForAttendanceDetail({ dataSource, learnerId });
+      const customer = await loadExpectedCustomerForAttendanceDetail({
+        app,
+        dataSource,
+        customerLoginName: testAccountsConfig.customer.loginName,
+      });
+
+      expected = {
+        enrollmentId: enrollment.id,
+        customerId: enrollment.customerId,
+        learnerName: learner.name,
+        gender: learner.gender,
+        birthDate: learner.birthDate,
+        avatarUrl: learner.avatarUrl,
+        specialNeeds: learner.specialNeeds,
+        customerName: customer.name,
+        customerPhone: customer.phone,
+        customerRemainingSessions: customer.remainingSessions,
+        enrollmentStatus: enrollment.status,
+        enrollmentStatusReason: enrollment.statusReason ?? null,
+        countApplied: computeExpectedCountApplied({ countPerSession: learner.countPerSession }),
+        attendanceStatus: ParticipationAttendanceStatus.NO_SHOW,
+        age: computeExpectedAgeForAttendanceDetail({ birthDate: learner.birthDate }),
+      };
+    });
+
+    it('应返回学员与客户的完整出勤明细字段', async () => {
+      const payload = await querySessionAttendanceDetail({
+        app,
+        sessionId,
+        token: coachToken,
+      });
+      expect(payload.sessionId).toBe(sessionId);
+      const item = payload.items.find((row) => row.enrollmentId === expected.enrollmentId);
+      if (!item) throw new Error('未找到对应报名的出勤明细');
+      expect(item.learnerId).toBe(learnerId);
+      expect(item.learnerName).toBe(expected.learnerName);
+      expect(item.gender).toBe(expected.gender);
+      expect(item.age).toBe(expected.age);
+      expect(item.avatarUrl).toBe(expected.avatarUrl);
+      expect(item.specialNeeds).toBe(expected.specialNeeds);
+      expect(item.attendanceStatus).toBe(String(expected.attendanceStatus));
+      expect(item.countApplied).toBe(expected.countApplied);
+      expect(item.enrollmentStatus).toBe(expected.enrollmentStatus);
+      expect(item.enrollmentStatusReason ?? null).toBe(expected.enrollmentStatusReason);
+      expect(item.customerId).toBe(expected.customerId);
+      expect(item.customerName).toBe(expected.customerName);
+      expect(item.customerPhone).toBe(expected.customerPhone);
+      expect(item.customerRemainingSessions).toBe(expected.customerRemainingSessions);
+    });
+
+    afterAll(async () => {
       await dataSource
         .createQueryBuilder()
         .delete()

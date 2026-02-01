@@ -8,7 +8,14 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { normalizePhone } from '@src/core/common/normalize/normalize.helper';
 import { UserInfoEntity } from '@src/modules/account/base/entities/user-info.entity';
 import { PaginationService } from '@src/modules/common/pagination.service';
-import { Brackets, EntityManager, QueryFailedError, Repository, SelectQueryBuilder } from 'typeorm';
+import {
+  Brackets,
+  EntityManager,
+  In,
+  QueryFailedError,
+  Repository,
+  SelectQueryBuilder,
+} from 'typeorm';
 import { CustomerEntity } from './account-customer.entity';
 
 /**
@@ -47,6 +54,23 @@ export class CustomerService {
     return await this.customerRepository.findOne({
       where: { id },
     });
+  }
+
+  /**
+   * 根据客户 ID 列表批量查询
+   * @param params 查询参数对象：ids、manager（可选）
+   * @returns 客户实体列表
+   */
+  async findManyByIds(params: {
+    readonly ids: ReadonlyArray<number>;
+    readonly manager?: EntityManager;
+  }): Promise<CustomerEntity[]> {
+    const ids = Array.from(new Set(params.ids));
+    if (ids.length === 0) return [];
+    const repo = params.manager
+      ? params.manager.getRepository(CustomerEntity)
+      : this.customerRepository;
+    return await repo.find({ where: { id: In(ids) } });
   }
 
   /**

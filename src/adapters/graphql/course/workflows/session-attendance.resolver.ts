@@ -3,20 +3,22 @@ import { UseGuards } from '@nestjs/common';
 import { Args, Int, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { mapJwtToUsecaseSession, type UsecaseSession } from '@src/types/auth/session.types';
 import { JwtPayload } from '@src/types/jwt.types';
-import { LoadSessionAttendanceSheetUsecase } from '@src/usecases/course/workflows/load-session-attendance-sheet.usecase';
 import { BatchRecordAttendanceUsecase } from '@src/usecases/course/workflows/batch-record-attendance.usecase';
 import { ListSessionLeaveRequestsUsecase } from '@src/usecases/course/workflows/list-session-leave-requests.usecase';
+import { LoadSessionAttendanceDetailUsecase } from '@src/usecases/course/workflows/load-session-attendance-detail.usecase';
+import { LoadSessionAttendanceSheetUsecase } from '@src/usecases/course/workflows/load-session-attendance-sheet.usecase';
 import { currentUser } from '../../decorators/current-user.decorator';
 import { JwtAuthGuard } from '../../guards/jwt-auth.guard';
-import {
-  AttendanceSheetGql,
-  AttendanceSheetRowGql,
-  SessionLeaveRequestListGql,
-} from './dto/session-attendance.result';
 import {
   RecordSessionAttendanceInputGql,
   RecordSessionAttendanceResultGql,
 } from './dto/attendance.input';
+import {
+  AttendanceSheetGql,
+  AttendanceSheetRowGql,
+  SessionAttendanceDetailGql,
+  SessionLeaveRequestListGql,
+} from './dto/session-attendance.result';
 
 /**
  * 节次点名视图 GraphQL Resolver
@@ -26,6 +28,7 @@ import {
 export class SessionAttendanceResolver {
   constructor(
     private readonly loadUsecase: LoadSessionAttendanceSheetUsecase,
+    private readonly loadDetailUsecase: LoadSessionAttendanceDetailUsecase,
     private readonly recordUsecase: BatchRecordAttendanceUsecase,
     private readonly listLeaveRequestsUsecase: ListSessionLeaveRequestsUsecase,
   ) {}
@@ -56,6 +59,41 @@ export class SessionAttendanceResolver {
         finalized: r.finalized,
         enrollmentStatus: r.status,
         enrollmentStatusReason: r.statusReason,
+      })),
+    };
+  }
+
+  /**
+   * 加载指定节次的出勤明细
+   * @param user 当前登录用户的 JWT 载荷
+   * @param sessionId 节次 ID
+   */
+  @UseGuards(JwtAuthGuard)
+  @Query(() => SessionAttendanceDetailGql, { name: 'loadSessionAttendanceDetail' })
+  async loadSessionAttendanceDetail(
+    @currentUser() user: JwtPayload,
+    @Args('sessionId', { type: () => Int }) sessionId: number,
+  ): Promise<SessionAttendanceDetailGql> {
+    const session: UsecaseSession = mapJwtToUsecaseSession(user);
+    const result = await this.loadDetailUsecase.execute({ session, sessionId });
+    return {
+      sessionId: result.sessionId,
+      items: result.items.map((item) => ({
+        enrollmentId: item.enrollmentId,
+        learnerId: item.learnerId,
+        learnerName: item.learnerName,
+        gender: item.gender,
+        age: item.age,
+        avatarUrl: item.avatarUrl,
+        specialNeeds: item.specialNeeds,
+        attendanceStatus: String(item.attendanceStatus),
+        countApplied: item.countApplied,
+        enrollmentStatus: item.enrollmentStatus,
+        enrollmentStatusReason: item.enrollmentStatusReason,
+        customerId: item.customerId,
+        customerName: item.customerName,
+        customerPhone: item.customerPhone,
+        customerRemainingSessions: item.customerRemainingSessions,
       })),
     };
   }
