@@ -44,6 +44,11 @@ type UpsertEnrollmentInput = {
   remark?: string | null;
 };
 
+type BulkUpsertDecision =
+  | { action: 'insert'; data: Partial<ParticipationAttendanceRecordEntity> }
+  | { action: 'update'; id: number; patch: Partial<ParticipationAttendanceRecordEntity> }
+  | { action: 'unchanged' };
+
 /**
  * 出勤记录服务
  * 提供出勤记录的基础读写能力（供 usecases 编排复用）
@@ -640,19 +645,17 @@ export class ParticipationAttendanceService {
 
     for (const item of params.items) {
       const existing = existingMap.get(item.enrollmentId) ?? null;
-      if (!existing) {
-        inserts.push(this.buildCreateForEnrollment(item));
+      const decision = this.decideBulkUpsertForEnrollment({ existing, item });
+      if (decision.action === 'insert') {
+        inserts.push(decision.data);
         updated++;
-        continue;
       }
-      const prevSig = this.makeSignature(existing);
-      const patch = this.buildPatchForEnrollment(existing, item);
-      const nextSig = this.makeNextSignature(existing, patch);
-      if (prevSig === nextSig) {
-        unchanged++;
-      } else {
-        updates.push({ id: existing.id, patch });
+      if (decision.action === 'update') {
+        updates.push({ id: decision.id, patch: decision.patch });
         updated++;
+      }
+      if (decision.action === 'unchanged') {
+        unchanged++;
       }
     }
 
@@ -667,6 +670,38 @@ export class ParticipationAttendanceService {
     }
 
     return { updatedCount: updated, unchangedCount: unchanged };
+  }
+
+  /**
+   * 评估 enrollment 维度幂等写入的决策
+   * @param params 现有记录与写入项
+   */
+  private decideBulkUpsertForEnrollment(params: {
+    readonly existing: ParticipationAttendanceRecordEntity | null;
+    readonly item: UpsertEnrollmentInput;
+  }): BulkUpsertDecision {
+    const { existing, item } = params;
+    if (!existing) {
+      return { action: 'insert', data: this.buildCreateForEnrollment(item) };
+    }
+    const hasMeaningfulChange =
+      existing.status !== item.status ||
+      existing.countApplied !== item.countApplied ||
+      (existing.remark ?? null) !== (item.remark ?? null);
+    const effectiveItem = hasMeaningfulChange
+      ? item
+      : {
+          ...item,
+          confirmedByCoachId: existing.confirmedByCoachId ?? null,
+          confirmedAt: existing.confirmedAt ?? null,
+        };
+    const prevSig = this.makeSignature(existing);
+    const patch = this.buildPatchForEnrollment(existing, effectiveItem);
+    const nextSig = this.makeNextSignature(existing, patch);
+    if (prevSig === nextSig) {
+      return { action: 'unchanged' };
+    }
+    return { action: 'update', id: existing.id, patch };
   }
 
   async bulkInsertMissingByEnrollment(params: {
