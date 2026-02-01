@@ -76,6 +76,10 @@ describe('Course Sessions By Series (e2e)', () => {
    */
   async function cleanupCourseFixtures(): Promise<void> {
     if (!dataSource?.isInitialized) return;
+    await dataSource.query(
+      'DELETE FROM course_session_coaches WHERE session_id IN (SELECT id FROM course_sessions WHERE remark = ?)',
+      [E2E_SESSION_REMARK],
+    );
     await dataSource.query('DELETE FROM course_sessions WHERE remark = ?', [E2E_SESSION_REMARK]);
     await dataSource.query('DELETE FROM course_series WHERE remark = ?', [E2E_SERIES_REMARK]);
     await dataSource.query('DELETE FROM course_catalogs WHERE title = ?', [E2E_CATALOG_TITLE]);
@@ -185,6 +189,33 @@ describe('Course Sessions By Series (e2e)', () => {
       saved.push(await repo.save(entity));
     }
     return saved;
+  }
+
+  /**
+   * 为指定节次创建 session-coach 关联记录
+   * @param params 关联参数
+   */
+  async function bindCoachToSessions(params: {
+    readonly sessionIds: ReadonlyArray<number>;
+    readonly coachId: number;
+  }): Promise<void> {
+    const repo = dataSource.getRepository(CourseSessionCoachEntity);
+    for (const sessionId of params.sessionIds) {
+      const entity = repo.create({
+        sessionId,
+        coachId: params.coachId,
+        teachingFeeAmount: '0.00',
+        bonusAmount: '0.00',
+        payoutNote: null,
+        payoutFinalizedAt: null,
+        removedAt: null,
+        removedBy: null,
+        removedReason: null,
+        createdBy: managerAccountId,
+        updatedBy: managerAccountId,
+      });
+      await repo.save(entity);
+    }
   }
 
   beforeAll(async () => {
@@ -373,6 +404,65 @@ describe('Course Sessions By Series (e2e)', () => {
     );
     expect(res.body.errors[0].extensions.details.requiredRoles).toHaveLength(2);
     expect(res.body.errors[0].extensions.details.userRoles).toEqual(['COACH']);
+  });
+
+  it('coach 可查询关联节次列表并返回 series 信息', async () => {
+    const catalogId = await ensureCatalog();
+    const seriesId = await createSeries({ catalogId });
+    const baseTime = new Date();
+    const sessions = await createSessions({ seriesId, baseTime });
+    await bindCoachToSessions({
+      sessionIds: sessions.map((s) => s.id),
+      coachId: coachIdentityId,
+    });
+
+    const query = `
+      query ListCoachSessions($input: ListSessionsByCoachInput) {
+        listCoachSessions(input: $input) {
+          items {
+            session { id seriesId startTime status }
+            series { id title }
+          }
+        }
+      }
+    `;
+
+    const res = await postQuery({
+      query,
+      variables: {
+        input: {
+          statusFilter: [SessionStatus.SCHEDULED],
+        },
+      },
+      token: coachToken,
+    }).expect(200);
+
+    if (res.body.errors) throw new Error(`GraphQL 错误: ${JSON.stringify(res.body.errors)}`);
+
+    const items = (
+      res.body as {
+        data?: {
+          listCoachSessions?: {
+            items?: Array<{
+              session: { startTime: string; status: SessionStatus; seriesId: number };
+              series: { id: number };
+            }>;
+          };
+        };
+      }
+    ).data?.listCoachSessions?.items;
+
+    const scheduled = sessions.filter((s) => s.status === SessionStatus.SCHEDULED);
+    expect(items).toBeDefined();
+    expect(items?.length).toBe(scheduled.length);
+
+    const times = (items ?? []).map((it) => new Date(it.session.startTime).getTime());
+    expect([...times].sort((a, b) => a - b)).toEqual(times);
+
+    if (items && items.length > 0) {
+      expect(Number(items[0]?.series?.id)).toBe(seriesId);
+      expect(Number(items[0]?.session.seriesId)).toBe(seriesId);
+    }
   });
 
   it('customer 调用 courseSessionsBySeries 会被 RolesGuard 拒绝', async () => {

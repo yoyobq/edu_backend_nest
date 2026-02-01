@@ -49,3 +49,20 @@ export class ListSessionsBySeriesInput {
   @IsEnum(SessionStatus, { each: true, message: '状态筛选存在无效值' })
   statusFilter?: SessionStatus[];
 }
+
+/**
+ * 按教练读取节次列表输入参数
+ */
+@InputType()
+export class ListSessionsByCoachInput {
+  @Field(() => [SessionStatus], { nullable: true, description: '可选：按节次状态筛选' })
+  @IsOptional()
+  @IsEnum(SessionStatus, { each: true, message: '状态筛选存在无效值' })
+  statusFilter?: SessionStatus[];
+
+  @Field(() => Int, { nullable: true, description: '最大返回条数（默认 200）' })
+  @IsOptional()
+  @IsInt({ message: '最大返回条数必须是整数' })
+  @Min(0, { message: '最大返回条数不能为负数' })
+  maxSessions?: number;
+}

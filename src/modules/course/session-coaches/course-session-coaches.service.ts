@@ -64,6 +64,20 @@ export class CourseSessionCoachesService {
   }
 
   /**
+   * 按 coach 查询关联的节次 ID 列表
+   * @param params 查询参数对象：coachId
+   * @returns 节次 ID 列表
+   */
+  async listSessionIdsByCoach(params: { readonly coachId: number }): Promise<number[]> {
+    const rows = await this.sessionCoachRepository
+      .createQueryBuilder('sc')
+      .select('sc.sessionId', 'sessionId')
+      .where('sc.coachId = :coachId', { coachId: params.coachId })
+      .getRawMany<{ sessionId: number }>();
+    return rows.map((row) => Number(row.sessionId));
+  }
+
+  /**
    * 确保指定节次-教练在 roster 中处于激活状态
    * - 若不存在记录：创建一条 active 记录（removed 字段为 NULL）
    * - 若存在记录但已移出：清空 removed 字段视为“复活”

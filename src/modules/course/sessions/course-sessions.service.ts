@@ -25,6 +25,37 @@ export class CourseSessionsService {
   }
 
   /**
+   * 按节次 ID 列表批量读取节次
+   * @param params 查询参数对象：ids、statusFilter、maxSessions
+   * @returns 节次实体列表（按 startTime 升序）
+   */
+  async listByIds(params: {
+    readonly ids: ReadonlyArray<number>;
+    readonly statusFilter?: ReadonlyArray<SessionStatus>;
+    readonly maxSessions?: number;
+  }): Promise<CourseSessionEntity[]> {
+    const ids = Array.from(new Set(params.ids));
+    if (ids.length === 0) return [];
+
+    const qb = this.sessionRepository.createQueryBuilder('s').select('s');
+    qb.where('s.id IN (:...ids)', { ids });
+    if (params.statusFilter && params.statusFilter.length > 0) {
+      qb.andWhere('s.status IN (:...statuses)', { statuses: params.statusFilter });
+    }
+    qb.orderBy('s.startTime', 'ASC').addOrderBy('s.id', 'ASC');
+
+    if (params.maxSessions !== undefined) {
+      const HARD_MAX_SESSIONS = 200;
+      const safeMax = Number.isFinite(params.maxSessions) ? Math.floor(params.maxSessions) : 0;
+      const limit = Math.max(0, Math.min(safeMax, HARD_MAX_SESSIONS));
+      if (limit <= 0) return [];
+      qb.limit(limit);
+    }
+
+    return await qb.getMany();
+  }
+
+  /**
    * 按系列与截止日期列出节次（按开始时间升序）
    * @param params 查询参数：seriesId、untilDate（可选）
    */

@@ -1,6 +1,7 @@
 // src/adapters/graphql/course/sessions/dto/course-session.dto.ts
 import { SessionStatus } from '@app-types/models/course-session.types';
 import { Field, ID, Int, ObjectType } from '@nestjs/graphql';
+import { CourseSeriesDTO } from '../../series/dto/course-series.dto';
 
 @ObjectType({ description: '协助教练信息' })
 export class ExtraCoachDTO {
@@ -87,4 +88,13 @@ export class CourseSessionSafeViewDTO {
 
   @Field(() => SessionStatus, { description: '节次状态' })
   status!: SessionStatus;
+}
+
+@ObjectType({ description: '节次与开课班信息' })
+export class CourseSessionWithSeriesDTO {
+  @Field(() => CourseSessionDTO, { description: '节次信息' })
+  session!: CourseSessionDTO;
+
+  @Field(() => CourseSeriesDTO, { description: '开课班信息', nullable: true })
+  series!: CourseSeriesDTO | null;
 }

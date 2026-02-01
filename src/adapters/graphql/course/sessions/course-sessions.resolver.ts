@@ -1,6 +1,7 @@
 // src/adapters/graphql/course/sessions/course-sessions.resolver.ts
 import { mapJwtToUsecaseSession } from '@app-types/auth/session.types';
 import { JwtPayload } from '@app-types/jwt.types';
+import { ClassMode, CourseSeriesStatus, VenueType } from '@app-types/models/course-series.types';
 import { SessionCoachRemovedReason } from '@app-types/models/course-session-coach.types';
 import type { SessionStatus } from '@app-types/models/course-session.types';
 import { UseGuards } from '@nestjs/common';
@@ -9,19 +10,26 @@ import { Roles } from '@src/adapters/graphql/decorators/roles.decorator';
 import { JwtAuthGuard } from '@src/adapters/graphql/guards/jwt-auth.guard';
 import { RolesGuard } from '@src/adapters/graphql/guards/roles.guard';
 import { GenerateSessionCoachesForSeriesUsecase } from '@src/usecases/course/sessions/generate-session-coaches-for-series.usecase';
+import { ListSessionsByCoachUsecase } from '@src/usecases/course/sessions/list-sessions-by-coach.usecase';
 import { SyncSessionCoachesRosterUsecase } from '@src/usecases/course/sessions/sync-session-coaches-roster.usecase';
 import { UpdateSessionBasicInfoUsecase } from '@src/usecases/course/sessions/update-session-basic-info.usecase';
 import { ViewSessionsBySeriesUsecase } from '@src/usecases/course/sessions/view-sessions-by-series.usecase';
 import { currentUser } from '../../decorators/current-user.decorator';
+import { CourseSeriesDTO } from '../series/dto/course-series.dto';
 import {
   CourseSessionDTO,
   CourseSessionSafeViewDTO,
+  CourseSessionWithSeriesDTO,
   ExtraCoachDTO,
 } from './dto/course-session.dto';
 import { GenerateSessionCoachesForSeriesInputGql } from './dto/generate-session-coaches.input';
 import { GenerateSessionCoachesForSeriesResultGql } from './dto/generate-session-coaches.result';
-import { ListSessionsBySeriesInput } from './dto/list-sessions-by-series.input';
 import {
+  ListSessionsByCoachInput,
+  ListSessionsBySeriesInput,
+} from './dto/list-sessions-by-series.input';
+import {
+  CoachCourseSessionsResult,
   CourseSessionsBySeriesResult,
   CustomerCourseSessionsBySeriesResult,
 } from './dto/list-sessions-by-series.result';
@@ -52,6 +60,28 @@ type CourseSessionView = {
   readonly updatedAt: Date;
 };
 
+type CourseSeriesView = {
+  readonly id: number;
+  readonly catalogId: number;
+  readonly title: string;
+  readonly description: string | null;
+  readonly venueType: VenueType;
+  readonly classMode: ClassMode;
+  readonly startDate: string;
+  readonly endDate: string;
+  readonly recurrenceRule: string | null;
+  readonly leaveCutoffHours: number;
+  readonly pricePerSession: string | null;
+  readonly teachingFeeRef: string | null;
+  readonly maxLearners: number;
+  readonly status: CourseSeriesStatus;
+  readonly remark: string | null;
+  readonly createdAt: Date;
+  readonly updatedAt: Date;
+  readonly createdBy: number | null;
+  readonly updatedBy: number | null;
+};
+
 function toCourseSessionDTO(entity: CourseSessionView): CourseSessionDTO {
   const dto = new CourseSessionDTO();
   dto.id = entity.id;
@@ -76,6 +106,50 @@ function toCourseSessionDTO(entity: CourseSessionView): CourseSessionDTO {
   dto.attendanceConfirmedBy = entity.attendanceConfirmedBy;
   dto.createdAt = entity.createdAt;
   dto.updatedAt = entity.updatedAt;
+  return dto;
+}
+
+/**
+ * 将开课班实体映射为 DTO
+ * @param entity 开课班实体
+ * @returns 开课班 DTO
+ */
+function toCourseSeriesDTO(entity: CourseSeriesView): CourseSeriesDTO {
+  const dto = new CourseSeriesDTO();
+  dto.id = entity.id;
+  dto.catalogId = entity.catalogId;
+  dto.title = entity.title;
+  dto.description = entity.description ?? null;
+  dto.venueType = entity.venueType;
+  dto.classMode = entity.classMode;
+  dto.startDate = entity.startDate;
+  dto.endDate = entity.endDate;
+  dto.recurrenceRule = entity.recurrenceRule ?? null;
+  dto.leaveCutoffHours = entity.leaveCutoffHours;
+  dto.pricePerSession = entity.pricePerSession ?? null;
+  dto.teachingFeeRef = entity.teachingFeeRef ?? null;
+  dto.maxLearners = entity.maxLearners;
+  dto.status = entity.status;
+  dto.remark = entity.remark ?? null;
+  dto.createdAt = entity.createdAt;
+  dto.updatedAt = entity.updatedAt;
+  dto.createdBy = entity.createdBy ?? null;
+  dto.updatedBy = entity.updatedBy ?? null;
+  return dto;
+}
+
+/**
+ * 将节次与开课班信息映射为 DTO
+ * @param params 组合对象
+ * @returns 组合 DTO
+ */
+function toCourseSessionWithSeriesDTO(params: {
+  readonly session: CourseSessionView;
+  readonly series: CourseSeriesView | null;
+}): CourseSessionWithSeriesDTO {
+  const dto = new CourseSessionWithSeriesDTO();
+  dto.session = toCourseSessionDTO(params.session);
+  dto.series = params.series ? toCourseSeriesDTO(params.series) : null;
   return dto;
 }
 
@@ -120,6 +194,7 @@ function toCourseSessionSafeViewDTO(
 export class CourseSessionsResolver {
   constructor(
     private readonly viewSessionsBySeriesUsecase: ViewSessionsBySeriesUsecase,
+    private readonly listSessionsByCoachUsecase: ListSessionsByCoachUsecase,
     private readonly updateSessionBasicInfoUsecase: UpdateSessionBasicInfoUsecase,
     private readonly generateSessionCoachesForSeriesUsecase: GenerateSessionCoachesForSeriesUsecase,
     private readonly syncSessionCoachesRosterUsecase: SyncSessionCoachesRosterUsecase,
@@ -193,6 +268,33 @@ export class CourseSessionsResolver {
       toCourseSessionSafeViewDTO(item.session, item.leadCoachName),
     );
     return result;
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('COACH')
+  @Query(() => CoachCourseSessionsResult, {
+    name: 'listCoachSessions',
+    description: '按教练读取关联节次列表（包含开课班信息）',
+  })
+  async listCoachSessions(
+    @currentUser() user: JwtPayload,
+    @Args('input', { nullable: true }) input?: ListSessionsByCoachInput,
+  ): Promise<CoachCourseSessionsResult> {
+    const session = mapJwtToUsecaseSession(user);
+    const result = await this.listSessionsByCoachUsecase.execute({
+      session,
+      statusFilter: input?.statusFilter,
+      maxSessions: input?.maxSessions,
+    });
+
+    const dto = new CoachCourseSessionsResult();
+    dto.items = result.items.map((item) =>
+      toCourseSessionWithSeriesDTO({
+        session: item.session as CourseSessionView,
+        series: item.series as CourseSeriesView | null,
+      }),
+    );
+    return dto;
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)

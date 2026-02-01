@@ -59,6 +59,19 @@ export class CourseSeriesService {
   }
 
   /**
+   * 按 ID 列表批量读取开课班
+   * @param params 查询参数对象：ids
+   * @returns 开课班实体列表
+   */
+  async findManyByIds(params: {
+    readonly ids: ReadonlyArray<number>;
+  }): Promise<CourseSeriesEntity[]> {
+    const ids = Array.from(new Set(params.ids));
+    if (ids.length === 0) return [];
+    return await this.seriesRepo.find({ where: { id: In(ids) } });
+  }
+
+  /**
    * 获取开课班访问裁剪所需字段（读模型）
    * @param params 查询参数对象：seriesId
    * @returns 访问裁剪信息（不存在则返回 null）
