@@ -51,6 +51,7 @@ type BulkUpsertDecision =
   | { action: 'unchanged' };
 
 export type UnfinalizedAttendanceSeriesSummary = {
+  readonly seriesId: number;
   readonly catalogId: number;
   readonly catalogTitle: string;
   readonly title: string;
@@ -138,7 +139,8 @@ export class ParticipationAttendanceService {
       .innerJoin(CourseSeriesEntity, 'cs', 'cs.id = s.series_id')
       .innerJoin(CourseCatalogEntity, 'c', 'c.id = cs.catalog_id')
       .where('a.finalized_at IS NULL')
-      .select('cs.catalog_id', 'catalogId')
+      .select('cs.id', 'seriesId')
+      .addSelect('cs.catalog_id', 'catalogId')
       .addSelect('c.title', 'catalogTitle')
       .addSelect('cs.title', 'title')
       .addSelect('cs.start_date', 'startDate')
@@ -155,6 +157,7 @@ export class ParticipationAttendanceService {
       .orderBy('cs.start_date', 'ASC')
       .addOrderBy('cs.id', 'ASC')
       .getRawMany<{
+        seriesId: number;
         catalogId: number;
         catalogTitle: string;
         title: string;
@@ -164,6 +167,7 @@ export class ParticipationAttendanceService {
       }>();
 
     return rows.map((row) => ({
+      seriesId: Number(row.seriesId),
       catalogId: Number(row.catalogId),
       catalogTitle: row.catalogTitle,
       title: row.title,

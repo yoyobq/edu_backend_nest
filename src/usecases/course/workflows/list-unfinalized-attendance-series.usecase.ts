@@ -3,6 +3,8 @@ import { IdentityTypeEnum } from '@app-types/models/account.types';
 import { hasRole } from '@core/account/policy/role-access.policy';
 import { DomainError, PERMISSION_ERROR } from '@core/common/errors/domain-error';
 import { Injectable } from '@nestjs/common';
+import { CoachService } from '@src/modules/account/identities/training/coach/coach.service';
+import { CourseSessionsService } from '@src/modules/course/sessions/course-sessions.service';
 import {
   ParticipationAttendanceService,
   type UnfinalizedAttendanceSeriesSummary,
@@ -14,12 +16,20 @@ export interface ListUnfinalizedAttendanceSeriesInput {
 }
 
 export interface ListUnfinalizedAttendanceSeriesOutput {
-  readonly items: ReadonlyArray<UnfinalizedAttendanceSeriesSummary>;
+  readonly items: ReadonlyArray<UnfinalizedAttendanceSeriesItem>;
 }
+
+export type UnfinalizedAttendanceSeriesItem = UnfinalizedAttendanceSeriesSummary & {
+  readonly leadCoachName: string | null;
+};
 
 @Injectable()
 export class ListUnfinalizedAttendanceSeriesUsecase {
-  constructor(private readonly attendanceService: ParticipationAttendanceService) {}
+  constructor(
+    private readonly attendanceService: ParticipationAttendanceService,
+    private readonly sessionsService: CourseSessionsService,
+    private readonly coachService: CoachService,
+  ) {}
 
   /**
    * 执行未终审出勤关联的开课班列表查询
@@ -29,7 +39,39 @@ export class ListUnfinalizedAttendanceSeriesUsecase {
     input: ListUnfinalizedAttendanceSeriesInput,
   ): Promise<ListUnfinalizedAttendanceSeriesOutput> {
     this.ensurePermissions(input.session);
-    const items = await this.attendanceService.listUnfinalizedSeriesSummaries();
+    const summaries = await this.attendanceService.listUnfinalizedSeriesSummaries();
+    if (summaries.length === 0) {
+      return { items: [] };
+    }
+
+    const seriesIds = summaries.map((item) => item.seriesId);
+    const sessions = await this.sessionsService.listBySeriesIds({ seriesIds });
+    const seriesLeadCoachMap = new Map<number, number>();
+    sessions.forEach((session) => {
+      if (!seriesLeadCoachMap.has(session.seriesId)) {
+        seriesLeadCoachMap.set(session.seriesId, session.leadCoachId);
+      }
+    });
+
+    const coachIds = Array.from(new Set(seriesLeadCoachMap.values()));
+    const coachNameMap = new Map<number, string>();
+    if (coachIds.length > 0) {
+      const coachList = await Promise.all(
+        coachIds.map(async (coachId) => {
+          const coach = await this.coachService.findById(coachId);
+          return coach ? { coachId, name: coach.name } : null;
+        }),
+      );
+      coachList.forEach((coach) => {
+        if (coach) coachNameMap.set(coach.coachId, coach.name);
+      });
+    }
+
+    const items = summaries.map((summary) => ({
+      ...summary,
+      leadCoachName: coachNameMap.get(seriesLeadCoachMap.get(summary.seriesId) ?? -1) ?? null,
+    }));
+
     return { items };
   }
 

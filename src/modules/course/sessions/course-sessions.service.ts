@@ -2,7 +2,7 @@
 import { SessionStatus } from '@app-types/models/course-session.types';
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { EntityManager, Repository } from 'typeorm';
+import { EntityManager, In, Repository } from 'typeorm';
 import { CourseSessionEntity } from './course-session.entity';
 
 /**
@@ -53,6 +53,17 @@ export class CourseSessionsService {
     }
 
     return await qb.getMany();
+  }
+
+  async listBySeriesIds(params: {
+    readonly seriesIds: ReadonlyArray<number>;
+  }): Promise<CourseSessionEntity[]> {
+    const seriesIds = Array.from(new Set(params.seriesIds));
+    if (seriesIds.length === 0) return [];
+    return await this.sessionRepository.find({
+      where: { seriesId: In(seriesIds) },
+      order: { startTime: 'ASC', id: 'ASC' },
+    });
   }
 
   /**

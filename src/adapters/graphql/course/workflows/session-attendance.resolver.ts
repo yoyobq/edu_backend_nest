@@ -126,6 +126,7 @@ export class SessionAttendanceResolver {
       title: item.title,
       startDate: item.startDate,
       endDate: item.endDate,
+      leadCoachName: item.leadCoachName,
       status: item.status,
     }));
   }

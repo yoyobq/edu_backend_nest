@@ -72,6 +72,9 @@ export class UnfinalizedAttendanceSeriesGql {
   @Field(() => String)
   endDate!: string;
 
+  @Field(() => String, { nullable: true })
+  leadCoachName!: string | null;
+
   @Field(() => CourseSeriesStatus)
   status!: CourseSeriesStatus;
 }
