@@ -69,6 +69,7 @@ import { ListCurrentAccountEnrolledSessionIdsUsecase } from '@src/usecases/cours
 import { ListLearnerEnrolledSessionIdsBySeriesUsecase } from '@src/usecases/course/workflows/list-learner-enrolled-session-ids-by-series.usecase';
 import { ListSessionEnrollmentsUsecase } from '@src/usecases/course/workflows/list-session-enrollments.usecase';
 import { ListSessionLeaveRequestsUsecase } from '@src/usecases/course/workflows/list-session-leave-requests.usecase';
+import { ListUnfinalizedAttendanceSeriesUsecase } from '@src/usecases/course/workflows/list-unfinalized-attendance-series.usecase';
 import { LoadSessionAttendanceDetailUsecase } from '@src/usecases/course/workflows/load-session-attendance-detail.usecase';
 import { LoadSessionAttendanceSheetUsecase } from '@src/usecases/course/workflows/load-session-attendance-sheet.usecase';
 import { RequestSessionLeaveUsecase } from '@src/usecases/course/workflows/request-session-leave.usecase';
@@ -130,6 +131,7 @@ import { RestoreSessionUsecase } from '@src/usecases/course/workflows/restore-se
     ListLearnerEnrolledSessionIdsBySeriesUsecase,
     ListSessionEnrollmentsUsecase,
     ListSessionLeaveRequestsUsecase,
+    ListUnfinalizedAttendanceSeriesUsecase,
     RequestSessionLeaveUsecase,
     CancelEnrollmentUsecase,
     CancelSeriesEnrollmentUsecase,
@@ -190,6 +192,7 @@ import { RestoreSessionUsecase } from '@src/usecases/course/workflows/restore-se
     ListLearnerEnrolledSessionIdsBySeriesUsecase,
     ListSessionEnrollmentsUsecase,
     ListSessionLeaveRequestsUsecase,
+    ListUnfinalizedAttendanceSeriesUsecase,
     RequestSessionLeaveUsecase,
     CancelEnrollmentUsecase,
     CancelSeriesEnrollmentUsecase,

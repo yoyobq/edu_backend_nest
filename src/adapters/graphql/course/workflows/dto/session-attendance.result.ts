@@ -55,6 +55,21 @@ export class AttendanceSheetGql {
 }
 
 @ObjectType()
+export class UnfinalizedAttendanceSeriesGql {
+  @Field(() => Int)
+  catalogId!: number;
+
+  @Field(() => String)
+  title!: string;
+
+  @Field(() => String)
+  startDate!: string;
+
+  @Field(() => String)
+  endDate!: string;
+}
+
+@ObjectType()
 export class SessionLeaveRequestRowGql {
   @Field(() => Int)
   enrollmentId!: number;

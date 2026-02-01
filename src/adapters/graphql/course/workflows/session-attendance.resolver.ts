@@ -6,6 +6,7 @@ import { JwtPayload } from '@src/types/jwt.types';
 import { BatchRecordAttendanceUsecase } from '@src/usecases/course/workflows/batch-record-attendance.usecase';
 import { FinalizeSessionAttendanceUsecase } from '@src/usecases/course/workflows/finalize-session-attendance.usecase';
 import { ListSessionLeaveRequestsUsecase } from '@src/usecases/course/workflows/list-session-leave-requests.usecase';
+import { ListUnfinalizedAttendanceSeriesUsecase } from '@src/usecases/course/workflows/list-unfinalized-attendance-series.usecase';
 import { LoadSessionAttendanceDetailUsecase } from '@src/usecases/course/workflows/load-session-attendance-detail.usecase';
 import { LoadSessionAttendanceSheetUsecase } from '@src/usecases/course/workflows/load-session-attendance-sheet.usecase';
 import { currentUser } from '../../decorators/current-user.decorator';
@@ -21,6 +22,7 @@ import {
   AttendanceSheetRowGql,
   SessionAttendanceDetailGql,
   SessionLeaveRequestListGql,
+  UnfinalizedAttendanceSeriesGql,
 } from './dto/session-attendance.result';
 
 /**
@@ -35,6 +37,7 @@ export class SessionAttendanceResolver {
     private readonly recordUsecase: BatchRecordAttendanceUsecase,
     private readonly listLeaveRequestsUsecase: ListSessionLeaveRequestsUsecase,
     private readonly finalizeUsecase: FinalizeSessionAttendanceUsecase,
+    private readonly listUnfinalizedSeriesUsecase: ListUnfinalizedAttendanceSeriesUsecase,
   ) {}
 
   /**
@@ -100,6 +103,25 @@ export class SessionAttendanceResolver {
         customerRemainingSessions: item.customerRemainingSessions,
       })),
     };
+  }
+
+  /**
+   * 列出未终审出勤关联的开课班列表
+   * @param user 当前登录用户的 JWT 载荷
+   */
+  @UseGuards(JwtAuthGuard)
+  @Query(() => [UnfinalizedAttendanceSeriesGql], { name: 'listUnfinalizedAttendanceSeries' })
+  async listUnfinalizedAttendanceSeries(
+    @currentUser() user: JwtPayload,
+  ): Promise<UnfinalizedAttendanceSeriesGql[]> {
+    const session: UsecaseSession = mapJwtToUsecaseSession(user);
+    const result = await this.listUnfinalizedSeriesUsecase.execute({ session });
+    return result.items.map((item) => ({
+      catalogId: item.catalogId,
+      title: item.title,
+      startDate: item.startDate,
+      endDate: item.endDate,
+    }));
   }
 
   /**

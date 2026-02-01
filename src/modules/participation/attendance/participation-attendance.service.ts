@@ -49,6 +49,13 @@ type BulkUpsertDecision =
   | { action: 'update'; id: number; patch: Partial<ParticipationAttendanceRecordEntity> }
   | { action: 'unchanged' };
 
+export type UnfinalizedAttendanceSeriesSummary = {
+  readonly catalogId: number;
+  readonly title: string;
+  readonly startDate: string;
+  readonly endDate: string;
+};
+
 /**
  * 出勤记录服务
  * 提供出勤记录的基础读写能力（供 usecases 编排复用）
@@ -101,6 +108,44 @@ export class ParticipationAttendanceService {
    */
   async listBySession(sessionId: number): Promise<ParticipationAttendanceRecordEntity[]> {
     return await this.attendanceRepository.find({ where: { sessionId } });
+  }
+
+  /**
+   * 列出未终审出勤关联的开课班摘要
+   * @returns series 摘要列表
+   */
+  async listUnfinalizedSeriesSummaries(): Promise<
+    ReadonlyArray<UnfinalizedAttendanceSeriesSummary>
+  > {
+    const rows = await this.attendanceRepository
+      .createQueryBuilder('a')
+      .innerJoin(CourseSessionEntity, 's', 's.id = a.session_id')
+      .innerJoin(CourseSeriesEntity, 'cs', 'cs.id = s.series_id')
+      .where('a.finalized_at IS NULL')
+      .select('cs.catalog_id', 'catalogId')
+      .addSelect('cs.title', 'title')
+      .addSelect('cs.start_date', 'startDate')
+      .addSelect('cs.end_date', 'endDate')
+      .groupBy('cs.id')
+      .addGroupBy('cs.catalog_id')
+      .addGroupBy('cs.title')
+      .addGroupBy('cs.start_date')
+      .addGroupBy('cs.end_date')
+      .orderBy('cs.start_date', 'ASC')
+      .addOrderBy('cs.id', 'ASC')
+      .getRawMany<{
+        catalogId: number;
+        title: string;
+        startDate: string;
+        endDate: string;
+      }>();
+
+    return rows.map((row) => ({
+      catalogId: Number(row.catalogId),
+      title: row.title,
+      startDate: row.startDate,
+      endDate: row.endDate,
+    }));
   }
 
   /**
