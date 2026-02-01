@@ -3,6 +3,7 @@ import { ParticipationAttendanceStatus } from '@app-types/models/attendance.type
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { LearnerEntity } from '@src/modules/account/identities/training/learner/account-learner.entity';
+import { CourseCatalogEntity } from '@src/modules/course/catalogs/course-catalog.entity';
 import { CourseSeriesEntity } from '@src/modules/course/series/course-series.entity';
 import { CourseSessionEntity } from '@src/modules/course/sessions/course-session.entity';
 import {
@@ -51,9 +52,23 @@ type BulkUpsertDecision =
 
 export type UnfinalizedAttendanceSeriesSummary = {
   readonly catalogId: number;
+  readonly catalogTitle: string;
   readonly title: string;
   readonly startDate: string;
   readonly endDate: string;
+  readonly status: CourseSeriesEntity['status'];
+};
+
+export type UnfinalizedAttendanceRecordRaw = {
+  readonly attendanceId: number;
+  readonly sessionId: number;
+  readonly enrollmentId: number;
+  readonly learnerId: number;
+  readonly status: ParticipationAttendanceStatus;
+  readonly countApplied: string;
+  readonly confirmedByCoachId: number | null;
+  readonly confirmedAt: Date | null;
+  readonly remark: string | null;
 };
 
 /**
@@ -121,31 +136,104 @@ export class ParticipationAttendanceService {
       .createQueryBuilder('a')
       .innerJoin(CourseSessionEntity, 's', 's.id = a.session_id')
       .innerJoin(CourseSeriesEntity, 'cs', 'cs.id = s.series_id')
+      .innerJoin(CourseCatalogEntity, 'c', 'c.id = cs.catalog_id')
       .where('a.finalized_at IS NULL')
       .select('cs.catalog_id', 'catalogId')
+      .addSelect('c.title', 'catalogTitle')
       .addSelect('cs.title', 'title')
       .addSelect('cs.start_date', 'startDate')
       .addSelect('cs.end_date', 'endDate')
+      .addSelect('cs.status', 'status')
       .groupBy('cs.id')
       .addGroupBy('cs.catalog_id')
+      .addGroupBy('c.id')
+      .addGroupBy('c.title')
       .addGroupBy('cs.title')
       .addGroupBy('cs.start_date')
       .addGroupBy('cs.end_date')
+      .addGroupBy('cs.status')
       .orderBy('cs.start_date', 'ASC')
       .addOrderBy('cs.id', 'ASC')
       .getRawMany<{
         catalogId: number;
+        catalogTitle: string;
         title: string;
-        startDate: string;
-        endDate: string;
+        startDate: string | Date;
+        endDate: string | Date;
+        status: CourseSeriesEntity['status'];
       }>();
 
     return rows.map((row) => ({
       catalogId: Number(row.catalogId),
+      catalogTitle: row.catalogTitle,
       title: row.title,
-      startDate: row.startDate,
-      endDate: row.endDate,
+      startDate: this.normalizeDateString(row.startDate),
+      endDate: this.normalizeDateString(row.endDate),
+      status: row.status,
     }));
+  }
+
+  /**
+   * 按节次 ID 列表查询未终审 attendance 记录
+   * @param params 参数对象：sessionIds
+   */
+  async listUnfinalizedRecordsBySessionIds(params: {
+    readonly sessionIds: ReadonlyArray<number>;
+  }): Promise<ReadonlyArray<UnfinalizedAttendanceRecordRaw>> {
+    const sessionIds = Array.from(new Set(params.sessionIds));
+    if (sessionIds.length === 0) return [];
+    const rows = await this.attendanceRepository
+      .createQueryBuilder('a')
+      .where('a.session_id IN (:...sessionIds)', { sessionIds })
+      .andWhere('a.finalized_at IS NULL')
+      .select('a.id', 'attendanceId')
+      .addSelect('a.session_id', 'sessionId')
+      .addSelect('a.enrollment_id', 'enrollmentId')
+      .addSelect('a.learner_id', 'learnerId')
+      .addSelect('a.status', 'status')
+      .addSelect('a.count_applied', 'countApplied')
+      .addSelect('a.confirmed_by_coach_id', 'confirmedByCoachId')
+      .addSelect('a.confirmed_at', 'confirmedAt')
+      .addSelect('a.remark', 'remark')
+      .orderBy('a.session_id', 'ASC')
+      .addOrderBy('a.id', 'ASC')
+      .getRawMany<{
+        attendanceId: number;
+        sessionId: number;
+        enrollmentId: number;
+        learnerId: number;
+        status: ParticipationAttendanceStatus;
+        countApplied: string | number;
+        confirmedByCoachId: number | null;
+        confirmedAt: Date | string | null;
+        remark: string | null;
+      }>();
+
+    return rows.map((row) => ({
+      attendanceId: Number(row.attendanceId),
+      sessionId: Number(row.sessionId),
+      enrollmentId: Number(row.enrollmentId),
+      learnerId: Number(row.learnerId),
+      status: row.status,
+      countApplied: String(row.countApplied ?? '0.00'),
+      confirmedByCoachId: row.confirmedByCoachId === null ? null : Number(row.confirmedByCoachId),
+      confirmedAt: row.confirmedAt ? new Date(row.confirmedAt) : null,
+      remark: row.remark ?? null,
+    }));
+  }
+
+  /**
+   * 规范化日期字符串为 YYYY-MM-DD
+   * @param value 原始日期值
+   */
+  private normalizeDateString(value: string | Date): string {
+    if (value instanceof Date) {
+      return value.toISOString().slice(0, 10);
+    }
+    const text = String(value);
+    if (text.includes('T')) return text.split('T')[0];
+    if (text.includes(' ')) return text.split(' ')[0];
+    return text;
   }
 
   /**

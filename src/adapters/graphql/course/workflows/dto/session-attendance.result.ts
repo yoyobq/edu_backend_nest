@@ -1,4 +1,5 @@
 // 文件位置：src/adapters/graphql/course/workflows/dto/session-attendance.result.ts
+import { CourseSeriesStatus } from '@app-types/models/course-series.types';
 import { Gender } from '@app-types/models/user-info.types';
 import { Field, Float, Int, ObjectType } from '@nestjs/graphql';
 import {
@@ -60,6 +61,9 @@ export class UnfinalizedAttendanceSeriesGql {
   catalogId!: number;
 
   @Field(() => String)
+  catalogTitle!: string;
+
+  @Field(() => String)
   title!: string;
 
   @Field(() => String)
@@ -67,6 +71,51 @@ export class UnfinalizedAttendanceSeriesGql {
 
   @Field(() => String)
   endDate!: string;
+
+  @Field(() => CourseSeriesStatus)
+  status!: CourseSeriesStatus;
+}
+
+/**
+ * 未终审出勤记录 GraphQL 输出类型
+ */
+@ObjectType()
+export class UnfinalizedAttendanceRecordGql {
+  @Field(() => Int)
+  attendanceId!: number;
+
+  @Field(() => Int)
+  sessionId!: number;
+
+  @Field(() => Date)
+  sessionStartTime!: Date;
+
+  @Field(() => Int)
+  enrollmentId!: number;
+
+  @Field(() => Int)
+  learnerId!: number;
+
+  @Field(() => String)
+  learnerName!: string;
+
+  @Field(() => String)
+  status!: string;
+
+  @Field(() => String)
+  countApplied!: string;
+
+  @Field(() => Int, { nullable: true })
+  confirmedByCoachId!: number | null;
+
+  @Field(() => String, { nullable: true })
+  confirmedByCoachName!: string | null;
+
+  @Field(() => Date, { nullable: true })
+  confirmedAt!: Date | null;
+
+  @Field(() => String, { nullable: true })
+  remark!: string | null;
 }
 
 @ObjectType()

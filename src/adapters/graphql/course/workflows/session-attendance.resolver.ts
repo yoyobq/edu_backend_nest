@@ -6,6 +6,7 @@ import { JwtPayload } from '@src/types/jwt.types';
 import { BatchRecordAttendanceUsecase } from '@src/usecases/course/workflows/batch-record-attendance.usecase';
 import { FinalizeSessionAttendanceUsecase } from '@src/usecases/course/workflows/finalize-session-attendance.usecase';
 import { ListSessionLeaveRequestsUsecase } from '@src/usecases/course/workflows/list-session-leave-requests.usecase';
+import { ListUnfinalizedAttendanceBySeriesUsecase } from '@src/usecases/course/workflows/list-unfinalized-attendance-by-series.usecase';
 import { ListUnfinalizedAttendanceSeriesUsecase } from '@src/usecases/course/workflows/list-unfinalized-attendance-series.usecase';
 import { LoadSessionAttendanceDetailUsecase } from '@src/usecases/course/workflows/load-session-attendance-detail.usecase';
 import { LoadSessionAttendanceSheetUsecase } from '@src/usecases/course/workflows/load-session-attendance-sheet.usecase';
@@ -14,6 +15,7 @@ import { JwtAuthGuard } from '../../guards/jwt-auth.guard';
 import {
   FinalizeSessionAttendanceInputGql,
   FinalizeSessionAttendanceResultGql,
+  ListUnfinalizedAttendanceBySeriesInputGql,
   RecordSessionAttendanceInputGql,
   RecordSessionAttendanceResultGql,
 } from './dto/attendance.input';
@@ -22,6 +24,7 @@ import {
   AttendanceSheetRowGql,
   SessionAttendanceDetailGql,
   SessionLeaveRequestListGql,
+  UnfinalizedAttendanceRecordGql,
   UnfinalizedAttendanceSeriesGql,
 } from './dto/session-attendance.result';
 
@@ -38,6 +41,7 @@ export class SessionAttendanceResolver {
     private readonly listLeaveRequestsUsecase: ListSessionLeaveRequestsUsecase,
     private readonly finalizeUsecase: FinalizeSessionAttendanceUsecase,
     private readonly listUnfinalizedSeriesUsecase: ListUnfinalizedAttendanceSeriesUsecase,
+    private readonly listUnfinalizedAttendanceBySeriesUsecase: ListUnfinalizedAttendanceBySeriesUsecase,
   ) {}
 
   /**
@@ -118,9 +122,44 @@ export class SessionAttendanceResolver {
     const result = await this.listUnfinalizedSeriesUsecase.execute({ session });
     return result.items.map((item) => ({
       catalogId: item.catalogId,
+      catalogTitle: item.catalogTitle,
       title: item.title,
       startDate: item.startDate,
       endDate: item.endDate,
+      status: item.status,
+    }));
+  }
+
+  /**
+   * 按 seriesId 列出未终审出勤记录
+   * @param user 当前登录用户的 JWT 载荷
+   * @param input 查询输入
+   */
+  @UseGuards(JwtAuthGuard)
+  @Query(() => [UnfinalizedAttendanceRecordGql], { name: 'listUnfinalizedAttendanceBySeries' })
+  async listUnfinalizedAttendanceBySeries(
+    @currentUser() user: JwtPayload,
+    @Args('input', { type: () => ListUnfinalizedAttendanceBySeriesInputGql })
+    input: ListUnfinalizedAttendanceBySeriesInputGql,
+  ): Promise<UnfinalizedAttendanceRecordGql[]> {
+    const session: UsecaseSession = mapJwtToUsecaseSession(user);
+    const result = await this.listUnfinalizedAttendanceBySeriesUsecase.execute({
+      session,
+      seriesId: input.seriesId,
+    });
+    return result.items.map((item) => ({
+      attendanceId: item.attendanceId,
+      sessionId: item.sessionId,
+      sessionStartTime: item.sessionStartTime,
+      enrollmentId: item.enrollmentId,
+      learnerId: item.learnerId,
+      learnerName: item.learnerName,
+      status: String(item.status),
+      countApplied: item.countApplied,
+      confirmedByCoachId: item.confirmedByCoachId,
+      confirmedByCoachName: item.confirmedByCoachName,
+      confirmedAt: item.confirmedAt,
+      remark: item.remark,
     }));
   }
 

@@ -1,6 +1,6 @@
 // 文件位置：src/adapters/graphql/course/workflows/dto/attendance.input.ts
-import { Field, InputType, Int, ObjectType } from '@nestjs/graphql';
 import { ParticipationAttendanceStatus } from '@app-types/models/attendance.types';
+import { Field, InputType, Int, ObjectType } from '@nestjs/graphql';
 import {
   IsEnum,
   IsInt,
@@ -8,6 +8,7 @@ import {
   IsString,
   Matches,
   MaxLength,
+  Min,
   MinLength,
 } from 'class-validator';
 
@@ -48,6 +49,17 @@ export class RecordSessionAttendanceInputGql {
 
   @Field(() => [AttendanceRecordItemInputGql])
   items!: AttendanceRecordItemInputGql[];
+}
+
+/**
+ * 按 seriesId 查询未终审 attendance 列表 GraphQL 输入
+ */
+@InputType()
+export class ListUnfinalizedAttendanceBySeriesInputGql {
+  @Field(() => Int)
+  @IsInt()
+  @Min(1)
+  seriesId!: number;
 }
 
 /**
