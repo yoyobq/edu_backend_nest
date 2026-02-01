@@ -1,6 +1,6 @@
 // src/usecases/course/series/publish-series.usecase.ts
-import { SessionStatus } from '@app-types/models/course-session.types';
 import { CourseSeriesStatus, PublisherType } from '@app-types/models/course-series.types';
+import { SessionStatus } from '@app-types/models/course-session.types';
 import {
   COURSE_SERIES_ERROR,
   DomainError,
@@ -56,13 +56,15 @@ export class PublishSeriesUsecase {
       );
     }
 
-    const publishedAt = new Date().toISOString();
+    const outcome = this.resolvePublishOutcome(series);
+    const publishedAt =
+      outcome.status === CourseSeriesStatus.PUBLISHED ? new Date().toISOString() : null;
     await this.dataSource.transaction(async (manager) => {
       const updateRes = await manager
         .getRepository(CourseSeriesEntity)
         .update(
           { id: series.id, status: CourseSeriesStatus.SCHEDULED },
-          { status: CourseSeriesStatus.PUBLISHED },
+          { status: outcome.status },
         );
       if ((updateRes.affected ?? 0) !== 1) {
         throw new DomainError(
@@ -107,25 +109,42 @@ export class PublishSeriesUsecase {
         }
       }
 
-      const envelope = buildEnvelope({
-        type: 'SeriesPublished',
-        aggregateType: 'series',
-        aggregateId: series.id,
-        dedupKey: `SeriesPublished:${series.id}`,
-        priority: 6,
-        payload: {
-          seriesId: series.id,
-          createdSessions: sessionCount,
-          publishedAt,
-        },
-      });
-      await this.outboxWriter.enqueue({ envelope });
+      if (outcome.shouldEmitEvent && publishedAt) {
+        const envelope = buildEnvelope({
+          type: 'SeriesPublished',
+          aggregateType: 'series',
+          aggregateId: series.id,
+          dedupKey: `SeriesPublished:${series.id}`,
+          priority: 6,
+          payload: {
+            seriesId: series.id,
+            createdSessions: sessionCount,
+            publishedAt,
+          },
+        });
+        await this.outboxWriter.enqueue({ envelope });
+      }
     });
 
     return {
-      series: { id: series.id, status: CourseSeriesStatus.PUBLISHED, publishedAt },
+      series: { id: series.id, status: outcome.status, publishedAt },
       createdSessions: sessionCount,
     };
+  }
+
+  /**
+   * 解析发布结果：coach 发布进入待审批，其它角色直接发布
+   * @param series 开课班实体
+   * @returns 目标状态与是否触发发布事件
+   */
+  private resolvePublishOutcome(series: CourseSeriesEntity): {
+    readonly status: CourseSeriesStatus;
+    readonly shouldEmitEvent: boolean;
+  } {
+    if (series.publisherType === PublisherType.COACH) {
+      return { status: CourseSeriesStatus.PENDING_APPROVAL, shouldEmitEvent: false };
+    }
+    return { status: CourseSeriesStatus.PUBLISHED, shouldEmitEvent: true };
   }
 
   /**

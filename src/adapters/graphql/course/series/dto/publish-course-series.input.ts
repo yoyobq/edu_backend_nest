@@ -91,6 +91,28 @@ export class PublishCourseSeriesInput {
 }
 
 @InputType()
+export class ApproveCourseSeriesInput {
+  @Field(() => Int, { description: '开课班 ID' })
+  @IsInt({ message: '开课班 ID 必须是整数' })
+  @Min(1, { message: '开课班 ID 必须大于 0' })
+  seriesId!: number;
+}
+
+@InputType()
+export class RejectCourseSeriesInput {
+  @Field(() => Int, { description: '开课班 ID' })
+  @IsInt({ message: '开课班 ID 必须是整数' })
+  @Min(1, { message: '开课班 ID 必须大于 0' })
+  seriesId!: number;
+
+  @Field(() => String, { nullable: true, description: '驳回原因（可选）' })
+  @IsOptional()
+  @IsString({ message: '驳回原因必须是字符串' })
+  @MaxLength(200, { message: '驳回原因长度不能超过 200 个字符' })
+  reason?: string | null;
+}
+
+@InputType()
 export class CloseCourseSeriesInput {
   @Field(() => Int, { description: '开课班 ID' })
   @IsInt({ message: '开课班 ID 必须是整数' })

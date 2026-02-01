@@ -1210,7 +1210,7 @@ describe('Course Series (e2e)', () => {
       expect(publishResult.createdSessions).toBeGreaterThan(0);
     });
 
-    it('coach 自己发班：不带 leadCoachId 也能应用排期并发布为 PUBLISHED，生成节次', async () => {
+    it('coach 自己发班：不带 leadCoachId 也能应用排期并发布为 PENDING_APPROVAL，生成节次', async () => {
       const catalogId = await ensureCatalog();
       const startDateStr = '2025-04-01';
       const endDateStr = '2025-04-07';
@@ -1309,8 +1309,8 @@ describe('Course Series (e2e)', () => {
         createdSessions: number;
       };
       expect(publishResult.seriesId).toBe(seriesId);
-      expect(publishResult.status).toBe('PUBLISHED');
-      expect(typeof publishResult.publishedAt).toBe('string');
+      expect(publishResult.status).toBe('PENDING_APPROVAL');
+      expect(publishResult.publishedAt).toBeNull();
       expect(publishResult.createdSessions).toBeGreaterThan(0);
 
       // 进一步确认数据库已生成节次
@@ -1323,6 +1323,217 @@ describe('Course Series (e2e)', () => {
       const sessionCount = (await qb.getRawOne()) as { cnt?: unknown } | null;
       const cntNum = typeof sessionCount?.cnt === 'string' ? Number(sessionCount?.cnt) : 0;
       expect(cntNum).toBeGreaterThan(0);
+    });
+
+    it('manager 可审批通过 coach 发布的开课班', async () => {
+      const catalogId = await ensureCatalog();
+      const startDateStr = '2025-04-08';
+      const endDateStr = '2025-04-14';
+
+      const createMutation = `
+        mutation {
+          createCourseSeriesDraft(input: {
+            catalogId: ${catalogId},
+            title: "E2E 审批通过",
+            description: "说明",
+            venueType: ${VenueType.SANDA_GYM},
+            classMode: ${ClassMode.SMALL_CLASS},
+            startDate: "${startDateStr}",
+            endDate: "${endDateStr}",
+            recurrenceRule: "BYDAY=MO,WE;BYHOUR=18;BYMINUTE=0",
+            leaveCutoffHours: 12,
+            maxLearners: 4,
+            remark: "E2E 草稿测试"
+          }) { id }
+        }
+      `;
+      const createRes = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', coachTokenWithBearer)
+        .send({ query: createMutation })
+        .expect(200);
+      if (createRes.body.errors)
+        throw new Error(`GraphQL 错误: ${JSON.stringify(createRes.body.errors)}`);
+      const seriesId = Number(createRes.body.data.createCourseSeriesDraft.id);
+
+      const previewQuery = `
+        query { previewCourseSeriesSchedule(input: { seriesId: ${seriesId} }) { previewHash } }
+      `;
+      const previewRes = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', coachTokenWithBearer)
+        .send({ query: previewQuery })
+        .expect(200);
+      const previewHash = previewRes.body.data.previewCourseSeriesSchedule.previewHash as string;
+
+      const applyMutation = `
+        mutation {
+          applyCourseSeriesSchedule(input: { seriesId: ${seriesId}, previewHash: "${previewHash}" }) {
+            seriesId
+            status
+            publishedAt
+            createdSessions
+          }
+        }
+      `;
+      const applyRes = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', coachTokenWithBearer)
+        .send({ query: applyMutation })
+        .expect(200);
+      if (applyRes.body.errors)
+        throw new Error(`GraphQL 错误: ${JSON.stringify(applyRes.body.errors)}`);
+
+      const publishMutation = `
+        mutation {
+          publishCourseSeries(input: { seriesId: ${seriesId} }) {
+            seriesId
+            status
+            publishedAt
+            createdSessions
+          }
+        }
+      `;
+      const publishRes = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', coachTokenWithBearer)
+        .send({ query: publishMutation })
+        .expect(200);
+      if (publishRes.body.errors)
+        throw new Error(`GraphQL 错误: ${JSON.stringify(publishRes.body.errors)}`);
+      expect(publishRes.body.data.publishCourseSeries.status).toBe('PENDING_APPROVAL');
+
+      const approveMutation = `
+        mutation {
+          approveCourseSeries(input: { seriesId: ${seriesId} }) {
+            seriesId
+            status
+            publishedAt
+            createdSessions
+          }
+        }
+      `;
+      const approveRes = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', managerTokenWithBearer)
+        .send({ query: approveMutation })
+        .expect(200);
+      if (approveRes.body.errors)
+        throw new Error(`GraphQL 错误: ${JSON.stringify(approveRes.body.errors)}`);
+      const approveResult = approveRes.body.data.approveCourseSeries as {
+        seriesId: number;
+        status: string;
+        publishedAt: string | null;
+        createdSessions: number;
+      };
+      expect(approveResult.seriesId).toBe(seriesId);
+      expect(approveResult.status).toBe('PUBLISHED');
+      expect(typeof approveResult.publishedAt).toBe('string');
+      expect(approveResult.createdSessions).toBeGreaterThan(0);
+    });
+
+    it('manager 可驳回 coach 发布的开课班', async () => {
+      const catalogId = await ensureCatalog();
+      const startDateStr = '2025-04-22';
+      const endDateStr = '2025-04-28';
+
+      const createMutation = `
+        mutation {
+          createCourseSeriesDraft(input: {
+            catalogId: ${catalogId},
+            title: "E2E 审批驳回",
+            description: "说明",
+            venueType: ${VenueType.SANDA_GYM},
+            classMode: ${ClassMode.SMALL_CLASS},
+            startDate: "${startDateStr}",
+            endDate: "${endDateStr}",
+            recurrenceRule: "BYDAY=MO,WE;BYHOUR=18;BYMINUTE=0",
+            leaveCutoffHours: 12,
+            maxLearners: 4,
+            remark: "E2E 草稿测试"
+          }) { id }
+        }
+      `;
+      const createRes = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', coachTokenWithBearer)
+        .send({ query: createMutation })
+        .expect(200);
+      if (createRes.body.errors)
+        throw new Error(`GraphQL 错误: ${JSON.stringify(createRes.body.errors)}`);
+      const seriesId = Number(createRes.body.data.createCourseSeriesDraft.id);
+
+      const previewQuery = `
+        query { previewCourseSeriesSchedule(input: { seriesId: ${seriesId} }) { previewHash } }
+      `;
+      const previewRes = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', coachTokenWithBearer)
+        .send({ query: previewQuery })
+        .expect(200);
+      const previewHash = previewRes.body.data.previewCourseSeriesSchedule.previewHash as string;
+
+      const applyMutation = `
+        mutation {
+          applyCourseSeriesSchedule(input: { seriesId: ${seriesId}, previewHash: "${previewHash}" }) {
+            seriesId
+            status
+            publishedAt
+            createdSessions
+          }
+        }
+      `;
+      const applyRes = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', coachTokenWithBearer)
+        .send({ query: applyMutation })
+        .expect(200);
+      if (applyRes.body.errors)
+        throw new Error(`GraphQL 错误: ${JSON.stringify(applyRes.body.errors)}`);
+
+      const publishMutation = `
+        mutation {
+          publishCourseSeries(input: { seriesId: ${seriesId} }) {
+            seriesId
+            status
+            publishedAt
+            createdSessions
+          }
+        }
+      `;
+      const publishRes = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', coachTokenWithBearer)
+        .send({ query: publishMutation })
+        .expect(200);
+      if (publishRes.body.errors)
+        throw new Error(`GraphQL 错误: ${JSON.stringify(publishRes.body.errors)}`);
+      expect(publishRes.body.data.publishCourseSeries.status).toBe('PENDING_APPROVAL');
+
+      const rejectMutation = `
+        mutation {
+          rejectCourseSeries(input: { seriesId: ${seriesId}, reason: "资料不完整" }) {
+            id
+            status
+            remark
+          }
+        }
+      `;
+      const rejectRes = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', managerTokenWithBearer)
+        .send({ query: rejectMutation })
+        .expect(200);
+      if (rejectRes.body.errors)
+        throw new Error(`GraphQL 错误: ${JSON.stringify(rejectRes.body.errors)}`);
+      const rejectResult = rejectRes.body.data.rejectCourseSeries as {
+        id: number;
+        status: string;
+        remark: string | null;
+      };
+      expect(Number(rejectResult.id)).toBe(seriesId);
+      expect(rejectResult.status).toBe('SCHEDULED');
+      expect(rejectResult.remark ?? '').toContain('驳回原因：资料不完整');
     });
 
     it('coach 自己发班：所有生成的节次 lead_coach_id 等于该 coach.id', async () => {

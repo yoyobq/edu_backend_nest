@@ -19,6 +19,8 @@ import { SearchSeriesForCustomerUsecase } from '@src/usecases/course/series/sear
 import { SearchSeriesUsecase } from '@src/usecases/course/series/search-series.usecase';
 import {
   CloseSeriesUsecase,
+  ApproveSeriesUsecase,
+  RejectSeriesUsecase,
   UpdateSeriesUsecase,
 } from '@src/usecases/course/series/update-series.usecase';
 import { IdentityTypeEnum } from '@app-types/models/account.types';
@@ -38,8 +40,10 @@ import { CreateCourseSeriesDraftInput } from './dto/create-course-series-draft.i
 import { PreviewSeriesScheduleInput } from './dto/preview-series-schedule.input';
 import {
   ApplyCourseSeriesScheduleInput,
+  ApproveCourseSeriesInput,
   CloseCourseSeriesInput,
   PublishCourseSeriesInput,
+  RejectCourseSeriesInput,
 } from './dto/publish-course-series.input';
 import { SearchCourseSeriesInputGql } from './dto/search-course-series.input';
 import { UpdateCourseSeriesInput } from './dto/update-course-series.input';
@@ -57,6 +61,8 @@ export class CourseSeriesResolver {
     private readonly searchForCustomerUsecase: SearchSeriesForCustomerUsecase,
     private readonly updateUsecase: UpdateSeriesUsecase,
     private readonly closeUsecase: CloseSeriesUsecase,
+    private readonly approveUsecase: ApproveSeriesUsecase,
+    private readonly rejectUsecase: RejectSeriesUsecase,
   ) {}
 
   @UseGuards(JwtAuthGuard)
@@ -398,6 +404,68 @@ export class CourseSeriesResolver {
     dto.status = result.series.status;
     dto.publishedAt = result.series.publishedAt ?? null;
     dto.createdSessions = result.createdSessions;
+    return dto;
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(IdentityTypeEnum.MANAGER, IdentityTypeEnum.ADMIN)
+  @Mutation(() => PublishSeriesResultDTO, {
+    name: 'approveCourseSeries',
+    description: '审批通过开课班（待审批→已发布）',
+  })
+  async approveCourseSeries(
+    @currentUser() user: JwtPayload,
+    @Args('input') input: ApproveCourseSeriesInput,
+  ): Promise<PublishSeriesResultDTO> {
+    const session: UsecaseSession = mapJwtToUsecaseSession(user);
+    const result = await this.approveUsecase.execute({
+      session,
+      seriesId: input.seriesId,
+    });
+    const dto = new PublishSeriesResultDTO();
+    dto.seriesId = result.series.id;
+    dto.status = result.series.status;
+    dto.publishedAt = result.series.publishedAt;
+    dto.createdSessions = result.createdSessions;
+    return dto;
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(IdentityTypeEnum.MANAGER, IdentityTypeEnum.ADMIN)
+  @Mutation(() => CourseSeriesDTO, {
+    name: 'rejectCourseSeries',
+    description: '驳回开课班（待审批→已排期）',
+  })
+  async rejectCourseSeries(
+    @currentUser() user: JwtPayload,
+    @Args('input') input: RejectCourseSeriesInput,
+  ): Promise<CourseSeriesDTO> {
+    const session: UsecaseSession = mapJwtToUsecaseSession(user);
+    const series = await this.rejectUsecase.execute({
+      session,
+      seriesId: input.seriesId,
+      reason: input.reason ?? null,
+    });
+    const dto = new CourseSeriesDTO();
+    dto.id = series.id;
+    dto.catalogId = series.catalogId;
+    dto.title = series.title;
+    dto.description = series.description;
+    dto.venueType = series.venueType;
+    dto.classMode = series.classMode;
+    dto.startDate = series.startDate;
+    dto.endDate = series.endDate;
+    dto.recurrenceRule = series.recurrenceRule;
+    dto.leaveCutoffHours = series.leaveCutoffHours;
+    dto.pricePerSession = series.pricePerSession;
+    dto.teachingFeeRef = series.teachingFeeRef;
+    dto.maxLearners = series.maxLearners;
+    dto.status = series.status;
+    dto.remark = series.remark;
+    dto.createdAt = series.createdAt;
+    dto.updatedAt = series.updatedAt;
+    dto.createdBy = series.createdBy;
+    dto.updatedBy = series.updatedBy;
     return dto;
   }
 

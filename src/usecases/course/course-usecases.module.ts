@@ -41,7 +41,9 @@ import { PublishSeriesUsecase } from '@src/usecases/course/series/publish-series
 import { SearchSeriesForCustomerUsecase } from '@src/usecases/course/series/search-series-for-customer.usecase';
 import { SearchSeriesUsecase } from '@src/usecases/course/series/search-series.usecase';
 import {
+  ApproveSeriesUsecase,
   CloseSeriesUsecase,
+  RejectSeriesUsecase,
   UpdateSeriesUsecase,
 } from '@src/usecases/course/series/update-series.usecase';
 import { CourseSeriesAccessPolicy } from '@src/usecases/course/sessions/course-series-access.policy';
@@ -99,6 +101,8 @@ import { RestoreSessionUsecase } from '@src/usecases/course/workflows/restore-se
     CreateSeriesUsecase,
     UpdateSeriesUsecase,
     CloseSeriesUsecase,
+    ApproveSeriesUsecase,
+    RejectSeriesUsecase,
     DeleteSeriesUsecase,
     GetSeriesUsecase,
     ListSeriesUsecase,
@@ -155,6 +159,8 @@ import { RestoreSessionUsecase } from '@src/usecases/course/workflows/restore-se
     CreateSeriesUsecase,
     UpdateSeriesUsecase,
     CloseSeriesUsecase,
+    ApproveSeriesUsecase,
+    RejectSeriesUsecase,
     DeleteSeriesUsecase,
     GetSeriesUsecase,
     ListSeriesUsecase,
