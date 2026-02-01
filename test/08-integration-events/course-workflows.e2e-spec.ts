@@ -1499,12 +1499,26 @@ describe('08-Integration-Events 课程工作流：报名触发与 Outbox 分发 
       };
       if (b1.errors) throw new Error(`GraphQL 错误: ${JSON.stringify(b1.errors)}`);
 
-      // 标记该节次出勤已定稿（模拟流程终态）
-      const attendanceService = app.get<ParticipationAttendanceService>(
-        ParticipationAttendanceService,
-      );
-      const affected = await attendanceService.lockForSession({ sessionId, finalizedBy: 999 });
-      expect(affected).toBeGreaterThanOrEqual(1);
+      // 通过 GraphQL 终审该节次出勤
+      const finalizeMutation = `
+        mutation Finalize($input: FinalizeSessionAttendanceInputGql!) {
+          finalizeSessionAttendance(input: $input) { updatedCount }
+        }
+      `;
+      const finalizeVariables = { input: { sessionId } };
+      const finalizeRes = await request(app.getHttpServer())
+        .post('/graphql')
+        .send({ query: finalizeMutation, variables: finalizeVariables })
+        .set('Authorization', `Bearer ${managerToken}`)
+        .expect(200);
+      const finalizeBody = finalizeRes.body as unknown as {
+        data?: { finalizeSessionAttendance?: { updatedCount: number } };
+        errors?: unknown;
+      };
+      if (finalizeBody.errors) {
+        throw new Error(`GraphQL 错误: ${JSON.stringify(finalizeBody.errors)}`);
+      }
+      expect(finalizeBody.data!.finalizeSessionAttendance!.updatedCount).toBeGreaterThanOrEqual(1);
 
       // 再次提交同记录，期望被拒绝
       const r2 = await request(app.getHttpServer())
