@@ -121,7 +121,6 @@ export class SessionAdjustmentResolver {
       afterSessions: input.afterSessions,
       reasonType: input.reasonType,
       reasonNote: input.reasonNote ?? null,
-      operatorAccountId: input.operatorAccountId ?? null,
       orderRef: input.orderRef ?? null,
     });
     return this.toDTO(entity);
@@ -146,7 +145,6 @@ export class SessionAdjustmentResolver {
       afterSessions: input.afterSessions,
       reasonType: input.reasonType,
       reasonNote: input.reasonNote ?? null,
-      operatorAccountId: input.operatorAccountId ?? null,
       orderRef: input.orderRef ?? null,
     });
     return this.toDTO(entity);

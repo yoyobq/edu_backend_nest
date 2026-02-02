@@ -38,12 +38,6 @@ export class CreateSessionAdjustmentInputGql {
   @MaxLength(255)
   reasonNote?: string | null;
 
-  @Field(() => Int, { nullable: true, description: '操作者账号 ID（默认当前账户）' })
-  @IsOptional()
-  @IsInt()
-  @Min(1)
-  operatorAccountId?: number | null;
-
   @Field(() => String, { nullable: true, description: '关联订单号（≤ 64 字符）' })
   @IsOptional()
   @MaxLength(64)
@@ -88,12 +82,6 @@ export class UpdateSessionAdjustmentInputGql {
   @IsOptional()
   @MaxLength(255)
   reasonNote?: string | null;
-
-  @Field(() => Int, { nullable: true, description: '操作者账号 ID' })
-  @IsOptional()
-  @IsInt()
-  @Min(1)
-  operatorAccountId?: number | null;
 
   @Field(() => String, { nullable: true, description: '关联订单号（≤ 64 字符）' })
   @IsOptional()

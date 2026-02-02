@@ -23,7 +23,6 @@ export interface UpdateSessionAdjustmentInput {
   readonly afterSessions?: number;
   readonly reasonType?: string;
   readonly reasonNote?: string | null;
-  readonly operatorAccountId?: number | null;
   readonly orderRef?: string | null;
 }
 
@@ -92,7 +91,7 @@ export class UpdateSessionAdjustmentUsecase {
     afterSessions?: number;
     reasonType?: SessionAdjustmentReasonType;
     reasonNote?: string | null;
-    operatorAccountId?: number | null;
+    operatorAccountId: number;
     orderRef?: string | null;
   } {
     this.validateId(input.id);
@@ -110,8 +109,7 @@ export class UpdateSessionAdjustmentUsecase {
       afterSessions: input.afterSessions,
       reasonType,
       reasonNote: this.normalizeNullableText(input.reasonNote, 255, 'reasonNote'),
-      operatorAccountId:
-        input.operatorAccountId === undefined ? undefined : input.operatorAccountId,
+      operatorAccountId: input.session.accountId,
       orderRef: this.normalizeNullableText(input.orderRef, 64, 'orderRef'),
     };
   }
@@ -137,7 +135,6 @@ export class UpdateSessionAdjustmentUsecase {
       input.afterSessions !== undefined ||
       input.reasonType !== undefined ||
       input.reasonNote !== undefined ||
-      input.operatorAccountId !== undefined ||
       input.orderRef !== undefined;
     if (!hasUpdate) {
       throw new DomainError(PAYOUT_SESSION_ADJUSTMENT_ERROR.INVALID_PARAMS, '未提供可更新字段');

@@ -28,7 +28,6 @@ export interface CreateSessionAdjustmentInput {
   readonly afterSessions: number;
   readonly reasonType: string;
   readonly reasonNote?: string | null;
-  readonly operatorAccountId?: number | null;
   readonly orderRef?: string | null;
 }
 
@@ -139,9 +138,6 @@ export class CreateSessionAdjustmentUsecase {
 
     const reasonNote = this.normalizeNullableText(input.reasonNote, 255, 'reasonNote');
     const orderRef = this.normalizeNullableText(input.orderRef, 64, 'orderRef');
-    const operatorAccountId =
-      input.operatorAccountId !== undefined ? input.operatorAccountId : input.session.accountId;
-
     return {
       customerId: input.customerId,
       deltaSessions: input.deltaSessions,
@@ -149,7 +145,7 @@ export class CreateSessionAdjustmentUsecase {
       afterSessions: input.afterSessions,
       reasonType,
       reasonNote,
-      operatorAccountId: operatorAccountId ?? null,
+      operatorAccountId: input.session.accountId,
       orderRef,
     };
   }
