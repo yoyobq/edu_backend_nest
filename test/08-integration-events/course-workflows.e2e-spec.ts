@@ -1241,6 +1241,216 @@ describe('08-Integration-Events 课程工作流：报名触发与 Outbox 分发 
     });
   });
 
+  describe('ListFinalizedAttendance GraphQL - 正例 (e2e)', () => {
+    let finalizedSessionId: number;
+    let finalizedEnrollmentId: number;
+    let learnerName: string;
+    let seriesTitle: string;
+    let catalogTitle: string;
+
+    beforeAll(async () => {
+      const seriesRepo = dataSource.getRepository(CourseSeriesEntity);
+      const catalogRepo = dataSource.getRepository(CourseCatalogEntity);
+      const series = await seriesRepo.findOne({ where: { id: seriesId } });
+      if (!series) throw new Error('前置失败：未找到开课班');
+      seriesTitle = series.title;
+      const catalog = await catalogRepo.findOne({ where: { id: series.catalogId } });
+      if (!catalog) throw new Error('前置失败：未找到课程目录');
+      catalogTitle = catalog.title;
+
+      const coachAccountId = await getAccountIdByLoginName(
+        dataSource,
+        testAccountsConfig.coach.loginName,
+      );
+      const coachId = await getCoachIdByAccountId(dataSource, coachAccountId);
+      finalizedSessionId = await createTestSession(dataSource, {
+        seriesId,
+        leadCoachId: coachId,
+        startOffsetMinutes: 10,
+      });
+
+      const enrollMutation = `
+        mutation {
+          enrollLearnerToSession(input: { sessionId: ${finalizedSessionId}, learnerId: ${learnerId}, remark: "E2E 已终审报名" }) {
+            isNewlyCreated
+          }
+        }
+      `;
+      const enrollRes = await executeGql(app, {
+        query: enrollMutation,
+        token: customerToken,
+      }).expect(200);
+      const enrollBody = enrollRes.body as unknown as {
+        data?: { enrollLearnerToSession?: { isNewlyCreated: boolean } };
+        errors?: unknown;
+      };
+      if (enrollBody.errors) throw new Error(`GraphQL 错误: ${JSON.stringify(enrollBody.errors)}`);
+
+      const enrRepo = dataSource.getRepository(ParticipationEnrollmentEntity);
+      const enrollment = await enrRepo.findOne({
+        where: { sessionId: finalizedSessionId, learnerId },
+      });
+      if (!enrollment) throw new Error('前置失败：未找到报名记录');
+      finalizedEnrollmentId = enrollment.id;
+
+      const learnerRepo = dataSource.getRepository(LearnerEntity);
+      const learner = await learnerRepo.findOne({ where: { id: learnerId } });
+      if (!learner) throw new Error('前置失败：未找到学员');
+      learnerName = learner.name;
+
+      const recordMutation = `
+        mutation Record($input: RecordSessionAttendanceInputGql!) {
+          recordSessionAttendance(input: $input) { updatedCount unchangedCount }
+        }
+      `;
+      const recordVariables = {
+        input: {
+          sessionId: finalizedSessionId,
+          items: [
+            {
+              enrollmentId: finalizedEnrollmentId,
+              status: ParticipationAttendanceStatus.PRESENT,
+              countApplied: '1.0',
+              remark: 'finalized-attendance',
+            },
+          ],
+        },
+      };
+      const recordRes = await request(app.getHttpServer())
+        .post('/graphql')
+        .send({ query: recordMutation, variables: recordVariables })
+        .set('Authorization', `Bearer ${managerToken}`)
+        .expect(200);
+      const recordBody = recordRes.body as unknown as {
+        data?: { recordSessionAttendance?: { updatedCount: number; unchangedCount: number } };
+        errors?: unknown;
+      };
+      if (recordBody.errors) throw new Error(`GraphQL 错误: ${JSON.stringify(recordBody.errors)}`);
+      expect(recordBody.data!.recordSessionAttendance!.updatedCount).toBeGreaterThanOrEqual(1);
+
+      const finalizeMutation = `
+        mutation Finalize($input: FinalizeSessionAttendanceInputGql!) {
+          finalizeSessionAttendance(input: $input) { updatedCount }
+        }
+      `;
+      const finalizeVariables = { input: { sessionId: finalizedSessionId } };
+      const finalizeRes = await request(app.getHttpServer())
+        .post('/graphql')
+        .send({ query: finalizeMutation, variables: finalizeVariables })
+        .set('Authorization', `Bearer ${managerToken}`)
+        .expect(200);
+      const finalizeBody = finalizeRes.body as unknown as {
+        data?: { finalizeSessionAttendance?: { updatedCount: number } };
+        errors?: unknown;
+      };
+      if (finalizeBody.errors) {
+        throw new Error(`GraphQL 错误: ${JSON.stringify(finalizeBody.errors)}`);
+      }
+      expect(finalizeBody.data!.finalizeSessionAttendance!.updatedCount).toBeGreaterThanOrEqual(1);
+    });
+
+    it('查询已终审出勤关联的开课班列表', async () => {
+      const query = `
+        query {
+          listFinalizedAttendanceSeries {
+            catalogId
+            catalogTitle
+            title
+            startDate
+            endDate
+            leadCoachName
+            status
+          }
+        }
+      `;
+      const res = await executeGql(app, { query, token: managerToken }).expect(200);
+      const body = res.body as unknown as {
+        data?: {
+          listFinalizedAttendanceSeries?: Array<{
+            catalogId: number;
+            catalogTitle: string;
+            title: string;
+            startDate: string;
+            endDate: string;
+            leadCoachName: string | null;
+            status: CourseSeriesStatus;
+          }>;
+        };
+        errors?: unknown;
+      };
+      if (body.errors) throw new Error(`GraphQL 错误: ${JSON.stringify(body.errors)}`);
+      const items = body.data?.listFinalizedAttendanceSeries ?? [];
+      const hit = items.find(
+        (item) => item.title === seriesTitle && item.catalogTitle === catalogTitle,
+      );
+      expect(hit).toBeTruthy();
+      expect(hit?.status).toBe(CourseSeriesStatus.SCHEDULED);
+    });
+
+    it('按开课班查询已终审出勤记录列表', async () => {
+      const query = `
+        query {
+          listFinalizedAttendanceBySeries(input: { seriesId: ${seriesId} }) {
+            attendanceId
+            sessionId
+            enrollmentId
+            learnerId
+            learnerName
+            status
+            countApplied
+            confirmedByCoachId
+            confirmedByCoachName
+            confirmedAt
+            remark
+          }
+        }
+      `;
+      const res = await executeGql(app, { query, token: managerToken }).expect(200);
+      const body = res.body as unknown as {
+        data?: {
+          listFinalizedAttendanceBySeries?: Array<{
+            attendanceId: number;
+            sessionId: number;
+            enrollmentId: number;
+            learnerId: number;
+            learnerName: string;
+            status: string;
+            countApplied: string;
+            confirmedByCoachId: number | null;
+            confirmedByCoachName: string | null;
+            confirmedAt: string | null;
+            remark: string | null;
+          }>;
+        };
+        errors?: unknown;
+      };
+      if (body.errors) throw new Error(`GraphQL 错误: ${JSON.stringify(body.errors)}`);
+      const items = body.data?.listFinalizedAttendanceBySeries ?? [];
+      const hit = items.find(
+        (item) =>
+          item.sessionId === finalizedSessionId && item.enrollmentId === finalizedEnrollmentId,
+      );
+      expect(hit).toBeTruthy();
+      expect(hit?.learnerId).toBe(learnerId);
+      expect(hit?.learnerName).toBe(learnerName);
+      expect(hit?.status).toBe(ParticipationAttendanceStatus.PRESENT);
+      expect(hit?.countApplied).toMatch(/^1(\.0+)?$/);
+      expect(hit?.remark).toBe('finalized-attendance');
+    });
+
+    afterAll(async () => {
+      await dataSource.getRepository(ParticipationAttendanceRecordEntity).delete({
+        sessionId: finalizedSessionId,
+        learnerId,
+      });
+      await dataSource.getRepository(ParticipationEnrollmentEntity).delete({
+        sessionId: finalizedSessionId,
+        learnerId,
+      });
+      await dataSource.getRepository(CourseSessionEntity).delete({ id: finalizedSessionId });
+    });
+  });
+
   describe('RecordSessionAttendance GraphQL - 正例 (e2e)', () => {
     let enrollmentId: number;
 
