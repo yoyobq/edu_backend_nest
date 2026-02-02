@@ -23,6 +23,18 @@ export type AppendAdjustmentInput = {
   manager?: EntityManager;
 };
 
+export type UpdateAdjustmentInput = {
+  id: number;
+  deltaSessions?: number;
+  beforeSessions?: number;
+  afterSessions?: number;
+  reasonType?: SessionAdjustmentReasonType;
+  reasonNote?: string | null;
+  operatorAccountId?: number | null;
+  orderRef?: string | null;
+  manager?: EntityManager;
+};
+
 @Injectable()
 export class PayoutSessionAdjustmentsService {
   constructor(
@@ -30,6 +42,14 @@ export class PayoutSessionAdjustmentsService {
     private readonly adjustmentRepo: Repository<PayoutSessionAdjustmentEntity>,
     private readonly searchService: SearchService,
   ) {}
+
+  /**
+   * 根据 ID 查找课次调整记录
+   * @param id 记录 ID
+   */
+  async findById(id: number): Promise<PayoutSessionAdjustmentEntity | null> {
+    return await this.adjustmentRepo.findOne({ where: { id } });
+  }
 
   /**
    * 按客户 ID 列出课次调整记录（按时间倒序）
@@ -49,27 +69,12 @@ export class PayoutSessionAdjustmentsService {
       ? input.manager.getRepository(PayoutSessionAdjustmentEntity)
       : this.adjustmentRepo;
 
-    const beforeStr = decimalCompute({
-      op: 'add',
-      a: 0,
-      b: Number(input.beforeSessions),
-      outScale: 2,
-    }).toFixed(2);
-    const afterStr = decimalCompute({
-      op: 'add',
-      a: 0,
-      b: Number(input.afterSessions),
-      outScale: 2,
-    }).toFixed(2);
+    const beforeStr = this.normalizeSessionsValue(input.beforeSessions);
+    const afterStr = this.normalizeSessionsValue(input.afterSessions);
 
     const entity = aRepo.create({
       customerId: input.customerId,
-      deltaSessions: decimalCompute({
-        op: 'add',
-        a: 0,
-        b: Number(input.deltaSessions),
-        outScale: 2,
-      }).toFixed(2),
+      deltaSessions: this.normalizeSessionsValue(input.deltaSessions),
       beforeSessions: beforeStr,
       afterSessions: afterStr,
       reasonType: input.reasonType,
@@ -78,6 +83,57 @@ export class PayoutSessionAdjustmentsService {
       orderRef: input.orderRef ?? null,
     });
     return await aRepo.save(entity);
+  }
+
+  /**
+   * 更新课次调整记录（按 ID）
+   * @param input 更新参数对象
+   */
+  async updateAdjustment(input: UpdateAdjustmentInput): Promise<PayoutSessionAdjustmentEntity> {
+    const repo = input.manager
+      ? input.manager.getRepository(PayoutSessionAdjustmentEntity)
+      : this.adjustmentRepo;
+    const patch: Partial<PayoutSessionAdjustmentEntity> = {};
+
+    if (input.deltaSessions !== undefined) {
+      patch.deltaSessions = this.normalizeSessionsValue(input.deltaSessions);
+    }
+    if (input.beforeSessions !== undefined) {
+      patch.beforeSessions = this.normalizeSessionsValue(input.beforeSessions);
+    }
+    if (input.afterSessions !== undefined) {
+      patch.afterSessions = this.normalizeSessionsValue(input.afterSessions);
+    }
+    if (input.reasonType !== undefined) {
+      patch.reasonType = input.reasonType;
+    }
+    if (input.reasonNote !== undefined) {
+      patch.reasonNote = input.reasonNote ?? null;
+    }
+    if (input.operatorAccountId !== undefined) {
+      patch.operatorAccountId = input.operatorAccountId ?? null;
+    }
+    if (input.orderRef !== undefined) {
+      patch.orderRef = input.orderRef ?? null;
+    }
+
+    await repo.update({ id: input.id }, patch);
+    const fresh = await repo.findOne({ where: { id: input.id } });
+    if (!fresh) throw new Error('更新后的课次调整记录未找到');
+    return fresh;
+  }
+
+  /**
+   * 规约课次数值为两位小数字符串
+   * @param value 课次数值
+   */
+  private normalizeSessionsValue(value: number): string {
+    return decimalCompute({
+      op: 'add',
+      a: 0,
+      b: Number(value),
+      outScale: 2,
+    }).toFixed(2);
   }
 
   /**

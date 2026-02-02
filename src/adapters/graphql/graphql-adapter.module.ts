@@ -25,6 +25,8 @@ import { AccountInstallerModule } from '@src/modules/account/account-installer.m
 
 // Resolvers
 import { SearchSessionAdjustmentsUsecase } from '@src/usecases/payout/search-session-adjustments.usecase';
+import { CreateSessionAdjustmentUsecase } from '@src/usecases/payout/create-session-adjustment.usecase';
+import { UpdateSessionAdjustmentUsecase } from '@src/usecases/payout/update-session-adjustment.usecase';
 import { AccountResolver } from './account/account.resolver';
 import { UserInfoResolver } from './account/user-info.resolver';
 import { AuthResolver } from './auth/auth.resolver';
@@ -105,6 +107,8 @@ import { RolesGuard } from './guards/roles.guard';
     SessionCloseResolver, // 注册节次结课 resolver
     SessionAttendanceResolver, // 注册节次点名视图 resolver
     SearchSessionAdjustmentsUsecase, // 注册课次调整查询用例
+    CreateSessionAdjustmentUsecase, // 注册课次调整新增用例
+    UpdateSessionAdjustmentUsecase, // 注册课次调整更新用例
     // Guards
     JwtAuthGuard,
     RolesGuard,
@@ -135,6 +139,8 @@ import { RolesGuard } from './guards/roles.guard';
     JwtAuthGuard,
     RolesGuard,
     SearchSessionAdjustmentsUsecase, // 导出课次调整查询用例
+    CreateSessionAdjustmentUsecase, // 导出课次调整新增用例
+    UpdateSessionAdjustmentUsecase, // 导出课次调整更新用例
   ],
 })
 export class GraphQLAdapterModule {}
