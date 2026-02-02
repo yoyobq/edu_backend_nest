@@ -6,7 +6,10 @@ import {
   PAYOUT_SESSION_ADJUSTMENT_ERROR,
   PERMISSION_ERROR,
 } from '@core/common/errors/domain-error';
+import { decimalCompute } from '@core/common/numeric/decimal';
 import { Injectable } from '@nestjs/common';
+import { InjectDataSource } from '@nestjs/typeorm';
+import { CustomerEntity } from '@src/modules/account/identities/training/customer/account-customer.entity';
 import { CustomerService } from '@src/modules/account/identities/training/customer/account-customer.service';
 import { ManagerService } from '@src/modules/account/identities/training/manager/manager.service';
 import {
@@ -15,6 +18,7 @@ import {
 } from '@src/modules/payout/session-adjustments/payout-session-adjustment.entity';
 import { PayoutSessionAdjustmentsService } from '@src/modules/payout/session-adjustments/payout-session-adjustments.service';
 import { type UsecaseSession } from '@src/types/auth/session.types';
+import { DataSource, type EntityManager } from 'typeorm';
 
 export interface CreateSessionAdjustmentInput {
   readonly session: UsecaseSession;
@@ -34,6 +38,7 @@ export interface CreateSessionAdjustmentInput {
 @Injectable()
 export class CreateSessionAdjustmentUsecase {
   constructor(
+    @InjectDataSource() private readonly dataSource: DataSource,
     private readonly adjustmentsService: PayoutSessionAdjustmentsService,
     private readonly customerService: CustomerService,
     private readonly managerService: ManagerService,
@@ -47,16 +52,30 @@ export class CreateSessionAdjustmentUsecase {
     this.ensurePermissions(input.session);
     await this.ensureManagerActive(input.session);
     const normalized = this.normalizeInput(input);
-    await this.assertCustomerExists(normalized.customerId);
-    return await this.adjustmentsService.appendAdjustment({
-      customerId: normalized.customerId,
-      deltaSessions: normalized.deltaSessions,
-      beforeSessions: normalized.beforeSessions,
-      afterSessions: normalized.afterSessions,
-      reasonType: normalized.reasonType,
-      reasonNote: normalized.reasonNote,
-      operatorAccountId: normalized.operatorAccountId,
-      orderRef: normalized.orderRef,
+    return await this.dataSource.transaction(async (manager) => {
+      const customer = await this.assertCustomerExists(normalized.customerId, manager);
+      const nextRemaining = decimalCompute({
+        op: 'add',
+        a: Number(customer.remainingSessions),
+        b: normalized.deltaSessions,
+        outScale: 2,
+      });
+      await manager.getRepository(CustomerEntity).update(customer.id, {
+        remainingSessions: nextRemaining,
+        updatedBy: normalized.operatorAccountId ?? null,
+        updatedAt: new Date(),
+      });
+      return await this.adjustmentsService.appendAdjustment({
+        customerId: normalized.customerId,
+        deltaSessions: normalized.deltaSessions,
+        beforeSessions: normalized.beforeSessions,
+        afterSessions: normalized.afterSessions,
+        reasonType: normalized.reasonType,
+        reasonNote: normalized.reasonNote,
+        operatorAccountId: normalized.operatorAccountId,
+        orderRef: normalized.orderRef,
+        manager,
+      });
     });
   }
 
@@ -139,13 +158,21 @@ export class CreateSessionAdjustmentUsecase {
    * 校验客户是否存在
    * @param customerId 客户 ID
    */
-  private async assertCustomerExists(customerId: number): Promise<void> {
-    const customer = await this.customerService.findById(customerId);
+  private async assertCustomerExists(
+    customerId: number,
+    manager?: EntityManager,
+  ): Promise<CustomerEntity> {
+    const customer = manager
+      ? await manager
+          .getRepository(CustomerEntity)
+          .findOne({ where: { id: customerId }, lock: { mode: 'pessimistic_write' } })
+      : await this.customerService.findById(customerId);
     if (!customer) {
       throw new DomainError(PAYOUT_SESSION_ADJUSTMENT_ERROR.CUSTOMER_NOT_FOUND, '客户不存在', {
         customerId,
       });
     }
+    return customer;
   }
 
   /**
