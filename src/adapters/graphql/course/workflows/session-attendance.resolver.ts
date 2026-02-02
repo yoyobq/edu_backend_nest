@@ -5,6 +5,8 @@ import { mapJwtToUsecaseSession, type UsecaseSession } from '@src/types/auth/ses
 import { JwtPayload } from '@src/types/jwt.types';
 import { BatchRecordAttendanceUsecase } from '@src/usecases/course/workflows/batch-record-attendance.usecase';
 import { FinalizeSessionAttendanceUsecase } from '@src/usecases/course/workflows/finalize-session-attendance.usecase';
+import { ListFinalizedAttendanceBySeriesUsecase } from '@src/usecases/course/workflows/list-finalized-attendance-by-series.usecase';
+import { ListFinalizedAttendanceSeriesUsecase } from '@src/usecases/course/workflows/list-finalized-attendance-series.usecase';
 import { ListSessionLeaveRequestsUsecase } from '@src/usecases/course/workflows/list-session-leave-requests.usecase';
 import { ListUnfinalizedAttendanceBySeriesUsecase } from '@src/usecases/course/workflows/list-unfinalized-attendance-by-series.usecase';
 import { ListUnfinalizedAttendanceSeriesUsecase } from '@src/usecases/course/workflows/list-unfinalized-attendance-series.usecase';
@@ -15,6 +17,7 @@ import { JwtAuthGuard } from '../../guards/jwt-auth.guard';
 import {
   FinalizeSessionAttendanceInputGql,
   FinalizeSessionAttendanceResultGql,
+  ListFinalizedAttendanceBySeriesInputGql,
   ListUnfinalizedAttendanceBySeriesInputGql,
   RecordSessionAttendanceInputGql,
   RecordSessionAttendanceResultGql,
@@ -22,6 +25,8 @@ import {
 import {
   AttendanceSheetGql,
   AttendanceSheetRowGql,
+  FinalizedAttendanceRecordGql,
+  FinalizedAttendanceSeriesGql,
   SessionAttendanceDetailGql,
   SessionLeaveRequestListGql,
   UnfinalizedAttendanceRecordGql,
@@ -40,6 +45,8 @@ export class SessionAttendanceResolver {
     private readonly recordUsecase: BatchRecordAttendanceUsecase,
     private readonly listLeaveRequestsUsecase: ListSessionLeaveRequestsUsecase,
     private readonly finalizeUsecase: FinalizeSessionAttendanceUsecase,
+    private readonly listFinalizedSeriesUsecase: ListFinalizedAttendanceSeriesUsecase,
+    private readonly listFinalizedAttendanceBySeriesUsecase: ListFinalizedAttendanceBySeriesUsecase,
     private readonly listUnfinalizedSeriesUsecase: ListUnfinalizedAttendanceSeriesUsecase,
     private readonly listUnfinalizedAttendanceBySeriesUsecase: ListUnfinalizedAttendanceBySeriesUsecase,
   ) {}
@@ -145,6 +152,61 @@ export class SessionAttendanceResolver {
   ): Promise<UnfinalizedAttendanceRecordGql[]> {
     const session: UsecaseSession = mapJwtToUsecaseSession(user);
     const result = await this.listUnfinalizedAttendanceBySeriesUsecase.execute({
+      session,
+      seriesId: input.seriesId,
+    });
+    return result.items.map((item) => ({
+      attendanceId: item.attendanceId,
+      sessionId: item.sessionId,
+      sessionStartTime: item.sessionStartTime,
+      enrollmentId: item.enrollmentId,
+      learnerId: item.learnerId,
+      learnerName: item.learnerName,
+      status: String(item.status),
+      countApplied: item.countApplied,
+      confirmedByCoachId: item.confirmedByCoachId,
+      confirmedByCoachName: item.confirmedByCoachName,
+      confirmedAt: item.confirmedAt,
+      remark: item.remark,
+    }));
+  }
+
+  /**
+   * 列出已终审出勤关联的开课班列表
+   * @param user 当前登录用户的 JWT 载荷
+   */
+  @UseGuards(JwtAuthGuard)
+  @Query(() => [FinalizedAttendanceSeriesGql], { name: 'listFinalizedAttendanceSeries' })
+  async listFinalizedAttendanceSeries(
+    @currentUser() user: JwtPayload,
+  ): Promise<FinalizedAttendanceSeriesGql[]> {
+    const session: UsecaseSession = mapJwtToUsecaseSession(user);
+    const result = await this.listFinalizedSeriesUsecase.execute({ session });
+    return result.items.map((item) => ({
+      catalogId: item.catalogId,
+      catalogTitle: item.catalogTitle,
+      title: item.title,
+      startDate: item.startDate,
+      endDate: item.endDate,
+      leadCoachName: item.leadCoachName,
+      status: item.status,
+    }));
+  }
+
+  /**
+   * 按 seriesId 列出已终审出勤记录
+   * @param user 当前登录用户的 JWT 载荷
+   * @param input 查询输入
+   */
+  @UseGuards(JwtAuthGuard)
+  @Query(() => [FinalizedAttendanceRecordGql], { name: 'listFinalizedAttendanceBySeries' })
+  async listFinalizedAttendanceBySeries(
+    @currentUser() user: JwtPayload,
+    @Args('input', { type: () => ListFinalizedAttendanceBySeriesInputGql })
+    input: ListFinalizedAttendanceBySeriesInputGql,
+  ): Promise<FinalizedAttendanceRecordGql[]> {
+    const session: UsecaseSession = mapJwtToUsecaseSession(user);
+    const result = await this.listFinalizedAttendanceBySeriesUsecase.execute({
       session,
       seriesId: input.seriesId,
     });

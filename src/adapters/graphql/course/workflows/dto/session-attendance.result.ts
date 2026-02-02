@@ -79,11 +79,77 @@ export class UnfinalizedAttendanceSeriesGql {
   status!: CourseSeriesStatus;
 }
 
+@ObjectType()
+export class FinalizedAttendanceSeriesGql {
+  @Field(() => Int)
+  catalogId!: number;
+
+  @Field(() => String)
+  catalogTitle!: string;
+
+  @Field(() => String)
+  title!: string;
+
+  @Field(() => String)
+  startDate!: string;
+
+  @Field(() => String)
+  endDate!: string;
+
+  @Field(() => String, { nullable: true })
+  leadCoachName!: string | null;
+
+  @Field(() => CourseSeriesStatus)
+  status!: CourseSeriesStatus;
+}
+
 /**
  * 未终审出勤记录 GraphQL 输出类型
  */
 @ObjectType()
 export class UnfinalizedAttendanceRecordGql {
+  @Field(() => Int)
+  attendanceId!: number;
+
+  @Field(() => Int)
+  sessionId!: number;
+
+  @Field(() => Date)
+  sessionStartTime!: Date;
+
+  @Field(() => Int)
+  enrollmentId!: number;
+
+  @Field(() => Int)
+  learnerId!: number;
+
+  @Field(() => String)
+  learnerName!: string;
+
+  @Field(() => String)
+  status!: string;
+
+  @Field(() => String)
+  countApplied!: string;
+
+  @Field(() => Int, { nullable: true })
+  confirmedByCoachId!: number | null;
+
+  @Field(() => String, { nullable: true })
+  confirmedByCoachName!: string | null;
+
+  @Field(() => Date, { nullable: true })
+  confirmedAt!: Date | null;
+
+  @Field(() => String, { nullable: true })
+  remark!: string | null;
+}
+
+/**
+ * 已终审出勤记录 GraphQL 输出类型
+ */
+@ObjectType()
+export class FinalizedAttendanceRecordGql {
   @Field(() => Int)
   attendanceId!: number;
 

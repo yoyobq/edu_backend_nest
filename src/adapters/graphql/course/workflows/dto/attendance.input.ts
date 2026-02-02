@@ -63,6 +63,17 @@ export class ListUnfinalizedAttendanceBySeriesInputGql {
 }
 
 /**
+ * 按 seriesId 查询已终审 attendance 列表 GraphQL 输入
+ */
+@InputType()
+export class ListFinalizedAttendanceBySeriesInputGql {
+  @Field(() => Int)
+  @IsInt()
+  @Min(1)
+  seriesId!: number;
+}
+
+/**
  * 批量记录节次出勤 GraphQL 输出结果
  */
 @ObjectType()
