@@ -5,6 +5,7 @@ import { mapJwtToUsecaseSession, type UsecaseSession } from '@src/types/auth/ses
 import { JwtPayload } from '@src/types/jwt.types';
 import { BatchRecordAttendanceUsecase } from '@src/usecases/course/workflows/batch-record-attendance.usecase';
 import { FinalizeSessionAttendanceUsecase } from '@src/usecases/course/workflows/finalize-session-attendance.usecase';
+import { ListAttendanceRecordsByCustomerUsecase } from '@src/usecases/course/workflows/list-attendance-records-by-customer.usecase';
 import { ListAttendanceSessionsByCoachUsecase } from '@src/usecases/course/workflows/list-attendance-sessions-by-coach.usecase';
 import { ListFinalizedAttendanceBySeriesUsecase } from '@src/usecases/course/workflows/list-finalized-attendance-by-series.usecase';
 import { ListFinalizedAttendanceSeriesUsecase } from '@src/usecases/course/workflows/list-finalized-attendance-series.usecase';
@@ -18,6 +19,7 @@ import { JwtAuthGuard } from '../../guards/jwt-auth.guard';
 import {
   FinalizeSessionAttendanceInputGql,
   FinalizeSessionAttendanceResultGql,
+  ListAttendanceRecordsByCustomerInputGql,
   ListAttendanceSessionsByCoachInputGql,
   ListFinalizedAttendanceBySeriesInputGql,
   ListUnfinalizedAttendanceBySeriesInputGql,
@@ -25,6 +27,7 @@ import {
   RecordSessionAttendanceResultGql,
 } from './dto/attendance.input';
 import {
+  AttendanceRecordByCustomerItemGql,
   AttendanceSessionByCoachItemGql,
   AttendanceSheetGql,
   AttendanceSheetRowGql,
@@ -48,6 +51,7 @@ export class SessionAttendanceResolver {
     private readonly recordUsecase: BatchRecordAttendanceUsecase,
     private readonly listLeaveRequestsUsecase: ListSessionLeaveRequestsUsecase,
     private readonly finalizeUsecase: FinalizeSessionAttendanceUsecase,
+    private readonly listAttendanceRecordsByCustomerUsecase: ListAttendanceRecordsByCustomerUsecase,
     private readonly listAttendanceSessionsByCoachUsecase: ListAttendanceSessionsByCoachUsecase,
     private readonly listFinalizedSeriesUsecase: ListFinalizedAttendanceSeriesUsecase,
     private readonly listFinalizedAttendanceBySeriesUsecase: ListFinalizedAttendanceBySeriesUsecase,
@@ -227,6 +231,41 @@ export class SessionAttendanceResolver {
       confirmedByCoachName: item.confirmedByCoachName,
       confirmedAt: item.confirmedAt,
       remark: item.remark,
+    }));
+  }
+
+  /**
+   * 按 customer 查询出勤记录列表
+   * @param user 当前登录用户的 JWT 载荷
+   * @param input 查询输入
+   */
+  @UseGuards(JwtAuthGuard)
+  @Query(() => [AttendanceRecordByCustomerItemGql], { name: 'listAttendanceRecordsByCustomer' })
+  async listAttendanceRecordsByCustomer(
+    @currentUser() user: JwtPayload,
+    @Args('input', { type: () => ListAttendanceRecordsByCustomerInputGql })
+    input: ListAttendanceRecordsByCustomerInputGql,
+  ): Promise<AttendanceRecordByCustomerItemGql[]> {
+    const session: UsecaseSession = mapJwtToUsecaseSession(user);
+    const result = await this.listAttendanceRecordsByCustomerUsecase.execute({
+      session,
+      customerId: input.customerId,
+      rangeStart: input.rangeStart,
+      rangeEnd: input.rangeEnd,
+    });
+    return result.items.map((item) => ({
+      attendanceId: item.attendanceId,
+      sessionId: item.sessionId,
+      sessionStartTime: item.sessionStartTime,
+      sessionEndTime: item.sessionEndTime,
+      sessionStatus: item.sessionStatus,
+      locationText: item.locationText,
+      learnerId: item.learnerId,
+      learnerName: item.learnerName,
+      customerId: item.customerId,
+      customerName: item.customerName,
+      attendanceStatus: String(item.attendanceStatus),
+      countApplied: item.countApplied,
     }));
   }
 

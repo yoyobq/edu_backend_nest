@@ -80,6 +80,48 @@ export class AttendanceSessionByCoachItemGql {
   status!: SessionStatus;
 }
 
+/**
+ * 按 customer 维度查询出勤记录 GraphQL 输出类型
+ */
+@ObjectType()
+export class AttendanceRecordByCustomerItemGql {
+  @Field(() => Int)
+  attendanceId!: number;
+
+  @Field(() => Int)
+  sessionId!: number;
+
+  @Field(() => Date)
+  sessionStartTime!: Date;
+
+  @Field(() => Date)
+  sessionEndTime!: Date;
+
+  @Field(() => SessionStatus)
+  sessionStatus!: SessionStatus;
+
+  @Field(() => String)
+  locationText!: string;
+
+  @Field(() => Int)
+  learnerId!: number;
+
+  @Field(() => String)
+  learnerName!: string;
+
+  @Field(() => Int)
+  customerId!: number;
+
+  @Field(() => String)
+  customerName!: string;
+
+  @Field(() => String)
+  attendanceStatus!: string;
+
+  @Field(() => String)
+  countApplied!: string;
+}
+
 @ObjectType()
 export class UnfinalizedAttendanceSeriesGql {
   @Field(() => Int)

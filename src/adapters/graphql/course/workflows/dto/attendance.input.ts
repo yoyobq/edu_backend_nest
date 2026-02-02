@@ -91,6 +91,25 @@ export class ListAttendanceSessionsByCoachInputGql {
 }
 
 /**
+ * 按 customerId 查询出勤记录 GraphQL 输入
+ */
+@InputType()
+export class ListAttendanceRecordsByCustomerInputGql {
+  @Field(() => Int)
+  @IsInt()
+  @Min(1)
+  customerId!: number;
+
+  @Field(() => Date)
+  @IsDate()
+  rangeStart!: Date;
+
+  @Field(() => Date)
+  @IsDate()
+  rangeEnd!: Date;
+}
+
+/**
  * 批量记录节次出勤 GraphQL 输出结果
  */
 @ObjectType()
