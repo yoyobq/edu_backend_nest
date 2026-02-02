@@ -2,7 +2,16 @@
 import { Field, InputType } from '@nestjs/graphql';
 import { PaginationArgs, SortInput } from '@src/adapters/graphql/pagination.args';
 import { Type } from 'class-transformer';
-import { IsInt, IsOptional, IsString, MaxLength, Min, ValidateNested } from 'class-validator';
+import {
+  IsDateString,
+  IsIn,
+  IsInt,
+  IsOptional,
+  IsString,
+  MaxLength,
+  Min,
+  ValidateNested,
+} from 'class-validator';
 
 /**
  * 课次调整记录的搜索与分页输入
@@ -54,4 +63,25 @@ export class SearchSessionAdjustmentsInputGql {
   @IsString()
   @MaxLength(64)
   orderRef?: string;
+
+  @Field(() => String, { nullable: true, description: '创建时间起始（ISO 字符串）' })
+  @IsOptional()
+  @IsDateString()
+  createdFrom?: string;
+
+  @Field(() => String, { nullable: true, description: '创建时间结束（ISO 字符串）' })
+  @IsOptional()
+  @IsDateString()
+  createdTo?: string;
+
+  @Field(() => String, { nullable: true, description: '增减方向（POSITIVE/NEGATIVE）' })
+  @IsOptional()
+  @IsIn(['POSITIVE', 'NEGATIVE'])
+  direction?: string;
+
+  @Field(() => String, { nullable: true, description: '客户姓名（模糊匹配）' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  customerName?: string;
 }

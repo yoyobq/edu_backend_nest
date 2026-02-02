@@ -685,6 +685,221 @@ describe('Session Adjustments Search (e2e)', () => {
     });
   });
 
+  describe('创建与更新（e2e）', () => {
+    describe('正例', () => {
+      it('MANAGER 创建课次调整记录成功', async () => {
+        const mutation = `
+          mutation Create($input: CreateSessionAdjustmentInputGql!) {
+            createSessionAdjustment(input: $input) {
+              id
+              customerId
+              deltaSessions
+              beforeSessions
+              afterSessions
+              reasonType
+              reasonNote
+              operatorAccountId
+              orderRef
+            }
+          }`;
+        const variables = {
+          input: {
+            customerId,
+            deltaSessions: 1.5,
+            beforeSessions: 8,
+            afterSessions: 9.5,
+            reasonType: SessionAdjustmentReasonType.PURCHASE,
+            reasonNote: 'E2E 创建',
+            orderRef: 'E2E-ORDER-001',
+          },
+        };
+        const res = await request(app.getHttpServer())
+          .post('/graphql')
+          .set('Authorization', `Bearer ${managerToken}`)
+          .send({ query: mutation, variables })
+          .expect(200);
+        const body = res.body as {
+          data?: {
+            createSessionAdjustment?: {
+              id: number;
+              customerId: number;
+              deltaSessions: string;
+              beforeSessions: string;
+              afterSessions: string;
+              reasonType: string;
+              reasonNote: string | null;
+              operatorAccountId: number | null;
+              orderRef: string | null;
+            };
+          };
+          errors?: unknown;
+        };
+        if (body.errors) throw new Error(`GraphQL 错误: ${JSON.stringify(body.errors)}`);
+        const created = body.data?.createSessionAdjustment;
+        expect(created).toBeDefined();
+        expect(created?.customerId).toBe(customerId);
+        expect(Number(created?.deltaSessions ?? 0)).toBeCloseTo(1.5, 6);
+        expect(Number(created?.beforeSessions ?? 0)).toBeCloseTo(8, 6);
+        expect(Number(created?.afterSessions ?? 0)).toBeCloseTo(9.5, 6);
+        expect(created?.reasonType).toBe(SessionAdjustmentReasonType.PURCHASE);
+        expect(created?.reasonNote).toBe('E2E 创建');
+        expect(created?.orderRef).toBe('E2E-ORDER-001');
+        const operatorId = created?.operatorAccountId ?? null;
+        expect([managerAccountId, null]).toContain(operatorId);
+      });
+
+      it('MANAGER 更新课次调整记录成功', async () => {
+        const createMutation = `
+          mutation Create($input: CreateSessionAdjustmentInputGql!) {
+            createSessionAdjustment(input: $input) { id }
+          }`;
+        const createVariables = {
+          input: {
+            customerId,
+            deltaSessions: 1,
+            beforeSessions: 5,
+            afterSessions: 6,
+            reasonType: SessionAdjustmentReasonType.GIFT,
+            reasonNote: 'E2E 更新前',
+          },
+        };
+        const createRes = await request(app.getHttpServer())
+          .post('/graphql')
+          .set('Authorization', `Bearer ${managerToken}`)
+          .send({ query: createMutation, variables: createVariables })
+          .expect(200);
+        const createBody = createRes.body as {
+          data?: { createSessionAdjustment?: { id: number } };
+          errors?: unknown;
+        };
+        if (createBody.errors)
+          throw new Error(`GraphQL 错误: ${JSON.stringify(createBody.errors)}`);
+        const createdId = createBody.data?.createSessionAdjustment?.id ?? 0;
+        expect(createdId).toBeGreaterThan(0);
+
+        const updateMutation = `
+          mutation Update($input: UpdateSessionAdjustmentInputGql!) {
+            updateSessionAdjustment(input: $input) {
+              id
+              deltaSessions
+              reasonType
+              reasonNote
+              orderRef
+            }
+          }`;
+        const updateVariables = {
+          input: {
+            id: createdId,
+            deltaSessions: 2.5,
+            reasonType: SessionAdjustmentReasonType.CORRECTION,
+            reasonNote: 'E2E 更新后',
+            orderRef: 'E2E-ORDER-002',
+          },
+        };
+        const updateRes = await request(app.getHttpServer())
+          .post('/graphql')
+          .set('Authorization', `Bearer ${managerToken}`)
+          .send({ query: updateMutation, variables: updateVariables })
+          .expect(200);
+        const updateBody = updateRes.body as {
+          data?: {
+            updateSessionAdjustment?: {
+              id: number;
+              deltaSessions: string;
+              reasonType: string;
+              reasonNote: string | null;
+              orderRef: string | null;
+            };
+          };
+          errors?: unknown;
+        };
+        if (updateBody.errors)
+          throw new Error(`GraphQL 错误: ${JSON.stringify(updateBody.errors)}`);
+        const updated = updateBody.data?.updateSessionAdjustment;
+        expect(updated?.id).toBe(createdId);
+        expect(Number(updated?.deltaSessions ?? 0)).toBeCloseTo(2.5, 6);
+        expect(updated?.reasonType).toBe(SessionAdjustmentReasonType.CORRECTION);
+        expect(updated?.reasonNote).toBe('E2E 更新后');
+        expect(updated?.orderRef).toBe('E2E-ORDER-002');
+      });
+    });
+
+    describe('负例', () => {
+      it('CUSTOMER 创建课次调整记录被拒绝', async () => {
+        const mutation = `
+          mutation Create($input: CreateSessionAdjustmentInputGql!) {
+            createSessionAdjustment(input: $input) { id }
+          }`;
+        const variables = {
+          input: {
+            customerId,
+            deltaSessions: 1,
+            beforeSessions: 10,
+            afterSessions: 11,
+            reasonType: SessionAdjustmentReasonType.PURCHASE,
+            reasonNote: 'E2E 拒绝',
+          },
+        };
+        const res = await request(app.getHttpServer())
+          .post('/graphql')
+          .set('Authorization', `Bearer ${customerToken}`)
+          .send({ query: mutation, variables })
+          .expect(200);
+        expect(res.body.errors).toBeDefined();
+        const msg = res.body.errors?.[0]?.message ?? '';
+        expect(msg).toMatch(/无权创建课次调整记录|ACCESS_DENIED/);
+      });
+
+      it('CUSTOMER 更新课次调整记录被拒绝', async () => {
+        const createMutation = `
+          mutation Create($input: CreateSessionAdjustmentInputGql!) {
+            createSessionAdjustment(input: $input) { id }
+          }`;
+        const createVariables = {
+          input: {
+            customerId,
+            deltaSessions: 1,
+            beforeSessions: 3,
+            afterSessions: 4,
+            reasonType: SessionAdjustmentReasonType.GIFT,
+          },
+        };
+        const createRes = await request(app.getHttpServer())
+          .post('/graphql')
+          .set('Authorization', `Bearer ${managerToken}`)
+          .send({ query: createMutation, variables: createVariables })
+          .expect(200);
+        const createBody = createRes.body as {
+          data?: { createSessionAdjustment?: { id: number } };
+          errors?: unknown;
+        };
+        if (createBody.errors)
+          throw new Error(`GraphQL 错误: ${JSON.stringify(createBody.errors)}`);
+        const createdId = createBody.data?.createSessionAdjustment?.id ?? 0;
+        expect(createdId).toBeGreaterThan(0);
+
+        const updateMutation = `
+          mutation Update($input: UpdateSessionAdjustmentInputGql!) {
+            updateSessionAdjustment(input: $input) { id }
+          }`;
+        const updateVariables = {
+          input: {
+            id: createdId,
+            reasonNote: 'E2E customer 更新',
+          },
+        };
+        const updateRes = await request(app.getHttpServer())
+          .post('/graphql')
+          .set('Authorization', `Bearer ${customerToken}`)
+          .send({ query: updateMutation, variables: updateVariables })
+          .expect(200);
+        expect(updateRes.body.errors).toBeDefined();
+        const msg = updateRes.body.errors?.[0]?.message ?? '';
+        expect(msg).toMatch(/无权更新课次调整记录|ACCESS_DENIED/);
+      });
+    });
+  });
+
   const loginAndGetToken = async (loginName: string, loginPassword: string): Promise<string> => {
     const resp = await request(app.getHttpServer())
       .post('/graphql')

@@ -10,6 +10,7 @@ import type { ICursorSigner } from '@core/pagination/pagination.ports';
 import type { CursorToken } from '@core/pagination/pagination.types';
 import type { SearchParams, SearchResult } from '@core/search/search.types';
 import { Inject, Injectable } from '@nestjs/common';
+import { CustomerService } from '@src/modules/account/identities/training/customer/account-customer.service';
 import { ManagerService } from '@src/modules/account/identities/training/manager/manager.service';
 import { PAGINATION_TOKENS } from '@src/modules/common/tokens/pagination.tokens';
 import {
@@ -34,12 +35,14 @@ export class SearchSessionAdjustmentsUsecase {
   constructor(
     private readonly adjustmentsService: PayoutSessionAdjustmentsService,
     private readonly managerService: ManagerService,
+    private readonly customerService: CustomerService,
     @Inject(PAGINATION_TOKENS.CURSOR_SIGNER) private readonly cursorSigner: ICursorSigner,
   ) {}
 
   /**
    * 执行课次调整记录的分页查询（带权限校验与自我过滤）
-   * - 仅允许 MANAGER / ADMIN 访问
+   * - 允许 MANAGER / ADMIN / CUSTOMER 访问
+   * - CUSTOMER 仅能查看与自己相关的记录（强制附加 customerId 过滤）
    */
   async execute(
     input: SearchSessionAdjustmentsInput,
@@ -57,11 +60,12 @@ export class SearchSessionAdjustmentsUsecase {
     const roles = (session.roles ?? []).map((r) => String(r).toUpperCase());
     const isManager = roles.includes('MANAGER');
     const isAdmin = roles.includes('ADMIN');
+    const isCustomer = roles.includes('CUSTOMER');
 
-    if (!isManager && !isAdmin) {
+    if (!isManager && !isAdmin && !isCustomer) {
       throw new DomainError(
         PERMISSION_ERROR.ACCESS_DENIED,
-        '仅 Manager 或 Admin 可查询课次调整记录',
+        '仅 Manager 或 Admin 或 Customer 可查询课次调整记录',
       );
     }
 
@@ -70,6 +74,18 @@ export class SearchSessionAdjustmentsUsecase {
     if (isManager) {
       const active = await this.managerService.isActiveManager(session.accountId);
       if (!active) throw new DomainError(PERMISSION_ERROR.ACCESS_DENIED, '仅活跃的 manager 可访问');
+    }
+
+    if (isCustomer && !isAdmin && !isManager) {
+      const meCustomer = await this.customerService.findByAccountId(session.accountId);
+      if (!meCustomer) {
+        throw new DomainError(PERMISSION_ERROR.ACCESS_DENIED, '当前账户未绑定客户身份');
+      }
+      const mergedFilters: NonNullable<SearchParams['filters']> = {
+        ...sanitized,
+        customerId: meCustomer.id,
+      };
+      return { query: params.query, filters: mergedFilters, pagination: params.pagination };
     }
 
     return { query: params.query, filters: sanitized, pagination: params.pagination };

@@ -46,7 +46,7 @@ export class SessionAdjustmentResolver {
 
   /**
    * 搜索与分页课次调整记录
-   * - 允许 MANAGER / CUSTOMER（适配层不做角色拦截，交由用例判定）
+   * - 允许 MANAGER / ADMIN / CUSTOMER（适配层不做角色拦截，交由用例判定）
    */
   @UseGuards(JwtAuthGuard)
   @ValidateInput()
@@ -68,6 +68,10 @@ export class SessionAdjustmentResolver {
             : {}),
           ...(typeof input.reasonType === 'string' ? { reasonType: input.reasonType } : {}),
           ...(typeof input.orderRef === 'string' ? { orderRef: input.orderRef } : {}),
+          ...(typeof input.createdFrom === 'string' ? { createdFrom: input.createdFrom } : {}),
+          ...(typeof input.createdTo === 'string' ? { createdTo: input.createdTo } : {}),
+          ...(typeof input.direction === 'string' ? { direction: input.direction } : {}),
+          ...(typeof input.customerName === 'string' ? { customerName: input.customerName } : {}),
         },
         pagination,
       },
