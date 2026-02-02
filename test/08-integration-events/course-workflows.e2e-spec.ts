@@ -1451,6 +1451,171 @@ describe('08-Integration-Events 课程工作流：报名触发与 Outbox 分发 
     });
   });
 
+  describe('ListAttendanceSessionsByCoach GraphQL - 正例 (e2e)', () => {
+    let targetSessionId: number;
+    let enrollmentId: number;
+    let coachId: number;
+    let sessionStart: Date;
+    let sessionEnd: Date;
+    let seriesTitle: string;
+    let sessionStatus: SessionStatus;
+
+    /**
+     * 准备出勤节次、报名与出勤记录
+     */
+    beforeAll(async () => {
+      const coachAccountId = await getAccountIdByLoginName(
+        dataSource,
+        testAccountsConfig.coach.loginName,
+      );
+      coachId = await getCoachIdByAccountId(dataSource, coachAccountId);
+      targetSessionId = await createTestSession(dataSource, {
+        seriesId,
+        leadCoachId: coachId,
+        startOffsetMinutes: 20,
+      });
+
+      const sessionRepo = dataSource.getRepository(CourseSessionEntity);
+      const session = await sessionRepo.findOne({ where: { id: targetSessionId } });
+      if (!session) throw new Error('前置失败：未找到节次');
+      sessionStart = session.startTime;
+      sessionEnd = session.endTime;
+      sessionStatus = session.status;
+
+      const seriesRepo = dataSource.getRepository(CourseSeriesEntity);
+      const series = await seriesRepo.findOne({ where: { id: seriesId } });
+      if (!series) throw new Error('前置失败：未找到开课班');
+      seriesTitle = series.title;
+
+      const coachRepo = dataSource.getRepository(CourseSessionCoachEntity);
+      const existingCoach = await coachRepo.findOne({
+        where: { sessionId: targetSessionId, coachId },
+      });
+      if (!existingCoach) {
+        await coachRepo.save(
+          coachRepo.create({
+            sessionId: targetSessionId,
+            coachId,
+            teachingFeeAmount: '0.00',
+            bonusAmount: '0.00',
+            payoutNote: null,
+            payoutFinalizedAt: null,
+            createdBy: null,
+            updatedBy: null,
+          }),
+        );
+      }
+
+      const enrollMutation = `
+        mutation {
+          enrollLearnerToSession(input: { sessionId: ${targetSessionId}, learnerId: ${learnerId}, remark: "E2E 出勤时间段报名" }) {
+            isNewlyCreated
+          }
+        }
+      `;
+      const enrollRes = await executeGql(app, {
+        query: enrollMutation,
+        token: customerToken,
+      }).expect(200);
+      const enrollBody = enrollRes.body as unknown as {
+        data?: { enrollLearnerToSession?: { isNewlyCreated: boolean } };
+        errors?: unknown;
+      };
+      if (enrollBody.errors) throw new Error(`GraphQL 错误: ${JSON.stringify(enrollBody.errors)}`);
+
+      const enrRepo = dataSource.getRepository(ParticipationEnrollmentEntity);
+      const enrollment = await enrRepo.findOne({
+        where: { sessionId: targetSessionId, learnerId },
+      });
+      if (!enrollment) throw new Error('前置失败：未找到报名记录');
+      enrollmentId = enrollment.id;
+
+      const attendanceService = app.get(ParticipationAttendanceService);
+      await attendanceService.upsertByEnrollment({
+        enrollmentId,
+        sessionId: targetSessionId,
+        learnerId,
+        status: ParticipationAttendanceStatus.PRESENT,
+        countApplied: '1.00',
+        confirmedByCoachId: null,
+        confirmedAt: new Date(),
+        remark: 'E2E 列表出勤记录',
+      });
+    });
+
+    /**
+     * 查询并校验返回的节次与 series 信息
+     */
+    it('按时间段与 coach 查询关联节次', async () => {
+      const query = `
+        query ListAttendanceSessionsByCoach($input: ListAttendanceSessionsByCoachInputGql!) {
+          listAttendanceSessionsByCoach(input: $input) {
+            sessionId
+            seriesId
+            seriesTitle
+            startTime
+            endTime
+            locationText
+            status
+          }
+        }
+      `;
+      const variables = {
+        input: {
+          coachId,
+          rangeStart: new Date(sessionStart.getTime() - 60 * 1000).toISOString(),
+          rangeEnd: new Date(sessionEnd.getTime() + 60 * 1000).toISOString(),
+        },
+      };
+      const res = await request(app.getHttpServer())
+        .post('/graphql')
+        .send({ query, variables })
+        .set('Authorization', `Bearer ${managerToken}`)
+        .expect(200);
+      const body = res.body as unknown as {
+        data?: {
+          listAttendanceSessionsByCoach?: Array<{
+            sessionId: number;
+            seriesId: number;
+            seriesTitle: string | null;
+            startTime: string;
+            endTime: string;
+            locationText: string;
+            status: SessionStatus;
+          }>;
+        };
+        errors?: unknown;
+      };
+      if (body.errors) throw new Error(`GraphQL 错误: ${JSON.stringify(body.errors)}`);
+      const items = body.data?.listAttendanceSessionsByCoach ?? [];
+      const hit = items.find((item) => item.sessionId === targetSessionId);
+      expect(hit).toBeTruthy();
+      expect(hit?.seriesId).toBe(seriesId);
+      expect(hit?.seriesTitle).toBe(seriesTitle);
+      expect(hit?.locationText).toBe('散打馆 A1 教室');
+      expect(hit?.status).toBe(sessionStatus);
+    });
+
+    /**
+     * 清理测试数据
+     */
+    afterAll(async () => {
+      if (enrollmentId) {
+        await dataSource.getRepository(ParticipationAttendanceRecordEntity).delete({
+          enrollmentId,
+        });
+        await dataSource.getRepository(ParticipationEnrollmentEntity).delete({
+          id: enrollmentId,
+        });
+      }
+      await dataSource.getRepository(CourseSessionCoachEntity).delete({
+        sessionId: targetSessionId,
+        coachId,
+      });
+      await dataSource.getRepository(CourseSessionEntity).delete({ id: targetSessionId });
+    });
+  });
+
   describe('RecordSessionAttendance GraphQL - 正例 (e2e)', () => {
     let enrollmentId: number;
 

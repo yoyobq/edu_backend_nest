@@ -64,10 +64,12 @@ import { EnrollLearnerToSessionUsecase } from '@src/usecases/course/workflows/en
 import { FinalizeSessionAttendanceUsecase } from '@src/usecases/course/workflows/finalize-session-attendance.usecase';
 import { HasCustomerEnrollmentBySeriesUsecase } from '@src/usecases/course/workflows/has-customer-enrollment-by-series.usecase';
 import { HasLearnerEnrollmentUsecase } from '@src/usecases/course/workflows/has-learner-enrollment.usecase';
-import { ListFinalizedAttendanceBySeriesUsecase } from '@src/usecases/course/workflows/list-finalized-attendance-by-series.usecase';
-import { ListFinalizedAttendanceSeriesUsecase } from '@src/usecases/course/workflows/list-finalized-attendance-series.usecase';
+import { ListAttendanceRecordsByCustomerUsecase } from '@src/usecases/course/workflows/list-attendance-records-by-customer.usecase';
+import { ListAttendanceSessionsByCoachUsecase } from '@src/usecases/course/workflows/list-attendance-sessions-by-coach.usecase';
 import { ListCurrentAccountEnrolledSeriesIdsUsecase } from '@src/usecases/course/workflows/list-current-account-enrolled-series-ids.usecase';
 import { ListCurrentAccountEnrolledSessionIdsUsecase } from '@src/usecases/course/workflows/list-current-account-enrolled-session-ids.usecase';
+import { ListFinalizedAttendanceBySeriesUsecase } from '@src/usecases/course/workflows/list-finalized-attendance-by-series.usecase';
+import { ListFinalizedAttendanceSeriesUsecase } from '@src/usecases/course/workflows/list-finalized-attendance-series.usecase';
 import { ListLearnerEnrolledSessionIdsBySeriesUsecase } from '@src/usecases/course/workflows/list-learner-enrolled-session-ids-by-series.usecase';
 import { ListSessionEnrollmentsUsecase } from '@src/usecases/course/workflows/list-session-enrollments.usecase';
 import { ListSessionLeaveRequestsUsecase } from '@src/usecases/course/workflows/list-session-leave-requests.usecase';
@@ -129,6 +131,8 @@ import { RestoreSessionUsecase } from '@src/usecases/course/workflows/restore-se
     EnrollLearnerToSeriesUsecase,
     HasCustomerEnrollmentBySeriesUsecase,
     HasLearnerEnrollmentUsecase,
+    ListAttendanceRecordsByCustomerUsecase,
+    ListAttendanceSessionsByCoachUsecase,
     ListCurrentAccountEnrolledSeriesIdsUsecase,
     ListCurrentAccountEnrolledSessionIdsUsecase,
     ListLearnerEnrolledSessionIdsBySeriesUsecase,
@@ -193,6 +197,8 @@ import { RestoreSessionUsecase } from '@src/usecases/course/workflows/restore-se
     EnrollLearnerToSeriesUsecase,
     HasCustomerEnrollmentBySeriesUsecase,
     HasLearnerEnrollmentUsecase,
+    ListAttendanceRecordsByCustomerUsecase,
+    ListAttendanceSessionsByCoachUsecase,
     ListCurrentAccountEnrolledSeriesIdsUsecase,
     ListCurrentAccountEnrolledSessionIdsUsecase,
     ListLearnerEnrolledSessionIdsBySeriesUsecase,

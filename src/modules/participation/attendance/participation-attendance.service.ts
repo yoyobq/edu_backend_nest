@@ -412,6 +412,33 @@ export class ParticipationAttendanceService {
   }
 
   /**
+   * 按 sessionId 列表与节次开始时间范围读取有出勤记录的 sessionId
+   * @param params 查询参数对象：sessionIds、rangeStart、rangeEnd
+   * @returns sessionId 列表（按 startTime 升序）
+   */
+  async listSessionIdsBySessionIdsAndStartTimeRange(params: {
+    readonly sessionIds: ReadonlyArray<number>;
+    readonly rangeStart: Date;
+    readonly rangeEnd: Date;
+  }): Promise<number[]> {
+    const sessionIds = Array.from(new Set(params.sessionIds));
+    if (sessionIds.length === 0) return [];
+    const rows = await this.attendanceRepository
+      .createQueryBuilder('a')
+      .innerJoin(CourseSessionEntity, 's', 's.id = a.sessionId')
+      .where('a.sessionId IN (:...sessionIds)', { sessionIds })
+      .andWhere('s.startTime >= :rangeStart', { rangeStart: params.rangeStart })
+      .andWhere('s.startTime <= :rangeEnd', { rangeEnd: params.rangeEnd })
+      .select('a.sessionId', 'sessionId')
+      .groupBy('a.sessionId')
+      .addGroupBy('s.startTime')
+      .orderBy('s.startTime', 'ASC')
+      .addOrderBy('a.sessionId', 'ASC')
+      .getRawMany<{ sessionId: number }>();
+    return rows.map((row) => Number(row.sessionId));
+  }
+
+  /**
    * 按系列聚合：维度为 session（含日期）
    * 使用 CASE WHEN 在数据库侧计算计费节数，避免内存循环
    * @param params seriesId、untilDate（可选）、includeNonChargeable

@@ -2,6 +2,7 @@
 import { ParticipationAttendanceStatus } from '@app-types/models/attendance.types';
 import { Field, InputType, Int, ObjectType } from '@nestjs/graphql';
 import {
+  IsDate,
   IsEnum,
   IsInt,
   IsOptional,
@@ -71,6 +72,22 @@ export class ListFinalizedAttendanceBySeriesInputGql {
   @IsInt()
   @Min(1)
   seriesId!: number;
+}
+
+@InputType()
+export class ListAttendanceSessionsByCoachInputGql {
+  @Field(() => Int)
+  @IsInt()
+  @Min(1)
+  coachId!: number;
+
+  @Field(() => Date)
+  @IsDate()
+  rangeStart!: Date;
+
+  @Field(() => Date)
+  @IsDate()
+  rangeEnd!: Date;
 }
 
 /**

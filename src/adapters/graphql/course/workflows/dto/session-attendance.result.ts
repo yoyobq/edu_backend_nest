@@ -1,5 +1,6 @@
 // 文件位置：src/adapters/graphql/course/workflows/dto/session-attendance.result.ts
 import { CourseSeriesStatus } from '@app-types/models/course-series.types';
+import { SessionStatus } from '@app-types/models/course-session.types';
 import { Gender } from '@app-types/models/user-info.types';
 import { Field, Float, Int, ObjectType } from '@nestjs/graphql';
 import {
@@ -53,6 +54,30 @@ export class AttendanceSheetGql {
 
   @Field(() => [AttendanceSheetRowGql])
   rows!: AttendanceSheetRowGql[];
+}
+
+@ObjectType()
+export class AttendanceSessionByCoachItemGql {
+  @Field(() => Int)
+  sessionId!: number;
+
+  @Field(() => Int)
+  seriesId!: number;
+
+  @Field(() => String, { nullable: true })
+  seriesTitle!: string | null;
+
+  @Field(() => Date)
+  startTime!: Date;
+
+  @Field(() => Date)
+  endTime!: Date;
+
+  @Field(() => String)
+  locationText!: string;
+
+  @Field(() => SessionStatus)
+  status!: SessionStatus;
 }
 
 @ObjectType()
