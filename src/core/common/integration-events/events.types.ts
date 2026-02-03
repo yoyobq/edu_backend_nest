@@ -10,7 +10,8 @@ export type IntegrationEventType =
   | 'PricingApproved'
   | 'WaitlistPromoted'
   | 'SeriesPublished'
-  | 'AttendanceUpdated';
+  | 'AttendanceUpdated'
+  | 'AttendanceFinalized';
 
 export type ISO8601String = string & { readonly brand: 'ISO8601' };
 export type DedupKey = string & { readonly brand: 'DedupKey' };

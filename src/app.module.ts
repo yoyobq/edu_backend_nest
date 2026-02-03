@@ -16,6 +16,7 @@ import { LoggerModule } from './core/logger/logger.module';
 import { MiddlewareModule } from './core/middleware/middleware.module';
 import { AccountModule } from './modules/account/account.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { IntegrationEventsAdapterModule } from './adapters/integration-events/integration-events-adapter.module';
 import { IntegrationEventsModule } from './modules/common/integration-events/integration-events.module';
 import { RegisterModule } from './modules/register/register.module';
 
@@ -34,8 +35,10 @@ import { RegisterModule } from './modules/register/register.module';
     RegisterModule,
     // 添加 GraphQL 适配器模块
     GraphQLAdapterModule,
-    // 集成事件模块（内存 Outbox + 调度器）
+    // 集成事件模块（内存 Outbox）
     IntegrationEventsModule,
+    // 集成事件适配器（调度器 + 处理器）
+    IntegrationEventsAdapterModule,
     // ThirdPartyAuthModule, // 暂时屏蔽第三方认证模块
   ],
   controllers: [AppController],

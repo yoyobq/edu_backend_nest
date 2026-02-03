@@ -1,7 +1,10 @@
 // src/usecases/course/workflows/finalize-session-attendance.usecase.ts
 import { DomainError, PERMISSION_ERROR, SESSION_ERROR } from '@core/common/errors/domain-error';
-import { Injectable } from '@nestjs/common';
+import { buildEnvelope } from '@core/common/integration-events/events.types';
+import { type IOutboxWriterPort } from '@core/common/integration-events/outbox.port';
+import { Inject, Injectable } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
+import { INTEGRATION_EVENTS_TOKENS } from '@src/modules/common/integration-events/events.tokens';
 import { CourseSessionsService } from '@src/modules/course/sessions/course-sessions.service';
 import { ParticipationAttendanceService } from '@src/modules/participation/attendance/participation-attendance.service';
 import { type UsecaseSession } from '@src/types/auth/session.types';
@@ -28,6 +31,8 @@ export class FinalizeSessionAttendanceUsecase {
     @InjectDataSource() private readonly dataSource: DataSource,
     private readonly sessionsService: CourseSessionsService,
     private readonly attendanceService: ParticipationAttendanceService,
+    @Inject(INTEGRATION_EVENTS_TOKENS.OUTBOX_WRITER_PORT)
+    private readonly outboxWriter: IOutboxWriterPort,
   ) {}
 
   /**
@@ -60,11 +65,28 @@ export class FinalizeSessionAttendanceUsecase {
         manager,
       });
       if (affected > 0) {
+        const now = new Date();
         await this.sessionsService.updateAttendance({
           id: input.sessionId,
-          attendanceConfirmedAt: new Date(),
+          attendanceConfirmedAt: now,
           attendanceConfirmedBy: accountId,
           manager,
+        });
+        const envelope = buildEnvelope({
+          type: 'AttendanceFinalized',
+          aggregateType: 'Session',
+          aggregateId: input.sessionId,
+          payload: {
+            sessionId: input.sessionId,
+            finalizedBy: accountId,
+            finalizedAt: now.toISOString(),
+          },
+          occurredAt: now,
+          priority: 7,
+        });
+        await this.outboxWriter.enqueue({
+          envelope,
+          tx: { kind: 'tx', opaque: manager },
         });
       }
       return affected;

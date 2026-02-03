@@ -33,6 +33,10 @@ import { ParticipationAttendanceRecordEntity } from '@src/modules/participation/
 import { ParticipationAttendanceService } from '@src/modules/participation/attendance/participation-attendance.service';
 import { ParticipationEnrollmentEntity } from '@src/modules/participation/enrollment/participation-enrollment.entity';
 import { ParticipationEnrollmentService } from '@src/modules/participation/enrollment/participation-enrollment.service';
+import {
+  PayoutSessionAdjustmentEntity,
+  SessionAdjustmentReasonType,
+} from '@src/modules/payout/session-adjustments/payout-session-adjustment.entity';
 import { AccountStatus, IdentityTypeEnum } from '@src/types/models/account.types';
 import { ParticipationAttendanceStatus } from '@src/types/models/attendance.types';
 import {
@@ -40,6 +44,7 @@ import {
   ParticipationEnrollmentStatusReason,
 } from '@src/types/models/participation-enrollment.types';
 import { Gender, UserState } from '@src/types/models/user-info.types';
+import { AttendanceFinalizedHandler } from '@src/usecases/course/workflows/attendance-finalized.handler';
 import request from 'supertest';
 import { DataSource, In } from 'typeorm';
 import { initGraphQLSchema } from '../../src/adapters/graphql/schema/schema.init';
@@ -528,6 +533,7 @@ describe('08-Integration-Events 课程工作流：报名触发与 Outbox 分发 
   const handler = new TestRecordHandler();
   const closeHandler = new TestSessionClosedHandler();
   const cancelHandler = new TestEnrollmentCancelledHandler();
+  const handlers: IntegrationEventHandler[] = [handler, closeHandler, cancelHandler];
 
   let customerToken: string;
   let managerToken: string;
@@ -547,7 +553,7 @@ describe('08-Integration-Events 课程工作流：报名触发与 Outbox 分发 
       imports: [AppModule],
     })
       .overrideProvider(INTEGRATION_EVENTS_TOKENS.HANDLERS)
-      .useValue([handler, closeHandler, cancelHandler])
+      .useValue(handlers)
       .overrideProvider(INTEGRATION_EVENTS_TOKENS.OUTBOX_DISPATCHER_PORT)
       .useFactory({
         factory: (
@@ -579,6 +585,7 @@ describe('08-Integration-Events 课程工作流：报名触发与 Outbox 分发 
 
     app = moduleFixture.createNestApplication();
     await app.init();
+    handlers.push(app.get(AttendanceFinalizedHandler));
 
     dataSource = app.get(DataSource);
     store = app.get<IOutboxStorePort>(INTEGRATION_EVENTS_TOKENS.OUTBOX_STORE_PORT);
@@ -1003,6 +1010,172 @@ describe('08-Integration-Events 课程工作流：报名触发与 Outbox 分发 
         .from(ParticipationEnrollmentEntity)
         .where('session_id = :sid AND learner_id = :lid', { sid: sessionId, lid: learnerId })
         .execute();
+    });
+  });
+
+  describe('FinalizeSessionAttendance 扣课 (e2e)', () => {
+    let attendanceSessionId: number;
+    let enrollmentId: number;
+    let customerId: number;
+    let beforeRemainingSessions: number;
+    const countApplied = '1.00';
+
+    beforeAll(async () => {
+      const coachAccountId = await getAccountIdByLoginName(
+        dataSource,
+        testAccountsConfig.coach.loginName,
+      );
+      const coachId = await getCoachIdByAccountId(dataSource, coachAccountId);
+      attendanceSessionId = await createTestSession(dataSource, {
+        seriesId,
+        leadCoachId: coachId,
+        startOffsetMinutes: 20,
+      });
+
+      const enrollMutation = `
+        mutation {
+          enrollLearnerToSession(input: { sessionId: ${attendanceSessionId}, learnerId: ${learnerId}, remark: "E2E 终审扣课报名" }) {
+            isNewlyCreated
+          }
+        }
+      `;
+      const enrollRes = await executeGql(app, {
+        query: enrollMutation,
+        token: customerToken,
+      }).expect(200);
+      const enrollBody = enrollRes.body as unknown as {
+        data?: { enrollLearnerToSession?: { isNewlyCreated: boolean } };
+        errors?: unknown;
+      };
+      if (enrollBody.errors) throw new Error(`GraphQL 错误: ${JSON.stringify(enrollBody.errors)}`);
+
+      const enrRepo = dataSource.getRepository(ParticipationEnrollmentEntity);
+      const enrollment = await enrRepo.findOne({
+        where: { sessionId: attendanceSessionId, learnerId },
+      });
+      if (!enrollment) throw new Error('前置失败：未找到报名记录');
+      enrollmentId = enrollment.id;
+      customerId = enrollment.customerId;
+
+      const customer = await loadExpectedCustomerForAttendanceDetail({
+        app,
+        dataSource,
+        customerLoginName: testAccountsConfig.customer.loginName,
+      });
+      beforeRemainingSessions = customer.remainingSessions;
+    });
+
+    it('终审后应扣减客户剩余课次并记录调整', async () => {
+      const recordMutation = `
+        mutation Record($input: RecordSessionAttendanceInputGql!) {
+          recordSessionAttendance(input: $input) { updatedCount unchangedCount }
+        }
+      `;
+      const recordVariables = {
+        input: {
+          sessionId: attendanceSessionId,
+          items: [
+            {
+              enrollmentId,
+              status: ParticipationAttendanceStatus.PRESENT,
+              countApplied,
+              remark: 'finalize-deduct',
+            },
+          ],
+        },
+      };
+      const recordRes = await request(app.getHttpServer())
+        .post('/graphql')
+        .send({ query: recordMutation, variables: recordVariables })
+        .set('Authorization', `Bearer ${managerToken}`)
+        .expect(200);
+      const recordBody = recordRes.body as unknown as {
+        data?: { recordSessionAttendance?: { updatedCount: number; unchangedCount: number } };
+        errors?: unknown;
+      };
+      if (recordBody.errors) throw new Error(`GraphQL 错误: ${JSON.stringify(recordBody.errors)}`);
+      expect(recordBody.data!.recordSessionAttendance!.updatedCount).toBeGreaterThanOrEqual(1);
+
+      const finalizeMutation = `
+        mutation Finalize($input: FinalizeSessionAttendanceInputGql!) {
+          finalizeSessionAttendance(input: $input) { updatedCount }
+        }
+      `;
+      const finalizeVariables = { input: { sessionId: attendanceSessionId } };
+      const finalizeRes = await request(app.getHttpServer())
+        .post('/graphql')
+        .send({ query: finalizeMutation, variables: finalizeVariables })
+        .set('Authorization', `Bearer ${managerToken}`)
+        .expect(200);
+      const finalizeBody = finalizeRes.body as unknown as {
+        data?: { finalizeSessionAttendance?: { updatedCount: number } };
+        errors?: unknown;
+      };
+      if (finalizeBody.errors) {
+        throw new Error(`GraphQL 错误: ${JSON.stringify(finalizeBody.errors)}`);
+      }
+      expect(finalizeBody.data!.finalizeSessionAttendance!.updatedCount).toBeGreaterThanOrEqual(1);
+
+      await sleep(300);
+      if ('snapshot' in store && typeof store.snapshot === 'function') {
+        const snap = store.snapshot();
+        expect(snap.failed).toBe(0);
+      }
+
+      const afterCustomer = await loadExpectedCustomerForAttendanceDetail({
+        app,
+        dataSource,
+        customerLoginName: testAccountsConfig.customer.loginName,
+      });
+      const expectedAfter = Number((beforeRemainingSessions - Number(countApplied)).toFixed(2));
+      expect(afterCustomer.remainingSessions).toBe(expectedAfter);
+
+      const detail = await querySessionAttendanceDetail({
+        app,
+        sessionId: attendanceSessionId,
+        token: coachToken,
+      });
+      const item = detail.items.find((row) => row.enrollmentId === enrollmentId);
+      if (!item) throw new Error('未找到对应报名的出勤明细');
+      expect(item.customerRemainingSessions).toBe(expectedAfter);
+
+      const adjustmentRepo = dataSource.getRepository(PayoutSessionAdjustmentEntity);
+      const adjustment = await adjustmentRepo.findOne({
+        where: {
+          customerId,
+          reasonType: SessionAdjustmentReasonType.ATTENDANCE_DEDUCT,
+          reasonNote: `sessionId:${attendanceSessionId}`,
+        },
+        order: { createdAt: 'DESC' },
+      });
+      expect(adjustment).toBeTruthy();
+      if (adjustment) {
+        expect(Number(adjustment.deltaSessions)).toBeCloseTo(-Number(countApplied), 6);
+      }
+    });
+
+    afterAll(async () => {
+      const adjustmentRepo = dataSource.getRepository(PayoutSessionAdjustmentEntity);
+      await adjustmentRepo.delete({
+        customerId,
+        reasonType: SessionAdjustmentReasonType.ATTENDANCE_DEDUCT,
+        reasonNote: `sessionId:${attendanceSessionId}`,
+      });
+      await dataSource.getRepository(ParticipationAttendanceRecordEntity).delete({
+        sessionId: attendanceSessionId,
+        learnerId,
+      });
+      await dataSource.getRepository(ParticipationEnrollmentEntity).delete({
+        sessionId: attendanceSessionId,
+        learnerId,
+      });
+      await dataSource.getRepository(CourseSessionEntity).delete({ id: attendanceSessionId });
+
+      const customerService = app.get<CustomerService>(CustomerService);
+      await customerService.updateCustomer(customerId, {
+        remainingSessions: beforeRemainingSessions,
+        updatedAt: new Date(),
+      });
     });
   });
 
