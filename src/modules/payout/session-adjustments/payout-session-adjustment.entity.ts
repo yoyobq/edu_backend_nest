@@ -7,6 +7,7 @@ export enum SessionAdjustmentReasonType {
   COMPENSATION = 'COMPENSATION',
   CORRECTION = 'CORRECTION',
   INITIAL_IMPORT = 'INITIAL_IMPORT',
+  ATTENDANCE_DEDUCT = 'ATTENDANCE_DEDUCT',
 }
 
 @Entity('payout_session_adjustments')
