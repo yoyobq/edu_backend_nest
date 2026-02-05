@@ -3,7 +3,7 @@
 /** 集中开关：只运行这里列出的 e2e 文件（相对 test/ 的路径） */
 // 注释/取消注释即可控制
 const ENABLED_SPECS = [
-  // '00-app/00-app.e2e-spec.ts',
+  '00-app/00-app.e2e-spec.ts',
   // '01-auth/auth-identity.e2e-spec.ts',
   // '01-auth/auth.e2e-spec.ts',
   // '02-register/register.e2e-spec.ts',
@@ -28,7 +28,7 @@ const ENABLED_SPECS = [
   // '07-pagination-sort-search/search.e2e-spec.ts',
   // '08-integration-events/session-adjustments.e2e-spec.ts',
   // '08-integration-events/outbox-dispatcher.e2e-spec.ts',
-  '08-integration-events/course-workflows.e2e-spec.ts',
+  // '08-integration-events/course-workflows.e2e-spec.ts',
   // '08-integration-events/course-enrollment-workflows.e2e-spec.ts',
   // '08-integration-events/session-adjustments.e2e-spec.ts',
   // '08-integration-events/session-series-list.e2e-spec.ts',

@@ -6,6 +6,7 @@ import request from 'supertest';
 import { App } from 'supertest/types';
 import { DataSource } from 'typeorm';
 import { AppModule } from '../../src/app.module';
+import { initGraphQLSchema } from '../../src/adapters/graphql/schema/schema.init';
 
 console.log('worker', process.env.JEST_WORKER_ID, __filename);
 
@@ -14,6 +15,8 @@ describe('00-App 全局测试', () => {
   let dataSource: DataSource;
 
   beforeAll(async () => {
+    initGraphQLSchema();
+
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
