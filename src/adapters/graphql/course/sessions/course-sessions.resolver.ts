@@ -9,7 +9,9 @@ import { Args, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { Roles } from '@src/adapters/graphql/decorators/roles.decorator';
 import { JwtAuthGuard } from '@src/adapters/graphql/guards/jwt-auth.guard';
 import { RolesGuard } from '@src/adapters/graphql/guards/roles.guard';
+import { AppendSessionCoachesUsecase } from '@src/usecases/course/sessions/append-session-coaches.usecase';
 import { GenerateSessionCoachesForSeriesUsecase } from '@src/usecases/course/sessions/generate-session-coaches-for-series.usecase';
+import { ListSessionCoachesBySeriesUsecase } from '@src/usecases/course/sessions/list-session-coaches-by-series.usecase';
 import { ListSessionsByCoachUsecase } from '@src/usecases/course/sessions/list-sessions-by-coach.usecase';
 import { SyncSessionCoachesRosterUsecase } from '@src/usecases/course/sessions/sync-session-coaches-roster.usecase';
 import { UpdateSessionBasicInfoUsecase } from '@src/usecases/course/sessions/update-session-basic-info.usecase';
@@ -22,6 +24,8 @@ import {
   CourseSessionWithSeriesDTO,
   ExtraCoachDTO,
 } from './dto/course-session.dto';
+import { AppendSessionCoachesInputGql } from './dto/append-session-coaches.input';
+import { AppendSessionCoachesResultGql } from './dto/append-session-coaches.result';
 import { GenerateSessionCoachesForSeriesInputGql } from './dto/generate-session-coaches.input';
 import { GenerateSessionCoachesForSeriesResultGql } from './dto/generate-session-coaches.result';
 import {
@@ -32,6 +36,9 @@ import {
   CoachCourseSessionsResult,
   CourseSessionsBySeriesResult,
   CustomerCourseSessionsBySeriesResult,
+  SessionCoachBySeriesItemDTO,
+  SessionCoachesBySeriesResult,
+  SessionCoachBriefDTO,
 } from './dto/list-sessions-by-series.result';
 import { SyncSessionCoachesRosterInputGql } from './dto/sync-session-coaches-roster.input';
 import { SyncSessionCoachesRosterResultGql } from './dto/sync-session-coaches-roster.result';
@@ -197,6 +204,8 @@ export class CourseSessionsResolver {
     private readonly listSessionsByCoachUsecase: ListSessionsByCoachUsecase,
     private readonly updateSessionBasicInfoUsecase: UpdateSessionBasicInfoUsecase,
     private readonly generateSessionCoachesForSeriesUsecase: GenerateSessionCoachesForSeriesUsecase,
+    private readonly listSessionCoachesBySeriesUsecase: ListSessionCoachesBySeriesUsecase,
+    private readonly appendSessionCoachesUsecase: AppendSessionCoachesUsecase,
     private readonly syncSessionCoachesRosterUsecase: SyncSessionCoachesRosterUsecase,
   ) {}
 
@@ -299,6 +308,48 @@ export class CourseSessionsResolver {
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('MANAGER', 'ADMIN')
+  @Query(() => SessionCoachesBySeriesResult, {
+    name: 'listSessionCoachesBySeries',
+    description: '按开课班读取节次教练列表（manager/admin，基于 roster 口径）',
+  })
+  async listSessionCoachesBySeries(
+    @Args('input') input: ListSessionsBySeriesInput,
+    @currentUser() user: JwtPayload,
+  ): Promise<SessionCoachesBySeriesResult> {
+    const mode = input.mode ?? 'RECENT_WINDOW';
+    const session = mapJwtToUsecaseSession(user);
+    const query =
+      mode === 'ALL'
+        ? {
+            mode: 'ALL' as const,
+            seriesId: input.seriesId,
+            maxSessions: input.maxSessions ?? 200,
+            statusFilter: input.statusFilter,
+          }
+        : {
+            mode: 'RECENT_WINDOW' as const,
+            seriesId: input.seriesId,
+            baseTime: input.baseTime ?? new Date(),
+            pastLimit: input.pastLimit ?? 2,
+            futureLimit: input.futureLimit ?? 3,
+            statusFilter: input.statusFilter,
+          };
+    const result = await this.listSessionCoachesBySeriesUsecase.execute({ session, query });
+    const dto = new SessionCoachesBySeriesResult();
+    dto.items = result.items.map((item) => {
+      const itemDto = new SessionCoachBySeriesItemDTO();
+      itemDto.sessionId = item.sessionId;
+      itemDto.startTime = item.startTime;
+      itemDto.endTime = item.endTime;
+      itemDto.leadCoach = item.leadCoach ? this.toCoachBrief(item.leadCoach) : null;
+      itemDto.assistantCoaches = item.assistantCoaches.map((coach) => this.toCoachBrief(coach));
+      return itemDto;
+    });
+    return dto;
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('MANAGER', 'ADMIN')
   @Mutation(() => CourseSessionDTO, {
     name: 'updateCourseSession',
     description: '更新课程节次基础信息（时间/地点/主教练/备注）',
@@ -354,6 +405,29 @@ export class CourseSessionsResolver {
    */
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('MANAGER', 'ADMIN')
+  @Mutation(() => AppendSessionCoachesResultGql, {
+    name: 'appendSessionCoaches',
+    description: '追加单节次教练 roster（不移除现有教练，manager/admin）',
+  })
+  async appendSessionCoaches(
+    @Args('input') input: AppendSessionCoachesInputGql,
+    @currentUser() user: JwtPayload,
+  ): Promise<AppendSessionCoachesResultGql> {
+    const session = mapJwtToUsecaseSession(user);
+    const result = await this.appendSessionCoachesUsecase.execute({
+      session,
+      sessionId: input.sessionId,
+      coachIds: input.coachIds,
+    });
+
+    const dto = new AppendSessionCoachesResultGql();
+    dto.sessionId = result.sessionId;
+    dto.activatedCount = result.activatedCount;
+    return dto;
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('MANAGER', 'ADMIN')
   @Mutation(() => SyncSessionCoachesRosterResultGql, {
     name: 'syncSessionCoachesRoster',
     description: '同步单节次教练 roster（整体覆盖，manager/admin）',
@@ -374,6 +448,18 @@ export class CourseSessionsResolver {
     dto.sessionId = result.sessionId;
     dto.activatedCount = result.activatedCount;
     dto.removedCount = result.removedCount;
+    return dto;
+  }
+
+  private toCoachBrief(coach: {
+    readonly id: number;
+    readonly name: string;
+    readonly level: number;
+  }): SessionCoachBriefDTO {
+    const dto = new SessionCoachBriefDTO();
+    dto.id = coach.id;
+    dto.name = coach.name;
+    dto.level = coach.level;
     return dto;
   }
 }

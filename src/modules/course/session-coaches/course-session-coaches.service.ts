@@ -3,7 +3,7 @@ import { SessionCoachRemovedReason } from '@app-types/models/course-session-coac
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { CourseSessionEntity } from '@src/modules/course/sessions/course-session.entity';
-import { EntityManager, FindOptionsWhere, IsNull, Not, Repository } from 'typeorm';
+import { EntityManager, FindOptionsWhere, In, IsNull, Not, Repository } from 'typeorm';
 import { CourseSessionCoachEntity } from './course-session-coach.entity';
 
 /**
@@ -75,6 +75,51 @@ export class CourseSessionCoachesService {
       .where('sc.coachId = :coachId', { coachId: params.coachId })
       .getRawMany<{ sessionId: number }>();
     return rows.map((row) => Number(row.sessionId));
+  }
+
+  async listRosterBySession(params: {
+    readonly sessionId: number;
+    readonly manager?: EntityManager;
+  }): Promise<
+    ReadonlyArray<{
+      readonly coachId: number;
+      readonly removedAt: Date | null;
+      readonly updatedBy: number | null;
+    }>
+  > {
+    const repo = params.manager
+      ? params.manager.getRepository(CourseSessionCoachEntity)
+      : this.sessionCoachRepository;
+    const rows = await repo.find({ where: { sessionId: params.sessionId } });
+    return rows.map((row) => ({
+      coachId: row.coachId,
+      removedAt: row.removedAt,
+      updatedBy: row.updatedBy ?? null,
+    }));
+  }
+
+  async listActiveRosterBySessionIds(params: {
+    readonly sessionIds: ReadonlyArray<number>;
+    readonly manager?: EntityManager;
+  }): Promise<
+    ReadonlyArray<{
+      readonly sessionId: number;
+      readonly coachId: number;
+    }>
+  > {
+    const sessionIds = Array.from(new Set(params.sessionIds));
+    if (sessionIds.length === 0) return [];
+    const repo = params.manager
+      ? params.manager.getRepository(CourseSessionCoachEntity)
+      : this.sessionCoachRepository;
+    const rows = await repo.find({
+      where: { sessionId: In(sessionIds), removedAt: IsNull() },
+      select: ['sessionId', 'coachId'],
+    });
+    return rows.map((row) => ({
+      sessionId: row.sessionId,
+      coachId: row.coachId,
+    }));
   }
 
   /**

@@ -47,7 +47,9 @@ import {
   UpdateSeriesUsecase,
 } from '@src/usecases/course/series/update-series.usecase';
 import { CourseSeriesAccessPolicy } from '@src/usecases/course/sessions/course-series-access.policy';
+import { AppendSessionCoachesUsecase } from '@src/usecases/course/sessions/append-session-coaches.usecase';
 import { GenerateSessionCoachesForSeriesUsecase } from '@src/usecases/course/sessions/generate-session-coaches-for-series.usecase';
+import { ListSessionCoachesBySeriesUsecase } from '@src/usecases/course/sessions/list-session-coaches-by-series.usecase';
 import { ListSessionsByCoachUsecase } from '@src/usecases/course/sessions/list-sessions-by-coach.usecase';
 import { ListSessionsBySeriesUsecase } from '@src/usecases/course/sessions/list-sessions-by-series.usecase';
 import { SyncSessionCoachesRosterUsecase } from '@src/usecases/course/sessions/sync-session-coaches-roster.usecase';
@@ -123,6 +125,8 @@ import { RestoreSessionUsecase } from '@src/usecases/course/workflows/restore-se
     ListSessionsBySeriesUsecase,
     ViewSessionsBySeriesUsecase,
     GenerateSessionCoachesForSeriesUsecase,
+    ListSessionCoachesBySeriesUsecase,
+    AppendSessionCoachesUsecase,
     SyncSessionCoachesRosterUsecase,
     UpdateSessionBasicInfoUsecase,
     SetSessionCoachPayoutUsecase,
@@ -189,6 +193,8 @@ import { RestoreSessionUsecase } from '@src/usecases/course/workflows/restore-se
     ListSessionsBySeriesUsecase,
     ViewSessionsBySeriesUsecase,
     GenerateSessionCoachesForSeriesUsecase,
+    ListSessionCoachesBySeriesUsecase,
+    AppendSessionCoachesUsecase,
     SyncSessionCoachesRosterUsecase,
     UpdateSessionBasicInfoUsecase,
     SetSessionCoachPayoutUsecase,
