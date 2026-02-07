@@ -13,19 +13,20 @@ import { AppendSessionCoachesUsecase } from '@src/usecases/course/sessions/appen
 import { GenerateSessionCoachesForSeriesUsecase } from '@src/usecases/course/sessions/generate-session-coaches-for-series.usecase';
 import { ListSessionCoachesBySeriesUsecase } from '@src/usecases/course/sessions/list-session-coaches-by-series.usecase';
 import { ListSessionsByCoachUsecase } from '@src/usecases/course/sessions/list-sessions-by-coach.usecase';
+import { RemoveSessionCoachesUsecase } from '@src/usecases/course/sessions/remove-session-coaches.usecase';
 import { SyncSessionCoachesRosterUsecase } from '@src/usecases/course/sessions/sync-session-coaches-roster.usecase';
 import { UpdateSessionBasicInfoUsecase } from '@src/usecases/course/sessions/update-session-basic-info.usecase';
 import { ViewSessionsBySeriesUsecase } from '@src/usecases/course/sessions/view-sessions-by-series.usecase';
 import { currentUser } from '../../decorators/current-user.decorator';
 import { CourseSeriesDTO } from '../series/dto/course-series.dto';
+import { AppendSessionCoachesInputGql } from './dto/append-session-coaches.input';
+import { AppendSessionCoachesResultGql } from './dto/append-session-coaches.result';
 import {
   CourseSessionDTO,
   CourseSessionSafeViewDTO,
   CourseSessionWithSeriesDTO,
   ExtraCoachDTO,
 } from './dto/course-session.dto';
-import { AppendSessionCoachesInputGql } from './dto/append-session-coaches.input';
-import { AppendSessionCoachesResultGql } from './dto/append-session-coaches.result';
 import { GenerateSessionCoachesForSeriesInputGql } from './dto/generate-session-coaches.input';
 import { GenerateSessionCoachesForSeriesResultGql } from './dto/generate-session-coaches.result';
 import {
@@ -36,10 +37,12 @@ import {
   CoachCourseSessionsResult,
   CourseSessionsBySeriesResult,
   CustomerCourseSessionsBySeriesResult,
+  SessionCoachBriefDTO,
   SessionCoachBySeriesItemDTO,
   SessionCoachesBySeriesResult,
-  SessionCoachBriefDTO,
 } from './dto/list-sessions-by-series.result';
+import { RemoveSessionCoachesInputGql } from './dto/remove-session-coaches.input';
+import { RemoveSessionCoachesResultGql } from './dto/remove-session-coaches.result';
 import { SyncSessionCoachesRosterInputGql } from './dto/sync-session-coaches-roster.input';
 import { SyncSessionCoachesRosterResultGql } from './dto/sync-session-coaches-roster.result';
 import { UpdateCourseSessionInput } from './dto/update-course-session.input';
@@ -206,6 +209,7 @@ export class CourseSessionsResolver {
     private readonly generateSessionCoachesForSeriesUsecase: GenerateSessionCoachesForSeriesUsecase,
     private readonly listSessionCoachesBySeriesUsecase: ListSessionCoachesBySeriesUsecase,
     private readonly appendSessionCoachesUsecase: AppendSessionCoachesUsecase,
+    private readonly removeSessionCoachesUsecase: RemoveSessionCoachesUsecase,
     private readonly syncSessionCoachesRosterUsecase: SyncSessionCoachesRosterUsecase,
   ) {}
 
@@ -447,6 +451,29 @@ export class CourseSessionsResolver {
     const dto = new SyncSessionCoachesRosterResultGql();
     dto.sessionId = result.sessionId;
     dto.activatedCount = result.activatedCount;
+    dto.removedCount = result.removedCount;
+    return dto;
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('MANAGER', 'ADMIN')
+  @Mutation(() => RemoveSessionCoachesResultGql, {
+    name: 'removeSessionCoaches',
+    description: '移除单节次副教练（manager/admin）',
+  })
+  async removeSessionCoaches(
+    @Args('input') input: RemoveSessionCoachesInputGql,
+    @currentUser() user: JwtPayload,
+  ): Promise<RemoveSessionCoachesResultGql> {
+    const session = mapJwtToUsecaseSession(user);
+    const result = await this.removeSessionCoachesUsecase.execute({
+      session,
+      sessionId: input.sessionId,
+      coachIds: input.coachIds,
+    });
+
+    const dto = new RemoveSessionCoachesResultGql();
+    dto.sessionId = result.sessionId;
     dto.removedCount = result.removedCount;
     return dto;
   }
