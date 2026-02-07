@@ -18,6 +18,20 @@ import {
 } from 'typeorm';
 import { CustomerEntity } from './account-customer.entity';
 
+export interface CustomerProfile {
+  id: number;
+  accountId: number | null;
+  name: string;
+  contactPhone: string | null;
+  preferredContactTime: string | null;
+  membershipLevel: number;
+  remark: string | null;
+  deactivatedAt: Date | null;
+  remainingSessions: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 /**
  * 客户服务类
  * 提供客户相关的基础数据操作功能
@@ -54,6 +68,11 @@ export class CustomerService {
     return await this.customerRepository.findOne({
       where: { id },
     });
+  }
+
+  async findProfileById(id: number): Promise<CustomerProfile | null> {
+    const entity = await this.findById(id);
+    return entity ? this.toProfile(entity) : null;
   }
 
   /**
@@ -206,7 +225,7 @@ export class CustomerService {
       membershipLevel?: number;
     }>;
   }): Promise<{
-    readonly customers: CustomerEntity[];
+    readonly customers: CustomerProfile[];
     readonly total: number;
     readonly page: number;
     readonly limit: number;
@@ -250,7 +269,51 @@ export class CustomerService {
 
     // 应用分页
     qb.take(actualLimit).skip((page - 1) * actualLimit);
-    const customers = await qb.getMany();
+    const customers = (await qb.getMany()).map((customer) => this.toProfile(customer));
+
+    const totalPages = Math.ceil(total / actualLimit) || 1;
+    return { customers, total, page, limit: actualLimit, totalPages };
+  }
+
+  /**
+   * 分页查询欠费客户列表（remaining_sessions <= 0，按欠费降序）
+   * @param params 分页查询参数
+   * @returns 分页查询结果
+   */
+  async findOverduePaginated(params: {
+    readonly page?: number;
+    readonly limit?: number;
+    readonly includeDeleted?: boolean;
+  }): Promise<{
+    readonly customers: CustomerProfile[];
+    readonly total: number;
+    readonly page: number;
+    readonly limit: number;
+    readonly totalPages: number;
+  }> {
+    const { page = 1, limit = 10, includeDeleted = false } = params;
+    const actualLimit = Math.min(limit, 100);
+    const qb = this.createBaseQb(includeDeleted);
+
+    qb.andWhere('customer.remaining_sessions <= :zero', { zero: 0 });
+    qb.orderBy('customer.remaining_sessions', 'ASC');
+    qb.addOrderBy('customer.id', 'ASC');
+
+    const countQb = qb.clone();
+    try {
+      (countQb as unknown as SelectQueryBuilder<CustomerEntity>).orderBy();
+    } catch {
+      // ignore
+    }
+    const cntAlias = 'cnt';
+    const raw = await countQb
+      .select('COUNT(DISTINCT customer.id)', cntAlias)
+      .getRawOne<Record<string, unknown>>();
+    const total =
+      typeof raw?.[cntAlias] === 'number' ? raw[cntAlias] : Number(raw?.[cntAlias] ?? 0);
+
+    qb.take(actualLimit).skip((page - 1) * actualLimit);
+    const customers = (await qb.getMany()).map((customer) => this.toProfile(customer));
 
     const totalPages = Math.ceil(total / actualLimit) || 1;
     return { customers, total, page, limit: actualLimit, totalPages };
@@ -376,5 +439,21 @@ export class CustomerService {
     });
 
     return result;
+  }
+
+  private toProfile(entity: CustomerEntity): CustomerProfile {
+    return {
+      id: entity.id,
+      accountId: entity.accountId,
+      name: entity.name,
+      contactPhone: entity.contactPhone,
+      preferredContactTime: entity.preferredContactTime,
+      membershipLevel: entity.membershipLevel,
+      remark: entity.remark,
+      deactivatedAt: entity.deactivatedAt,
+      remainingSessions: entity.remainingSessions,
+      createdAt: entity.createdAt,
+      updatedAt: entity.updatedAt,
+    };
   }
 }
