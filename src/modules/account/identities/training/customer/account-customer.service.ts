@@ -295,7 +295,7 @@ export class CustomerService {
     const actualLimit = Math.min(limit, 100);
     const qb = this.createBaseQb(includeDeleted);
 
-    qb.andWhere('customer.remainingSessions <= :zero', { zero: 0 });
+    qb.andWhere('customer.remainingSessions < :zero', { zero: 0 });
     qb.orderBy('customer.remainingSessions', 'ASC');
     qb.addOrderBy('customer.id', 'ASC');
 

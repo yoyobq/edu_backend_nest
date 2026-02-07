@@ -89,7 +89,7 @@ describe('Overdue Customers (e2e)', () => {
     if (app) await app.close();
   });
 
-  it('manager 查询欠费客户列表应按欠费升序返回', async () => {
+  it('manager 查询欠费客户列表应按欠费升序返回且不包含 0', async () => {
     const query = `
       query OverdueCustomers($input: ListOverdueCustomersInput!) {
         overdueCustomers(input: $input) {
@@ -114,7 +114,7 @@ describe('Overdue Customers (e2e)', () => {
     }>;
     const remainingList = customers.map((c) => Number(c.remainingSessions));
 
-    expect(remainingList.every((v) => v <= 0)).toBe(true);
+    expect(remainingList.every((v) => v < 0)).toBe(true);
     expect(remainingList).toEqual([...remainingList].sort((a, b) => a - b));
   });
 
