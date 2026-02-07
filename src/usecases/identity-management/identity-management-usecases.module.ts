@@ -17,6 +17,7 @@ import { UpgradeToCoachUsecase } from '@src/usecases/identity-management/coach/u
 import { DeactivateCustomerUsecase } from '@src/usecases/identity-management/customer/deactivate-customer.usecase';
 import { GetCustomerUsecase } from '@src/usecases/identity-management/customer/get-customer.usecase';
 import { ListCustomersUsecase } from '@src/usecases/identity-management/customer/list-customers.usecase';
+import { ListOverdueCustomersUsecase } from '@src/usecases/identity-management/customer/list-overdue-customers.usecase';
 import { ReactivateCustomerUsecase } from '@src/usecases/identity-management/customer/reactivate-customer.usecase';
 import { UpdateCustomerUsecase } from '@src/usecases/identity-management/customer/update-customer.usecase';
 import { UpgradeToCustomerUsecase } from '@src/usecases/identity-management/customer/upgrade-to-customer.usecase';
@@ -53,6 +54,7 @@ import { ListMembershipLevelsUsecase } from '@src/usecases/membership-levels/lis
     DeactivateCustomerUsecase,
     ReactivateCustomerUsecase,
     ListCustomersUsecase,
+    ListOverdueCustomersUsecase,
     GetCustomerUsecase,
     UpdateCoachUsecase,
     DeactivateCoachUsecase,
@@ -79,6 +81,7 @@ import { ListMembershipLevelsUsecase } from '@src/usecases/membership-levels/lis
     DeactivateCustomerUsecase,
     ReactivateCustomerUsecase,
     ListCustomersUsecase,
+    ListOverdueCustomersUsecase,
     GetCustomerUsecase,
     UpdateCoachUsecase,
     DeactivateCoachUsecase,

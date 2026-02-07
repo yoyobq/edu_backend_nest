@@ -1,4 +1,4 @@
-// src/usecases/identity-management/customer/list-customers.usecase.ts
+// src/usecases/identity-management/customer/list-overdue-customers.usecase.ts
 
 import { DomainError, PERMISSION_ERROR } from '@core/common/errors/domain-error';
 import {
@@ -8,51 +8,37 @@ import {
 import { ManagerService } from '@modules/account/identities/training/manager/manager.service';
 import { Injectable } from '@nestjs/common';
 import { AccountService } from '@src/modules/account/base/services/account.service';
-import { CustomerSortField, type OrderDirection } from '@src/types/common/sort.types';
 import { UserState } from '@app-types/models/user-info.types';
 
 /**
- * 列出客户列表的输入参数
+ * 欠费客户列表的输入参数
  */
-export interface ListCustomersParams {
+export interface ListOverdueCustomersParams {
   /** 页码，从 1 开始 */
   page?: number;
   /** 每页数量，默认 10，最大 100 */
   limit?: number;
-  /** 排序字段 */
-  sortBy?: import('@src/types/common/sort.types').CustomerSortField;
-  /** 排序方向 */
-  sortOrder?: OrderDirection;
-  /** 搜索关键词（按姓名/手机号） */
-  query?: string;
-  /** 过滤条件：状态/会员等级等 */
-  filters?: {
-    userState?: string;
-    name?: string;
-    contactPhone?: string;
-    membershipLevel?: number;
-  };
 }
 
 /**
- * 客户分页结果
+ * 欠费客户分页结果
  */
-export interface CustomerLoginHistoryItem {
+export interface OverdueCustomerLoginHistoryItem {
   ip: string;
   timestamp: string;
   audience?: string;
 }
 
-export interface CustomerListItem {
+export interface OverdueCustomerListItem {
   customer: CustomerProfile;
   userState: UserState | null;
-  loginHistory: CustomerLoginHistoryItem[] | null;
+  loginHistory: OverdueCustomerLoginHistoryItem[] | null;
   userPhone: string | null;
 }
 
-export interface PaginatedCustomers {
+export interface PaginatedOverdueCustomers {
   /** 列表项 */
-  items: CustomerListItem[];
+  items: OverdueCustomerListItem[];
   /** 总数 */
   total: number;
   /** 页码 */
@@ -64,10 +50,10 @@ export interface PaginatedCustomers {
 }
 
 /**
- * 列出客户列表用例（仅允许 manager 身份）
+ * 列出欠费客户列表用例（仅允许 manager 身份）
  */
 @Injectable()
-export class ListCustomersUsecase {
+export class ListOverdueCustomersUsecase {
   constructor(
     private readonly customerService: CustomerService,
     private readonly managerService: ManagerService,
@@ -75,31 +61,26 @@ export class ListCustomersUsecase {
   ) {}
 
   /**
-   * 执行列表查询
+   * 执行欠费列表查询
    * @param currentAccountId 当前账户 ID
-   * @param params 分页与排序参数
+   * @param params 分页参数
    */
   async execute(
     currentAccountId: number,
-    params: ListCustomersParams,
-  ): Promise<PaginatedCustomers> {
-    // 仅允许 manager 身份执行客户列表查询
+    params: ListOverdueCustomersParams,
+  ): Promise<PaginatedOverdueCustomers> {
     const isActive = await this.managerService.isActiveManager(currentAccountId);
     if (!isActive) {
-      throw new DomainError(PERMISSION_ERROR.ACCESS_DENIED, '仅活跃的 manager 可查看客户列表');
+      throw new DomainError(PERMISSION_ERROR.ACCESS_DENIED, '仅活跃的 manager 可查看欠费客户列表');
     }
 
-    const result = await this.customerService.findPaginated({
+    const result = await this.customerService.findOverduePaginated({
       page: params.page ?? 1,
       limit: params.limit ?? 10,
-      sortBy: params.sortBy ?? CustomerSortField.ACCOUNT_ID,
-      sortOrder: (params.sortOrder ?? 'ASC') as 'ASC' | 'DESC',
       includeDeleted: false,
-      query: params.query,
-      filters: params.filters,
     });
 
-    const items: CustomerListItem[] = await Promise.all(
+    const items: OverdueCustomerListItem[] = await Promise.all(
       result.customers.map(async (customer) => {
         const ui = customer.accountId
           ? await this.accountService.findUserInfoByAccountId(customer.accountId)
@@ -108,7 +89,7 @@ export class ListCustomersUsecase {
           ? await this.accountService.findOneById(customer.accountId)
           : null;
         const state: UserState | null = ui?.userState ?? null;
-        const history: CustomerLoginHistoryItem[] | null = acc?.recentLoginHistory ?? null;
+        const history: OverdueCustomerLoginHistoryItem[] | null = acc?.recentLoginHistory ?? null;
         return { customer, userState: state, loginHistory: history, userPhone: ui?.phone ?? null };
       }),
     );

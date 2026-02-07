@@ -12,6 +12,10 @@ import {
   ListCustomersUsecase,
   PaginatedCustomers,
 } from '@src/usecases/identity-management/customer/list-customers.usecase';
+import {
+  ListOverdueCustomersUsecase,
+  PaginatedOverdueCustomers,
+} from '@src/usecases/identity-management/customer/list-overdue-customers.usecase';
 import { ReactivateCustomerUsecase } from '@src/usecases/identity-management/customer/reactivate-customer.usecase';
 import { UpdateCustomerUsecase } from '@src/usecases/identity-management/customer/update-customer.usecase';
 import { GetMembershipLevelByIdUsecase } from '@src/usecases/membership-levels/get-membership-level-by-id.usecase';
@@ -20,6 +24,7 @@ import { MembershipLevelType } from '../../account/dto/identity/membership-level
 import { DeactivateCustomerInput } from './dto/customer.input.deactivate';
 import { GetCustomerInput } from './dto/customer.input.get';
 import { ListCustomersInput } from './dto/customer.input.list';
+import { ListOverdueCustomersInput } from './dto/customer.input.list-overdue';
 import { ReactivateCustomerInput } from './dto/customer.input.reactivate';
 import { UpdateCustomerInput } from './dto/customer.input.update';
 import {
@@ -29,7 +34,19 @@ import {
 } from './dto/customer.result';
 import { ListCustomersOutput } from './dto/customers.list';
 
-type CustomerEntityView = Awaited<ReturnType<UpdateCustomerUsecase['execute']>>;
+type CustomerView = {
+  id: number;
+  accountId: number | null;
+  name: string;
+  contactPhone: string | null;
+  preferredContactTime: string | null;
+  membershipLevel: number | null;
+  remark: string | null;
+  deactivatedAt: Date | null;
+  remainingSessions: number;
+  createdAt: Date;
+  updatedAt: Date;
+};
 
 /**
  * Customer 管理 GraphQL 解析器
@@ -43,6 +60,7 @@ export class CustomerResolver {
     private readonly deactivateCustomerUsecase: DeactivateCustomerUsecase,
     private readonly reactivateCustomerUsecase: ReactivateCustomerUsecase,
     private readonly listCustomersUsecase: ListCustomersUsecase,
+    private readonly listOverdueCustomersUsecase: ListOverdueCustomersUsecase,
     private readonly getCustomerUsecase: GetCustomerUsecase,
     private readonly getMembershipLevelByIdUsecase: GetMembershipLevelByIdUsecase,
   ) {}
@@ -100,7 +118,48 @@ export class CustomerResolver {
     const customers = await Promise.all(
       result.items.map((item) =>
         this.mapCustomerEntityToType(
-          item.entity,
+          item.customer,
+          item.userState,
+          item.loginHistory,
+          item.userPhone,
+        ),
+      ),
+    );
+    return {
+      customers,
+      pagination: {
+        page: result.page,
+        limit: result.limit,
+        total: result.total,
+        totalPages: result.totalPages,
+        hasNext: result.page < result.totalPages,
+        hasPrev: result.page > 1,
+      },
+    };
+  }
+
+  /**
+   * 分页查询欠费客户列表（仅管理员）
+   * @param input 查询输入参数
+   * @param user 当前用户
+   */
+  @UseGuards(JwtAuthGuard)
+  @Query(() => ListCustomersOutput, { description: '分页查询欠费客户列表（仅 manager）' })
+  async overdueCustomers(
+    @Args('input') input: ListOverdueCustomersInput,
+    @currentUser() user: JwtPayload,
+  ): Promise<ListCustomersOutput> {
+    const result: PaginatedOverdueCustomers = await this.listOverdueCustomersUsecase.execute(
+      Number(user.sub),
+      {
+        page: input.page,
+        limit: input.limit,
+      },
+    );
+    const customers = await Promise.all(
+      result.items.map((item) =>
+        this.mapCustomerEntityToType(
+          item.customer,
           item.userState,
           item.loginHistory,
           item.userPhone,
@@ -141,7 +200,7 @@ export class CustomerResolver {
       customerId: safeCustomerId,
     });
     return await this.mapCustomerEntityToType(
-      result.entity,
+      result.customer,
       result.userState,
       result.loginHistory,
       result.userPhone,
@@ -188,7 +247,7 @@ export class CustomerResolver {
    * @returns GraphQL 输出 DTO
    */
   private async mapCustomerEntityToType(
-    entity: CustomerEntityView,
+    entity: CustomerView,
     userState?: UserState | null,
     loginHistory?: { ip: string; timestamp: string; audience?: string }[] | null,
     userPhone?: string | null,
@@ -200,7 +259,7 @@ export class CustomerResolver {
       contactPhone: entity.contactPhone,
       phone: userPhone ?? null,
       preferredContactTime: entity.preferredContactTime,
-      membershipLevel: (entity.membershipLevel ?? null) as number | null,
+      membershipLevel: entity.membershipLevel ?? null,
       remark: entity.remark,
       userState: userState ?? null,
       createdAt: entity.createdAt,
