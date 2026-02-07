@@ -42,9 +42,7 @@ export class ListSessionCoachesBySeriesUsecase {
     private readonly coachService: CoachService,
   ) {}
 
-  async execute(
-    input: ListSessionCoachesBySeriesInput,
-  ): Promise<ListSessionCoachesBySeriesResult> {
+  async execute(input: ListSessionCoachesBySeriesInput): Promise<ListSessionCoachesBySeriesResult> {
     this.assertManagerOrAdmin(input.session);
     const sessions = await this.listSessionsBySeriesUsecase.execute(input.query);
     if (sessions.length === 0) {
@@ -114,7 +112,7 @@ export class ListSessionCoachesBySeriesUsecase {
     const rosterIds = roster ? Array.from(roster) : [];
     const leadCoachId =
       rosterIds.length > 0 && roster?.has(session.leadCoachId) ? session.leadCoachId : null;
-    const leadCoach = leadCoachId ? coachMap.get(leadCoachId) ?? null : null;
+    const leadCoach = leadCoachId ? (coachMap.get(leadCoachId) ?? null) : null;
     const assistantIds = rosterIds.filter((id) => id !== session.leadCoachId);
     assistantIds.sort((a, b) => a - b);
     const assistantCoaches = assistantIds
