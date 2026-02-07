@@ -29,19 +29,20 @@ const customPropsFor4xx = (req: IncomingMessage, res: ServerResponse): Record<st
 
 const loggerConfig: ConfigFactory = () => {
   const isDev = process.env.NODE_ENV !== 'production';
-  // 实际上 ./logs 并不会被用到，因为 dev 环境不要求输出 log，但保留配置待用
   const logPath = isDev ? './logs' : '/var/log/backend';
+  const level = process.env.LOG_LEVEL ?? (isDev ? 'debug' : 'info');
+  const includeRequestMeta = isDev ? true : process.env.LOG_INCLUDE_REQUEST_META === 'true';
 
   return {
     logger: {
-      level: isDev ? 'debug' : 'info',
+      level,
       redactFields: ['req.headers.authorization'],
       file: {
         enabled: !isDev,
         path: logPath,
       },
       // 不自动展开 req/res，但允许你手动 logger.debug({ req, res }, ...)
-      customProps: customPropsFor4xx,
+      customProps: includeRequestMeta ? customPropsFor4xx : undefined,
       // 自定义日志级别函数
       customLogLevel: (req: IncomingMessage, res: ServerResponse, err?: Error) => {
         // 忽略 favicon 请求
