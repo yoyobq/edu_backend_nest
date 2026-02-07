@@ -1541,6 +1541,98 @@ describe('Course Sessions By Series (e2e)', () => {
     });
   });
 
+  describe('removeSessionCoaches (GraphQL)', () => {
+    it('manager 可以移除副教练且保留主教练', async () => {
+      const catalogId = await ensureCatalog();
+      const seriesId = await createSeries({ catalogId });
+      const baseTime = new Date();
+      const sessions = await createSessions({ seriesId, baseTime });
+      const sessionId = sessions[0]?.id;
+      if (!sessionId) throw new Error('测试前置失败：未生成节次');
+
+      await bindCoachToSessions({ sessionIds: [sessionId], coachId: coachIdentityId });
+      await bindCoachToSessions({ sessionIds: [sessionId], coachId: coachCustomerIdentityId });
+
+      const mutation = `
+        mutation Remove($input: RemoveSessionCoachesInputGql!) {
+          removeSessionCoaches(input: $input) {
+            sessionId
+            removedCount
+          }
+        }
+      `;
+
+      const res = await postQuery({
+        query: mutation,
+        variables: {
+          input: {
+            sessionId,
+            coachIds: [coachCustomerIdentityId],
+          },
+        },
+        token: managerToken,
+      }).expect(200);
+
+      if (res.body.errors) {
+        throw new Error(`GraphQL 错误: ${JSON.stringify(res.body.errors)}`);
+      }
+
+      const data = (
+        res.body as {
+          data?: {
+            removeSessionCoaches?: {
+              sessionId: number;
+              removedCount: number;
+            };
+          };
+        }
+      ).data?.removeSessionCoaches;
+
+      expect(data).toBeDefined();
+      expect(Number(data?.sessionId)).toBe(sessionId);
+      expect(data?.removedCount).toBe(1);
+
+      const coachSessionRepo = dataSource.getRepository(CourseSessionCoachEntity);
+      const leadCoach = await coachSessionRepo.findOne({
+        where: { sessionId, coachId: coachIdentityId },
+      });
+      const removedCoach = await coachSessionRepo.findOne({
+        where: { sessionId, coachId: coachCustomerIdentityId },
+      });
+
+      expect(leadCoach).toBeDefined();
+      expect(leadCoach?.removedAt).toBeNull();
+      expect(removedCoach).toBeDefined();
+      expect(removedCoach?.removedAt).not.toBeNull();
+    });
+
+    it('manager 移除主教练会被 Usecase 拒绝', async () => {
+      const mutation = `
+        mutation Remove($input: RemoveSessionCoachesInputGql!) {
+          removeSessionCoaches(input: $input) {
+            sessionId
+          }
+        }
+      `;
+
+      const res = await postQuery({
+        query: mutation,
+        variables: {
+          input: {
+            sessionId: 1,
+            coachIds: [coachIdentityId],
+          },
+        },
+        token: managerToken,
+      }).expect(200);
+
+      expect(res.body.errors).toBeDefined();
+      const err = res.body.errors[0];
+      expect(String(err.message ?? '')).toContain('不能移除主教练');
+      expect(err.extensions?.errorCode).toBe('SESSION_STATUS_INVALID');
+    });
+  });
+
   describe('appendSessionCoaches (GraphQL)', () => {
     it('manager 可以追加教练且不移除已有 roster', async () => {
       const catalogId = await ensureCatalog();
