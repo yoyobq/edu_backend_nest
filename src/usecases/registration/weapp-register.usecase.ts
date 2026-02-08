@@ -98,6 +98,10 @@ export class WeappRegisterUsecase {
         await this.createThirdPartyBinding(manager, account.id, session);
       });
 
+      if (account.status !== AccountStatus.ACTIVE) {
+        await this.accountService.updateAccount(account.id, { status: AccountStatus.ACTIVE });
+      }
+
       this.logger.info(`微信小程序注册成功: ${account.id}`);
 
       return {
