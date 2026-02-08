@@ -88,6 +88,10 @@ export class RegisterWithEmailUsecase {
         }
       }
 
+      if (account.status !== AccountStatus.ACTIVE) {
+        await this.accountService.updateAccount(account.id, { status: AccountStatus.ACTIVE });
+      }
+
       this.logger.info(
         `用户注册成功: ${account.id}，注册时 IP 为：${clientIp.replace(/^::ffff:/, '').trim()}`,
       );

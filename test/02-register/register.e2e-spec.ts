@@ -290,7 +290,7 @@ describe('Register (e2e)', () => {
       expect(createdAccount).toBeDefined();
       expect(createdAccount?.loginName).toBe(testRegisterData.validUser.loginName);
       expect(createdAccount?.loginEmail).toBe(testRegisterData.validUser.loginEmail);
-      expect(createdAccount?.status).toBe(AccountStatus.PENDING);
+      expect(createdAccount?.status).toBe(AccountStatus.ACTIVE);
     });
 
     /**
@@ -362,7 +362,7 @@ describe('Register (e2e)', () => {
       expect(createdAccount).toBeDefined();
       expect(createdAccount?.loginName).toBe(testRegisterData.duplicateNickname.loginName);
       expect(createdAccount?.loginEmail).toBe(testRegisterData.duplicateNickname.loginEmail);
-      expect(createdAccount?.status).toBe(AccountStatus.PENDING);
+      expect(createdAccount?.status).toBe(AccountStatus.ACTIVE);
 
       // 验证昵称已自动生成带后缀的新昵称
       const userInfoRepository = dataSource.getRepository(UserInfoEntity);
@@ -474,7 +474,7 @@ describe('Register (e2e)', () => {
     /**
      * 测试注册成功后账户状态正确
      */
-    it('注册成功后账户状态应该为 PENDING', async () => {
+    it('注册成功后账户状态应该为 ACTIVE', async () => {
       const response = await performRegister(testRegisterData.validUser);
 
       const { data } = response.body;
@@ -485,7 +485,7 @@ describe('Register (e2e)', () => {
         where: { id: accountId },
       });
 
-      expect(account?.status).toBe(AccountStatus.PENDING);
+      expect(account?.status).toBe(AccountStatus.ACTIVE);
     });
 
     /**
