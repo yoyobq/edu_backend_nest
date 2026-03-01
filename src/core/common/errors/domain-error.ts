@@ -147,18 +147,6 @@ export type VerificationRecordErrorCode =
   (typeof VERIFICATION_RECORD_ERROR)[keyof typeof VERIFICATION_RECORD_ERROR];
 export type LearnerErrorCode = (typeof LEARNER_ERROR)[keyof typeof LEARNER_ERROR];
 
-// 课程目录相关错误码（集中定义）
-export const CATALOG_ERROR = {
-  TITLE_EMPTY: 'CATALOG_TITLE_EMPTY',
-  NOT_FOUND: 'CATALOG_NOT_FOUND',
-  UPDATE_FAILED: 'CATALOG_UPDATE_FAILED',
-  PERMISSION_DENIED: PERMISSION_ERROR.INSUFFICIENT_PERMISSIONS, // 复用统一权限码值以兼容现有断言
-  NO_UPDATABLE_FIELDS: 'NO_UPDATABLE_FIELDS', // 兼容现有断言码值
-} as const;
-Object.freeze(CATALOG_ERROR);
-
-export type CatalogErrorCode = (typeof CATALOG_ERROR)[keyof typeof CATALOG_ERROR];
-
 // 分页相关错误码
 export const PAGINATION_ERROR = {
   INVALID_PAGE_SIZE: 'PAGINATION_INVALID_PAGE_SIZE',
@@ -170,20 +158,6 @@ Object.freeze(PAGINATION_ERROR);
 
 export type PaginationErrorCode = (typeof PAGINATION_ERROR)[keyof typeof PAGINATION_ERROR];
 
-// 会员等级相关错误码（供用例在编排会员等级写入/查询时使用）
-export const MEMBERSHIP_ERROR = {
-  LEVEL_NOT_FOUND: 'MEMBERSHIP_LEVEL_NOT_FOUND',
-  LEVEL_CODE_INVALID: 'MEMBERSHIP_LEVEL_CODE_INVALID',
-  CREATION_FAILED: 'MEMBERSHIP_CREATION_FAILED',
-  UPDATE_FAILED: 'MEMBERSHIP_UPDATE_FAILED',
-  QUERY_FAILED: 'MEMBERSHIP_QUERY_FAILED',
-  SERVICE_UNAVAILABLE: 'MEMBERSHIP_SERVICE_UNAVAILABLE',
-  INVALID_PARAMS: 'MEMBERSHIP_INVALID_PARAMS',
-} as const;
-Object.freeze(MEMBERSHIP_ERROR);
-
-export type MembershipErrorCode = (typeof MEMBERSHIP_ERROR)[keyof typeof MEMBERSHIP_ERROR];
-
 // 类型守卫：统一判断是否为领域错误（兼容多包/反序列化场景）
 export const isDomainError = (error: unknown): error is DomainError => {
   if (error instanceof DomainError) return true;
@@ -191,129 +165,3 @@ export const isDomainError = (error: unknown): error is DomainError => {
   const anyE = error as { name?: unknown; code?: unknown };
   return anyE?.name === 'DomainError' && typeof anyE?.code === 'string';
 };
-
-// 课程系列相关错误码（集中定义）
-export const COURSE_SERIES_ERROR = {
-  SERIES_NOT_FOUND: 'COURSE_SERIES_NOT_FOUND',
-  SERIES_CREATION_FAILED: 'COURSE_SERIES_CREATION_FAILED',
-  SERIES_UPDATE_FAILED: 'COURSE_SERIES_UPDATE_FAILED',
-  SERIES_DELETE_FAILED: 'COURSE_SERIES_DELETE_FAILED',
-  TITLE_EMPTY: 'COURSE_SERIES_TITLE_EMPTY',
-  INVALID_PARAMS: 'COURSE_SERIES_INVALID_PARAMS',
-  SERIES_DATE_INVALID: 'COURSE_SERIES_DATE_INVALID',
-} as const;
-Object.freeze(COURSE_SERIES_ERROR);
-
-export type CourseSeriesErrorCode = (typeof COURSE_SERIES_ERROR)[keyof typeof COURSE_SERIES_ERROR];
-
-// 开课班结算规则相关错误码（集中定义）
-export const PAYOUT_RULE_ERROR = {
-  RULE_NOT_FOUND: 'PAYOUT_RULE_NOT_FOUND',
-  RULE_CREATION_FAILED: 'PAYOUT_RULE_CREATION_FAILED',
-  RULE_UPDATE_FAILED: 'PAYOUT_RULE_UPDATE_FAILED',
-  RULE_DELETE_FAILED: 'PAYOUT_RULE_DELETE_FAILED',
-  ACTIVATE_FAILED: 'PAYOUT_RULE_ACTIVATE_FAILED',
-  DEACTIVATE_FAILED: 'PAYOUT_RULE_DEACTIVATE_FAILED',
-  BIND_FAILED: 'PAYOUT_RULE_BIND_FAILED',
-  UNBIND_FAILED: 'PAYOUT_RULE_UNBIND_FAILED',
-  SERIES_RULE_CONFLICT: 'PAYOUT_RULE_SERIES_RULE_CONFLICT',
-  INVALID_PARAMS: 'PAYOUT_RULE_INVALID_PARAMS',
-  INVALID_TEMPLATE_FLAG: 'PAYOUT_RULE_INVALID_TEMPLATE_FLAG',
-  INACTIVE_BIND: 'PAYOUT_RULE_INACTIVE_BIND',
-  JSON_INVALID: 'PAYOUT_RULE_JSON_INVALID',
-  /** 结课冻结所需规则/模板缺失 */
-  PAYOUT_RULE_MISSING: 'PAYOUT_RULE_MISSING',
-} as const;
-Object.freeze(PAYOUT_RULE_ERROR);
-
-export type PayoutRuleErrorCode = (typeof PAYOUT_RULE_ERROR)[keyof typeof PAYOUT_RULE_ERROR];
-
-// 课次调整记录相关错误码（集中定义）
-export const PAYOUT_SESSION_ADJUSTMENT_ERROR = {
-  ADJUSTMENT_NOT_FOUND: 'PAYOUT_SESSION_ADJUSTMENT_NOT_FOUND',
-  CREATION_FAILED: 'PAYOUT_SESSION_ADJUSTMENT_CREATION_FAILED',
-  UPDATE_FAILED: 'PAYOUT_SESSION_ADJUSTMENT_UPDATE_FAILED',
-  INVALID_PARAMS: 'PAYOUT_SESSION_ADJUSTMENT_INVALID_PARAMS',
-  CUSTOMER_NOT_FOUND: 'PAYOUT_SESSION_ADJUSTMENT_CUSTOMER_NOT_FOUND',
-} as const;
-Object.freeze(PAYOUT_SESSION_ADJUSTMENT_ERROR);
-
-export type PayoutSessionAdjustmentErrorCode =
-  (typeof PAYOUT_SESSION_ADJUSTMENT_ERROR)[keyof typeof PAYOUT_SESSION_ADJUSTMENT_ERROR];
-
-// course-session相关错误码（课程节次）
-/**
- * course-session领域错误码
- * 覆盖节次读取/状态流转/出勤更新/结算前置等场景，供用例统一抛错
- */
-export const SESSION_ERROR = {
-  /** course-session未找到 */
-  SESSION_NOT_FOUND: 'SESSION_NOT_FOUND',
-  /** course-session状态不允许该操作（如已 FINISHED/CANCELED） */
-  SESSION_STATUS_INVALID: 'SESSION_STATUS_INVALID',
-  /** 出勤尚未定稿，不能执行当前操作 */
-  ATTENDANCE_NOT_FINALIZED: 'ATTENDANCE_NOT_FINALIZED',
-  /** 出勤已锁定（已定稿或结课），不允许更新 */
-  SESSION_LOCKED_FOR_ATTENDANCE: 'SESSION_LOCKED_FOR_ATTENDANCE',
-  /** course-session已关闭或已结算，无法重复关闭 */
-  SESSION_ALREADY_CLOSED: 'SESSION_ALREADY_CLOSED',
-  /** course-session已取消，无法执行该操作 */
-  SESSION_ALREADY_CANCELED: 'SESSION_ALREADY_CANCELED',
-  /** course-session关闭失败（数据写入失败或状态机异常） */
-  SESSION_CLOSE_FAILED: 'SESSION_CLOSE_FAILED',
-  /** course-session结算失败（规则缺失或计算异常） */
-  SESSION_SETTLEMENT_FAILED: 'SESSION_SETTLEMENT_FAILED',
-  /** 出勤更新失败 */
-  SESSION_ATTENDANCE_UPDATE_FAILED: 'SESSION_ATTENDANCE_UPDATE_FAILED',
-  /** 参数非法或缺失 */
-  INVALID_PARAMS: 'SESSION_INVALID_PARAMS',
-} as const;
-Object.freeze(SESSION_ERROR);
-
-export type SessionErrorCode = (typeof SESSION_ERROR)[keyof typeof SESSION_ERROR];
-
-// 报名相关错误码（参与报名）
-/**
- * 报名领域错误码
- * 覆盖报名创建/取消/恢复/唯一性冲突等场景，供用例统一抛错
- */
-export const ENROLLMENT_ERROR = {
-  /** 报名未找到 */
-  ENROLLMENT_NOT_FOUND: 'ENROLLMENT_NOT_FOUND',
-  /** 报名已存在（唯一键冲突：sessionId + learnerId） */
-  ENROLLMENT_ALREADY_EXISTS: 'ENROLLMENT_ALREADY_EXISTS',
-  /** 报名创建失败 */
-  ENROLLMENT_CREATION_FAILED: 'ENROLLMENT_CREATION_FAILED',
-  /** 报名取消失败 */
-  ENROLLMENT_CANCEL_FAILED: 'ENROLLMENT_CANCEL_FAILED',
-  /** 报名已取消，无法重复取消或需要恢复 */
-  ENROLLMENT_ALREADY_CANCELED: 'ENROLLMENT_ALREADY_CANCELED',
-  /** 报名恢复失败 */
-  ENROLLMENT_RESTORE_FAILED: 'ENROLLMENT_RESTORE_FAILED',
-  /** 参数非法或缺失 */
-  INVALID_PARAMS: 'ENROLLMENT_INVALID_PARAMS',
-  /** 操作不允许（权限或业务规则不满足） */
-  OPERATION_NOT_ALLOWED: 'ENROLLMENT_OPERATION_NOT_ALLOWED',
-  /** 容量已满（达到系列的最大报名人数上限） */
-  CAPACITY_EXCEEDED: 'ENROLLMENT_CAPACITY_EXCEEDED',
-  /** 时间冲突（该学员在相同时间段已有有效报名） */
-  SCHEDULE_CONFLICT: 'ENROLLMENT_SCHEDULE_CONFLICT',
-  /** 超过取消阈值（超过请假截止小时），不允许取消 */
-  CANCEL_CUTOFF_EXCEEDED: 'ENROLLMENT_CANCEL_CUTOFF_EXCEEDED',
-  /** 超过请假阈值，不允许请假 */
-  LEAVE_CUTOFF_EXCEEDED: 'ENROLLMENT_LEAVE_CUTOFF_EXCEEDED',
-} as const;
-Object.freeze(ENROLLMENT_ERROR);
-
-export type EnrollmentErrorCode = (typeof ENROLLMENT_ERROR)[keyof typeof ENROLLMENT_ERROR];
-
-// 出勤相关错误码（集中定义）
-export const ATTENDANCE_ERROR = {
-  /** 出勤状态非法（不在合法枚举内） */
-  ATTENDANCE_INVALID_STATUS: 'ATTENDANCE_INVALID_STATUS',
-  /** 出勤参数非法（如计次格式/精度/非负规则不满足） */
-  ATTENDANCE_INVALID_PARAMS: 'ATTENDANCE_INVALID_PARAMS',
-} as const;
-Object.freeze(ATTENDANCE_ERROR);
-
-export type AttendanceErrorCode = (typeof ATTENDANCE_ERROR)[keyof typeof ATTENDANCE_ERROR];

@@ -67,7 +67,6 @@ export function initGraphQLSchema(): {
       'RegisterTypeEnum',
       'Gender',
       'UserState',
-      'CourseLevel',
       'SubjectType',
       'VerificationRecordStatus',
       'VerificationRecordType',
@@ -77,8 +76,6 @@ export function initGraphQLSchema(): {
       'OrderDirection',
       'PaginationMode',
       'SortDirection',
-      'ParticipationEnrollmentStatusReason',
-      'ParticipationEnrollmentStatus',
     ];
 
     // 生成 Schema 指纹

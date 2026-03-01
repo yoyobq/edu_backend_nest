@@ -37,11 +37,11 @@ export const IdentityUnion = createUnionType({
     if ('jobId' in value) {
       return StaffType;
     }
-    if ('customerId' in value && 'membershipLevel' in value) {
-      return CustomerType;
-    }
     if ('customerId' in value && 'countPerSession' in value) {
       return LearnerType;
+    }
+    if ('customerId' in value) {
+      return CustomerType;
     }
 
     return null;

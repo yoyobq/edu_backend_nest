@@ -12,19 +12,12 @@ import {
   ListCustomersUsecase,
   PaginatedCustomers,
 } from '@src/usecases/identity-management/customer/list-customers.usecase';
-import {
-  ListOverdueCustomersUsecase,
-  PaginatedOverdueCustomers,
-} from '@src/usecases/identity-management/customer/list-overdue-customers.usecase';
 import { ReactivateCustomerUsecase } from '@src/usecases/identity-management/customer/reactivate-customer.usecase';
 import { UpdateCustomerUsecase } from '@src/usecases/identity-management/customer/update-customer.usecase';
-import { GetMembershipLevelByIdUsecase } from '@src/usecases/membership-levels/get-membership-level-by-id.usecase';
 import { CustomerType } from '../../account/dto/identity/customer.dto';
-import { MembershipLevelType } from '../../account/dto/identity/membership-level.dto';
 import { DeactivateCustomerInput } from './dto/customer.input.deactivate';
 import { GetCustomerInput } from './dto/customer.input.get';
 import { ListCustomersInput } from './dto/customer.input.list';
-import { ListOverdueCustomersInput } from './dto/customer.input.list-overdue';
 import { ReactivateCustomerInput } from './dto/customer.input.reactivate';
 import { UpdateCustomerInput } from './dto/customer.input.update';
 import {
@@ -40,10 +33,8 @@ type CustomerView = {
   name: string;
   contactPhone: string | null;
   preferredContactTime: string | null;
-  membershipLevel: number | null;
   remark: string | null;
   deactivatedAt: Date | null;
-  remainingSessions: number;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -60,9 +51,7 @@ export class CustomerResolver {
     private readonly deactivateCustomerUsecase: DeactivateCustomerUsecase,
     private readonly reactivateCustomerUsecase: ReactivateCustomerUsecase,
     private readonly listCustomersUsecase: ListCustomersUsecase,
-    private readonly listOverdueCustomersUsecase: ListOverdueCustomersUsecase,
     private readonly getCustomerUsecase: GetCustomerUsecase,
-    private readonly getMembershipLevelByIdUsecase: GetMembershipLevelByIdUsecase,
   ) {}
 
   /**
@@ -84,10 +73,9 @@ export class CustomerResolver {
       contactPhone: input.contactPhone ?? null,
       preferredContactTime: input.preferredContactTime ?? null,
       remark: input.remark ?? null,
-      membershipLevel: input.membershipLevel,
     });
 
-    const customer = await this.mapCustomerEntityToType(entity);
+    const customer = this.mapCustomerEntityToType(entity);
     return { customer };
   }
 
@@ -112,50 +100,8 @@ export class CustomerResolver {
         userState: input.userState ?? undefined,
         name: input.name ?? undefined,
         contactPhone: input.contactPhone ?? undefined,
-        membershipLevel: input.membershipLevel ?? undefined,
       },
     });
-    const customers = await Promise.all(
-      result.items.map((item) =>
-        this.mapCustomerEntityToType(
-          item.customer,
-          item.userState,
-          item.loginHistory,
-          item.userPhone,
-        ),
-      ),
-    );
-    return {
-      customers,
-      pagination: {
-        page: result.page,
-        limit: result.limit,
-        total: result.total,
-        totalPages: result.totalPages,
-        hasNext: result.page < result.totalPages,
-        hasPrev: result.page > 1,
-      },
-    };
-  }
-
-  /**
-   * 分页查询欠费客户列表（仅管理员）
-   * @param input 查询输入参数
-   * @param user 当前用户
-   */
-  @UseGuards(JwtAuthGuard)
-  @Query(() => ListCustomersOutput, { description: '分页查询欠费客户列表（仅 manager）' })
-  async overdueCustomers(
-    @Args('input') input: ListOverdueCustomersInput,
-    @currentUser() user: JwtPayload,
-  ): Promise<ListCustomersOutput> {
-    const result: PaginatedOverdueCustomers = await this.listOverdueCustomersUsecase.execute(
-      Number(user.sub),
-      {
-        page: input.page,
-        limit: input.limit,
-      },
-    );
     const customers = await Promise.all(
       result.items.map((item) =>
         this.mapCustomerEntityToType(
@@ -199,7 +145,7 @@ export class CustomerResolver {
       currentAccountId: Number(user.sub),
       customerId: safeCustomerId,
     });
-    return await this.mapCustomerEntityToType(
+    return this.mapCustomerEntityToType(
       result.customer,
       result.userState,
       result.loginHistory,
@@ -220,7 +166,7 @@ export class CustomerResolver {
     @currentUser() user: JwtPayload,
   ): Promise<DeactivateCustomerResult> {
     const result = await this.deactivateCustomerUsecase.execute(Number(user.sub), { id: input.id });
-    const customer = await this.mapCustomerEntityToType(result.customer);
+    const customer = this.mapCustomerEntityToType(result.customer);
     return { customer, isUpdated: result.isUpdated };
   }
 
@@ -237,7 +183,7 @@ export class CustomerResolver {
     @currentUser() user: JwtPayload,
   ): Promise<ReactivateCustomerResult> {
     const result = await this.reactivateCustomerUsecase.execute(Number(user.sub), { id: input.id });
-    const customer = await this.mapCustomerEntityToType(result.customer);
+    const customer = this.mapCustomerEntityToType(result.customer);
     return { customer, isUpdated: result.isUpdated };
   }
 
@@ -246,12 +192,12 @@ export class CustomerResolver {
    * @param entity 客户实体
    * @returns GraphQL 输出 DTO
    */
-  private async mapCustomerEntityToType(
+  private mapCustomerEntityToType(
     entity: CustomerView,
     userState?: UserState | null,
     loginHistory?: { ip: string; timestamp: string; audience?: string }[] | null,
     userPhone?: string | null,
-  ): Promise<CustomerType> {
+  ): CustomerType {
     const base: CustomerType = {
       id: entity.id,
       accountId: entity.accountId,
@@ -259,30 +205,14 @@ export class CustomerResolver {
       contactPhone: entity.contactPhone,
       phone: userPhone ?? null,
       preferredContactTime: entity.preferredContactTime,
-      membershipLevel: entity.membershipLevel ?? null,
       remark: entity.remark,
       userState: userState ?? null,
       createdAt: entity.createdAt,
       updatedAt: entity.updatedAt,
       deactivatedAt: entity.deactivatedAt ?? null,
       loginHistory: loginHistory ?? null,
-      remainingSessions: entity.remainingSessions,
     };
 
-    // 根据实体中的 membershipLevel（数值枚举）去等级表读取详细信息
-    const levelId = Number(entity.membershipLevel ?? 0);
-    const level =
-      levelId > 0 ? await this.getMembershipLevelByIdUsecase.execute({ id: levelId }) : null;
-    let membershipLevelInfo: MembershipLevelType | null = null;
-    if (level) {
-      membershipLevelInfo = {
-        id: level.id,
-        code: level.code,
-        name: level.name,
-        benefits: level.benefits ? JSON.stringify(level.benefits) : null,
-      };
-    }
-
-    return { ...base, membershipLevelInfo };
+    return base;
   }
 }

@@ -24,16 +24,14 @@ export interface UpdateCustomerUsecaseParams {
   preferredContactTime?: string | null;
   /** 备注（可选） */
   remark?: string | null;
-  /** 会员等级 ID（仅 manager 可修改） */
-  membershipLevel?: number;
 }
 
 /**
  * 更新客户信息用例
  *
  * 规则：
- * - customer 身份：仅允许更新 upgrade 中出现的字段（name / contactPhone / preferredContactTime / remark），不可更新 membershipLevel；仅能操作自己的客户记录。
- * - manager 身份：必须指定 customerId，可更新上述字段以及 membershipLevel。
+ * - customer 身份：仅允许更新 upgrade 中出现的字段（name / contactPhone / preferredContactTime / remark），仅能操作自己的客户记录。
+ * - manager 身份：必须指定 customerId，可更新上述字段。
  * - 幂等：无数据变更时直接返回当前实体。
  * - 事务：所有更新在单事务内完成，统一写入审计字段。
  */
@@ -68,7 +66,7 @@ export class UpdateCustomerUsecase {
       }
 
       // 准备更新数据
-      const updateData = this.prepareUpdateData({ ...params }, ctx);
+      const updateData = this.prepareUpdateData({ ...params });
 
       // 幂等检查：无任何变更时直接返回
       if (!this.hasDataChanges(updateData, customer)) {
@@ -131,20 +129,15 @@ export class UpdateCustomerUsecase {
   /**
    * 准备更新数据（根据身份控制可更新字段）
    * @param params 用例参数
-   * @param ctx 身份上下文
    * @returns 部分更新数据
    */
-  private prepareUpdateData(
-    params: UpdateCustomerUsecaseParams,
-    ctx: { isManager: boolean; targetCustomerId: number },
-  ): Partial<CustomerEntity> {
+  private prepareUpdateData(params: UpdateCustomerUsecaseParams): Partial<CustomerEntity> {
     const updateData: Partial<CustomerEntity> = {};
 
     this.applyName(updateData, params.name);
     this.applyContactPhone(updateData, params.contactPhone);
     this.applyPreferredContactTime(updateData, params.preferredContactTime);
     this.applyRemark(updateData, params.remark);
-    this.applyMembershipLevel(updateData, ctx.isManager, params.membershipLevel);
 
     return updateData;
   }
@@ -228,35 +221,5 @@ export class UpdateCustomerUsecase {
       throw new DomainError(ACCOUNT_ERROR.OPERATION_NOT_SUPPORTED, '备注长度不能超过 255');
     }
     updateData.remark = val ?? null;
-  }
-
-  /**
-   * 处理 membershipLevel 字段：仅当为 manager 时可以更新
-   * @param updateData 更新数据对象
-   * @param isManager 是否为 manager 身份
-   * @param membershipLevel 输入的会员等级
-   */
-  private applyMembershipLevel(
-    updateData: Partial<CustomerEntity>,
-    isManager: boolean,
-    membershipLevel: number | undefined,
-  ): void {
-    /**
-     * 处理会员等级更新
-     * - 仅允许 manager 身份更新
-     * - 若客户提供了该字段则直接抛出权限错误
-     */
-    if (!isManager) {
-      if (typeof membershipLevel !== 'undefined') {
-        throw new DomainError(PERMISSION_ERROR.INSUFFICIENT_PERMISSIONS, '客户无权修改会员等级');
-      }
-      return;
-    }
-
-    if (typeof membershipLevel === 'undefined') return;
-    if (!Number.isInteger(membershipLevel) || membershipLevel <= 0) {
-      throw new DomainError(ACCOUNT_ERROR.OPERATION_NOT_SUPPORTED, '会员等级 ID 非法');
-    }
-    updateData.membershipLevel = membershipLevel;
   }
 }
