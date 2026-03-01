@@ -7,7 +7,6 @@ import { CustomerServiceModule } from '@src/modules/account/identities/training/
 import { LearnerIdentityModule } from '@src/modules/account/identities/training/learner/learner.module';
 import { ManagerServiceModule } from '@src/modules/account/identities/training/manager/manager-service.module';
 import { AuthModule } from '@src/modules/auth/auth.module';
-import { MembershipLevelsModule } from '@src/modules/membership-levels/membership-levels.module';
 import { DeactivateCoachUsecase } from '@src/usecases/identity-management/coach/deactivate-coach.usecase';
 import { GetMyCoachUsecase } from '@src/usecases/identity-management/coach/get-my-coach.usecase';
 import { ListCoachesUsecase } from '@src/usecases/identity-management/coach/list-coaches.usecase';
@@ -17,7 +16,6 @@ import { UpgradeToCoachUsecase } from '@src/usecases/identity-management/coach/u
 import { DeactivateCustomerUsecase } from '@src/usecases/identity-management/customer/deactivate-customer.usecase';
 import { GetCustomerUsecase } from '@src/usecases/identity-management/customer/get-customer.usecase';
 import { ListCustomersUsecase } from '@src/usecases/identity-management/customer/list-customers.usecase';
-import { ListOverdueCustomersUsecase } from '@src/usecases/identity-management/customer/list-overdue-customers.usecase';
 import { ReactivateCustomerUsecase } from '@src/usecases/identity-management/customer/reactivate-customer.usecase';
 import { UpdateCustomerUsecase } from '@src/usecases/identity-management/customer/update-customer.usecase';
 import { UpgradeToCustomerUsecase } from '@src/usecases/identity-management/customer/upgrade-to-customer.usecase';
@@ -31,8 +29,6 @@ import { DeactivateManagerUsecase } from '@src/usecases/identity-management/mana
 import { ListManagersUsecase } from '@src/usecases/identity-management/manager/list-managers.usecase';
 import { ReactivateManagerUsecase } from '@src/usecases/identity-management/manager/reactivate-manager.usecase';
 import { UpdateManagerUsecase } from '@src/usecases/identity-management/manager/update-manager.usecase';
-import { GetMembershipLevelByIdUsecase } from '@src/usecases/membership-levels/get-membership-level-by-id.usecase';
-import { ListMembershipLevelsUsecase } from '@src/usecases/membership-levels/list-membership-levels.usecase';
 
 @Module({
   imports: [
@@ -42,19 +38,15 @@ import { ListMembershipLevelsUsecase } from '@src/usecases/membership-levels/lis
     CoachServiceModule,
     LearnerIdentityModule,
     ManagerServiceModule,
-    MembershipLevelsModule,
     AuthModule,
   ],
   providers: [
     UpgradeToCustomerUsecase,
     UpgradeToCoachUsecase,
-    GetMembershipLevelByIdUsecase,
-    ListMembershipLevelsUsecase,
     UpdateCustomerUsecase,
     DeactivateCustomerUsecase,
     ReactivateCustomerUsecase,
     ListCustomersUsecase,
-    ListOverdueCustomersUsecase,
     GetCustomerUsecase,
     UpdateCoachUsecase,
     DeactivateCoachUsecase,
@@ -75,13 +67,10 @@ import { ListMembershipLevelsUsecase } from '@src/usecases/membership-levels/lis
   exports: [
     UpgradeToCustomerUsecase,
     UpgradeToCoachUsecase,
-    GetMembershipLevelByIdUsecase,
-    ListMembershipLevelsUsecase,
     UpdateCustomerUsecase,
     DeactivateCustomerUsecase,
     ReactivateCustomerUsecase,
     ListCustomersUsecase,
-    ListOverdueCustomersUsecase,
     GetCustomerUsecase,
     UpdateCoachUsecase,
     DeactivateCoachUsecase,

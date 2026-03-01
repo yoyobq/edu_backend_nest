@@ -35,8 +35,4 @@ export class UpdateCustomerInput {
   @IsString({ message: '备注必须是字符串' })
   @MaxLength(255, { message: '备注长度不能超过 255' })
   remark?: string | null;
-
-  @Field(() => Int, { nullable: true, description: '会员等级 ID（仅 manager 可更新）' })
-  @IsOptional()
-  membershipLevel?: number;
 }

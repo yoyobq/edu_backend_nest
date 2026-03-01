@@ -87,19 +87,6 @@ export class CustomerEntity {
   preferredContactTime!: string | null;
 
   /**
-   * 会员等级主键 ID
-   * 整型，来源于 member_membership_levels 表的主键
-   * 默认值为 1（按数据库初始化记录）
-   */
-  @Column({
-    name: 'membership_level_id',
-    type: 'int',
-    default: 1,
-    comment: '会员等级主键 ID（由 member_membership_levels 表记录决定）',
-  })
-  membershipLevel!: number;
-
-  /**
    * 内部备注
    * 可为空，最大长度 255 个字符，用于内部管理备注
    */
@@ -123,20 +110,6 @@ export class CustomerEntity {
     comment: 'NULL=有效；非 NULL=下线',
   })
   deactivatedAt!: Date | null;
-
-  /**
-   * 剩余课次（精确到 0.01）
-   * decimal(6,2)，默认 0.00
-   */
-  @Column({
-    name: 'remaining_sessions',
-    type: 'decimal',
-    precision: 6,
-    scale: 2,
-    default: 0.0,
-    comment: '剩余课次（精确到 0.01）',
-  })
-  remainingSessions!: number;
 
   /**
    * 创建时间

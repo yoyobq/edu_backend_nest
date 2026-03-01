@@ -25,12 +25,11 @@ export interface ListCustomersParams {
   sortOrder?: OrderDirection;
   /** 搜索关键词（按姓名/手机号） */
   query?: string;
-  /** 过滤条件：状态/会员等级等 */
+  /** 过滤条件：状态等 */
   filters?: {
     userState?: string;
     name?: string;
     contactPhone?: string;
-    membershipLevel?: number;
   };
 }
 

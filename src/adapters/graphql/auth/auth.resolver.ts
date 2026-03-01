@@ -254,14 +254,12 @@ export class AuthResolver {
       name: customer.name,
       contactPhone: customer.contactPhone,
       preferredContactTime: customer.preferredContactTime,
-      membershipLevel: customer.membershipLevel,
       remark: customer.remark,
       userState: null,
       loginHistory: null,
       createdAt: customer.createdAt,
       updatedAt: customer.updatedAt,
       deactivatedAt: customer.deactivatedAt,
-      remainingSessions: customer.remainingSessions,
       customerId: customer.id,
     } as CustomerType;
   }

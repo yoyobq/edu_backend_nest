@@ -41,11 +41,9 @@ export type RawIdentity =
         | 'name'
         | 'contactPhone'
         | 'preferredContactTime'
-        | 'membershipLevel'
         | 'remark'
         | 'createdAt'
         | 'updatedAt'
-        | 'remainingSessions'
       > & { id: number };
     }
   | {
@@ -148,23 +146,19 @@ export class FetchIdentityByRoleUsecase {
     name: string;
     contactPhone: string | null;
     preferredContactTime: string | null;
-    membershipLevel: number | null;
     remark: string | null;
     deactivatedAt: Date | null;
     createdAt: Date;
     updatedAt: Date;
-    remainingSessions: number;
   }): Pick<
     CustomerType,
     | 'accountId'
     | 'name'
     | 'contactPhone'
     | 'preferredContactTime'
-    | 'membershipLevel'
     | 'remark'
     | 'createdAt'
     | 'updatedAt'
-    | 'remainingSessions'
   > & { id: number } {
     return {
       id: entity.id,
@@ -172,11 +166,9 @@ export class FetchIdentityByRoleUsecase {
       name: entity.name,
       contactPhone: entity.contactPhone,
       preferredContactTime: entity.preferredContactTime,
-      membershipLevel: entity.membershipLevel || null,
       remark: entity.remark,
       createdAt: entity.createdAt,
       updatedAt: entity.updatedAt,
-      remainingSessions: entity.remainingSessions,
     };
   }
 

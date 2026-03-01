@@ -24,10 +24,8 @@ export interface CustomerProfile {
   name: string;
   contactPhone: string | null;
   preferredContactTime: string | null;
-  membershipLevel: number;
   remark: string | null;
   deactivatedAt: Date | null;
-  remainingSessions: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -222,7 +220,6 @@ export class CustomerService {
       userState?: string;
       name?: string;
       contactPhone?: string;
-      membershipLevel?: number;
     }>;
   }): Promise<{
     readonly customers: CustomerProfile[];
@@ -276,50 +273,6 @@ export class CustomerService {
   }
 
   /**
-   * 分页查询欠费客户列表（remaining_sessions <= 0，按欠费降序）
-   * @param params 分页查询参数
-   * @returns 分页查询结果
-   */
-  async findOverduePaginated(params: {
-    readonly page?: number;
-    readonly limit?: number;
-    readonly includeDeleted?: boolean;
-  }): Promise<{
-    readonly customers: CustomerProfile[];
-    readonly total: number;
-    readonly page: number;
-    readonly limit: number;
-    readonly totalPages: number;
-  }> {
-    const { page = 1, limit = 10, includeDeleted = false } = params;
-    const actualLimit = Math.min(limit, 100);
-    const qb = this.createBaseQb(includeDeleted);
-
-    qb.andWhere('customer.remainingSessions < :zero', { zero: 0 });
-    qb.orderBy('customer.remainingSessions', 'ASC');
-    qb.addOrderBy('customer.id', 'ASC');
-
-    const countQb = qb.clone();
-    try {
-      (countQb as unknown as SelectQueryBuilder<CustomerEntity>).orderBy();
-    } catch {
-      // ignore
-    }
-    const cntAlias = 'cnt';
-    const raw = await countQb
-      .select('COUNT(DISTINCT customer.id)', cntAlias)
-      .getRawOne<Record<string, unknown>>();
-    const total =
-      typeof raw?.[cntAlias] === 'number' ? raw[cntAlias] : Number(raw?.[cntAlias] ?? 0);
-
-    qb.take(actualLimit).skip((page - 1) * actualLimit);
-    const customers = (await qb.getMany()).map((customer) => this.toProfile(customer));
-
-    const totalPages = Math.ceil(total / actualLimit) || 1;
-    return { customers, total, page, limit: actualLimit, totalPages };
-  }
-
-  /**
    * 构建客户列表的基础查询
    */
   private createBaseQb(includeDeleted: boolean): SelectQueryBuilder<CustomerEntity> {
@@ -365,7 +318,6 @@ export class CustomerService {
       userState?: string;
       name?: string;
       contactPhone?: string;
-      membershipLevel?: number;
     }>,
   ): void {
     if (!filters) return;
@@ -396,8 +348,6 @@ export class CustomerService {
         );
       }
     }
-    if (typeof filters.membershipLevel === 'number')
-      qb.andWhere('customer.membership_level_id = :flevel', { flevel: filters.membershipLevel });
     if (filters.userState) qb.andWhere('ui.user_state = :fstate', { fstate: filters.userState });
   }
 
@@ -448,10 +398,8 @@ export class CustomerService {
       name: entity.name,
       contactPhone: entity.contactPhone,
       preferredContactTime: entity.preferredContactTime,
-      membershipLevel: entity.membershipLevel,
       remark: entity.remark,
       deactivatedAt: entity.deactivatedAt,
-      remainingSessions: entity.remainingSessions,
       createdAt: entity.createdAt,
       updatedAt: entity.updatedAt,
     };
