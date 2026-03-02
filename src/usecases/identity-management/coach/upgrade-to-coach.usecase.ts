@@ -3,10 +3,11 @@ import { AudienceTypeEnum, IdentityTypeEnum } from '@app-types/models/account.ty
 import { Injectable } from '@nestjs/common';
 import { ACCOUNT_ERROR, DomainError } from '@src/core/common/errors/domain-error';
 import { TokenHelper } from '@src/core/common/token/token.helper';
-import { UserInfoEntity } from '@src/modules/account/base/entities/user-info.entity';
-import { AccountService } from '@src/modules/account/base/services/account.service';
+import {
+  AccountService,
+  type AccountTransactionManager,
+} from '@src/modules/account/base/services/account.service';
 import { CoachService } from '@src/modules/account/identities/training/coach/coach.service';
-import { EntityManager } from 'typeorm';
 
 /**
  * 升级到教练用例的输入参数
@@ -90,7 +91,7 @@ export class UpgradeToCoachUsecase {
    */
   async execute(params: UpgradeToCoachParams): Promise<UpgradeToCoachResult> {
     const { accountId, name, level, description, avatarUrl, specialty, remark, audience } = params;
-    return await this.accountService.runTransaction((manager: EntityManager) =>
+    return await this.accountService.runTransaction((manager) =>
       this.executeInTransaction({
         accountId,
         name,
@@ -122,7 +123,7 @@ export class UpgradeToCoachUsecase {
     audience,
     manager,
   }: UpgradeToCoachParams & {
-    manager: EntityManager;
+    manager: AccountTransactionManager;
   }): Promise<UpgradeToCoachResult> {
     // 0. 显式锁定账户避免并发覆盖 accessGroup
     await this.accountService.lockByIdForUpdate(accountId, manager);
@@ -189,7 +190,7 @@ export class UpgradeToCoachUsecase {
    */
   private async handleIdempotentBranch(
     accountId: number,
-    manager: EntityManager,
+    manager: AccountTransactionManager,
   ): Promise<UpgradeToCoachResult | null> {
     const existingCoach = await this.coachService.findByAccountId(accountId, manager);
     if (!existingCoach) return null;
@@ -209,9 +210,11 @@ export class UpgradeToCoachUsecase {
       cleanedAccessGroup.length !== userInfo.accessGroup.length ||
       userInfo.accessGroup.some((item) => item === IdentityTypeEnum.REGISTRANT);
     if (needCleanup) {
-      userInfo.accessGroup = cleanedAccessGroup;
-      userInfo.metaDigest = cleanedAccessGroup;
-      await manager.getRepository(UserInfoEntity).save(userInfo);
+      await this.accountService.updateUserInfoAccessGroup({
+        accountId,
+        accessGroup: cleanedAccessGroup,
+        manager,
+      });
     }
 
     return {
@@ -230,7 +233,7 @@ export class UpgradeToCoachUsecase {
    */
   private async updateUserInfoAccessGroup(
     accountId: number,
-    manager: EntityManager,
+    manager: AccountTransactionManager,
   ): Promise<IdentityTypeEnum[]> {
     const userInfo = await this.accountService.findUserInfoByAccountId(accountId, manager);
     if (!userInfo) {
@@ -243,9 +246,11 @@ export class UpgradeToCoachUsecase {
     if (!updatedAccessGroup.includes(IdentityTypeEnum.COACH))
       updatedAccessGroup.push(IdentityTypeEnum.COACH);
 
-    userInfo.accessGroup = updatedAccessGroup;
-    userInfo.metaDigest = updatedAccessGroup;
-    await manager.getRepository(UserInfoEntity).save(userInfo);
+    await this.accountService.updateUserInfoAccessGroup({
+      accountId,
+      accessGroup: updatedAccessGroup,
+      manager,
+    });
 
     return updatedAccessGroup;
   }

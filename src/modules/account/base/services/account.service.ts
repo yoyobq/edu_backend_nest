@@ -32,6 +32,8 @@ import type { CustomerEntity } from '../../identities/training/customer/account-
 import type { LearnerEntity } from '../../identities/training/learner/account-learner.entity';
 import type { ManagerEntity } from '../../identities/training/manager/account-manager.entity';
 
+export type AccountTransactionManager = EntityManager;
+
 /**
  * 将身份常量映射到该身份的 Profile 实体类型
  * - 仅用于类型层面，让调用更安全（findStaffByAccountId 返回 StaffEntity | null 等）

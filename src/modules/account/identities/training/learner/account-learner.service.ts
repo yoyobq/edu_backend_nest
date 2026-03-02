@@ -9,6 +9,8 @@ import { PaginationService } from '@src/modules/common/pagination.service';
 import { EntityManager, In, Repository } from 'typeorm';
 import { LearnerEntity } from './account-learner.entity';
 
+export type LearnerTransactionManager = EntityManager;
+
 /**
  * 分页查询参数接口
  */
@@ -56,6 +58,10 @@ export class LearnerService {
     // 从模块注入 Learner 域专用排序解析器（仅用于内部/专用接口的 CURSOR 流程）
     @Inject('LEARNER_SORT_RESOLVER') private readonly learnerSortResolver: ISortResolver,
   ) {}
+
+  async runTransaction<T>(callback: (manager: EntityManager) => Promise<T>): Promise<T> {
+    return await this.learnerRepository.manager.transaction(callback);
+  }
 
   /**
    * 根据账户 ID 查找学员信息

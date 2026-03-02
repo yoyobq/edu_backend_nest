@@ -4,10 +4,11 @@ import { AccountStatus, AudienceTypeEnum, IdentityTypeEnum } from '@app-types/mo
 import { Injectable } from '@nestjs/common';
 import { ACCOUNT_ERROR, DomainError } from '@src/core/common/errors/domain-error';
 import { TokenHelper } from '@src/core/common/token/token.helper';
-import { UserInfoEntity } from '@src/modules/account/base/entities/user-info.entity';
-import { AccountService } from '@src/modules/account/base/services/account.service';
+import {
+  AccountService,
+  type AccountTransactionManager,
+} from '@src/modules/account/base/services/account.service';
 import { CustomerService } from '@src/modules/account/identities/training/customer/account-customer.service';
-import { EntityManager } from 'typeorm';
 
 /**
  * 升级到客户用例的输入参数
@@ -89,7 +90,7 @@ export class UpgradeToCustomerUsecase {
    */
   async execute(params: UpgradeToCustomerParams): Promise<UpgradeToCustomerResult> {
     const { accountId, name, contactPhone, preferredContactTime, remark, audience } = params;
-    return await this.accountService.runTransaction((manager: EntityManager) =>
+    return await this.accountService.runTransaction((manager) =>
       this.executeInTransaction({
         accountId,
         name,
@@ -117,7 +118,7 @@ export class UpgradeToCustomerUsecase {
     audience,
     manager,
   }: UpgradeToCustomerParams & {
-    manager: EntityManager;
+    manager: AccountTransactionManager;
   }): Promise<UpgradeToCustomerResult> {
     // 0. 显式锁定账户以避免并发覆盖 accessGroup
     await this.accountService.lockByIdForUpdate(accountId, manager);
@@ -172,7 +173,7 @@ export class UpgradeToCustomerUsecase {
    */
   private async handleIdempotentBranch(
     accountId: number,
-    manager: EntityManager,
+    manager: AccountTransactionManager,
   ): Promise<UpgradeToCustomerResult | null> {
     const existingCustomer = await this.customerService.findByAccountId(accountId, manager);
     if (!existingCustomer) return null;
@@ -192,9 +193,11 @@ export class UpgradeToCustomerUsecase {
       cleanedAccessGroup.length !== userInfo.accessGroup.length ||
       userInfo.accessGroup.some((item) => item === IdentityTypeEnum.REGISTRANT);
     if (needCleanup) {
-      userInfo.accessGroup = cleanedAccessGroup;
-      userInfo.metaDigest = cleanedAccessGroup;
-      await manager.getRepository(UserInfoEntity).save(userInfo);
+      await this.accountService.updateUserInfoAccessGroup({
+        accountId,
+        accessGroup: cleanedAccessGroup,
+        manager,
+      });
     }
 
     // 幂等情况下也确保账户状态为 ACTIVE，以允许正常登录
@@ -220,7 +223,7 @@ export class UpgradeToCustomerUsecase {
       preferredContactTime?: string;
       remark?: string;
     },
-    manager: EntityManager,
+    manager: AccountTransactionManager,
   ) {
     const customerEntity = this.customerService.createCustomerEntity(data);
     return await this.customerService.saveCustomer(customerEntity, manager);
@@ -231,7 +234,7 @@ export class UpgradeToCustomerUsecase {
    */
   private async updateUserInfoAccessGroup(
     accountId: number,
-    manager: EntityManager,
+    manager: AccountTransactionManager,
   ): Promise<IdentityTypeEnum[]> {
     const userInfo = await this.accountService.findUserInfoByAccountId(accountId, manager);
     if (!userInfo) {
@@ -244,9 +247,11 @@ export class UpgradeToCustomerUsecase {
     if (!updatedAccessGroup.includes(IdentityTypeEnum.CUSTOMER))
       updatedAccessGroup.push(IdentityTypeEnum.CUSTOMER);
 
-    userInfo.accessGroup = updatedAccessGroup;
-    userInfo.metaDigest = updatedAccessGroup;
-    await manager.getRepository(UserInfoEntity).save(userInfo);
+    await this.accountService.updateUserInfoAccessGroup({
+      accountId,
+      accessGroup: updatedAccessGroup,
+      manager,
+    });
 
     return updatedAccessGroup;
   }

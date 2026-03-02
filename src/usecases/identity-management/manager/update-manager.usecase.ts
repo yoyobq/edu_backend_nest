@@ -3,8 +3,6 @@ import { ACCOUNT_ERROR, DomainError, PERMISSION_ERROR } from '@core/common/error
 import { ManagerEntity } from '@modules/account/identities/training/manager/account-manager.entity';
 import { ManagerService } from '@modules/account/identities/training/manager/manager.service';
 import { Injectable } from '@nestjs/common';
-import { InjectDataSource } from '@nestjs/typeorm';
-import { DataSource } from 'typeorm';
 
 /**
  * 更新 Manager 信息用例的输入参数
@@ -30,10 +28,7 @@ export interface UpdateManagerUsecaseParams {
  */
 @Injectable()
 export class UpdateManagerUsecase {
-  constructor(
-    @InjectDataSource() private readonly dataSource: DataSource,
-    private readonly managerService: ManagerService,
-  ) {}
+  constructor(private readonly managerService: ManagerService) {}
 
   /**
    * 执行更新 Manager 信息
@@ -43,7 +38,7 @@ export class UpdateManagerUsecase {
 
     const ctx = await this.resolveIdentityContext(currentAccountId, params);
 
-    return await this.dataSource.transaction(async (manager) => {
+    return await this.managerService.runTransaction(async (manager) => {
       const repo = manager.getRepository(ManagerEntity);
       const entity = await repo.findOne({ where: { id: ctx.targetManagerId } });
       if (!entity) {

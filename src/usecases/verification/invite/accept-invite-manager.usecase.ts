@@ -7,11 +7,12 @@ import {
   VERIFICATION_RECORD_ERROR,
 } from '@core/common/errors/domain-error';
 import { Injectable } from '@nestjs/common';
-import { UserInfoEntity } from '@src/modules/account/base/entities/user-info.entity';
-import { AccountService } from '@src/modules/account/base/services/account.service';
+import {
+  AccountService,
+  type AccountTransactionManager,
+} from '@src/modules/account/base/services/account.service';
 import { ManagerService } from '@src/modules/account/identities/training/manager/manager.service';
 import { PinoLogger } from 'nestjs-pino';
-import { EntityManager } from 'typeorm';
 import { InviteManagerHandlerResult } from '../manager/invite-manager-result.types';
 
 /**
@@ -30,7 +31,7 @@ export interface AcceptInviteManagerUsecaseParams {
     projectId?: number | null;
     trainingCenterId?: number | null;
   };
-  manager?: EntityManager;
+  manager?: AccountTransactionManager;
 }
 
 /**
@@ -61,7 +62,9 @@ export class AcceptInviteManagerUsecase {
 
     // 优先使用外层传入的 manager，避免双重事务
     // 只有当外层没传 manager 时才兜底开事务
-    const executeLogic = async (manager: EntityManager): Promise<InviteManagerHandlerResult> => {
+    const executeLogic = async (
+      manager: AccountTransactionManager,
+    ): Promise<InviteManagerHandlerResult> => {
       try {
         // 1. 验证邀请载荷
         if (!invitePayload) {
@@ -137,11 +140,11 @@ export class AcceptInviteManagerUsecase {
    * @param accountId 账户 ID
    * @param manager 事务管理器
    */
-  private async updateUserPermissions(accountId: number, manager: EntityManager): Promise<void> {
-    const userInfoRepository = manager.getRepository(UserInfoEntity);
-
-    // 获取当前用户信息
-    const userInfo = await userInfoRepository.findOne({ where: { accountId } });
+  private async updateUserPermissions(
+    accountId: number,
+    manager: AccountTransactionManager,
+  ): Promise<void> {
+    const userInfo = await this.accountService.findUserInfoByAccountId(accountId, manager);
     if (!userInfo) {
       throw new DomainError(ACCOUNT_ERROR.USER_INFO_NOT_FOUND, '用户信息不存在');
     }
@@ -161,13 +164,11 @@ export class AcceptInviteManagerUsecase {
       currentAccessGroup.includes(IdentityTypeEnum.REGISTRANT);
 
     if (needUpdate) {
-      // 更新用户信息实体并同步加密前数据
-      userInfo.accessGroup = cleanedAccessGroup;
-      userInfo.metaDigest = cleanedAccessGroup; // 直接传入数组，让 @EncryptedField 装饰器自动处理
-      userInfo.updatedAt = new Date();
-
-      // 使用 save 方法保存，确保 @EncryptedField 装饰器正常工作
-      await userInfoRepository.save(userInfo);
+      await this.accountService.updateUserInfoAccessGroup({
+        accountId,
+        accessGroup: cleanedAccessGroup,
+        manager,
+      });
     }
   }
 }

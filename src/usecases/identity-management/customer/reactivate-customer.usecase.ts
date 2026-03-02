@@ -5,8 +5,6 @@ import { CustomerEntity } from '@modules/account/identities/training/customer/ac
 import { CustomerService } from '@modules/account/identities/training/customer/account-customer.service';
 import { ManagerService } from '@modules/account/identities/training/manager/manager.service';
 import { Injectable } from '@nestjs/common';
-import { InjectDataSource } from '@nestjs/typeorm';
-import { DataSource } from 'typeorm';
 
 /**
  * 上线客户输入参数
@@ -33,7 +31,6 @@ export interface ReactivateCustomerResult {
 @Injectable()
 export class ReactivateCustomerUsecase {
   constructor(
-    @InjectDataSource() private readonly dataSource: DataSource,
     private readonly customerService: CustomerService,
     private readonly managerService: ManagerService,
   ) {}
@@ -68,7 +65,7 @@ export class ReactivateCustomerUsecase {
     const now = new Date();
 
     // 单事务更新，写入审计字段
-    await this.dataSource.transaction(async (managerTx) => {
+    await this.customerService.runTransaction(async (managerTx) => {
       await managerTx.getRepository(CustomerEntity).update(entity.id, {
         deactivatedAt: null,
         updatedBy: currentAccountId,

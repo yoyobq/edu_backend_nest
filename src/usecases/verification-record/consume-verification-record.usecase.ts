@@ -12,8 +12,12 @@ import {
 } from '@core/common/errors/domain-error';
 import { Injectable } from '@nestjs/common';
 import { VerificationRecordEntity } from '@src/modules/verification-record/verification-record.entity';
-import { VerificationRecordService } from '@src/modules/verification-record/verification-record.service';
-import { EntityManager, Repository, UpdateQueryBuilder } from 'typeorm';
+import {
+  VerificationRecordService,
+  type VerificationRecordRepository,
+  type VerificationRecordTransactionManager,
+  type VerificationRecordUpdateQueryBuilder,
+} from '@src/modules/verification-record/verification-record.service';
 
 /**
  * 通过 token 消费验证记录用例参数
@@ -30,7 +34,7 @@ export interface ConsumeByTokenUsecaseParams {
   /** 主体 ID（可选，用于记录消费后的主体信息） */
   subjectId?: number;
   /** 可选的事务管理器 */
-  manager?: EntityManager;
+  manager?: VerificationRecordTransactionManager;
 }
 
 /**
@@ -48,7 +52,7 @@ export interface ConsumeByIdUsecaseParams {
   /** 主体 ID（可选，用于记录消费后的主体信息） */
   subjectId?: number;
   /** 可选的事务管理器 */
-  manager?: EntityManager;
+  manager?: VerificationRecordTransactionManager;
 }
 
 /**
@@ -58,7 +62,7 @@ export interface RevokeRecordUsecaseParams {
   /** 记录 ID */
   recordId: number;
   /** 可选的事务管理器 */
-  manager?: EntityManager;
+  manager?: VerificationRecordTransactionManager;
 }
 
 /**
@@ -296,7 +300,9 @@ export class ConsumeVerificationRecordUsecase {
   /**
    * 获取仓库实例
    */
-  private getRepository(manager?: EntityManager): Repository<VerificationRecordEntity> {
+  private getRepository(
+    manager?: VerificationRecordTransactionManager,
+  ): VerificationRecordRepository {
     return manager
       ? this.verificationRecordService.getRepository(manager)
       : this.verificationRecordService.getRepository();
@@ -306,11 +312,9 @@ export class ConsumeVerificationRecordUsecase {
    * 执行消费操作的通用方法
    */
   private async executeConsumption(options: {
-    repository: Repository<VerificationRecordEntity>;
+    repository: VerificationRecordRepository;
     whereCondition: Record<string, unknown>;
-    whereClause: (
-      qb: UpdateQueryBuilder<VerificationRecordEntity>,
-    ) => UpdateQueryBuilder<VerificationRecordEntity>;
+    whereClause: (qb: VerificationRecordUpdateQueryBuilder) => VerificationRecordUpdateQueryBuilder;
     notFoundError: string;
     notFoundMessage: string;
     context: ValidationContext;
@@ -366,9 +370,9 @@ export class ConsumeVerificationRecordUsecase {
    * 构建更新查询
    */
   private buildUpdateQuery(
-    repository: Repository<VerificationRecordEntity>,
+    repository: VerificationRecordRepository,
     context: ValidationContext,
-  ): UpdateQueryBuilder<VerificationRecordEntity> {
+  ): VerificationRecordUpdateQueryBuilder {
     const { consumedByAccountId, expectedType, subjectType, subjectId, now } = context;
 
     // 基础更新字段

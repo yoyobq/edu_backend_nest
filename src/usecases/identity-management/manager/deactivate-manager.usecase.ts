@@ -3,8 +3,6 @@ import { ACCOUNT_ERROR, DomainError, PERMISSION_ERROR } from '@core/common/error
 import { ManagerEntity } from '@modules/account/identities/training/manager/account-manager.entity';
 import { ManagerService } from '@modules/account/identities/training/manager/manager.service';
 import { Injectable } from '@nestjs/common';
-import { InjectDataSource } from '@nestjs/typeorm';
-import { DataSource } from 'typeorm';
 
 /** 下线 Manager 用例入参 */
 export interface DeactivateManagerParams {
@@ -30,10 +28,7 @@ export interface DeactivateManagerResult {
  */
 @Injectable()
 export class DeactivateManagerUsecase {
-  constructor(
-    @InjectDataSource() private readonly dataSource: DataSource,
-    private readonly managerService: ManagerService,
-  ) {}
+  constructor(private readonly managerService: ManagerService) {}
 
   /** 执行下线操作 */
   async execute(
@@ -62,7 +57,7 @@ export class DeactivateManagerUsecase {
 
     const now = new Date();
 
-    await this.dataSource.transaction(async (tx) => {
+    await this.managerService.runTransaction(async (tx) => {
       await tx.getRepository(ManagerEntity).update(entity.id, {
         deactivatedAt: now,
         updatedBy: currentAccountId,

@@ -3,8 +3,10 @@ import { AccountStatus } from '@app-types/models/account.types';
 import { Injectable } from '@nestjs/common';
 import { AccountEntity } from '@src/modules/account/base/entities/account.entity';
 import { UserInfoEntity } from '@src/modules/account/base/entities/user-info.entity';
-import { AccountService } from '@src/modules/account/base/services/account.service';
-import { EntityManager } from 'typeorm';
+import {
+  AccountService,
+  type AccountTransactionManager,
+} from '@src/modules/account/base/services/account.service';
 import { PasswordPolicyService } from '@core/common/password/password-policy.service';
 import { DomainError, AUTH_ERROR } from '../../core/common/errors/domain-error';
 
@@ -31,9 +33,9 @@ export class CreateAccountUsecase {
   }: {
     accountData: Partial<AccountEntity>;
     userInfoData: Partial<UserInfoEntity>;
-    manager?: EntityManager; // manager 为可选参数
+    manager?: AccountTransactionManager;
   }): Promise<AccountEntity> {
-    const run = async (m: EntityManager) => this.doCreate(m, accountData, userInfoData);
+    const run = async (m: AccountTransactionManager) => this.doCreate(m, accountData, userInfoData);
 
     // 有外部事务则复用；否则自己开
     return manager ? run(manager) : this.accountService.runTransaction(run);
@@ -47,7 +49,7 @@ export class CreateAccountUsecase {
    * @returns 创建的账户实体
    */
   private async doCreate(
-    manager: EntityManager,
+    manager: AccountTransactionManager,
     accountData: Partial<AccountEntity>,
     userInfoData: Partial<UserInfoEntity>,
   ): Promise<AccountEntity> {

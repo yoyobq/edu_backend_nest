@@ -1,13 +1,15 @@
 // src/usecases/verification/password/reset-password.usecase.ts
 
 import { Injectable } from '@nestjs/common';
-import { AccountService } from '@src/modules/account/base/services/account.service';
+import {
+  AccountService,
+  type AccountTransactionManager,
+} from '@src/modules/account/base/services/account.service';
 import {
   ACCOUNT_ERROR,
   DomainError,
   VERIFICATION_RECORD_ERROR,
 } from '@core/common/errors/domain-error';
-import { EntityManager } from 'typeorm';
 import { PasswordPolicyService } from '@core/common/password/password-policy.service';
 
 /**
@@ -21,7 +23,7 @@ export interface ResetPasswordUsecaseParams {
   /** 新密码 */
   newPassword: string;
   /** 可选的事务管理器 */
-  manager?: EntityManager;
+  manager?: AccountTransactionManager;
 }
 
 /**

@@ -16,6 +16,8 @@ import { CoachSortField } from '@src/types/common/sort.types';
 import { Brackets, EntityManager, IsNull, Repository, SelectQueryBuilder } from 'typeorm';
 import { CoachEntity } from './account-coach.entity';
 
+export type CoachTransactionManager = EntityManager;
+
 /**
  * 创建 Coach 的参数
  */
@@ -50,6 +52,10 @@ export class CoachService {
     @Inject('COACH_SORT_RESOLVER') private readonly coachSortResolver: ISortResolver,
     private readonly paginationService: PaginationService,
   ) {}
+
+  async runTransaction<T>(callback: (manager: EntityManager) => Promise<T>): Promise<T> {
+    return await this.coachRepository.manager.transaction(callback);
+  }
 
   /**
    * 根据账户 ID 查找 Coach
