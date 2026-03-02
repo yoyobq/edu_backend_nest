@@ -26,9 +26,10 @@ export class UnbindThirdPartyAccountUsecase {
     }
 
     try {
+      const input = id ? { id, provider } : { provider: provider! };
       const ok = await this.tpa.unbindThirdParty({
         accountId,
-        input: { id, provider },
+        input,
       });
       return ok;
     } catch (e) {

@@ -9,12 +9,6 @@ import { AuthModule } from '@modules/auth/auth.module';
 import { ThirdPartyAuthEntity } from '@src/modules/account/base/entities/third-party-auth.entity';
 
 import { ThirdPartyProviderEnum } from '@app-types/models/account.types';
-import { GetThirdPartyAuthsUsecase } from '@usecases/third-party-accounts/get-third-party-auths.usecase';
-import { GetWeappPhoneUsecase } from '@usecases/third-party-accounts/get-weapp-phone.usecase';
-import { GenerateWeappQrcodeUsecase } from '@usecases/third-party-accounts/generate-weapp-qrcode.usecase';
-import { BindThirdPartyAccountUsecase } from '@usecases/third-party-accounts/bind-third-party-account.usecase';
-import { UnbindThirdPartyAccountUsecase } from '@usecases/third-party-accounts/unbind-third-party-account.usecase';
-import { ResolveThirdPartyIdentityUsecase } from '@usecases/third-party-accounts/resolve-third-party-identity.usecase';
 import { ThirdPartyProvider } from './interfaces/third-party-provider.interface';
 import { WeAppProvider } from './providers/weapp.provider';
 import { WechatProvider } from './providers/wechat.provider';
@@ -50,26 +44,7 @@ const providerMapFactory: Provider = {
     forwardRef(() => AccountModule),
     forwardRef(() => AuthModule),
   ],
-  providers: [
-    WeAppProvider,
-    WechatProvider,
-    providerMapFactory,
-    ThirdPartyAuthService,
-    GetWeappPhoneUsecase, // 添加新的 usecase
-    GenerateWeappQrcodeUsecase,
-    BindThirdPartyAccountUsecase,
-    UnbindThirdPartyAccountUsecase,
-    ResolveThirdPartyIdentityUsecase,
-    GetThirdPartyAuthsUsecase,
-  ],
-  exports: [
-    ThirdPartyAuthService,
-    GetWeappPhoneUsecase,
-    GenerateWeappQrcodeUsecase,
-    BindThirdPartyAccountUsecase,
-    UnbindThirdPartyAccountUsecase,
-    ResolveThirdPartyIdentityUsecase,
-    GetThirdPartyAuthsUsecase,
-  ], // 导出 usecase
+  providers: [WeAppProvider, WechatProvider, providerMapFactory, ThirdPartyAuthService],
+  exports: [ThirdPartyAuthService],
 })
 export class ThirdPartyAuthModule {}

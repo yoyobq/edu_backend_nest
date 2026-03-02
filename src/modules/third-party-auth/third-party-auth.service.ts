@@ -1,7 +1,10 @@
 // src/modules/third-party-auth/third-party-auth.service.ts
 import { AudienceTypeEnum, ThirdPartyProviderEnum } from '@app-types/models/account.types';
-import { ThirdPartySession } from '@app-types/models/third-party-auth.types';
-import { AuthService } from '@modules/auth/auth.service';
+import {
+  BindThirdPartyInputModel,
+  ThirdPartySession,
+  UnbindThirdPartyInputModel,
+} from '@app-types/models/third-party-auth.types';
 import {
   BadRequestException,
   HttpException,
@@ -11,17 +14,9 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { LoginResult } from '@src/adapters/graphql/account/dto/login-result.dto';
 import { ThirdPartyAuthEntity } from '@src/modules/account/base/entities/third-party-auth.entity';
-import { LoginByAccountIdUsecase } from '@usecases/auth/login-by-account-id.usecase';
 import { Repository } from 'typeorm';
-import { BindThirdPartyInput } from '../../adapters/graphql/third-party-auth/dto/bind-third-party.input';
-import { ThirdPartyLoginInput } from '../../adapters/graphql/third-party-auth/dto/third-party-login.input';
-import { UnbindThirdPartyInput } from '../../adapters/graphql/third-party-auth/dto/unbind-third-party.input';
 import { ThirdPartyProvider } from './interfaces/third-party-provider.interface';
-// 在文件顶部添加导入
-import { IdentityUnionType } from '@src/adapters/graphql/account/dto/identity/identity-union.type';
-import { LoginResultModel } from '../../types/models/auth.types';
 
 /** 第三方认证提供者映射的依赖注入标识 */
 export const PROVIDER_MAP = Symbol('THIRD_PARTY_PROVIDER_MAP');
@@ -35,8 +30,6 @@ export class ThirdPartyAuthService {
   constructor(
     @InjectRepository(ThirdPartyAuthEntity)
     private readonly thirdPartyAuthRepository: Repository<ThirdPartyAuthEntity>,
-    private readonly authService: AuthService,
-    private readonly loginByAccountIdUsecase: LoginByAccountIdUsecase,
     @Inject(PROVIDER_MAP)
     private readonly adapters: Map<ThirdPartyProviderEnum, ThirdPartyProvider>,
   ) {}
@@ -84,66 +77,6 @@ export class ThirdPartyAuthService {
   }
 
   /**
-   * 第三方平台登录
-   * 完整流程：解析身份 → 查找绑定关系 → 生成登录令牌 | 未绑定时抛出异常
-   * @param params 登录参数
-   * @param params.provider 第三方平台类型
-   * @param params.authCredential 第三方认证凭证
-   * @param params.audience 客户端类型
-   * @param params.ip 客户端 IP 地址
-   * @returns 登录结果 (包含访问令牌等信息)
-   * @throws UnauthorizedException 当账户未绑定时抛出异常
-   */
-  /**
-   * 将领域模型转换为 DTO
-   */
-  private convertToLoginResult(loginResultModel: LoginResultModel): LoginResult {
-    return {
-      accessToken: loginResultModel.accessToken,
-      refreshToken: loginResultModel.refreshToken,
-      accountId: loginResultModel.accountId,
-      role: loginResultModel.role,
-      identity: loginResultModel.identity as IdentityUnionType | null,
-    };
-  }
-
-  async thirdPartyLogin({
-    provider,
-    authCredential,
-    audience,
-    ip,
-  }: ThirdPartyLoginInput): Promise<LoginResult> {
-    const session = await this.resolveIdentity({
-      provider,
-      authCredential,
-      audience,
-    });
-
-    const existingAuth = await this.thirdPartyAuthRepository.findOne({
-      where: {
-        provider,
-        providerUserId: session.providerUserId,
-      },
-    });
-
-    if (existingAuth?.accountId) {
-      const loginResult = await this.loginByAccountIdUsecase.execute({
-        accountId: existingAuth.accountId,
-        ip,
-        audience,
-      });
-
-      return this.convertToLoginResult(loginResult);
-    }
-
-    // 账户未绑定：返回平台无关的标准错误码
-    throw new UnauthorizedException({
-      errorCode: 'THIRDPARTY_ACCOUNT_NOT_BOUND',
-      errorMessage: '该第三方账户未绑定',
-    });
-  }
-
-  /**
    * 绑定第三方账户
    * 将用户账户与第三方平台账户建立绑定关系
    * @param params 绑定参数
@@ -154,7 +87,7 @@ export class ThirdPartyAuthService {
    */
   async bindThirdParty(params: {
     accountId: number;
-    input: BindThirdPartyInput;
+    input: BindThirdPartyInputModel;
   }): Promise<ThirdPartyAuthEntity> {
     const { accountId, input } = params;
 
@@ -197,7 +130,7 @@ export class ThirdPartyAuthService {
    */
   async unbindThirdParty(params: {
     accountId: number;
-    input: UnbindThirdPartyInput;
+    input: UnbindThirdPartyInputModel;
   }): Promise<boolean> {
     const { accountId, input } = params;
 

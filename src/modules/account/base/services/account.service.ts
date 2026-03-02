@@ -1,11 +1,11 @@
 // src/modules/account/base/services/account.service.ts
 
-import { UserAccountDTO } from '@adapters/graphql/account/dto/user-account.dto';
-import { LoginHistoryItem } from '@adapters/graphql/account/enums/login-history.types';
 import {
   AccountWithAccessGroup,
   IdentityTypeEnum,
+  LoginHistoryItem,
   ThirdPartyProviderEnum,
+  UserAccountView,
 } from '@app-types/models/account.types';
 import { ACCOUNT_ERROR, AUTH_ERROR, DomainError } from '@core/common/errors/domain-error';
 import { normalizeEmail } from '@core/common/normalize/normalize.helper';
@@ -313,7 +313,7 @@ export class AccountService {
   // =========================================================
 
   /** 根据 ID 获取账户详细信息（DTO） */
-  async getAccountById(accountId: number): Promise<UserAccountDTO> {
+  async getAccountById(accountId: number): Promise<UserAccountView> {
     const account = await this.findOneById(accountId);
     if (!account) {
       throw new DomainError(ACCOUNT_ERROR.ACCOUNT_NOT_FOUND, '账户不存在');

@@ -1,10 +1,10 @@
 // src/usecases/third-party-accounts/bind-third-party-account.usecase.ts
 
 import { ThirdPartyProviderEnum } from '@app-types/models/account.types';
+import { BindThirdPartyInputModel } from '@app-types/models/third-party-auth.types';
 import { DomainError, THIRDPARTY_ERROR } from '@core/common/errors/domain-error';
 import { ThirdPartyAuthService } from '@modules/third-party-auth/third-party-auth.service';
 import { HttpException, Injectable } from '@nestjs/common';
-import { BindThirdPartyInput } from '@src/adapters/graphql/third-party-auth/dto/bind-third-party.input';
 import { ThirdPartyAuthEntity } from '@src/modules/account/base/entities/third-party-auth.entity';
 import { PinoLogger } from 'nestjs-pino';
 
@@ -69,7 +69,7 @@ export class BindThirdPartyAccountUsecase {
    * 将可选字段标准化为 `null`
    * @param params 绑定参数
    */
-  private buildInput(params: BindThirdPartyAccountParams): BindThirdPartyInput {
+  private buildInput(params: BindThirdPartyAccountParams): BindThirdPartyInputModel {
     return {
       provider: params.provider,
       providerUserId: params.providerUserId,

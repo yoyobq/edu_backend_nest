@@ -1,4 +1,4 @@
-import { AccountStatus } from '@app-types/models/account.types';
+import { AccountStatus, LoginHistoryItem } from '@app-types/models/account.types';
 import {
   Column,
   CreateDateColumn,
@@ -7,7 +7,6 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
-import { LoginHistoryItem } from '../../../../adapters/graphql/account/enums/login-history.types';
 // import { ThirdPartyAuthEntity } from './third-party-auth.entity'; // 暂时注释掉第三方认证实体导入
 import { UserInfoEntity } from './user-info.entity';
 

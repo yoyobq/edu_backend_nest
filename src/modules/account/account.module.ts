@@ -21,19 +21,6 @@ import {
   PROFILE_PROVIDER_TOKEN, // 内部：每身份唯一 token（Symbol）
 } from './base/constants/provider-tokens';
 
-// 如这些 GraphQL 类型迁入各身份包，请移除以下 side-effect import，避免关闭身份后 schema 残留
-import '@src/adapters/graphql/account/enums/login-history.types';
-
-// 可选用例
-import { FetchIdentityByRoleUsecase } from '@usecases/account/fetch-identity-by-role.usecase';
-import { FetchUserInfoUsecase } from '@usecases/account/fetch-user-info.usecase';
-import { GetAccountByIdUsecase } from '@usecases/account/get-account-by-id.usecase';
-import { GetVisibleUserInfoUsecase } from '@usecases/account/get-visible-user-info.usecase';
-import {
-  UpdateAccessGroupUsecase,
-  UpdateVisibleUserInfoUsecase,
-} from '@usecases/account/update-visible-user-info.usecase';
-
 // 身份包模块
 import { AccountSecurityService } from './base/services/account-security.service';
 import { StaffIdentityModule, StudentIdentityModule } from './identities/school';
@@ -139,23 +126,11 @@ export class AccountModule {
       providers: [
         AccountService,
         AccountSecurityService,
-        FetchIdentityByRoleUsecase,
-        FetchUserInfoUsecase, // 添加这一行
-        GetAccountByIdUsecase,
-        GetVisibleUserInfoUsecase,
-        UpdateVisibleUserInfoUsecase,
-        UpdateAccessGroupUsecase,
         providerMapFactory, // 聚合 Map
       ],
       exports: [
         TypeOrmModule,
         AccountService,
-        FetchIdentityByRoleUsecase,
-        FetchUserInfoUsecase, // 添加这一行
-        GetAccountByIdUsecase,
-        GetVisibleUserInfoUsecase,
-        UpdateVisibleUserInfoUsecase,
-        UpdateAccessGroupUsecase,
         PROFILE_PROVIDER_MAP_TOKEN, // 对外只暴露聚合后的 Map
       ],
     };

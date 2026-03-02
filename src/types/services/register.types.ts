@@ -1,6 +1,5 @@
 // src/types/services/register.types.ts
 
-import { RegisterInput } from '../../adapters/graphql/registration/dto/register.input';
 import { AccountStatus } from '../models/account.types';
 
 /**
@@ -24,11 +23,21 @@ export enum RegisterTypeEnum {
   // COACH = 'COACH',
 }
 
+export interface RegisterInputModel {
+  loginName?: string | null;
+  loginEmail: string;
+  loginPassword: string;
+  nickname?: string;
+  type: RegisterTypeEnum;
+  inviteToken?: string;
+  confirmPassword?: string;
+}
+
 /**
  * 准备好的注册数据类型
  * 用于 TypeORM 创建账户实体的数据结构
  */
-export type PreparedRegisterData = Omit<RegisterInput, 'confirmPassword' | 'type'> & {
+export type PreparedRegisterData = Omit<RegisterInputModel, 'confirmPassword' | 'type'> & {
   /** 账户状态 */
   status: AccountStatus;
   /** 用户昵称 */
