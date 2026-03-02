@@ -3,14 +3,8 @@
 import { JwtPayload } from '@app-types/jwt.types';
 import { EmploymentStatus, IdentityTypeEnum } from '@app-types/models/account.types';
 import { LoginResultModel, UserInfoView } from '@app-types/models/auth.types';
-import { GeographicInfo } from '@app-types/models/user-info.types';
+import { Gender, GeographicInfo } from '@app-types/models/user-info.types';
 import { parseStaffId } from '@core/account/identity/parse-staff-id';
-import { StaffEntity } from '@modules/account/identities/school/staff/account-staff.entity';
-import { CoachEntity } from '@modules/account/identities/training/coach/account-coach.entity';
-import { CustomerEntity } from '@modules/account/identities/training/customer/account-customer.entity';
-import { LearnerEntity } from '@modules/account/identities/training/learner/account-learner.entity';
-import { ManagerEntity } from '@modules/account/identities/training/manager/account-manager.entity';
-import { ThirdPartyAuthService } from '@modules/third-party-auth/third-party-auth.service';
 import { UseGuards } from '@nestjs/common';
 import { Args, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { IdentityUnionType } from '@src/adapters/graphql/account/dto/identity/identity-union.type';
@@ -36,6 +30,7 @@ import {
   GenerateWeappQrcodeUsecase,
   type GenerateWeappQrcodeResult,
 } from '@usecases/third-party-accounts/generate-weapp-qrcode.usecase';
+import { GetThirdPartyAuthsUsecase } from '@usecases/third-party-accounts/get-third-party-auths.usecase';
 import {
   GetWeappPhoneParams,
   GetWeappPhoneUsecase,
@@ -47,6 +42,70 @@ import { LearnerType } from '../account/dto/identity/learner.dto';
 import { ManagerIdentityGraphType } from '../account/dto/identity/manager.dto';
 import { StaffType } from '../account/dto/identity/staff.dto';
 
+type ManagerIdentityEntity = {
+  id: number;
+  accountId: number;
+  name: string;
+  remark: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+  deactivatedAt: Date | null;
+};
+
+type CoachIdentityEntity = {
+  id: number;
+  accountId: number;
+  name: string;
+  remark: string | null;
+  level: number | null;
+  description: string | null;
+  avatarUrl: string | null;
+  specialty: string[] | null;
+  createdAt: Date;
+  updatedAt: Date;
+  deactivatedAt: Date | null;
+};
+
+type StaffIdentityEntity = {
+  id: number | string;
+  accountId: number;
+  name: string;
+  departmentId: number | null;
+  remark: string | null;
+  jobTitle: string | null;
+  employmentStatus: EmploymentStatus;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+type CustomerIdentityEntity = {
+  id: number;
+  accountId: number;
+  name: string;
+  contactPhone: string | null;
+  preferredContactTime: string | null;
+  remark: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+  deactivatedAt: Date | null;
+};
+
+type LearnerIdentityEntity = {
+  id: number;
+  accountId: number;
+  customerId: number;
+  name: string;
+  gender: Gender;
+  birthDate: string | null;
+  avatarUrl: string | null;
+  specialNeeds: string | null;
+  countPerSession: number | null;
+  remark: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+  deactivatedAt: Date | null;
+};
+
 /**
  * 第三方认证 GraphQL 解析器
  * 提供第三方登录、绑定、解绑等 GraphQL 接口
@@ -54,13 +113,13 @@ import { StaffType } from '../account/dto/identity/staff.dto';
 @Resolver()
 export class ThirdPartyAuthResolver {
   constructor(
-    private readonly thirdPartyAuthService: ThirdPartyAuthService,
     private readonly loginWithThirdPartyUsecase: LoginWithThirdPartyUsecase,
     private readonly getWeappPhoneUsecase: GetWeappPhoneUsecase, // 注入新的 usecase
     private readonly generateWeappQrcodeUsecase: GenerateWeappQrcodeUsecase,
     private readonly fetchUserInfoUsecase: FetchUserInfoUsecase,
     private readonly bindThirdPartyAccountUsecase: BindThirdPartyAccountUsecase,
     private readonly unbindThirdPartyAccountUsecase: UnbindThirdPartyAccountUsecase,
+    private readonly getThirdPartyAuthsUsecase: GetThirdPartyAuthsUsecase,
   ) {}
 
   /**
@@ -153,7 +212,7 @@ export class ThirdPartyAuthResolver {
   @UseGuards(JwtAuthGuard)
   @Query(() => [ThirdPartyAuthDTO], { description: '获取我的第三方绑定列表' })
   async myThirdPartyAuths(@currentUser() user: JwtPayload): Promise<ThirdPartyAuthDTO[]> {
-    return await this.thirdPartyAuthService.getThirdPartyAuths(user.sub);
+    return await this.getThirdPartyAuthsUsecase.execute({ accountId: user.sub });
   }
 
   /**
@@ -212,7 +271,12 @@ export class ThirdPartyAuthResolver {
    */
   private isValidIdentityEntity(
     obj: unknown,
-  ): obj is ManagerEntity | CoachEntity | StaffEntity | CustomerEntity | LearnerEntity {
+  ): obj is
+    | ManagerIdentityEntity
+    | CoachIdentityEntity
+    | StaffIdentityEntity
+    | CustomerIdentityEntity
+    | LearnerIdentityEntity {
     return obj !== null && typeof obj === 'object' && 'id' in obj && 'accountId' in obj;
   }
 
@@ -278,26 +342,31 @@ export class ThirdPartyAuthResolver {
    * 将身份信息转换为 GraphQL 格式（与密码登录保持一致）
    */
   private convertIdentityForGraphQL(
-    identity: ManagerEntity | CoachEntity | StaffEntity | CustomerEntity | LearnerEntity,
+    identity:
+      | ManagerIdentityEntity
+      | CoachIdentityEntity
+      | StaffIdentityEntity
+      | CustomerIdentityEntity
+      | LearnerIdentityEntity,
     role: IdentityTypeEnum,
   ): IdentityUnionType {
     switch (role) {
       case IdentityTypeEnum.MANAGER:
-        return this.mapManagerIdentity(identity as ManagerEntity);
+        return this.mapManagerIdentity(identity as ManagerIdentityEntity);
       case IdentityTypeEnum.COACH:
-        return this.mapCoachIdentity(identity as CoachEntity);
+        return this.mapCoachIdentity(identity as CoachIdentityEntity);
       case IdentityTypeEnum.STAFF:
-        return this.mapStaffIdentity(identity as StaffEntity);
+        return this.mapStaffIdentity(identity as StaffIdentityEntity);
       case IdentityTypeEnum.CUSTOMER:
-        return this.mapCustomerIdentity(identity as CustomerEntity);
+        return this.mapCustomerIdentity(identity as CustomerIdentityEntity);
       case IdentityTypeEnum.LEARNER:
-        return this.mapLearnerIdentity(identity as LearnerEntity);
+        return this.mapLearnerIdentity(identity as LearnerIdentityEntity);
       default:
         throw new Error(`不支持的身份类型: ${role}`);
     }
   }
 
-  private mapManagerIdentity(manager: ManagerEntity): ManagerIdentityGraphType {
+  private mapManagerIdentity(manager: ManagerIdentityEntity): ManagerIdentityGraphType {
     return {
       id: manager.id,
       accountId: manager.accountId,
@@ -317,7 +386,7 @@ export class ThirdPartyAuthResolver {
     } as ManagerIdentityGraphType;
   }
 
-  private mapCoachIdentity(coach: CoachEntity): CoachType {
+  private mapCoachIdentity(coach: CoachIdentityEntity): CoachType {
     return {
       id: coach.id,
       accountId: coach.accountId,
@@ -340,7 +409,7 @@ export class ThirdPartyAuthResolver {
     } as CoachType;
   }
 
-  private mapStaffIdentity(staff: StaffEntity): StaffType {
+  private mapStaffIdentity(staff: StaffIdentityEntity): StaffType {
     return {
       id: parseStaffId({ id: staff.id as unknown as number | string }),
       accountId: staff.accountId,
@@ -355,7 +424,7 @@ export class ThirdPartyAuthResolver {
     } as StaffType;
   }
 
-  private mapCustomerIdentity(customer: CustomerEntity): CustomerType {
+  private mapCustomerIdentity(customer: CustomerIdentityEntity): CustomerType {
     return {
       id: customer.id,
       accountId: customer.accountId,
@@ -372,7 +441,7 @@ export class ThirdPartyAuthResolver {
     } as CustomerType;
   }
 
-  private mapLearnerIdentity(learner: LearnerEntity): LearnerType {
+  private mapLearnerIdentity(learner: LearnerIdentityEntity): LearnerType {
     return {
       id: learner.id,
       accountId: learner.accountId,

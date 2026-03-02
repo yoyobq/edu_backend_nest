@@ -2,13 +2,8 @@
 
 import { EmploymentStatus, IdentityTypeEnum } from '@app-types/models/account.types';
 import { AuthLoginModel, LoginResultModel, UserInfoView } from '@app-types/models/auth.types';
-import { GeographicInfo } from '@app-types/models/user-info.types';
+import { Gender, GeographicInfo } from '@app-types/models/user-info.types';
 import { parseStaffId } from '@core/account/identity/parse-staff-id';
-import { StaffEntity } from '@modules/account/identities/school/staff/account-staff.entity';
-import { CoachEntity } from '@modules/account/identities/training/coach/account-coach.entity';
-import { CustomerEntity } from '@modules/account/identities/training/customer/account-customer.entity';
-import { LearnerEntity } from '@modules/account/identities/training/learner/account-learner.entity';
-import { ManagerEntity } from '@modules/account/identities/training/manager/account-manager.entity';
 import { Args, Mutation, Resolver } from '@nestjs/graphql';
 import { CompleteUserData, FetchUserInfoUsecase } from '@usecases/account/fetch-user-info.usecase';
 import { LoginWithPasswordUsecase } from '@usecases/auth/login-with-password.usecase';
@@ -21,6 +16,70 @@ import { StaffType } from '../account/dto/identity/staff.dto';
 import { LoginResult } from '../account/dto/login-result.dto';
 import { UserInfoDTO } from '../account/dto/user-info.dto';
 import { AuthLoginInput } from './dto/auth-login.input';
+
+type ManagerIdentityEntity = {
+  id: number;
+  accountId: number;
+  name: string;
+  remark: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+  deactivatedAt: Date | null;
+};
+
+type CoachIdentityEntity = {
+  id: number;
+  accountId: number;
+  name: string;
+  remark: string | null;
+  level: number | null;
+  description: string | null;
+  avatarUrl: string | null;
+  specialty: string[] | null;
+  createdAt: Date;
+  updatedAt: Date;
+  deactivatedAt: Date | null;
+};
+
+type StaffIdentityEntity = {
+  id: number | string;
+  accountId: number;
+  name: string;
+  departmentId: number | null;
+  remark: string | null;
+  jobTitle: string | null;
+  employmentStatus: EmploymentStatus;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+type CustomerIdentityEntity = {
+  id: number;
+  accountId: number;
+  name: string;
+  contactPhone: string | null;
+  preferredContactTime: string | null;
+  remark: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+  deactivatedAt: Date | null;
+};
+
+type LearnerIdentityEntity = {
+  id: number;
+  accountId: number;
+  customerId: number;
+  name: string;
+  gender: Gender;
+  birthDate: string | null;
+  avatarUrl: string | null;
+  specialNeeds: string | null;
+  countPerSession: number | null;
+  remark: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+  deactivatedAt: Date | null;
+};
 
 /**
  * 认证相关的 GraphQL Resolver
@@ -73,7 +132,12 @@ export class AuthResolver {
    */
   private isValidIdentityEntity(
     obj: unknown,
-  ): obj is ManagerEntity | CoachEntity | StaffEntity | CustomerEntity | LearnerEntity {
+  ): obj is
+    | ManagerIdentityEntity
+    | CoachIdentityEntity
+    | StaffIdentityEntity
+    | CustomerIdentityEntity
+    | LearnerIdentityEntity {
     return obj !== null && typeof obj === 'object' && 'id' in obj && 'accountId' in obj;
   }
 
@@ -150,20 +214,25 @@ export class AuthResolver {
    * @returns 转换后的身份信息
    */
   private convertIdentityForGraphQL(
-    identity: ManagerEntity | CoachEntity | StaffEntity | CustomerEntity | LearnerEntity,
+    identity:
+      | ManagerIdentityEntity
+      | CoachIdentityEntity
+      | StaffIdentityEntity
+      | CustomerIdentityEntity
+      | LearnerIdentityEntity,
     role: IdentityTypeEnum,
   ): IdentityUnionType {
     switch (role) {
       case IdentityTypeEnum.MANAGER:
-        return this.mapManagerIdentity(identity as ManagerEntity);
+        return this.mapManagerIdentity(identity as ManagerIdentityEntity);
       case IdentityTypeEnum.COACH:
-        return this.mapCoachIdentity(identity as CoachEntity);
+        return this.mapCoachIdentity(identity as CoachIdentityEntity);
       case IdentityTypeEnum.STAFF:
-        return this.mapStaffIdentity(identity as StaffEntity);
+        return this.mapStaffIdentity(identity as StaffIdentityEntity);
       case IdentityTypeEnum.CUSTOMER:
-        return this.mapCustomerIdentity(identity as CustomerEntity);
+        return this.mapCustomerIdentity(identity as CustomerIdentityEntity);
       case IdentityTypeEnum.LEARNER:
-        return this.mapLearnerIdentity(identity as LearnerEntity);
+        return this.mapLearnerIdentity(identity as LearnerIdentityEntity);
       default:
         throw new Error(`不支持的身份类型: ${role}`);
     }
@@ -174,7 +243,7 @@ export class AuthResolver {
    * @param manager Manager 实体
    * @returns ManagerType DTO
    */
-  private mapManagerIdentity(manager: ManagerEntity): ManagerIdentityGraphType {
+  private mapManagerIdentity(manager: ManagerIdentityEntity): ManagerIdentityGraphType {
     return {
       id: manager.id,
       accountId: manager.accountId,
@@ -199,7 +268,7 @@ export class AuthResolver {
    * @param coach Coach 实体
    * @returns CoachType DTO
    */
-  private mapCoachIdentity(coach: CoachEntity): CoachType {
+  private mapCoachIdentity(coach: CoachIdentityEntity): CoachType {
     return {
       id: coach.id,
       accountId: coach.accountId,
@@ -227,7 +296,7 @@ export class AuthResolver {
    * @param staff Staff 实体
    * @returns StaffType DTO
    */
-  private mapStaffIdentity(staff: StaffEntity): StaffType {
+  private mapStaffIdentity(staff: StaffIdentityEntity): StaffType {
     return {
       id: parseStaffId({ id: staff.id as unknown as number | string }),
       accountId: staff.accountId,
@@ -247,7 +316,7 @@ export class AuthResolver {
    * @param customer Customer 实体
    * @returns CustomerType DTO
    */
-  private mapCustomerIdentity(customer: CustomerEntity): CustomerType {
+  private mapCustomerIdentity(customer: CustomerIdentityEntity): CustomerType {
     return {
       id: customer.id,
       accountId: customer.accountId,
@@ -269,7 +338,7 @@ export class AuthResolver {
    * @param learner Learner 实体
    * @returns LearnerType DTO
    */
-  private mapLearnerIdentity(learner: LearnerEntity): LearnerType {
+  private mapLearnerIdentity(learner: LearnerIdentityEntity): LearnerType {
     return {
       id: learner.id,
       accountId: learner.accountId,
