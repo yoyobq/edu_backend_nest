@@ -2,7 +2,6 @@
 
 import { TokenHelper } from '@core/common/token/token.helper';
 import { CoreJwtModule } from '@core/jwt/jwt.module';
-import { ThirdPartyAuthModule } from '@modules/third-party-auth/third-party-auth.module';
 import { Module } from '@nestjs/common';
 import { PassportModule } from '@nestjs/passport';
 import { AccountInstallerModule } from '@src/modules/account/account-installer.module';
@@ -17,7 +16,6 @@ import { JwtStrategy } from './strategies/jwt.strategy';
   imports: [
     AccountInstallerModule, // 使用动态模块配置
     CoreJwtModule,
-    ThirdPartyAuthModule,
     PassportModule.register({ defaultStrategy: 'jwt' }),
   ],
   providers: [AuthService, TokenHelper, JwtStrategy, PermissionQueryService],
