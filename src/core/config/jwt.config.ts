@@ -20,5 +20,5 @@ export default registerAs('jwt', () => ({
 
   // 允许的 issuer、audience 等（更严格控制）
   issuer: process.env.JWT_ISSUER || 'ssts-local',
-  audience: process.env.JWT_AUDIENCE || 'ssts-web,ssts-weapp',
+  audience: process.env.JWT_AUDIENCE || 'DESKTOP,SSTSTEST,SSTSWEB,SSTSWEAPP,SJWEB,SJWEAPP',
 }));

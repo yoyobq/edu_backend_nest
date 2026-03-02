@@ -184,7 +184,6 @@ async function ensureOtherCustomerAndLearner(ds: DataSource): Promise<{
         name: `${custLogin}_customer_name`,
         contactPhone: '13999990000',
         preferredContactTime: 'ANY',
-        membershipLevel: 1,
         deactivatedAt: null,
         remark: '测试 other customer',
       }),

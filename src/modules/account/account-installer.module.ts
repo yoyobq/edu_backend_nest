@@ -8,7 +8,7 @@ export const IDENTITY_PRIORITY_TOKEN = Symbol('IDENTITY_PRIORITY_TOKEN');
 /** 预设顺序（可按需调整） */
 export const DEFAULT_IDENTITY_PRIORITY = {
   perAudience: {
-    training: ['manager', 'coach', 'staff', 'customer', 'learner'],
+    training: ['manager', 'coach', 'customer', 'learner'],
     school: ['staff', 'student'],
   },
   fallback: ['manager', 'coach', 'staff', 'student', 'customer', 'learner'],
@@ -44,7 +44,7 @@ const IdentityPriorityProvider: Provider = {
     // 为避免遗漏，采用 custom 显式列出，覆盖 E2E 中使用的所有身份
     AccountModule.forRoot({
       preset: 'custom',
-      identities: ['coach', 'manager', 'customer', 'learner'],
+      identities: ['staff', 'student', 'coach', 'manager', 'customer', 'learner'],
     }),
   ],
   providers: [IdentityPriorityProvider],

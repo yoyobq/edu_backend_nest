@@ -486,7 +486,6 @@ describe('分页工具 (e2e)', () => {
         deactivatedAt: null,
         createdBy: null,
         updatedBy: null,
-        membershipLevel: 1,
       });
       customers.push(await customerRepo.save(c));
     }

@@ -1,6 +1,5 @@
 // test/utils/test-accounts.ts
 import { AccountStatus, IdentityTypeEnum } from '@app-types/models/account.types';
-import { MembershipLevel } from '@app-types/models/training.types';
 import { Gender, UserState } from '@app-types/models/user-info.types';
 import { AccountEntity } from '@src/modules/account/base/entities/account.entity';
 import { UserInfoEntity } from '@src/modules/account/base/entities/user-info.entity';
@@ -23,7 +22,6 @@ export interface TestAccountConfig {
   customerProfile?: {
     contactPhone: string;
     preferredContactTime: string;
-    membershipLevel: MembershipLevel;
   };
 }
 
@@ -297,7 +295,6 @@ const createCustomerIdentity = async (
     const p = cfg.customerProfile ?? {
       contactPhone: '13800138000',
       preferredContactTime: '09:00-18:00',
-      membershipLevel: 1,
     };
     await repo.save(
       repo.create({
@@ -305,7 +302,6 @@ const createCustomerIdentity = async (
         name: `${cfg.loginName}_customer_name`,
         contactPhone: p.contactPhone,
         preferredContactTime: p.preferredContactTime,
-        membershipLevel: p.membershipLevel,
         deactivatedAt: null,
         remark: `测试用 customer 身份记录 - ${cfg.loginName}`,
         createdBy: null,
@@ -383,7 +379,6 @@ const ensureCustomerExists = async (
   const p = customerCfg.customerProfile ?? {
     contactPhone: '13800138000',
     preferredContactTime: '09:00-18:00',
-    membershipLevel: 1,
   };
 
   return customerRepo.save(
@@ -392,7 +387,6 @@ const ensureCustomerExists = async (
       name: `${customerCfg.loginName}_customer_name`,
       contactPhone: p.contactPhone,
       preferredContactTime: p.preferredContactTime,
-      membershipLevel: p.membershipLevel,
       deactivatedAt: null,
       remark: `测试用 customer 身份记录 - ${customerCfg.loginName}`,
       createdBy: null,

@@ -287,7 +287,6 @@ describe('Auth (e2e)', () => {
                   name
                   contactPhone
                   preferredContactTime
-                  membershipLevel
                   remark
                 }
               }
@@ -373,7 +372,6 @@ describe('Auth (e2e)', () => {
                   name
                   contactPhone
                   preferredContactTime
-                  membershipLevel
                   remark
                 }
               }

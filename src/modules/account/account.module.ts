@@ -61,8 +61,8 @@ export interface AccountModuleOptions {
 
 /** 预设 -> 身份列表 */
 const PRESET_MAP: Record<Exclude<IdentityPreset, 'custom'>, IdentityFlag[]> = {
-  school: ['staff', 'student'],
-  training: ['coach', 'manager', 'customer', 'learner'],
+  school: ['staff', 'student', 'coach', 'manager', 'customer', 'learner'],
+  training: ['staff', 'student', 'coach', 'manager', 'customer', 'learner'],
 };
 
 /** 身份 -> 对应 Nest 模块 */

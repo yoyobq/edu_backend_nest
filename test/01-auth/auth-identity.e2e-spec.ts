@@ -150,7 +150,6 @@ describe('Auth Identity (e2e)', () => {
         name: `${customerAccount.loginName}_customer_name`,
         contactPhone: '13800138000',
         preferredContactTime: '09:00-18:00',
-        membershipLevel: MembershipLevel.NORMAL,
         deactivatedAt: null,
         remark: `测试用 customer 身份记录 - ${customerAccount.loginName}`,
         createdBy: null,
@@ -329,7 +328,6 @@ describe('Auth Identity (e2e)', () => {
                   name
                   contactPhone
                   preferredContactTime
-                  membershipLevel
                   remark
                 }
                 ... on LearnerType {
@@ -500,7 +498,6 @@ describe('Auth Identity (e2e)', () => {
       expect(data?.login.identity.name).toContain('customer_name');
       expect(data?.login.identity.contactPhone).toBe('13800138000');
       expect(data?.login.identity.preferredContactTime).toBe('09:00-18:00');
-      expect(data?.login.identity.membershipLevel).toBe(1);
       expect(data?.login.identity.remark).toContain('测试用 customer 身份记录');
     });
 
@@ -529,7 +526,6 @@ describe('Auth Identity (e2e)', () => {
       expect(data?.login.identity.name).toBe(customerEntity?.name);
       expect(data?.login.identity.contactPhone).toBe(customerEntity?.contactPhone);
       expect(data?.login.identity.preferredContactTime).toBe(customerEntity?.preferredContactTime);
-      expect(data?.login.identity.membershipLevel).toBe(customerEntity?.membershipLevel);
       expect(data?.login.identity.remark).toBe(customerEntity?.remark);
     });
   });
