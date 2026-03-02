@@ -1,4 +1,4 @@
-// 文件位置：test/09-user-info/update-visible-user-info.e2e-spec.ts
+// 文件位置：test/04-user-info/update-visible-user-info.e2e-spec.ts
 import {
   AccountStatus,
   AudienceTypeEnum,

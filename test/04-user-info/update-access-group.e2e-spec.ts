@@ -1,4 +1,4 @@
-// 文件位置：test/09-user-info/update-access-group.e2e-spec.ts
+// 文件位置：test/04-user-info/update-access-group.e2e-spec.ts
 import { IdentityTypeEnum } from '@app-types/models/account.types';
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
