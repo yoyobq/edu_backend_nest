@@ -27,10 +27,12 @@
 
 ```
 src/
-├── adapters/                    # 适配层： GraphQL / HTTP 入口
+├── adapters/                    # 适配层： GraphQL 入口 / 集成事件适配
 │   ├── graphql/
 │   └── http/
+│   └── integration-events/
 ├── app.module.ts                # 应用主模块
+├── app.controller.ts            # HTTP 根路径
 ├── core/                        # 纯规则与端口接口（无 I/O）
 │   ├── common/
 │   ├── config/
@@ -53,14 +55,11 @@ src/
 │   ├── account/
 │   ├── auth/
 │   ├── common/
-│   ├── course-catalogs/
 │   ├── identity-management/
 │   ├── register/
-│   ├── student/
 │   ├── third-party-auth/
 │   └── verification-record/
-├── plugins/
-├── shared/
+├── cats/                        # 示例模块（未在主模块注册）
 ├── types/                       # 类型与模型定义
 │   ├── auth/
 │   ├── common/
@@ -73,11 +72,11 @@ src/
 ├── usecases/                    # 用例编排（跨域读写与事务）
 │   ├── account/
 │   ├── auth/
-│   ├── course-catalogs/
 │   ├── identity-management/
 │   ├── registration/
 │   ├── third-party-accounts/
-│   └── verification/
+│   ├── verification/
+│   └── verification-record/
 └── utils/                       # 工具与测试辅助
     ├── logger/
     └── test/
@@ -86,7 +85,7 @@ test/
 ├── 01-auth/
 ├── 02-register/
 ├── 03-roles-guard/
-├── 04-course/
+├── 04-user-info/
 ├── 05-verification-record/
 ├── 06-identity-management/
 ├── 07-pagination-sort-search/
@@ -206,7 +205,7 @@ $ npm run lint
 
 项目启动后，可以通过以下地址访问：
 
-- **GraphQL Playground**: `http://localhost:3000/graphql` (开发环境)
+- **GraphQL Landing Page**: `http://localhost:3000/graphql` (开发环境)
 - **GraphQL Schema**: 自动生成在 `src/schema.graphql`
 
 ## 已实现功能
@@ -216,16 +215,22 @@ $ npm run lint
 - ✅ 配置管理：多环境配置支持，类型安全的配置服务
 - ✅ 日志系统：基于 Pino 的高性能日志记录
 - ✅ 数据库集成：TypeORM + MySQL 8.0，支持连接池与事务
-- ✅ GraphQL API：Apollo Server 集成，支持订阅与内省
-- ✅ 分页 / 排序 / 搜索：统一解析器与服务，防注入、稳定翻页
-- ✅ 安全与鉴权：JWT、角色守卫、字段加密（ Field Encryption ）
+- ✅ GraphQL API：Apollo Server 集成，自动生成 Schema
+- ✅ HTTP 根路径：GET / 返回基础响应
+- ✅ 分页 / 排序 / 搜索：统一解析器与服务，支持安全分页与白名单排序
+- ✅ 安全与鉴权：JWT、角色守卫、字段加密（ Field Encryption ）、统一 GraphQL 错误映射
 
 ### 业务模块
 
-- ✅ 账户与身份管理（ Account / Identity Management ）
-- ✅ 用户注册（ Register ）
-- ✅ 第三方认证（ Third-Party Auth / Accounts ）
-- ✅ 验证记录（ Verification Record ）
+- ✅ 账户：按 ID 查询账户信息，密码重置（验证流程消费）
+- ✅ 用户信息：可见性规则查询（基础 / 完整），更新可见字段与访问组
+- ✅ 认证：账号密码登录
+- ✅ 注册：邮箱注册、第三方注册
+- ✅ 第三方账号：第三方登录、绑定 / 解绑、微信小程序二维码生成与手机号获取
+- ✅ 身份管理：Customer / Coach / Manager 的更新、下线、上线、列表与详情
+- ✅ 学员管理：Learner 的创建、更新（Customer / Manager）、删除、列表分页与详情
+- ✅ 验证记录：创建、查找、消费；支持邀请与重置密码等验证流程
+- ✅ 示例模块：Cats 的 GraphQL CRUD（未在主模块注册）
 
 ## 开发指南
 
