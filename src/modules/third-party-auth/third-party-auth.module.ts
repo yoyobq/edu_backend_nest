@@ -1,11 +1,9 @@
 // src/modules/third-party-auth/third-party-auth.module.ts
 import { HttpModule } from '@nestjs/axios';
-import { Module, Provider, forwardRef } from '@nestjs/common';
+import { Module, Provider } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
-import { AccountModule } from '@modules/account/account.module';
-import { AuthModule } from '@modules/auth/auth.module';
 import { ThirdPartyAuthEntity } from '@src/modules/account/base/entities/third-party-auth.entity';
 
 import { ThirdPartyProviderEnum } from '@app-types/models/account.types';
@@ -37,13 +35,7 @@ const providerMapFactory: Provider = {
  * 提供统一的第三方平台认证、绑定、解绑等功能
  */
 @Module({
-  imports: [
-    TypeOrmModule.forFeature([ThirdPartyAuthEntity]),
-    HttpModule,
-    ConfigModule,
-    forwardRef(() => AccountModule),
-    forwardRef(() => AuthModule),
-  ],
+  imports: [TypeOrmModule.forFeature([ThirdPartyAuthEntity]), HttpModule, ConfigModule],
   providers: [WeAppProvider, WechatProvider, providerMapFactory, ThirdPartyAuthService],
   exports: [ThirdPartyAuthService],
 })
