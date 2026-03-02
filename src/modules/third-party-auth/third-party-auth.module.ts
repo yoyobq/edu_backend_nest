@@ -9,6 +9,7 @@ import { AuthModule } from '@modules/auth/auth.module';
 import { ThirdPartyAuthEntity } from '@src/modules/account/base/entities/third-party-auth.entity';
 
 import { ThirdPartyProviderEnum } from '@app-types/models/account.types';
+import { GetThirdPartyAuthsUsecase } from '@usecases/third-party-accounts/get-third-party-auths.usecase';
 import { GetWeappPhoneUsecase } from '@usecases/third-party-accounts/get-weapp-phone.usecase';
 import { GenerateWeappQrcodeUsecase } from '@usecases/third-party-accounts/generate-weapp-qrcode.usecase';
 import { BindThirdPartyAccountUsecase } from '@usecases/third-party-accounts/bind-third-party-account.usecase';
@@ -59,6 +60,7 @@ const providerMapFactory: Provider = {
     BindThirdPartyAccountUsecase,
     UnbindThirdPartyAccountUsecase,
     ResolveThirdPartyIdentityUsecase,
+    GetThirdPartyAuthsUsecase,
   ],
   exports: [
     ThirdPartyAuthService,
@@ -67,6 +69,7 @@ const providerMapFactory: Provider = {
     BindThirdPartyAccountUsecase,
     UnbindThirdPartyAccountUsecase,
     ResolveThirdPartyIdentityUsecase,
+    GetThirdPartyAuthsUsecase,
   ], // 导出 usecase
 })
 export class ThirdPartyAuthModule {}
