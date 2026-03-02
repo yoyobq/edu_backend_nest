@@ -1,7 +1,6 @@
 // src/usecases/learner/delete-learner.usecase.ts
 
 import { Injectable } from '@nestjs/common';
-import { DataSource } from 'typeorm';
 import {
   DomainError,
   LEARNER_ERROR,
@@ -26,7 +25,6 @@ import { LearnerService } from '../../../modules/account/identities/training/lea
 @Injectable()
 export class DeleteLearnerUsecase {
   constructor(
-    private readonly dataSource: DataSource,
     private readonly customerService: CustomerService,
     private readonly managerService: ManagerService,
     private readonly learnerService: LearnerService,
@@ -79,7 +77,7 @@ export class DeleteLearnerUsecase {
       targetCustomerId = customerId;
     }
 
-    return await this.dataSource.transaction(async (manager) => {
+    return await this.learnerService.runTransaction(async (manager) => {
       // 2. 查找学员并验证所有权
       const learner = await manager.getRepository(LearnerEntity).findOne({
         where: {

@@ -4,8 +4,6 @@ import { CoachEntity } from '@modules/account/identities/training/coach/account-
 import { CoachService } from '@modules/account/identities/training/coach/coach.service';
 import { ManagerService } from '@modules/account/identities/training/manager/manager.service';
 import { Injectable } from '@nestjs/common';
-import { InjectDataSource } from '@nestjs/typeorm';
-import { DataSource } from 'typeorm';
 
 /**
  * 更新教练信息用例的输入参数
@@ -41,7 +39,6 @@ export interface UpdateCoachUsecaseParams {
 @Injectable()
 export class UpdateCoachUsecase {
   constructor(
-    @InjectDataSource() private readonly dataSource: DataSource,
     private readonly coachService: CoachService,
     private readonly managerService: ManagerService,
   ) {}
@@ -54,7 +51,7 @@ export class UpdateCoachUsecase {
 
     const ctx = await this.resolveIdentityContext(currentAccountId, params);
 
-    return await this.dataSource.transaction(async (manager) => {
+    return await this.coachService.runTransaction(async (manager) => {
       const repo = manager.getRepository(CoachEntity);
       const coach = await repo.findOne({ where: { id: ctx.targetCoachId } });
       if (!coach) {

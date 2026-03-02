@@ -18,6 +18,8 @@ import {
 } from 'typeorm';
 import { CustomerEntity } from './account-customer.entity';
 
+export type CustomerTransactionManager = EntityManager;
+
 export interface CustomerProfile {
   id: number;
   accountId: number | null;
@@ -43,6 +45,10 @@ export class CustomerService {
     // 从模块注入 Customer 域专用排序解析器（仅用于内部/专用接口的 CURSOR 流程）
     @Inject('CUSTOMER_SORT_RESOLVER') private readonly customerSortResolver: ISortResolver,
   ) {}
+
+  async runTransaction<T>(callback: (manager: EntityManager) => Promise<T>): Promise<T> {
+    return await this.customerRepository.manager.transaction(callback);
+  }
 
   /**
    * 根据账户 ID 查找客户信息

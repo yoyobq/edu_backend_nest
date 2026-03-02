@@ -2,16 +2,18 @@
 
 import { Gender } from '@app-types/models/user-info.types';
 import { Injectable } from '@nestjs/common';
-import { DataSource, EntityManager } from 'typeorm';
 import {
   DomainError,
   LEARNER_ERROR,
   PERMISSION_ERROR,
 } from '../../../core/common/errors/domain-error';
 import { CustomerService } from '../../../modules/account/identities/training/customer/account-customer.service';
-import { ManagerService } from '../../../modules/account/identities/training/manager/manager.service';
 import { LearnerEntity } from '../../../modules/account/identities/training/learner/account-learner.entity';
-import { LearnerService } from '../../../modules/account/identities/training/learner/account-learner.service';
+import {
+  LearnerService,
+  type LearnerTransactionManager,
+} from '../../../modules/account/identities/training/learner/account-learner.service';
+import { ManagerService } from '../../../modules/account/identities/training/manager/manager.service';
 
 /**
  * 管理员更新学员信息输入参数
@@ -47,7 +49,6 @@ export interface UpdateLearnerByManagerInput {
 @Injectable()
 export class UpdateLearnerByManagerUsecase {
   constructor(
-    private readonly dataSource: DataSource,
     private readonly customerService: CustomerService,
     private readonly managerService: ManagerService,
     private readonly learnerService: LearnerService,
@@ -86,7 +87,7 @@ export class UpdateLearnerByManagerUsecase {
       migrateToCustomerId = input.targetCustomerId;
     }
 
-    return await this.dataSource.transaction(async (managerTx) => {
+    return await this.learnerService.runTransaction(async (managerTx) => {
       const learner = preFetchedLearner
         ? preFetchedLearner
         : await this.validateLearnerAccess(input.id, effectiveCustomerId);
@@ -174,7 +175,7 @@ export class UpdateLearnerByManagerUsecase {
   }
 
   private async validateUniqueness(
-    manager: EntityManager,
+    manager: LearnerTransactionManager,
     input: UpdateLearnerByManagerInput,
     learner: LearnerEntity,
     targetCustomerId: number,
@@ -200,7 +201,7 @@ export class UpdateLearnerByManagerUsecase {
   }
 
   private async performUpdate(
-    manager: EntityManager,
+    manager: LearnerTransactionManager,
     learnerId: number,
     updateData: Partial<LearnerEntity>,
   ): Promise<LearnerEntity> {

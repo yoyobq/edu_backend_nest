@@ -4,8 +4,6 @@ import { CoachEntity } from '@modules/account/identities/training/coach/account-
 import { CoachService } from '@modules/account/identities/training/coach/coach.service';
 import { ManagerService } from '@modules/account/identities/training/manager/manager.service';
 import { Injectable } from '@nestjs/common';
-import { InjectDataSource } from '@nestjs/typeorm';
-import { DataSource } from 'typeorm';
 
 /**
  * 下线教练输入参数
@@ -32,7 +30,6 @@ export interface DeactivateCoachResult {
 @Injectable()
 export class DeactivateCoachUsecase {
   constructor(
-    @InjectDataSource() private readonly dataSource: DataSource,
     private readonly coachService: CoachService,
     private readonly managerService: ManagerService,
   ) {}
@@ -67,7 +64,7 @@ export class DeactivateCoachUsecase {
     const now = new Date();
 
     // 单事务更新，写入审计字段
-    await this.dataSource.transaction(async (managerTx) => {
+    await this.coachService.runTransaction(async (managerTx) => {
       await managerTx.getRepository(CoachEntity).update(entity.id, {
         deactivatedAt: now,
         updatedBy: currentAccountId,

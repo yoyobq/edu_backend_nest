@@ -5,8 +5,6 @@ import { CustomerEntity } from '@modules/account/identities/training/customer/ac
 import { CustomerService } from '@modules/account/identities/training/customer/account-customer.service';
 import { ManagerService } from '@modules/account/identities/training/manager/manager.service';
 import { Injectable } from '@nestjs/common';
-import { InjectDataSource } from '@nestjs/typeorm';
-import { DataSource } from 'typeorm';
 
 /**
  * 更新客户信息用例的输入参数
@@ -38,7 +36,6 @@ export interface UpdateCustomerUsecaseParams {
 @Injectable()
 export class UpdateCustomerUsecase {
   constructor(
-    @InjectDataSource() private readonly dataSource: DataSource,
     private readonly customerService: CustomerService,
     private readonly managerService: ManagerService,
   ) {}
@@ -55,7 +52,7 @@ export class UpdateCustomerUsecase {
     const ctx = await this.resolveIdentityContext(currentAccountId, params);
 
     // 事务内执行更新
-    return await this.dataSource.transaction(async (manager) => {
+    return await this.customerService.runTransaction(async (manager) => {
       const repo = manager.getRepository(CustomerEntity);
 
       // 查找目标客户

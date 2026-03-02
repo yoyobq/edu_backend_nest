@@ -9,8 +9,12 @@ import { DomainError, VERIFICATION_RECORD_ERROR } from '@core/common/errors/doma
 import { TokenFingerprintHelper } from '@core/security/token-fingerprint.helper';
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { EntityManager, QueryFailedError, Repository } from 'typeorm';
+import { EntityManager, QueryFailedError, Repository, UpdateQueryBuilder } from 'typeorm';
 import { VerificationRecordEntity } from './verification-record.entity';
+
+export type VerificationRecordTransactionManager = EntityManager;
+export type VerificationRecordRepository = Repository<VerificationRecordEntity>;
+export type VerificationRecordUpdateQueryBuilder = UpdateQueryBuilder<VerificationRecordEntity>;
 
 /**
  * 验证记录服务

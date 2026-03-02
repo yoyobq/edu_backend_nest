@@ -3,10 +3,10 @@
 import { AudienceTypeEnum } from '@app-types/models/account.types';
 import { VerificationRecordType } from '@app-types/models/verification-record.types';
 import { VerificationRecordView } from '@src/modules/verification-record/services/verification-read.service';
+import type { VerificationRecordTransactionManager } from '@src/modules/verification-record/verification-record.service';
 import { InviteCoachHandlerResult } from '@src/usecases/verification/coach/invite-coach-result.types';
 import { InviteManagerHandlerResult } from '@src/usecases/verification/manager/invite-manager-result.types';
 import { PasswordResetHandlerResult } from '@src/usecases/verification/password/reset-password-result.types';
-import { EntityManager } from 'typeorm';
 
 /**
  * 密码重置载荷
@@ -33,7 +33,7 @@ export interface ConsumeVerificationFlowParams {
   /** 手机号码（可选，用于上下文匹配） */
   phone?: string;
   /** 可选的事务管理器 */
-  manager?: EntityManager;
+  manager?: VerificationRecordTransactionManager;
   /** 密码重置载荷（仅用于密码重置类型） */
   resetPassword?: ResetPasswordPayload;
 }
@@ -47,7 +47,7 @@ export interface VerificationFlowContext {
   /** 消费者账号 ID */
   consumedByAccountId?: number;
   /** 事务管理器 */
-  manager: EntityManager;
+  manager: VerificationRecordTransactionManager;
   /** 密码重置载荷（仅用于密码重置类型） */
   resetPassword?: ResetPasswordPayload;
 }

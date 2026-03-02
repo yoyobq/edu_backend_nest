@@ -7,7 +7,10 @@ import { ACCOUNT_ERROR, DomainError } from '@core/common/errors';
 import { UserInfoEntity } from '@modules/account/base/entities/user-info.entity';
 import { AccountSecurityService } from '@modules/account/base/services/account-security.service';
 import { Injectable } from '@nestjs/common';
-import { AccountService } from '@src/modules/account/base/services/account.service';
+import {
+  AccountService,
+  type AccountTransactionManager,
+} from '@src/modules/account/base/services/account.service';
 
 // 移除本地的 UserInfoView 定义，使用统一的类型定义
 
@@ -63,7 +66,7 @@ export class FetchUserInfoUsecase {
   async executeStrict(params: {
     accountId: number;
     accessGroup?: IdentityTypeEnum[];
-    manager?: import('typeorm').EntityManager;
+    manager?: AccountTransactionManager;
   }): Promise<
     UserInfoView & {
       nickname: string;

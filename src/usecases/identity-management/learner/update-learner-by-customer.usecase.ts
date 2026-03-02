@@ -2,7 +2,6 @@
 
 import { Gender } from '@app-types/models/user-info.types';
 import { Injectable } from '@nestjs/common';
-import { DataSource, EntityManager } from 'typeorm';
 import {
   DomainError,
   LEARNER_ERROR,
@@ -10,7 +9,10 @@ import {
 } from '../../../core/common/errors/domain-error';
 import { CustomerService } from '../../../modules/account/identities/training/customer/account-customer.service';
 import { LearnerEntity } from '../../../modules/account/identities/training/learner/account-learner.entity';
-import { LearnerService } from '../../../modules/account/identities/training/learner/account-learner.service';
+import {
+  LearnerService,
+  type LearnerTransactionManager,
+} from '../../../modules/account/identities/training/learner/account-learner.service';
 
 /**
  * 客户更新学员信息输入参数
@@ -44,7 +46,6 @@ export interface UpdateLearnerByCustomerInput {
 @Injectable()
 export class UpdateLearnerByCustomerUsecase {
   constructor(
-    private readonly dataSource: DataSource,
     private readonly customerService: CustomerService,
     private readonly learnerService: LearnerService,
   ) {}
@@ -71,7 +72,7 @@ export class UpdateLearnerByCustomerUsecase {
     }
     const targetCustomerId = customer.id;
 
-    return await this.dataSource.transaction(async (manager) => {
+    return await this.learnerService.runTransaction(async (manager) => {
       const learner = await this.validateLearnerAccess(input.id, targetCustomerId);
 
       const updateData = this.prepareUpdateData(input, accountId);
@@ -143,7 +144,7 @@ export class UpdateLearnerByCustomerUsecase {
    * 唯一性校验（同客户下 name + birthDate 不重复）
    */
   private async validateUniqueness(
-    manager: EntityManager,
+    manager: LearnerTransactionManager,
     input: UpdateLearnerByCustomerInput,
     learner: LearnerEntity,
     targetCustomerId: number,
@@ -173,7 +174,7 @@ export class UpdateLearnerByCustomerUsecase {
    * 执行数据库更新并返回最新实体
    */
   private async performUpdate(
-    manager: EntityManager,
+    manager: LearnerTransactionManager,
     learnerId: number,
     updateData: Partial<LearnerEntity>,
   ): Promise<LearnerEntity> {

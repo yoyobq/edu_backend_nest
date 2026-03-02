@@ -1,6 +1,5 @@
 // 文件位置： src/usecases/identity-management/identity-management-usecases.module.ts
 import { Module } from '@nestjs/common';
-import { TypeOrmModule } from '@nestjs/typeorm';
 import { AccountInstallerModule } from '@src/modules/account/account-installer.module';
 import { CoachServiceModule } from '@src/modules/account/identities/training/coach/coach-service.module';
 import { CustomerServiceModule } from '@src/modules/account/identities/training/customer/customer-service.module';
@@ -32,7 +31,6 @@ import { UpdateManagerUsecase } from '@src/usecases/identity-management/manager/
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([]),
     AccountInstallerModule,
     CustomerServiceModule,
     CoachServiceModule,

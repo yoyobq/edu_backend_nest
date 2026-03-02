@@ -6,6 +6,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { EntityManager, Repository } from 'typeorm';
 import { ManagerEntity } from './account-manager.entity';
 
+export type ManagerTransactionManager = EntityManager;
+
 /**
  * Manager 服务层
  * 提供 Manager 实体的 CRUD 操作和业务逻辑
@@ -16,6 +18,10 @@ export class ManagerService {
     @InjectRepository(ManagerEntity)
     private readonly managerRepository: Repository<ManagerEntity>,
   ) {}
+
+  async runTransaction<T>(callback: (manager: EntityManager) => Promise<T>): Promise<T> {
+    return await this.managerRepository.manager.transaction(callback);
+  }
 
   /**
    * 根据账户 ID 查找 Manager

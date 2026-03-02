@@ -3,12 +3,13 @@
 import { Gender } from '@app-types/models/user-info.types';
 import { DomainError, LEARNER_ERROR, PERMISSION_ERROR } from '@core/common/errors/domain-error';
 import { CustomerService } from '@modules/account/identities/training/customer/account-customer.service';
-import { ManagerService } from '@modules/account/identities/training/manager/manager.service';
 import { LearnerEntity } from '@modules/account/identities/training/learner/account-learner.entity';
-import { LearnerService } from '@modules/account/identities/training/learner/account-learner.service';
+import {
+  LearnerService,
+  type LearnerTransactionManager,
+} from '@modules/account/identities/training/learner/account-learner.service';
+import { ManagerService } from '@modules/account/identities/training/manager/manager.service';
 import { Injectable } from '@nestjs/common';
-import { InjectDataSource } from '@nestjs/typeorm';
-import { DataSource, EntityManager } from 'typeorm';
 
 /**
  * 创建学员用例参数
@@ -33,7 +34,7 @@ export interface CreateLearnerUsecaseParams {
   /** 每节课人数（可选，默认 1.0） */
   countPerSession?: number;
   /** 外部事务管理器（可选） */
-  manager?: EntityManager;
+  manager?: LearnerTransactionManager;
 }
 
 /**
@@ -56,7 +57,6 @@ export class CreateLearnerUsecase {
     private readonly learnerService: LearnerService,
     private readonly customerService: CustomerService,
     private readonly managerService: ManagerService,
-    @InjectDataSource() private readonly dataSource: DataSource,
   ) {}
 
   /**
@@ -66,7 +66,7 @@ export class CreateLearnerUsecase {
    */
   async execute(
     params: CreateLearnerUsecaseParams,
-    _manager?: EntityManager,
+    _manager?: LearnerTransactionManager,
   ): Promise<CreateLearnerUsecaseResult> {
     const {
       currentAccountId,
@@ -79,7 +79,7 @@ export class CreateLearnerUsecase {
       remark,
     } = params;
 
-    return await this.dataSource.transaction(async (_manager: EntityManager) => {
+    return await this.learnerService.runTransaction(async (_manager) => {
       // 1. 权限校验和客户确定
       // 只允许 Customer 创建学员
       const customer = await this.customerService.findByAccountId(currentAccountId);
