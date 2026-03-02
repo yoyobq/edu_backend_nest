@@ -15,6 +15,7 @@ import { ExecuteLoginFlowUsecase } from '@usecases/auth/execute-login-flow.useca
 import { LoginByAccountIdUsecase } from '@usecases/auth/login-by-account-id.usecase';
 import { LoginWithPasswordUsecase } from '@usecases/auth/login-with-password.usecase';
 import { LoginWithThirdPartyUsecase } from '@usecases/auth/login-with-third-party.usecase';
+import { PermissionQueryService } from './queries/permission.query.service';
 
 /**
  * 认证模块
@@ -38,6 +39,7 @@ import { LoginWithThirdPartyUsecase } from '@usecases/auth/login-with-third-part
     // 添加缺失的 usecase providers
     DecideLoginRoleUsecase,
     EnrichLoginWithIdentityUsecase,
+    PermissionQueryService,
   ],
   exports: [
     AuthService,
@@ -52,6 +54,7 @@ import { LoginWithThirdPartyUsecase } from '@usecases/auth/login-with-third-part
     // 导出新添加的 usecases
     DecideLoginRoleUsecase,
     EnrichLoginWithIdentityUsecase,
+    PermissionQueryService,
   ],
 })
 export class AuthModule {}
