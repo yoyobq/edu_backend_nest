@@ -4,16 +4,12 @@
 // 注释/取消注释即可控制
 const ENABLED_SPECS = [
   // '00-app/00-app.e2e-spec.ts',
-  '01-auth/auth-identity.e2e-spec.ts',
+  // '01-auth/auth-identity.e2e-spec.ts',
   // '01-auth/auth.e2e-spec.ts',
   // '02-register/register.e2e-spec.ts',
   // '03-roles-guard/roles-guard.e2e-spec.ts',
-  // '04-course/course-catalogs.e2e-spec.ts',
-  // '04-course/create-series-draft.e2e-spec.ts',
-  // '04-course/update-course-series.e2e-spec.ts',
-  // '04-course/update-course-session.e2e-spec.ts',
-  // '04-course/course-sessions-by-series.e2e-spec.ts',
-  // '04-course/payout-rules.e2e-spec.ts',
+  // '04-user-info/update-visible-user-info.e2e-spec.ts',
+  // '04-user-info/update-access-group.e2e-spec.ts',
   // '05-verification-record/verification-record.e2e-spec.ts',
   // '05-verification-record/verification-record-types.e2e-spec.ts',
   // '05-verification-record/verification-record-invite.e2e-spec.ts',
@@ -26,14 +22,6 @@ const ENABLED_SPECS = [
   // '07-pagination-sort-search/learners-pagination.e2e-spec.ts',
   // '07-pagination-sort-search/sort.e2e-spec.ts',
   // '07-pagination-sort-search/search.e2e-spec.ts',
-  // '08-integration-events/session-adjustments.e2e-spec.ts',
-  // '08-integration-events/outbox-dispatcher.e2e-spec.ts',
-  // '08-integration-events/course-workflows.e2e-spec.ts',
-  // '08-integration-events/course-enrollment-workflows.e2e-spec.ts',
-  // '08-integration-events/session-adjustments.e2e-spec.ts',
-  // '08-integration-events/session-series-list.e2e-spec.ts',
-  // '09-user-info/update-visible-user-info.e2e-spec.ts',
-  // '09-user-info/update-access-group.e2e-spec.ts',
 ];
 
 /** 可选：命令行临时指定（逗号分隔）
