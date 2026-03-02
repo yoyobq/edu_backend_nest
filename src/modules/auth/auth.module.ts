@@ -7,15 +7,8 @@ import { Module } from '@nestjs/common';
 import { PassportModule } from '@nestjs/passport';
 import { AccountInstallerModule } from '@src/modules/account/account-installer.module';
 import { AuthService } from './auth.service';
-import { JwtStrategy } from './strategies/jwt.strategy';
-// 添加 usecase 导入
-import { DecideLoginRoleUsecase } from '@usecases/auth/decide-login-role.usecase';
-import { EnrichLoginWithIdentityUsecase } from '@usecases/auth/enrich-login-with-identity.usecase';
-import { ExecuteLoginFlowUsecase } from '@usecases/auth/execute-login-flow.usecase';
-import { LoginByAccountIdUsecase } from '@usecases/auth/login-by-account-id.usecase';
-import { LoginWithPasswordUsecase } from '@usecases/auth/login-with-password.usecase';
-import { LoginWithThirdPartyUsecase } from '@usecases/auth/login-with-third-party.usecase';
 import { PermissionQueryService } from './queries/permission.query.service';
+import { JwtStrategy } from './strategies/jwt.strategy';
 
 /**
  * 认证模块
@@ -27,33 +20,11 @@ import { PermissionQueryService } from './queries/permission.query.service';
     ThirdPartyAuthModule,
     PassportModule.register({ defaultStrategy: 'jwt' }),
   ],
-  providers: [
-    AuthService,
-    TokenHelper,
-    JwtStrategy,
-    LoginWithPasswordUsecase,
-    // ValidateLoginUsecase, // 删除这行
-    ExecuteLoginFlowUsecase,
-    LoginByAccountIdUsecase,
-    LoginWithThirdPartyUsecase,
-    // 添加缺失的 usecase providers
-    DecideLoginRoleUsecase,
-    EnrichLoginWithIdentityUsecase,
-    PermissionQueryService,
-  ],
+  providers: [AuthService, TokenHelper, JwtStrategy, PermissionQueryService],
   exports: [
     AuthService,
     TokenHelper, // 导出 TokenHelper 供其他模块使用
     JwtStrategy,
-    // 导出 usecases 供 GraphQLAdapterModule 使用
-    LoginWithPasswordUsecase,
-    // ValidateLoginUsecase, // 删除这行
-    ExecuteLoginFlowUsecase,
-    LoginByAccountIdUsecase,
-    LoginWithThirdPartyUsecase,
-    // 导出新添加的 usecases
-    DecideLoginRoleUsecase,
-    EnrichLoginWithIdentityUsecase,
     PermissionQueryService,
   ],
 })

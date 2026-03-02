@@ -11,6 +11,14 @@ import {
 
 @Module({
   imports: [AccountInstallerModule],
+  providers: [
+    FetchIdentityByRoleUsecase,
+    FetchUserInfoUsecase,
+    GetAccountByIdUsecase,
+    GetVisibleUserInfoUsecase,
+    UpdateVisibleUserInfoUsecase,
+    UpdateAccessGroupUsecase,
+  ],
   exports: [
     FetchIdentityByRoleUsecase,
     FetchUserInfoUsecase,

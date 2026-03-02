@@ -1,5 +1,5 @@
 // src/types/models/third-party-auth.types.ts
-
+import { AudienceTypeEnum, ThirdPartyProviderEnum } from './account.types';
 /**
  * 第三方会话信息
  * 统一封装不同第三方平台返回的用户身份数据
@@ -23,6 +23,30 @@ export type ThirdPartySession = {
   /** OIDC ID Token 的 header.payload 部分 (仅 OIDC 平台返回，用于审计) */
   idTokenHeaderPayload?: string;
 };
+
+export type ThirdPartyLoginInputModel = {
+  provider: ThirdPartyProviderEnum;
+  authCredential: string;
+  audience: AudienceTypeEnum;
+  ip?: string;
+};
+
+export type BindThirdPartyInputModel = {
+  provider: ThirdPartyProviderEnum;
+  providerUserId: string;
+  unionId?: string | null;
+  accessToken?: string | null;
+};
+
+export type UnbindThirdPartyInputModel =
+  | {
+      id: number;
+      provider?: ThirdPartyProviderEnum;
+    }
+  | {
+      id?: number;
+      provider: ThirdPartyProviderEnum;
+    };
 
 /**
  * 微信小程序 code2session 接口成功响应

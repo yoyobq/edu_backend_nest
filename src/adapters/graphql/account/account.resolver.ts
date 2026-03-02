@@ -40,7 +40,17 @@ export class AccountResolver {
     // if (args.id !== _user.sub) {
     //   throw new ForbiddenException('只能查看自己的账户信息');
     // }
-    return await this.getAccountByIdUsecase.execute(args.id);
+    const account = await this.getAccountByIdUsecase.execute(args.id);
+    return {
+      id: account.id,
+      loginName: account.loginName,
+      loginEmail: account.loginEmail,
+      status: account.status,
+      identityHint: account.identityHint,
+      recentLoginHistory: account.recentLoginHistory,
+      createdAt: account.createdAt,
+      updatedAt: account.updatedAt,
+    };
   }
 
   /**

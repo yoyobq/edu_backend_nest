@@ -1,8 +1,8 @@
-// export interface LoginHistoryItem {
-//   ip: string; // 登录 IP 地址
-//   timestamp: string; // 登录时间（ISO 格式）
-//   audience?: string; // 可选：客户端类型
-// }
+export interface LoginHistoryItem {
+  ip: string; // 登录 IP 地址
+  timestamp: string; // 登录时间（ISO 格式）
+  audience?: string; // 可选：客户端类型
+}
 
 export enum AccountStatus {
   ACTIVE = 'ACTIVE', // 正常
@@ -55,6 +55,17 @@ export type AccountWithAccessGroup = {
   loginName: string;
   loginEmail: string;
   accessGroup: IdentityTypeEnum[];
+};
+
+export type UserAccountView = {
+  id: number;
+  loginName: string | null;
+  loginEmail: string | null;
+  status: AccountStatus;
+  identityHint: string | null;
+  recentLoginHistory: LoginHistoryItem[] | null;
+  createdAt: Date;
+  updatedAt: Date;
 };
 
 export enum AudienceTypeEnum {

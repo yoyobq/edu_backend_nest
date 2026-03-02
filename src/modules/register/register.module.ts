@@ -4,11 +4,6 @@ import { AccountInstallerModule } from '@modules/account/account-installer.modul
 import { ThirdPartyAuthModule } from '@modules/third-party-auth/third-party-auth.module';
 import { PasswordModule } from '@core/common/password/password.module';
 import { Module } from '@nestjs/common';
-import { CreateAccountUsecase } from '@usecases/account/create-account.usecase';
-import { RegisterWithEmailUsecase } from '@usecases/registration/register-with-email.usecase';
-import { RegisterWithThirdPartyUsecase } from '@usecases/registration/register-with-third-party.usecase';
-import { WeappRegisterUsecase } from '@usecases/registration/weapp-register.usecase';
-import { VerificationUsecasesModule } from '@usecases/verification/verification-usecases.module';
 
 @Module({
   imports: [
@@ -16,14 +11,6 @@ import { VerificationUsecasesModule } from '@usecases/verification/verification-
     AccountInstallerModule, // 使用默认配置：{ preset: 'custom', identities: [] }
     ThirdPartyAuthModule,
     PasswordModule, // 导入 PasswordModule 以提供 PasswordPolicyService
-    VerificationUsecasesModule,
   ],
-  providers: [
-    CreateAccountUsecase,
-    RegisterWithEmailUsecase,
-    RegisterWithThirdPartyUsecase,
-    WeappRegisterUsecase,
-  ],
-  exports: [RegisterWithEmailUsecase, RegisterWithThirdPartyUsecase],
 })
 export class RegisterModule {}

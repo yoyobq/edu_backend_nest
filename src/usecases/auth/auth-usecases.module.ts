@@ -1,5 +1,5 @@
-import { Module } from '@nestjs/common';
 import { AuthModule } from '@modules/auth/auth.module';
+import { Module } from '@nestjs/common';
 import { DecideLoginRoleUsecase } from '@src/usecases/auth/decide-login-role.usecase';
 import { EnrichLoginWithIdentityUsecase } from '@src/usecases/auth/enrich-login-with-identity.usecase';
 import { ExecuteLoginFlowUsecase } from '@src/usecases/auth/execute-login-flow.usecase';
@@ -9,6 +9,14 @@ import { LoginWithThirdPartyUsecase } from '@src/usecases/auth/login-with-third-
 
 @Module({
   imports: [AuthModule],
+  providers: [
+    LoginWithPasswordUsecase,
+    ExecuteLoginFlowUsecase,
+    LoginByAccountIdUsecase,
+    LoginWithThirdPartyUsecase,
+    DecideLoginRoleUsecase,
+    EnrichLoginWithIdentityUsecase,
+  ],
   exports: [
     LoginWithPasswordUsecase,
     ExecuteLoginFlowUsecase,

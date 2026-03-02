@@ -6,63 +6,72 @@ import { parseStaffId } from '@core/account/identity/parse-staff-id';
 import { AUTH_ERROR, DomainError } from '@core/common/errors';
 import { Injectable } from '@nestjs/common';
 import { AccountService } from '@src/modules/account/base/services/account.service';
-import { CoachType } from '../../adapters/graphql/account/dto/identity/coach.dto';
-import { CustomerType } from '../../adapters/graphql/account/dto/identity/customer.dto';
-import { LearnerType } from '../../adapters/graphql/account/dto/identity/learner.dto';
-import { ManagerType } from '../../adapters/graphql/account/dto/identity/manager.dto';
-import { StaffType } from '../../adapters/graphql/account/dto/identity/staff.dto';
+
+type StaffIdentity = {
+  id: number;
+  accountId: number;
+  name: string;
+  departmentId: number | null;
+  remark: string | null;
+  jobTitle: string | null;
+  employmentStatus: EmploymentStatus;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+type CoachIdentity = {
+  id: number;
+  accountId: number;
+  name: string;
+  remark: string | null;
+  employmentStatus: EmploymentStatus;
+  createdAt: Date;
+  updatedAt: Date;
+  specialty: string | null;
+};
+
+type ManagerIdentity = {
+  id: number;
+  accountId: number;
+  name: string;
+  remark: string | null;
+  employmentStatus: EmploymentStatus;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+type CustomerIdentity = {
+  id: number;
+  accountId: number | null;
+  name: string;
+  contactPhone: string | null;
+  preferredContactTime: string | null;
+  remark: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+type LearnerIdentity = {
+  id: number;
+  accountId: number | null;
+  customerId: number;
+  name: string;
+  gender: Gender;
+  birthDate: string | null;
+  avatarUrl: string | null;
+  specialNeeds: string | null;
+  countPerSession: number | null;
+  remark: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+};
 
 export type RawIdentity =
-  | { kind: 'STAFF'; data: StaffType & { id: number } }
-  | {
-      kind: 'COACH';
-      data: Pick<
-        CoachType,
-        'accountId' | 'name' | 'remark' | 'employmentStatus' | 'createdAt' | 'updatedAt'
-      > & {
-        id: number;
-        specialty: string | null;
-      };
-    }
-  | {
-      kind: 'MANAGER';
-      data: Pick<
-        ManagerType,
-        'accountId' | 'name' | 'remark' | 'employmentStatus' | 'createdAt' | 'updatedAt'
-      > & {
-        id: number;
-      };
-    }
-  | {
-      kind: 'CUSTOMER';
-      data: Pick<
-        CustomerType,
-        | 'accountId'
-        | 'name'
-        | 'contactPhone'
-        | 'preferredContactTime'
-        | 'remark'
-        | 'createdAt'
-        | 'updatedAt'
-      > & { id: number };
-    }
-  | {
-      kind: 'LEARNER';
-      data: Pick<
-        LearnerType,
-        | 'accountId'
-        | 'customerId'
-        | 'name'
-        | 'gender'
-        | 'birthDate'
-        | 'avatarUrl'
-        | 'specialNeeds'
-        | 'countPerSession'
-        | 'remark'
-        | 'createdAt'
-        | 'updatedAt'
-      > & { id: number };
-    }
+  | { kind: 'STAFF'; data: StaffIdentity }
+  | { kind: 'COACH'; data: CoachIdentity }
+  | { kind: 'MANAGER'; data: ManagerIdentity }
+  | { kind: 'CUSTOMER'; data: CustomerIdentity }
+  | { kind: 'LEARNER'; data: LearnerIdentity }
   | { kind: 'NONE' };
 
 @Injectable()
@@ -90,13 +99,7 @@ export class FetchIdentityByRoleUsecase {
     deactivatedAt: Date | null;
     createdAt: Date;
     updatedAt: Date;
-  }): Pick<
-    CoachType,
-    'accountId' | 'name' | 'remark' | 'employmentStatus' | 'createdAt' | 'updatedAt'
-  > & {
-    id: number;
-    specialty: string | null;
-  } {
+  }): CoachIdentity {
     return {
       id: entity.id,
       accountId: entity.accountId,
@@ -120,12 +123,7 @@ export class FetchIdentityByRoleUsecase {
     deactivatedAt: Date | null;
     createdAt: Date;
     updatedAt: Date;
-  }): Pick<
-    ManagerType,
-    'accountId' | 'name' | 'remark' | 'employmentStatus' | 'createdAt' | 'updatedAt'
-  > & {
-    id: number;
-  } {
+  }): ManagerIdentity {
     return {
       id: entity.id,
       accountId: entity.accountId,
@@ -150,19 +148,10 @@ export class FetchIdentityByRoleUsecase {
     deactivatedAt: Date | null;
     createdAt: Date;
     updatedAt: Date;
-  }): Pick<
-    CustomerType,
-    | 'accountId'
-    | 'name'
-    | 'contactPhone'
-    | 'preferredContactTime'
-    | 'remark'
-    | 'createdAt'
-    | 'updatedAt'
-  > & { id: number } {
+  }): CustomerIdentity {
     return {
       id: entity.id,
-      accountId: entity.accountId!,
+      accountId: entity.accountId,
       name: entity.name,
       contactPhone: entity.contactPhone,
       preferredContactTime: entity.preferredContactTime,
@@ -185,7 +174,7 @@ export class FetchIdentityByRoleUsecase {
     employmentStatus: EmploymentStatus;
     createdAt: Date;
     updatedAt: Date;
-  }): StaffType & { id: number } {
+  }): StaffIdentity {
     const parsedId = parseStaffId({ id: entity.id });
     return {
       id: parsedId,
@@ -212,24 +201,11 @@ export class FetchIdentityByRoleUsecase {
     birthDate: string | null;
     avatarUrl: string | null;
     specialNeeds: string | null;
-    countPerSession: number;
+    countPerSession: number | null;
     remark: string | null;
     createdAt: Date;
     updatedAt: Date;
-  }): Pick<
-    LearnerType,
-    | 'accountId'
-    | 'customerId'
-    | 'name'
-    | 'gender'
-    | 'birthDate'
-    | 'avatarUrl'
-    | 'specialNeeds'
-    | 'countPerSession'
-    | 'remark'
-    | 'createdAt'
-    | 'updatedAt'
-  > & { id: number } {
+  }): LearnerIdentity {
     return {
       id: entity.id,
       accountId: entity.accountId,
