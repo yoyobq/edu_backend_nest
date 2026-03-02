@@ -51,8 +51,6 @@ describe('Overdue Customers (e2e)', () => {
         contactPhone: null,
         preferredContactTime: null,
         remark: null,
-        remainingSessions: -2,
-        membershipLevel: 1,
       },
       {
         name: 'OVERDUE_CASE_B',
@@ -60,8 +58,6 @@ describe('Overdue Customers (e2e)', () => {
         contactPhone: null,
         preferredContactTime: null,
         remark: null,
-        remainingSessions: -1,
-        membershipLevel: 1,
       },
       {
         name: 'OVERDUE_CASE_C',
@@ -69,8 +65,6 @@ describe('Overdue Customers (e2e)', () => {
         contactPhone: null,
         preferredContactTime: null,
         remark: null,
-        remainingSessions: 0,
-        membershipLevel: 1,
       },
       {
         name: 'OVERDUE_CASE_D',
@@ -78,8 +72,6 @@ describe('Overdue Customers (e2e)', () => {
         contactPhone: null,
         preferredContactTime: null,
         remark: null,
-        remainingSessions: 3,
-        membershipLevel: 1,
       },
     ] as Partial<CustomerEntity>[]);
   }, 60000);

@@ -2,6 +2,7 @@
 
 import { Module } from '@nestjs/common';
 import { APP_FILTER } from '@nestjs/core';
+import { GraphQLAdapterModule } from './adapters/graphql/graphql-adapter.module';
 import { IntegrationEventsAdapterModule } from './adapters/integration-events/integration-events-adapter.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -26,6 +27,7 @@ import { RegisterModule } from './modules/register/register.module';
     MiddlewareModule,
     DatabaseModule,
     AppGraphQLModule,
+    GraphQLAdapterModule,
     FieldEncryptionModule,
     PasswordModule, // 全局导入 PasswordModule 确保 PasswordPolicyService 在 E2E 测试中可用
     CatsModule,
