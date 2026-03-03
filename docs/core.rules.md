@@ -1,6 +1,6 @@
 <!-- /var/www/backend/docs/core.rules.md -->
 
-# Core 规则
+# Core 说明
 
 ## 定位与职责
 

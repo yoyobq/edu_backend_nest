@@ -1,6 +1,6 @@
 <!-- /var/www/backend/docs/infrastructure.rules.md -->
 
-# Infrastructure 规则
+# Infrastructure 说明
 
 ## 定位与职责
 

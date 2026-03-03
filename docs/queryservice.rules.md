@@ -1,4 +1,4 @@
-<!-- 文件位置: /var/www/backend/.trae/documents/queryservice.md -->
+<!-- 文件位置: /var/www/backend/docs/queryservice.rules.md -->
 
 # QueryService 说明
 
