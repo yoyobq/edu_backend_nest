@@ -42,61 +42,6 @@ export function isPrivateIp(ip: string): boolean {
 }
 
 /**
- * 从请求头中获取真实客户端 IP 地址
- * 支持 nginx 代理设置的 X-Real-IP 和 X-Forwarded-For 头
- * @param request Express 请求对象或包含 headers 的对象
- * @returns 真实的客户端 IP 地址
- */
-export function getRealClientIp(request: {
-  headers: Record<string, string | string[] | undefined>;
-  ip?: string;
-  connection?: { remoteAddress?: string };
-}): string {
-  const getCleanIp = (ip: string | undefined): string => ip?.replace(/^::ffff:/, '').trim() || '';
-
-  try {
-    // 优先从 X-Real-IP 获取（nginx proxy_set_header X-Real-IP $remote_addr 设置）
-    const xRealIp = request.headers['x-real-ip'];
-    if (xRealIp) {
-      // 考虑到 X-Real-IP 极低可能被不规范中间件修改成数组，取第一个元素
-      const ip = Array.isArray(xRealIp) ? xRealIp[0] : xRealIp;
-      return getCleanIp(ip);
-    }
-
-    // 从 X-Forwarded-For 获取（nginx proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for 设置）
-    // 出于安全考虑，只信任第一跳代理，取第一个 IP 地址
-    const xForwardedFor = request.headers['x-forwarded-for'];
-    if (xForwardedFor) {
-      const firstIp =
-        typeof xForwardedFor === 'string'
-          ? xForwardedFor.split(',')[0].trim()
-          : Array.isArray(xForwardedFor)
-            ? xForwardedFor[0].split(',')[0].trim()
-            : '';
-
-      if (firstIp) {
-        return firstIp;
-      }
-    }
-
-    // 回退到请求的直接 IP
-    if (request.ip) {
-      return request.ip;
-    }
-
-    // 最后回退到连接的远程地址
-    if (request.connection?.remoteAddress) {
-      return request.connection.remoteAddress;
-    }
-
-    // 如果都获取不到，返回空字符串
-    return '';
-  } catch {
-    return '';
-  }
-}
-
-/**
  * 检查客户端 IP 是否在允许的 IP 范围内
  * @param clientIp 客户端 IP
  * @param allowedIps 允许的 IP 列表或 IP 段

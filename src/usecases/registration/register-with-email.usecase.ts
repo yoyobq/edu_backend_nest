@@ -3,11 +3,7 @@
 import { AccountStatus, IdentityTypeEnum, UserAccountView } from '@app-types/models/account.types';
 import { VerificationRecordType } from '@app-types/models/verification-record.types';
 import { ACCOUNT_ERROR, DomainError } from '@core/common/errors';
-import {
-  getRealClientIp,
-  isPrivateIp,
-  isServerIp,
-} from '@core/common/network/network-access.helper';
+import { isPrivateIp, isServerIp } from '@core/common/network/network-access.helper';
 import { TokenFingerprintHelper } from '@core/security/token-fingerprint.helper';
 import { Injectable } from '@nestjs/common';
 import { AccountService } from '@src/modules/account/base/services/account.service';
@@ -46,17 +42,16 @@ export class RegisterWithEmailUsecase {
       loginPassword,
       nickname,
       inviteToken,
-      request,
+      clientIp,
       serverNetworkInterfaces,
     } = params;
 
     try {
-      // 获取真实客户端 IP
-      const clientIp = request ? getRealClientIp(request) : '';
+      const finalClientIp = clientIp ?? '';
 
       // 判断是否内网且服务器 ip 是 192.168.72.55，如果是走核验流程
       if (
-        isPrivateIp(clientIp) &&
+        isPrivateIp(finalClientIp) &&
         isServerIp({ targetIp: '192.168.72.55', networkInterfaces: serverNetworkInterfaces })
       ) {
         // 校园网核验流程暂未实现
@@ -102,9 +97,7 @@ export class RegisterWithEmailUsecase {
         await this.accountService.updateAccount(account.id, { status: AccountStatus.ACTIVE });
       }
 
-      this.logger.info(
-        `用户注册成功: ${account.id}，注册时 IP 为：${clientIp.replace(/^::ffff:/, '').trim()}`,
-      );
+      this.logger.info(`用户注册成功: ${account.id}，注册时 IP 为：${finalClientIp}`);
 
       return {
         success: true,

@@ -9,15 +9,11 @@ export interface RegisterWithEmailParams {
   loginPassword: string;
   nickname?: string;
   inviteToken?: string;
+  clientIp?: string;
   serverNetworkInterfaces?: Record<
     string,
     ReadonlyArray<{ address: string; family: string | number }> | undefined
   >;
-  request?: {
-    headers: Record<string, string | string[] | undefined>;
-    ip?: string;
-    connection?: { remoteAddress?: string };
-  };
 }
 
 /**

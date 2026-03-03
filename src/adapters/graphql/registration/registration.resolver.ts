@@ -5,8 +5,8 @@ import { RegisterWithEmailUsecase } from '@usecases/registration/register-with-e
 import { RegisterWithThirdPartyUsecase } from '@usecases/registration/register-with-third-party.usecase';
 import { GetWeappPhoneUsecase } from '@usecases/third-party-accounts/get-weapp-phone.usecase';
 import { Request } from 'express';
-import * as os from 'os';
 import { PinoLogger } from 'nestjs-pino';
+import * as os from 'os';
 import { RegisterResult } from './dto/register-result.dto';
 import { RegisterInput } from './dto/register.input';
 import { ThirdPartyRegisterInput } from './dto/third-party-register.input';
@@ -30,13 +30,27 @@ export class RegistrationResolver {
   ): Promise<RegisterResult> {
     // 只传递 usecase 关心的"扁平请求形状"，避免把 Express 类型下沉到用例层
     const req = context?.req;
-    const safeRequest = req
-      ? {
-          headers: req.headers as Record<string, string | string[] | undefined>,
-          ip: req.ip || req.socket?.remoteAddress || undefined,
-          connection: { remoteAddress: req.socket?.remoteAddress },
-        }
-      : undefined;
+    const clientIp = (() => {
+      if (!req) return '';
+      const clean = (ip: string | undefined): string => ip?.replace(/^::ffff:/, '').trim() || '';
+      const xRealIp = req.headers['x-real-ip'];
+      if (xRealIp) {
+        const ip = Array.isArray(xRealIp) ? xRealIp[0] : xRealIp;
+        return clean(ip);
+      }
+      const xForwardedFor = req.headers['x-forwarded-for'];
+      if (xForwardedFor) {
+        const firstIp =
+          typeof xForwardedFor === 'string'
+            ? xForwardedFor.split(',')[0].trim()
+            : Array.isArray(xForwardedFor)
+              ? xForwardedFor[0].split(',')[0].trim()
+              : '';
+        if (firstIp) return firstIp;
+      }
+      if (req.ip) return req.ip;
+      return req.socket?.remoteAddress ?? '';
+    })();
 
     const serverNetworkInterfaces = os.networkInterfaces();
 
@@ -46,8 +60,8 @@ export class RegistrationResolver {
       loginPassword: input.loginPassword,
       nickname: input.nickname,
       inviteToken: input.inviteToken,
+      clientIp,
       serverNetworkInterfaces,
-      request: safeRequest,
     });
 
     return {
