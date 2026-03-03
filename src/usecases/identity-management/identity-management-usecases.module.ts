@@ -6,6 +6,7 @@ import { CustomerServiceModule } from '@src/modules/account/identities/training/
 import { LearnerIdentityModule } from '@src/modules/account/identities/training/learner/learner.module';
 import { ManagerServiceModule } from '@src/modules/account/identities/training/manager/manager-service.module';
 import { AuthModule } from '@src/modules/auth/auth.module';
+import { AccountUsecasesModule } from '@src/usecases/account/account-usecases.module';
 import { DeactivateCoachUsecase } from '@src/usecases/identity-management/coach/deactivate-coach.usecase';
 import { GetMyCoachUsecase } from '@src/usecases/identity-management/coach/get-my-coach.usecase';
 import { ListCoachesUsecase } from '@src/usecases/identity-management/coach/list-coaches.usecase';
@@ -37,6 +38,7 @@ import { UpdateManagerUsecase } from '@src/usecases/identity-management/manager/
     LearnerIdentityModule,
     ManagerServiceModule,
     AuthModule,
+    AccountUsecasesModule,
   ],
   providers: [
     UpgradeToCustomerUsecase,

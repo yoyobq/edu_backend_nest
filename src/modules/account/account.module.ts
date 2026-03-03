@@ -8,9 +8,9 @@
  * - 对外只导出 PROFILE_PROVIDER_MAP_TOKEN（聚合后的 Map），不导出底层 token
  */
 
-import { FieldEncryptionModule } from '@src/infrastructure/field-encryption/field-encryption.module';
 import { DynamicModule, Module, Provider, Type } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { FieldEncryptionModule } from '@src/infrastructure/field-encryption/field-encryption.module';
 
 import { AccountEntity } from './base/entities/account.entity';
 import { UserInfoEntity } from './base/entities/user-info.entity';
@@ -137,6 +137,7 @@ export class AccountModule {
         AccountService,
         AccountQueryService,
         LearnerQueryService,
+        AccountSecurityService,
         PROFILE_PROVIDER_MAP_TOKEN, // 对外只暴露聚合后的 Map
       ],
     };

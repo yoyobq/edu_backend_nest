@@ -44,6 +44,6 @@ const providerMapFactory: Provider = {
     ThirdPartyAuthService,
     ThirdPartyAuthQueryService,
   ],
-  exports: [ThirdPartyAuthService, ThirdPartyAuthQueryService],
+  exports: [ThirdPartyAuthService, ThirdPartyAuthQueryService, WeAppProvider],
 })
 export class ThirdPartyAuthModule {}
