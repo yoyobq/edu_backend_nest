@@ -6,7 +6,7 @@ import {
   VerificationRecordStatus,
 } from '@app-types/models/verification-record.types';
 import { DomainError, VERIFICATION_RECORD_ERROR } from '@core/common/errors/domain-error';
-import { TokenFingerprintHelper } from '@core/security/token-fingerprint.helper';
+import { TokenFingerprintHelper } from '@modules/common/security/token-fingerprint.helper';
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { EntityManager, QueryFailedError, Repository, UpdateQueryBuilder } from 'typeorm';

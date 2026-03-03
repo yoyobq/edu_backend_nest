@@ -1,7 +1,7 @@
 /* eslint-disable max-lines-per-function */
-// src/core/common/password/password-integration.spec.ts
+// src/modules/common/password/password-integration.spec.ts
 import { AccountService } from '@modules/account/base/services/account.service';
-import { PasswordPbkdf2Helper } from './password.pbkdf2.helper';
+import { LegacyPasswordCryptoHelper } from '@modules/common/password/legacy-password-crypto.helper';
 
 describe('密码预处理与 PBKDF2 哈希集成测试', () => {
   describe('NFKC 标准化集成', () => {
@@ -35,7 +35,7 @@ describe('密码预处理与 PBKDF2 哈希集成测试', () => {
         fullWidthPassword,
         testDate,
       );
-      const directPbkdf2Hash = PasswordPbkdf2Helper.hashPasswordWithCrypto(
+      const directPbkdf2Hash = LegacyPasswordCryptoHelper.hashPasswordWithCrypto(
         expectedNormalizedPassword,
         salt,
       );
@@ -75,14 +75,21 @@ describe('密码预处理与 PBKDF2 哈希集成测试', () => {
 
       // Act
       const accountServiceHash = AccountService.hashPasswordWithTimestamp(cleanPassword, testDate);
-      const directPbkdf2Hash = PasswordPbkdf2Helper.hashPasswordWithCrypto(cleanPassword, salt);
+      const directPbkdf2Hash = LegacyPasswordCryptoHelper.hashPasswordWithCrypto(
+        cleanPassword,
+        salt,
+      );
 
       // Assert
       expect(accountServiceHash).toBe(directPbkdf2Hash);
 
       // 验证兼容性
       expect(
-        PasswordPbkdf2Helper.verifyPasswordWithCrypto(cleanPassword, salt, accountServiceHash),
+        LegacyPasswordCryptoHelper.verifyPasswordWithCrypto(
+          cleanPassword,
+          salt,
+          accountServiceHash,
+        ),
       ).toBe(true);
       expect(AccountService.verifyPassword(cleanPassword, directPbkdf2Hash, testDate)).toBe(true);
     });
@@ -98,7 +105,10 @@ describe('密码预处理与 PBKDF2 哈希集成测试', () => {
         standardPassword,
         testDate,
       );
-      const directPbkdf2Hash = PasswordPbkdf2Helper.hashPasswordWithCrypto(standardPassword, salt);
+      const directPbkdf2Hash = LegacyPasswordCryptoHelper.hashPasswordWithCrypto(
+        standardPassword,
+        salt,
+      );
 
       // Assert - 对于已经标准化的密码，结果应该完全一致
       expect(accountServiceHash).toBe(directPbkdf2Hash);

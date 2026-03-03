@@ -4,7 +4,7 @@ import { AccountStatus, IdentityTypeEnum, UserAccountView } from '@app-types/mod
 import { VerificationRecordType } from '@app-types/models/verification-record.types';
 import { ACCOUNT_ERROR, DomainError } from '@core/common/errors';
 import { isPrivateIp, isServerIp } from '@core/common/network/network-access.helper';
-import { TokenFingerprintHelper } from '@core/security/token-fingerprint.helper';
+import { TokenFingerprintHelper } from '@modules/common/security/token-fingerprint.helper';
 import { Injectable } from '@nestjs/common';
 import { AccountService } from '@src/modules/account/base/services/account.service';
 import {

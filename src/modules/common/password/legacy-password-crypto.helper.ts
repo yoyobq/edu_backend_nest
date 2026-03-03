@@ -1,12 +1,12 @@
-// src/core/common/password/password.pbkdf2.helper.ts
+// src/modules/common/password/legacy-password-crypto.helper.ts
 import { pbkdf2Sync, timingSafeEqual } from 'crypto';
 // import * as CryptoJS from 'crypto-js';
 
 /**
- * PBKDF2 密码哈希工具类
- * 提供与老系统兼容的密码哈希功能
+ * 老系统兼容密码加密工具类
+ * 提供与老系统兼容的 PBKDF2 密码哈希功能
  */
-export class PasswordPbkdf2Helper {
+export class LegacyPasswordCryptoHelper {
   /**
    * 根据传入的密码和盐值生成哈希字符串（Node.js crypto 版本）
    * 使用 Node.js 内置 crypto 模块实现相同的算法
