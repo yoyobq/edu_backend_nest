@@ -1,22 +1,14 @@
 // src/usecases/identity-management/customer/reactivate-customer.usecase.ts
 
 import { ACCOUNT_ERROR, DomainError, PERMISSION_ERROR } from '@core/common/errors/domain-error';
-import { CustomerEntity } from '@modules/account/identities/training/customer/account-customer.entity';
-import { CustomerService } from '@modules/account/identities/training/customer/account-customer.service';
+import {
+  CustomerService,
+  type CustomerProfile,
+} from '@modules/account/identities/training/customer/account-customer.service';
 import { ManagerService } from '@modules/account/identities/training/manager/manager.service';
 import { Injectable } from '@nestjs/common';
 
-type CustomerView = {
-  readonly id: number;
-  readonly accountId: number | null;
-  readonly name: string;
-  readonly contactPhone: string | null;
-  readonly preferredContactTime: string | null;
-  readonly remark: string | null;
-  readonly deactivatedAt: Date | null;
-  readonly createdAt: Date;
-  readonly updatedAt: Date;
-};
+type CustomerView = CustomerProfile;
 
 /**
  * 上线客户输入参数
@@ -64,45 +56,33 @@ export class ReactivateCustomerUsecase {
     }
 
     // 查找客户
-    const entity = await this.customerService.findById(input.id);
-    if (!entity) {
+    const current = await this.customerService.findProfileById(input.id);
+    if (!current) {
       throw new DomainError(ACCOUNT_ERROR.ACCOUNT_NOT_FOUND, '客户不存在');
     }
 
     // 幂等：已上线直接返回
-    if (!entity.deactivatedAt) {
-      return { customer: this.toView(entity), isUpdated: false };
+    if (!current.deactivatedAt) {
+      return { customer: current, isUpdated: false };
     }
 
     const now = new Date();
 
     // 单事务更新，写入审计字段
-    await this.customerService.runTransaction(async (managerTx) => {
-      await managerTx.getRepository(CustomerEntity).update(entity.id, {
-        deactivatedAt: null,
-        updatedBy: currentAccountId,
-        updatedAt: now,
+    const updated = await this.customerService.runTransaction(async (managerTx) => {
+      return this.customerService.updateCustomerWithManager({
+        id: input.id,
+        updateData: {
+          deactivatedAt: null,
+          updatedBy: currentAccountId,
+          updatedAt: now,
+        },
+        manager: managerTx,
       });
     });
-
-    const updated = await this.customerService.findById(entity.id);
     if (!updated) {
       throw new DomainError(ACCOUNT_ERROR.OPERATION_NOT_SUPPORTED, '上线客户失败');
     }
-    return { customer: this.toView(updated), isUpdated: true };
-  }
-
-  private toView(entity: CustomerEntity): CustomerView {
-    return {
-      id: entity.id,
-      accountId: entity.accountId,
-      name: entity.name,
-      contactPhone: entity.contactPhone,
-      preferredContactTime: entity.preferredContactTime,
-      remark: entity.remark,
-      deactivatedAt: entity.deactivatedAt ?? null,
-      createdAt: entity.createdAt,
-      updatedAt: entity.updatedAt,
-    };
+    return { customer: updated, isUpdated: true };
   }
 }

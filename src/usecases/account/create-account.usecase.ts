@@ -2,11 +2,11 @@
 import { AccountStatus, UserAccountView } from '@app-types/models/account.types';
 import { PasswordPolicyService } from '@core/common/password/password-policy.service';
 import { Injectable } from '@nestjs/common';
-import { AccountEntity } from '@src/modules/account/base/entities/account.entity';
-import { UserInfoEntity } from '@src/modules/account/base/entities/user-info.entity';
 import {
   AccountService,
+  type AccountCreateData,
   type AccountTransactionManager,
+  type UserInfoCreateData,
 } from '@src/modules/account/base/services/account.service';
 import { AccountQueryService } from '@src/modules/account/queries/account.query.service';
 import { AUTH_ERROR, DomainError } from '../../core/common/errors/domain-error';
@@ -33,8 +33,8 @@ export class CreateAccountUsecase {
     userInfoData,
     manager,
   }: {
-    accountData: Partial<AccountEntity>;
-    userInfoData: Partial<UserInfoEntity>;
+    accountData: AccountCreateData;
+    userInfoData: UserInfoCreateData;
     manager?: AccountTransactionManager;
   }): Promise<UserAccountView> {
     const run = async (m: AccountTransactionManager) => this.doCreate(m, accountData, userInfoData);
@@ -52,8 +52,8 @@ export class CreateAccountUsecase {
    */
   private async doCreate(
     manager: AccountTransactionManager,
-    accountData: Partial<AccountEntity>,
-    userInfoData: Partial<UserInfoEntity>,
+    accountData: AccountCreateData,
+    userInfoData: UserInfoCreateData,
   ): Promise<UserAccountView> {
     // 验证密码是否符合安全策略
     if (accountData.loginPassword) {
@@ -69,14 +69,17 @@ export class CreateAccountUsecase {
     }
 
     // 1) 创建账户（先写临时密码拿到 createdAt）
-    const account = manager.create(AccountEntity, {
-      ...accountData,
-      loginPassword: 'temp',
-      status: accountData.status || AccountStatus.PENDING,
-      createdAt: new Date(),
-      updatedAt: new Date(),
+    const account = this.accountService.createAccountEntity({
+      manager,
+      accountData: {
+        ...accountData,
+        loginPassword: 'temp',
+        status: accountData.status || AccountStatus.PENDING,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
     });
-    const savedAccount = await manager.save(account);
+    const savedAccount = await this.accountService.saveAccount({ account, manager });
 
     // 2) 依据 createdAt 生成最终哈希密码并更新
     const hashedPassword = AccountService.hashPasswordWithTimestamp(
@@ -84,16 +87,19 @@ export class CreateAccountUsecase {
       savedAccount.createdAt,
     );
     savedAccount.loginPassword = hashedPassword;
-    await manager.save(savedAccount);
+    await this.accountService.saveAccount({ account: savedAccount, manager });
 
     // 3) 写入 UserInfo
-    const userInfo = manager.create(UserInfoEntity, {
-      ...userInfoData,
-      accountId: savedAccount.id,
-      createdAt: new Date(),
-      updatedAt: new Date(),
+    const userInfo = this.accountService.createUserInfoEntity({
+      manager,
+      userInfoData: {
+        ...userInfoData,
+        accountId: savedAccount.id,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
     });
-    await manager.save(userInfo);
+    await this.accountService.saveUserInfo({ userInfo, manager });
 
     return this.accountQueryService.toUserAccountView(savedAccount);
   }

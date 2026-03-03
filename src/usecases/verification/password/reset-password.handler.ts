@@ -45,14 +45,15 @@ export class ResetPasswordHandler implements VerificationFlowHandler<PasswordRes
     if (recordView.targetAccountId) {
       targetAccountId = recordView.targetAccountId;
     } else {
-      // 如果 recordView 中没有 targetAccountId，则需要查询完整实体
-      // 使用同一事务的 manager 进行查询
-      const repo = this.verificationRecordService.getRepository(manager);
-      const record = await repo.findOne({ where: { id: recordView.id } });
-      if (!record?.targetAccountId) {
+      const recordTargetAccountId =
+        await this.verificationRecordService.getTargetAccountIdByRecordId({
+          recordId: recordView.id,
+          manager,
+        });
+      if (!recordTargetAccountId) {
         throw new DomainError(ACCOUNT_ERROR.ACCOUNT_NOT_FOUND, '验证记录中未找到目标账户');
       }
-      targetAccountId = record.targetAccountId;
+      targetAccountId = recordTargetAccountId;
     }
 
     // 调用密码重置用例，传递事务管理器

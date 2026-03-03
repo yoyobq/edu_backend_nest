@@ -47,15 +47,7 @@ export class BindThirdPartyAccountUsecase {
         { accountId: params.accountId, provider: params.provider },
         '第三方账户绑定成功',
       );
-      return {
-        id: result.id,
-        accountId: result.accountId,
-        provider: result.provider,
-        providerUserId: result.providerUserId,
-        unionId: result.unionId ?? null,
-        createdAt: result.createdAt,
-        updatedAt: result.updatedAt,
-      };
+      return result;
     } catch (e) {
       throw this.normalizeError(e, THIRDPARTY_ERROR.BIND_FAILED, '绑定第三方账户失败');
     }

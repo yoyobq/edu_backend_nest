@@ -57,8 +57,8 @@ export interface VerificationFlowContext {
 //  * 邮箱验证结果
 //  */
 // export interface EmailVerificationResult {
-//   /** 验证记录 */
-//   record: VerificationRecordEntity;
+//   /** 验证记录视图 */
+//   record: VerificationRecordView;
 //   /** 验证的邮箱地址 */
 //   email: string;
 //   /** 关联的账号 ID（如果有） */
@@ -70,8 +70,8 @@ export interface VerificationFlowContext {
 //  * 魔法链接登录结果
 //  */
 // export interface MagicLinkLoginResult {
-//   /** 验证记录 */
-//   record: VerificationRecordEntity;
+//   /** 验证记录视图 */
+//   record: VerificationRecordView;
 //   /** 登录的账号 ID */
 //   accountId: number;
 //   /** JWT token */
@@ -84,8 +84,8 @@ export interface VerificationFlowContext {
 //  * 邀请接受结果
 //  */
 // export interface InviteAcceptResult {
-//   /** 验证记录 */
-//   record: VerificationRecordEntity;
+//   /** 验证记录视图 */
+//   record: VerificationRecordView;
 //   /** 接受邀请的账号 ID */
 //   accountId: number;
 //   /** 邀请类型 */
@@ -98,8 +98,8 @@ export interface VerificationFlowContext {
 //  * 短信验证结果
 //  */
 // export interface SmsVerificationResult {
-//   /** 验证记录 */
-//   record: VerificationRecordEntity;
+//   /** 验证记录视图 */
+//   record: VerificationRecordView;
 //   /** 验证的手机号 */
 //   phone: string;
 //   /** 关联的账号 ID（如果有） */
@@ -110,8 +110,8 @@ export interface VerificationFlowContext {
 //  * 第三方绑定结果
 //  */
 // export interface ThirdPartyBindResult {
-//   /** 验证记录 */
-//   record: VerificationRecordEntity;
+//   /** 验证记录视图 */
+//   record: VerificationRecordView;
 //   /** 绑定的账号 ID */
 //   accountId: number;
 //   /** 第三方平台类型 */

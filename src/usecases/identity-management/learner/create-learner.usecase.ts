@@ -1,31 +1,18 @@
 // src/usecases/identity-management/learner/create-learner.usecase.ts
 
-import { Gender } from '@app-types/models/user-info.types';
 import { DomainError, LEARNER_ERROR, PERMISSION_ERROR } from '@core/common/errors/domain-error';
 import { CustomerService } from '@modules/account/identities/training/customer/account-customer.service';
-import { LearnerEntity } from '@modules/account/identities/training/learner/account-learner.entity';
 import {
   LearnerService,
   type LearnerTransactionManager,
 } from '@modules/account/identities/training/learner/account-learner.service';
+import {
+  LearnerQueryService,
+  type LearnerView,
+} from '@modules/account/queries/learner.query.service';
 import { ManagerService } from '@modules/account/identities/training/manager/manager.service';
 import { Injectable } from '@nestjs/common';
-
-type LearnerView = {
-  readonly id: number;
-  readonly accountId: number | null;
-  readonly customerId: number;
-  readonly name: string;
-  readonly gender: Gender;
-  readonly birthDate: string | null;
-  readonly avatarUrl: string | null;
-  readonly specialNeeds: string | null;
-  readonly countPerSession: number;
-  readonly remark: string | null;
-  readonly deactivatedAt: Date | null;
-  readonly createdAt: Date;
-  readonly updatedAt: Date;
-};
+import { Gender } from '@app-types/models/user-info.types';
 
 /**
  * 创建学员用例参数
@@ -73,6 +60,7 @@ export class CreateLearnerUsecase {
     private readonly learnerService: LearnerService,
     private readonly customerService: CustomerService,
     private readonly managerService: ManagerService,
+    private readonly learnerQueryService: LearnerQueryService,
   ) {}
 
   /**
@@ -133,25 +121,7 @@ export class CreateLearnerUsecase {
         createdBy: currentAccountId,
       });
 
-      return { learner: this.toView(learner), isNewlyCreated: true };
+      return { learner: this.learnerQueryService.toView(learner), isNewlyCreated: true };
     });
-  }
-
-  private toView(entity: LearnerEntity): LearnerView {
-    return {
-      id: entity.id,
-      accountId: entity.accountId ?? null,
-      customerId: entity.customerId,
-      name: entity.name,
-      gender: entity.gender,
-      birthDate: entity.birthDate ?? null,
-      avatarUrl: entity.avatarUrl ?? null,
-      specialNeeds: entity.specialNeeds ?? null,
-      countPerSession: entity.countPerSession,
-      remark: entity.remark ?? null,
-      deactivatedAt: entity.deactivatedAt ?? null,
-      createdAt: entity.createdAt,
-      updatedAt: entity.updatedAt,
-    };
   }
 }

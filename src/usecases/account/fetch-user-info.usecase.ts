@@ -4,7 +4,6 @@ import { IdentityTypeEnum } from '@app-types/models/account.types';
 import { UserInfoView } from '@app-types/models/auth.types'; // 导入统一的 UserInfoView
 import { Gender, UserState } from '@app-types/models/user-info.types';
 import { ACCOUNT_ERROR, DomainError } from '@core/common/errors';
-import { UserInfoEntity } from '@modules/account/base/entities/user-info.entity';
 import { AccountSecurityService } from '@modules/account/base/services/account-security.service';
 import { Injectable } from '@nestjs/common';
 import {
@@ -25,8 +24,10 @@ export interface CompleteUserData {
     wasSuspended: boolean;
     realAccessGroup?: IdentityTypeEnum[];
   };
-  rawUserInfo: UserInfoEntity | null;
+  rawUserInfo: UserInfoRecord;
 }
+
+type UserInfoRecord = Awaited<ReturnType<AccountService['findUserInfoByAccountId']>>;
 
 @Injectable()
 export class FetchUserInfoUsecase {
@@ -152,7 +153,7 @@ export class FetchUserInfoUsecase {
    * 构建用户信息视图对象（统一映射与兜底策略）
    */
   private buildUserInfoView(
-    base: UserInfoEntity | null,
+    base: UserInfoRecord,
     accountId: number,
     accessGroup: IdentityTypeEnum[],
   ): UserInfoView {
@@ -167,7 +168,7 @@ export class FetchUserInfoUsecase {
   }
 
   /** 基本信息 */
-  private buildBasicFields(base: UserInfoEntity | null) {
+  private buildBasicFields(base: UserInfoRecord) {
     return {
       nickname: base?.nickname ?? '', // 改为非空，提供默认值
       gender: base?.gender ?? Gender.SECRET, // 改为非空，提供默认值
@@ -178,7 +179,7 @@ export class FetchUserInfoUsecase {
   }
 
   /** 联系方式 */
-  private buildContactFields(base: UserInfoEntity | null) {
+  private buildContactFields(base: UserInfoRecord) {
     return {
       email: base?.email ?? null,
       address: base?.address ?? null,
@@ -187,7 +188,7 @@ export class FetchUserInfoUsecase {
   }
 
   /** 扩展信息（JSON 字段等） */
-  private buildExtendedFields(base: UserInfoEntity | null) {
+  private buildExtendedFields(base: UserInfoRecord) {
     return {
       tags: this.normalizeTags(base?.tags),
       geographic: base?.geographic ?? null,
@@ -196,7 +197,7 @@ export class FetchUserInfoUsecase {
   }
 
   /** 系统字段/状态 */
-  private buildSystemFields(base: UserInfoEntity | null) {
+  private buildSystemFields(base: UserInfoRecord) {
     return {
       // 这些字段现在都是非空的，始终提供默认值
       notifyCount: base?.notifyCount ?? 0,

@@ -63,6 +63,14 @@ export class CustomerService {
     return await repo.findOne({ where: { accountId } });
   }
 
+  async findProfileByAccountId(
+    accountId: number,
+    manager?: EntityManager,
+  ): Promise<CustomerProfile | null> {
+    const entity = await this.findByAccountId(accountId, manager);
+    return entity ? this.toProfile(entity) : null;
+  }
+
   /**
    * 根据客户 ID 查找客户信息
    * @param id 客户 ID
@@ -76,6 +84,17 @@ export class CustomerService {
 
   async findProfileById(id: number): Promise<CustomerProfile | null> {
     const entity = await this.findById(id);
+    return entity ? this.toProfile(entity) : null;
+  }
+
+  async findProfileByIdWithManager(params: {
+    id: number;
+    manager?: EntityManager;
+  }): Promise<CustomerProfile | null> {
+    const repo = params.manager
+      ? params.manager.getRepository(CustomerEntity)
+      : this.customerRepository;
+    const entity = await repo.findOne({ where: { id: params.id } });
     return entity ? this.toProfile(entity) : null;
   }
 
@@ -186,6 +205,17 @@ export class CustomerService {
    */
   async updateCustomer(id: number, updateData: Partial<CustomerEntity>): Promise<void> {
     await this.customerRepository.update(id, updateData);
+  }
+
+  async updateCustomerWithManager(params: {
+    id: number;
+    updateData: Partial<CustomerEntity>;
+    manager: EntityManager;
+  }): Promise<CustomerProfile | null> {
+    const repo = params.manager.getRepository(CustomerEntity);
+    await repo.update(params.id, params.updateData);
+    const updated = await repo.findOne({ where: { id: params.id } });
+    return updated ? this.toProfile(updated) : null;
   }
 
   /**
@@ -397,7 +427,7 @@ export class CustomerService {
     return result;
   }
 
-  private toProfile(entity: CustomerEntity): CustomerProfile {
+  toProfile(entity: CustomerEntity): CustomerProfile {
     return {
       id: entity.id,
       accountId: entity.accountId,

@@ -1,21 +1,22 @@
 // src/usecases/identity-management/customer/update-customer.usecase.ts
 
 import { ACCOUNT_ERROR, DomainError, PERMISSION_ERROR } from '@core/common/errors/domain-error';
-import { CustomerEntity } from '@modules/account/identities/training/customer/account-customer.entity';
-import { CustomerService } from '@modules/account/identities/training/customer/account-customer.service';
+import {
+  CustomerService,
+  type CustomerProfile,
+} from '@modules/account/identities/training/customer/account-customer.service';
 import { ManagerService } from '@modules/account/identities/training/manager/manager.service';
 import { Injectable } from '@nestjs/common';
 
-type CustomerView = {
-  readonly id: number;
-  readonly accountId: number | null;
-  readonly name: string;
-  readonly contactPhone: string | null;
-  readonly preferredContactTime: string | null;
-  readonly remark: string | null;
-  readonly deactivatedAt: Date | null;
-  readonly createdAt: Date;
-  readonly updatedAt: Date;
+type CustomerView = CustomerProfile;
+
+type CustomerUpdatePatch = {
+  name?: string;
+  contactPhone?: string | null;
+  preferredContactTime?: string | null;
+  remark?: string | null;
+  updatedBy?: number | null;
+  updatedAt?: Date;
 };
 
 /**
@@ -64,11 +65,12 @@ export class UpdateCustomerUsecase {
     const ctx = await this.resolveIdentityContext(currentAccountId, params);
 
     // 事务内执行更新
-    return await this.customerService.runTransaction(async (manager) => {
-      const repo = manager.getRepository(CustomerEntity);
-
+    return await this.customerService.runTransaction<CustomerView>(async (manager) => {
       // 查找目标客户
-      const customer = await repo.findOne({ where: { id: ctx.targetCustomerId } });
+      const customer = await this.customerService.findProfileByIdWithManager({
+        id: ctx.targetCustomerId,
+        manager,
+      });
       if (!customer) {
         // 客户不存在（按项目现有风格，沿用权限错误或账户错误码）
         throw new DomainError(ACCOUNT_ERROR.ACCOUNT_NOT_FOUND, '客户不存在');
@@ -79,21 +81,22 @@ export class UpdateCustomerUsecase {
 
       // 幂等检查：无任何变更时直接返回
       if (!this.hasDataChanges(updateData, customer)) {
-        return this.toView(customer);
+        return customer;
       }
 
       // 执行更新（显式更新审计字段）
       updateData.updatedBy = currentAccountId;
       updateData.updatedAt = new Date();
-      await repo.update(customer.id, updateData);
-
-      // 返回更新后的实体
-      const updated = await repo.findOne({ where: { id: customer.id } });
+      const updated = await this.customerService.updateCustomerWithManager({
+        id: customer.id,
+        updateData,
+        manager,
+      });
       if (!updated) {
         // 理论上不会发生；若发生视为更新失败
         throw new DomainError(ACCOUNT_ERROR.OPERATION_NOT_SUPPORTED, '更新客户信息失败');
       }
-      return this.toView(updated);
+      return updated;
     });
   }
 
@@ -108,13 +111,13 @@ export class UpdateCustomerUsecase {
     params: UpdateCustomerUsecaseParams,
   ): Promise<{ targetCustomerId: number; isManager: boolean }> {
     // 先判定是否为 manager（优先级更高，避免同时具备 customer 身份时误判）
-    const asManager = await this.managerService.findByAccountId(currentAccountId);
+    const asManager = await this.managerService.findProfileByAccountId(currentAccountId);
     if (asManager) {
       if (!params.customerId) {
         throw new DomainError(PERMISSION_ERROR.ACCESS_DENIED, 'Manager 必须指定目标客户 ID');
       }
 
-      const target = await this.customerService.findById(params.customerId);
+      const target = await this.customerService.findProfileById(params.customerId);
       if (!target) {
         throw new DomainError(PERMISSION_ERROR.ACCESS_DENIED, '目标客户不存在');
       }
@@ -123,7 +126,7 @@ export class UpdateCustomerUsecase {
     }
 
     // 其次判定是否为 customer（仅允许编辑自身客户记录）
-    const asCustomer = await this.customerService.findByAccountId(currentAccountId);
+    const asCustomer = await this.customerService.findProfileByAccountId(currentAccountId);
     if (asCustomer) {
       if (params.customerId && params.customerId !== asCustomer.id) {
         throw new DomainError(PERMISSION_ERROR.ACCESS_DENIED, '无权限编辑其他客户信息');
@@ -140,8 +143,8 @@ export class UpdateCustomerUsecase {
    * @param params 用例参数
    * @returns 部分更新数据
    */
-  private prepareUpdateData(params: UpdateCustomerUsecaseParams): Partial<CustomerEntity> {
-    const updateData: Partial<CustomerEntity> = {};
+  private prepareUpdateData(params: UpdateCustomerUsecaseParams): CustomerUpdatePatch {
+    const updateData: CustomerUpdatePatch = {};
 
     this.applyName(updateData, params.name);
     this.applyContactPhone(updateData, params.contactPhone);
@@ -157,13 +160,16 @@ export class UpdateCustomerUsecase {
    * @param current 当前实体
    * @returns 是否有变更
    */
-  private hasDataChanges(updateData: Partial<CustomerEntity>, current: CustomerEntity): boolean {
-    const keys = Object.keys(updateData) as (keyof CustomerEntity)[];
-    if (keys.length === 0) return false;
-    return keys.some((key) => {
-      const newVal = updateData[key];
-      const oldVal = current[key];
-      return newVal !== oldVal;
+  private hasDataChanges(updateData: CustomerUpdatePatch, current: CustomerView): boolean {
+    const fields: ReadonlyArray<'name' | 'contactPhone' | 'preferredContactTime' | 'remark'> = [
+      'name',
+      'contactPhone',
+      'preferredContactTime',
+      'remark',
+    ];
+    return fields.some((field) => {
+      if (typeof updateData[field] === 'undefined') return false;
+      return updateData[field] !== current[field];
     });
   }
 
@@ -172,7 +178,7 @@ export class UpdateCustomerUsecase {
    * @param updateData 更新数据对象
    * @param name 输入的客户姓名
    */
-  private applyName(updateData: Partial<CustomerEntity>, name: string | undefined): void {
+  private applyName(updateData: CustomerUpdatePatch, name: string | undefined): void {
     if (typeof name === 'undefined') return;
     const val = (name ?? '').trim();
     if (val.length > 64) {
@@ -187,7 +193,7 @@ export class UpdateCustomerUsecase {
    * @param contactPhone 输入的联系电话
    */
   private applyContactPhone(
-    updateData: Partial<CustomerEntity>,
+    updateData: CustomerUpdatePatch,
     contactPhone: string | null | undefined,
   ): void {
     if (typeof contactPhone === 'undefined') return;
@@ -204,7 +210,7 @@ export class UpdateCustomerUsecase {
    * @param preferredContactTime 输入的偏好联系时间
    */
   private applyPreferredContactTime(
-    updateData: Partial<CustomerEntity>,
+    updateData: CustomerUpdatePatch,
     preferredContactTime: string | null | undefined,
   ): void {
     if (typeof preferredContactTime === 'undefined') return;
@@ -215,29 +221,12 @@ export class UpdateCustomerUsecase {
     updateData.preferredContactTime = val ?? null;
   }
 
-  private toView(entity: CustomerEntity): CustomerView {
-    return {
-      id: entity.id,
-      accountId: entity.accountId,
-      name: entity.name,
-      contactPhone: entity.contactPhone,
-      preferredContactTime: entity.preferredContactTime,
-      remark: entity.remark,
-      deactivatedAt: entity.deactivatedAt ?? null,
-      createdAt: entity.createdAt,
-      updatedAt: entity.updatedAt,
-    };
-  }
-
   /**
    * 处理 remark 字段：允许为空并校验最大长度
    * @param updateData 更新数据对象
    * @param remark 输入的备注
    */
-  private applyRemark(
-    updateData: Partial<CustomerEntity>,
-    remark: string | null | undefined,
-  ): void {
+  private applyRemark(updateData: CustomerUpdatePatch, remark: string | null | undefined): void {
     if (typeof remark === 'undefined') return;
     const val = remark;
     if (val && val.length > 255) {

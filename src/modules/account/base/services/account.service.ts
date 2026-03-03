@@ -1,12 +1,15 @@
 // src/modules/account/base/services/account.service.ts
 
 import {
+  AccountStatus,
   AccountWithAccessGroup,
+  AudienceTypeEnum,
   IdentityTypeEnum,
   LoginHistoryItem,
   ThirdPartyProviderEnum,
   UserAccountView,
 } from '@app-types/models/account.types';
+import { Gender, type GeographicInfo, UserState } from '@app-types/models/user-info.types';
 import { ACCOUNT_ERROR, AUTH_ERROR, DomainError } from '@core/common/errors/domain-error';
 import { normalizeEmail } from '@core/common/normalize/normalize.helper';
 import { LegacyPasswordCryptoHelper } from '@modules/common/password/legacy-password-crypto.helper';
@@ -33,6 +36,39 @@ import type { LearnerEntity } from '../../identities/training/learner/account-le
 import type { ManagerEntity } from '../../identities/training/manager/account-manager.entity';
 
 export type AccountTransactionManager = EntityManager;
+
+export interface AccountCreateData {
+  loginName?: string | null;
+  loginEmail?: string | null;
+  loginPassword?: string;
+  status?: AccountStatus;
+  audience?: AudienceTypeEnum;
+  identityHint?: string | null;
+  recentLoginHistory?: LoginHistoryItem[] | null;
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
+export interface UserInfoCreateData {
+  accountId?: number;
+  nickname?: string;
+  gender?: Gender;
+  birthDate?: string | null;
+  avatarUrl?: string | null;
+  email?: string | null;
+  signature?: string | null;
+  accessGroup?: IdentityTypeEnum[];
+  address?: string | null;
+  phone?: string | null;
+  tags?: string[] | null;
+  geographic?: GeographicInfo | null;
+  metaDigest?: IdentityTypeEnum[] | null;
+  notifyCount?: number;
+  unreadCount?: number;
+  userState?: UserState;
+  createdAt?: Date;
+  updatedAt?: Date;
+}
 
 /**
  * 将身份常量映射到该身份的 Profile 实体类型
@@ -156,13 +192,23 @@ export class AccountService {
   }
 
   /** 创建账户实体（不落库） */
-  createAccountEntity(accountData: Partial<AccountEntity>): AccountEntity {
-    return this.accountRepository.create(accountData);
+  createAccountEntity(params: {
+    accountData: AccountCreateData;
+    manager?: EntityManager;
+  }): AccountEntity {
+    const { accountData, manager } = params;
+    const repository = manager ? manager.getRepository(AccountEntity) : this.accountRepository;
+    return repository.create(accountData);
   }
 
   /** 落库账户实体 */
-  async saveAccount(account: AccountEntity): Promise<AccountEntity> {
-    return await this.accountRepository.save(account);
+  async saveAccount(params: {
+    account: AccountEntity;
+    manager?: EntityManager;
+  }): Promise<AccountEntity> {
+    const { account, manager } = params;
+    const repository = manager ? manager.getRepository(AccountEntity) : this.accountRepository;
+    return await repository.save(account);
   }
 
   /** 更新账户 */
@@ -197,13 +243,23 @@ export class AccountService {
   }
 
   /** 创建用户信息实体（不落库） */
-  createUserInfoEntity(userInfoData: Partial<UserInfoEntity>): UserInfoEntity {
-    return this.userInfoRepository.create(userInfoData);
+  createUserInfoEntity(params: {
+    userInfoData: UserInfoCreateData;
+    manager?: EntityManager;
+  }): UserInfoEntity {
+    const { userInfoData, manager } = params;
+    const repository = manager ? manager.getRepository(UserInfoEntity) : this.userInfoRepository;
+    return repository.create(userInfoData);
   }
 
   /** 落库用户信息实体 */
-  async saveUserInfo(userInfo: UserInfoEntity): Promise<UserInfoEntity> {
-    return await this.userInfoRepository.save(userInfo);
+  async saveUserInfo(params: {
+    userInfo: UserInfoEntity;
+    manager?: EntityManager;
+  }): Promise<UserInfoEntity> {
+    const { userInfo, manager } = params;
+    const repository = manager ? manager.getRepository(UserInfoEntity) : this.userInfoRepository;
+    return await repository.save(userInfo);
   }
 
   /**

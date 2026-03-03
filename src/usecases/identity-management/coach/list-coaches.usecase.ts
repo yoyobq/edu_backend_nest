@@ -1,27 +1,17 @@
 // src/usecases/identity-management/coach/list-coaches.usecase.ts
 
+import { UserState } from '@app-types/models/user-info.types';
 import { DomainError, PERMISSION_ERROR } from '@core/common/errors/domain-error';
-import { CoachEntity } from '@modules/account/identities/training/coach/account-coach.entity';
-import { CoachService } from '@modules/account/identities/training/coach/coach.service';
+import {
+  CoachService,
+  type CoachProfile,
+} from '@modules/account/identities/training/coach/coach.service';
 import { ManagerService } from '@modules/account/identities/training/manager/manager.service';
 import { Injectable } from '@nestjs/common';
 import { AccountService } from '@src/modules/account/base/services/account.service';
 import { CoachSortField, type OrderDirection } from '@src/types/common/sort.types';
-import { UserState } from '@app-types/models/user-info.types';
 
-type CoachView = {
-  readonly id: number;
-  readonly accountId: number;
-  readonly name: string;
-  readonly remark: string | null;
-  readonly level: number;
-  readonly description: string | null;
-  readonly avatarUrl: string | null;
-  readonly specialty: string | null;
-  readonly deactivatedAt: Date | null;
-  readonly createdAt: Date;
-  readonly updatedAt: Date;
-};
+type CoachView = CoachProfile;
 
 /**
  * 列出教练列表的输入参数
@@ -91,7 +81,7 @@ export class ListCoachesUsecase {
       throw new DomainError(PERMISSION_ERROR.ACCESS_DENIED, '仅活跃的 manager 可查看教练列表');
     }
 
-    const result = await this.coachService.findPaginated({
+    const result = await this.coachService.findPaginatedProfiles({
       page: params.page ?? 1,
       limit: params.limit ?? 10,
       sortBy: params.sortBy ?? CoachSortField.CREATED_AT,
@@ -101,19 +91,17 @@ export class ListCoachesUsecase {
     });
 
     const items: CoachListItem[] = await Promise.all(
-      result.coaches.map(async (entity) => {
-        const ui = entity.accountId
-          ? await this.accountService.findUserInfoByAccountId(entity.accountId)
+      result.coaches.map(async (view) => {
+        const ui = view.accountId
+          ? await this.accountService.findUserInfoByAccountId(view.accountId)
           : null;
-        const acc = entity.accountId
-          ? await this.accountService.findOneById(entity.accountId)
-          : null;
+        const acc = view.accountId ? await this.accountService.findOneById(view.accountId) : null;
         const state: UserState | null = ui?.userState ?? null;
         const history: { ip: string; timestamp: string; audience?: string }[] | null =
           acc?.recentLoginHistory ?? null;
         const phone: string | null = ui?.phone ?? null;
         return {
-          view: this.toView(entity),
+          view,
           userState: state,
           loginHistory: history,
           userPhone: phone,
@@ -127,22 +115,6 @@ export class ListCoachesUsecase {
       page: result.page,
       limit: result.limit,
       totalPages: result.totalPages,
-    };
-  }
-
-  private toView(entity: CoachEntity): CoachView {
-    return {
-      id: entity.id,
-      accountId: entity.accountId,
-      name: entity.name,
-      remark: entity.remark,
-      level: entity.level,
-      description: entity.description,
-      avatarUrl: entity.avatarUrl,
-      specialty: entity.specialty,
-      deactivatedAt: entity.deactivatedAt ?? null,
-      createdAt: entity.createdAt,
-      updatedAt: entity.updatedAt,
     };
   }
 }

@@ -1,7 +1,6 @@
 // src/usecases/learner/get-learner.usecase.ts
 
 import { IdentityTypeEnum } from '@app-types/models/account.types';
-import { Gender } from '@app-types/models/user-info.types';
 import { Injectable } from '@nestjs/common';
 import {
   DomainError,
@@ -9,25 +8,12 @@ import {
   PERMISSION_ERROR,
 } from '../../../core/common/errors/domain-error';
 import { CustomerService } from '../../../modules/account/identities/training/customer/account-customer.service';
-import { LearnerEntity } from '../../../modules/account/identities/training/learner/account-learner.entity';
 import { LearnerService } from '../../../modules/account/identities/training/learner/account-learner.service';
+import {
+  LearnerQueryService,
+  type LearnerView,
+} from '../../../modules/account/queries/learner.query.service';
 import { ManagerService } from '../../../modules/account/identities/training/manager/manager.service';
-
-type LearnerView = {
-  readonly id: number;
-  readonly accountId: number | null;
-  readonly customerId: number;
-  readonly name: string;
-  readonly gender: Gender;
-  readonly birthDate: string | null;
-  readonly avatarUrl: string | null;
-  readonly specialNeeds: string | null;
-  readonly countPerSession: number;
-  readonly remark: string | null;
-  readonly deactivatedAt: Date | null;
-  readonly createdAt: Date;
-  readonly updatedAt: Date;
-};
 
 /**
  * 获取学员信息用例
@@ -44,6 +30,7 @@ export class GetLearnerUsecase {
     private readonly customerService: CustomerService,
     private readonly managerService: ManagerService,
     private readonly learnerService: LearnerService,
+    private readonly learnerQueryService: LearnerQueryService,
   ) {}
 
   /**
@@ -77,7 +64,7 @@ export class GetLearnerUsecase {
       throw new DomainError(PERMISSION_ERROR.ACCESS_DENIED, '无权限访问该学员');
     if (learner.deactivatedAt)
       throw new DomainError(LEARNER_ERROR.LEARNER_NOT_FOUND, '学员不存在或已被删除');
-    return this.toView(learner);
+    return this.learnerQueryService.toView(learner);
   }
 
   private async resolveCustomerTarget(accountId: number, customerId?: number): Promise<number> {
@@ -117,23 +104,5 @@ export class GetLearnerUsecase {
     if (v === 'MANAGER') return 'MANAGER';
     if (v === 'CUSTOMER') return 'CUSTOMER';
     return null;
-  }
-
-  private toView(entity: LearnerEntity): LearnerView {
-    return {
-      id: entity.id,
-      accountId: entity.accountId ?? null,
-      customerId: entity.customerId,
-      name: entity.name,
-      gender: entity.gender,
-      birthDate: entity.birthDate ?? null,
-      avatarUrl: entity.avatarUrl ?? null,
-      specialNeeds: entity.specialNeeds ?? null,
-      countPerSession: entity.countPerSession,
-      remark: entity.remark ?? null,
-      deactivatedAt: entity.deactivatedAt ?? null,
-      createdAt: entity.createdAt,
-      updatedAt: entity.updatedAt,
-    };
   }
 }

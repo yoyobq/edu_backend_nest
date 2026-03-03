@@ -1,23 +1,13 @@
 // src/usecases/identity-management/coach/update-coach.usecase.ts
 import { ACCOUNT_ERROR, DomainError, PERMISSION_ERROR } from '@core/common/errors/domain-error';
-import { CoachEntity } from '@modules/account/identities/training/coach/account-coach.entity';
-import { CoachService } from '@modules/account/identities/training/coach/coach.service';
+import {
+  CoachService,
+  type CoachProfile,
+} from '@modules/account/identities/training/coach/coach.service';
 import { ManagerService } from '@modules/account/identities/training/manager/manager.service';
 import { Injectable } from '@nestjs/common';
 
-export type CoachView = {
-  readonly id: number;
-  readonly accountId: number;
-  readonly name: string;
-  readonly remark: string | null;
-  readonly level: number;
-  readonly description: string | null;
-  readonly avatarUrl: string | null;
-  readonly specialty: string | null;
-  readonly deactivatedAt: Date | null;
-  readonly createdAt: Date;
-  readonly updatedAt: Date;
-};
+export type CoachView = CoachProfile;
 
 /**
  * 更新教练信息用例的输入参数
@@ -40,6 +30,17 @@ export interface UpdateCoachUsecaseParams {
   /** 备注（可选） */
   remark?: string | null;
 }
+
+type CoachUpdatePatch = {
+  name?: string;
+  level?: number;
+  description?: string | null;
+  avatarUrl?: string | null;
+  specialty?: string | null;
+  remark?: string | null;
+  updatedBy?: number | null;
+  updatedAt?: Date;
+};
 
 /**
  * 更新教练信息用例
@@ -66,26 +67,27 @@ export class UpdateCoachUsecase {
     const ctx = await this.resolveIdentityContext(currentAccountId, params);
 
     return await this.coachService.runTransaction(async (manager) => {
-      const repo = manager.getRepository(CoachEntity);
-      const coach = await repo.findOne({ where: { id: ctx.targetCoachId } });
-      if (!coach) {
+      const current = await this.coachService.findProfileById(ctx.targetCoachId, manager);
+      if (!current) {
         throw new DomainError(ACCOUNT_ERROR.ACCOUNT_NOT_FOUND, '教练不存在');
       }
 
       const updateData = this.prepareUpdateData({ ...params }, ctx);
-      if (!this.hasDataChanges(updateData, coach)) {
-        return this.toView(coach);
+      if (!this.hasDataChanges(updateData, current)) {
+        return current;
       }
 
       updateData.updatedBy = currentAccountId;
       updateData.updatedAt = new Date();
-      await repo.update(coach.id, updateData);
-
-      const updated = await repo.findOne({ where: { id: coach.id } });
+      const updated = await this.coachService.updateCoachWithManager({
+        id: ctx.targetCoachId,
+        updateData,
+        manager,
+      });
       if (!updated) {
         throw new DomainError(ACCOUNT_ERROR.OPERATION_NOT_SUPPORTED, '更新教练信息失败');
       }
-      return this.toView(updated);
+      return updated;
     });
   }
 
@@ -97,7 +99,7 @@ export class UpdateCoachUsecase {
     params: UpdateCoachUsecaseParams,
   ): Promise<{ targetCoachId: number; isManager: boolean }> {
     // 尝试以 coach 身份解析
-    const asCoach = await this.coachService.findByAccountId(currentAccountId);
+    const asCoach = await this.coachService.findProfileByAccountId(currentAccountId);
     if (asCoach) {
       if (params.coachId && params.coachId !== asCoach.id) {
         throw new DomainError(PERMISSION_ERROR.ACCESS_DENIED, '无权限编辑其他教练信息');
@@ -113,7 +115,7 @@ export class UpdateCoachUsecase {
     if (!params.coachId) {
       throw new DomainError(PERMISSION_ERROR.ACCESS_DENIED, 'Manager 必须指定目标教练 ID');
     }
-    const target = await this.coachService.findById(params.coachId);
+    const target = await this.coachService.findProfileById(params.coachId);
     if (!target) {
       throw new DomainError(PERMISSION_ERROR.ACCESS_DENIED, '目标教练不存在');
     }
@@ -126,8 +128,8 @@ export class UpdateCoachUsecase {
   private prepareUpdateData(
     params: UpdateCoachUsecaseParams,
     ctx: { isManager: boolean; targetCoachId: number },
-  ): Partial<CoachEntity> {
-    const updateData: Partial<CoachEntity> = {};
+  ): CoachUpdatePatch {
+    const updateData: CoachUpdatePatch = {};
 
     this.applyName(updateData, params.name);
     this.applyDescription(updateData, params.description);
@@ -140,14 +142,18 @@ export class UpdateCoachUsecase {
   }
 
   /** 幂等检查 */
-  private hasDataChanges(updateData: Partial<CoachEntity>, current: CoachEntity): boolean {
-    const keys = Object.keys(updateData) as (keyof CoachEntity)[];
-    if (keys.length === 0) return false;
-    return keys.some((key) => updateData[key] !== current[key]);
+  private hasDataChanges(updateData: CoachUpdatePatch, current: CoachView): boolean {
+    const fields: ReadonlyArray<
+      'name' | 'level' | 'description' | 'avatarUrl' | 'specialty' | 'remark'
+    > = ['name', 'level', 'description', 'avatarUrl', 'specialty', 'remark'];
+    return fields.some((field) => {
+      if (typeof updateData[field] === 'undefined') return false;
+      return updateData[field] !== current[field];
+    });
   }
 
   /** 处理 name */
-  private applyName(updateData: Partial<CoachEntity>, name: string | undefined): void {
+  private applyName(updateData: CoachUpdatePatch, name: string | undefined): void {
     if (typeof name === 'undefined') return;
     const val = (name ?? '').trim();
     if (val.length > 64) {
@@ -158,7 +164,7 @@ export class UpdateCoachUsecase {
 
   /** 处理 description */
   private applyDescription(
-    updateData: Partial<CoachEntity>,
+    updateData: CoachUpdatePatch,
     description: string | null | undefined,
   ): void {
     if (typeof description === 'undefined') return;
@@ -170,10 +176,7 @@ export class UpdateCoachUsecase {
   }
 
   /** 处理 avatarUrl */
-  private applyAvatarUrl(
-    updateData: Partial<CoachEntity>,
-    avatarUrl: string | null | undefined,
-  ): void {
+  private applyAvatarUrl(updateData: CoachUpdatePatch, avatarUrl: string | null | undefined): void {
     if (typeof avatarUrl === 'undefined') return;
     const val = avatarUrl ?? null;
     if (val && val.length > 255) {
@@ -183,10 +186,7 @@ export class UpdateCoachUsecase {
   }
 
   /** 处理 specialty */
-  private applySpecialty(
-    updateData: Partial<CoachEntity>,
-    specialty: string | null | undefined,
-  ): void {
+  private applySpecialty(updateData: CoachUpdatePatch, specialty: string | null | undefined): void {
     if (typeof specialty === 'undefined') return;
     const val = specialty ?? null;
     if (val && val.length > 100) {
@@ -196,7 +196,7 @@ export class UpdateCoachUsecase {
   }
 
   /** 处理 remark */
-  private applyRemark(updateData: Partial<CoachEntity>, remark: string | null | undefined): void {
+  private applyRemark(updateData: CoachUpdatePatch, remark: string | null | undefined): void {
     if (typeof remark === 'undefined') return;
     const val = remark ?? null;
     if (val && val.length > 255) {
@@ -206,7 +206,7 @@ export class UpdateCoachUsecase {
   }
 
   /** 处理 level（仅 manager 可更新） */
-  private applyLevel(updateData: Partial<CoachEntity>, isManager: boolean, level?: number): void {
+  private applyLevel(updateData: CoachUpdatePatch, isManager: boolean, level?: number): void {
     if (typeof level === 'undefined') return;
     if (!isManager) {
       throw new DomainError(PERMISSION_ERROR.ACCESS_DENIED, 'Coach 不可修改等级');
@@ -216,21 +216,5 @@ export class UpdateCoachUsecase {
       throw new DomainError(ACCOUNT_ERROR.OPERATION_NOT_SUPPORTED, '等级必须在 1-3 之间');
     }
     updateData.level = val;
-  }
-
-  private toView(entity: CoachEntity): CoachView {
-    return {
-      id: entity.id,
-      accountId: entity.accountId,
-      name: entity.name,
-      remark: entity.remark,
-      level: entity.level,
-      description: entity.description,
-      avatarUrl: entity.avatarUrl,
-      specialty: entity.specialty,
-      deactivatedAt: entity.deactivatedAt ?? null,
-      createdAt: entity.createdAt,
-      updatedAt: entity.updatedAt,
-    };
   }
 }

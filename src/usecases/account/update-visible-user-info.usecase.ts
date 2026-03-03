@@ -7,7 +7,6 @@ import { expandRoles, hasRole } from '@core/account/policy/role-access.policy';
 import { canViewUserInfo } from '@core/account/policy/user-info-visibility.policy';
 import { ACCOUNT_ERROR, DomainError, PERMISSION_ERROR } from '@core/common/errors/domain-error';
 import { Injectable } from '@nestjs/common';
-import { UserInfoEntity } from '@src/modules/account/base/entities/user-info.entity';
 import { AccountService } from '@src/modules/account/base/services/account.service';
 import { type UsecaseSession } from '@src/types/auth/session.types';
 import { FetchUserInfoUsecase } from './fetch-user-info.usecase';
@@ -45,6 +44,7 @@ type UserInfoUpdatePatch = {
 };
 
 type UserInfoUpdateField = keyof UserInfoUpdatePatch;
+type UserInfoRecord = NonNullable<Awaited<ReturnType<AccountService['findUserInfoByAccountId']>>>;
 
 export interface UpdateVisibleUserInfoParams {
   session: UsecaseSession;
@@ -120,7 +120,7 @@ export class UpdateVisibleUserInfoUsecase {
         if (hasUserInfoUpdate) {
           // 应用更新并保存
           this.applyPatchToEntity(current, sanitized);
-          await manager.getRepository(UserInfoEntity).save(current);
+          await this.accountService.saveUserInfo({ userInfo: current, manager });
         }
         if (shouldUpdateIdentityHint && resolvedIdentityHint) {
           const account = await this.accountService.lockByIdForUpdate(targetAccountId, manager);
@@ -247,7 +247,7 @@ export class UpdateVisibleUserInfoUsecase {
    */
   private async sanitizePatch(
     patch: UserInfoPatch,
-    current: UserInfoEntity,
+    current: UserInfoRecord,
     flags: { isManager: boolean; isSelf: boolean; isAdmin: boolean },
   ): Promise<UserInfoUpdatePatch> {
     const out: UserInfoUpdatePatch = {};
@@ -267,7 +267,7 @@ export class UpdateVisibleUserInfoUsecase {
 
   private async applyBasicFields(
     patch: UserInfoPatch,
-    current: UserInfoEntity,
+    current: UserInfoRecord,
     allow: (key: UserInfoUpdateField) => boolean,
     assignIfChanged: <K extends UserInfoUpdateField>(key: K, next: UserInfoUpdatePatch[K]) => void,
   ): Promise<void> {
@@ -281,7 +281,7 @@ export class UpdateVisibleUserInfoUsecase {
    */
   private async applyNicknameField(
     patch: UserInfoPatch,
-    current: UserInfoEntity,
+    current: UserInfoRecord,
     allow: (key: UserInfoUpdateField) => boolean,
     assignIfChanged: <K extends UserInfoUpdateField>(key: K, next: UserInfoUpdatePatch[K]) => void,
   ): Promise<void> {
@@ -342,7 +342,7 @@ export class UpdateVisibleUserInfoUsecase {
 
   private applyExtendedFields(
     patch: UserInfoPatch,
-    current: UserInfoEntity,
+    current: UserInfoRecord,
     allow: (key: UserInfoUpdateField) => boolean,
     assignIfChanged: <K extends UserInfoUpdateField>(key: K, next: UserInfoUpdatePatch[K]) => void,
   ): void {
@@ -398,7 +398,7 @@ export class UpdateVisibleUserInfoUsecase {
    */
   private async sanitizeNickname(
     value: string | null | undefined,
-    current: UserInfoEntity,
+    current: UserInfoRecord,
   ): Promise<string> {
     const val = (value ?? '').trim();
     if (val.length === 0) {
@@ -561,7 +561,7 @@ export class UpdateVisibleUserInfoUsecase {
   /**
    * 将补丁应用到实体
    */
-  private applyPatchToEntity(target: UserInfoEntity, patch: UserInfoUpdatePatch): void {
+  private applyPatchToEntity(target: UserInfoRecord, patch: UserInfoUpdatePatch): void {
     if (typeof patch.nickname !== 'undefined') target.nickname = patch.nickname;
     if (typeof patch.gender !== 'undefined') target.gender = patch.gender;
     if (typeof patch.birthDate !== 'undefined') target.birthDate = patch.birthDate;
