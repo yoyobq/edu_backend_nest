@@ -1,15 +1,22 @@
 // src/core/common/network/network-access.helper.ts
 
-import * as os from 'os';
+export type NetworkInterfaceSnapshot = Record<
+  string,
+  ReadonlyArray<{ address: string; family: string | number }> | undefined
+>;
 
 /**
  * 判断服务器 IP 是否为指定 IP
  * @param targetIp 目标 IP 地址
  * @returns 是否匹配指定 IP
  */
-export function isServerIp(targetIp: string): boolean {
+export function isServerIp(params: {
+  targetIp: string;
+  networkInterfaces?: NetworkInterfaceSnapshot;
+}): boolean {
+  const { targetIp, networkInterfaces } = params;
   try {
-    const networkInterfaces = os.networkInterfaces();
+    if (!networkInterfaces) return false;
 
     return Object.values(networkInterfaces).some((addresses) =>
       addresses?.some((address) => address.family === 'IPv4' && address.address === targetIp),

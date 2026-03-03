@@ -5,6 +5,7 @@ import { RegisterWithEmailUsecase } from '@usecases/registration/register-with-e
 import { RegisterWithThirdPartyUsecase } from '@usecases/registration/register-with-third-party.usecase';
 import { GetWeappPhoneUsecase } from '@usecases/third-party-accounts/get-weapp-phone.usecase';
 import { Request } from 'express';
+import * as os from 'os';
 import { PinoLogger } from 'nestjs-pino';
 import { RegisterResult } from './dto/register-result.dto';
 import { RegisterInput } from './dto/register.input';
@@ -37,12 +38,15 @@ export class RegistrationResolver {
         }
       : undefined;
 
+    const serverNetworkInterfaces = os.networkInterfaces();
+
     const result = await this.registerWithEmail.execute({
       loginName: input.loginName ?? null,
       loginEmail: input.loginEmail,
       loginPassword: input.loginPassword,
       nickname: input.nickname,
       inviteToken: input.inviteToken,
+      serverNetworkInterfaces,
       request: safeRequest,
     });
 

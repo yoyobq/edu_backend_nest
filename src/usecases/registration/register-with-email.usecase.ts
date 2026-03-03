@@ -40,14 +40,25 @@ export class RegisterWithEmailUsecase {
    * @returns 注册结果
    */
   async execute(params: RegisterWithEmailParams): Promise<RegisterWithEmailResult> {
-    const { loginName, loginEmail, loginPassword, nickname, inviteToken, request } = params;
+    const {
+      loginName,
+      loginEmail,
+      loginPassword,
+      nickname,
+      inviteToken,
+      request,
+      serverNetworkInterfaces,
+    } = params;
 
     try {
       // 获取真实客户端 IP
       const clientIp = request ? getRealClientIp(request) : '';
 
       // 判断是否内网且服务器 ip 是 192.168.72.55，如果是走核验流程
-      if (isPrivateIp(clientIp) && isServerIp('192.168.72.55')) {
+      if (
+        isPrivateIp(clientIp) &&
+        isServerIp({ targetIp: '192.168.72.55', networkInterfaces: serverNetworkInterfaces })
+      ) {
         // 校园网核验流程暂未实现
         throw new DomainError(ACCOUNT_ERROR.OPERATION_NOT_SUPPORTED, '校园网核验流程暂未实现');
       }

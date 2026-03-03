@@ -9,6 +9,10 @@ export interface RegisterWithEmailParams {
   loginPassword: string;
   nickname?: string;
   inviteToken?: string;
+  serverNetworkInterfaces?: Record<
+    string,
+    ReadonlyArray<{ address: string; family: string | number }> | undefined
+  >;
   request?: {
     headers: Record<string, string | string[] | undefined>;
     ip?: string;

@@ -1,18 +1,13 @@
 /* eslint-disable max-lines-per-function */
 // src/core/common/password/password-policy.service.spec.ts
 
-import { Test, TestingModule } from '@nestjs/testing';
 import { PasswordPolicyService } from './password-policy.service';
 
 describe('PasswordPolicyService', () => {
   let service: PasswordPolicyService;
 
-  beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
-      providers: [PasswordPolicyService],
-    }).compile();
-
-    service = module.get<PasswordPolicyService>(PasswordPolicyService);
+  beforeEach(() => {
+    service = new PasswordPolicyService();
   });
 
   it('应该被正确定义', () => {
