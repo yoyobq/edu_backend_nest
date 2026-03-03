@@ -6,7 +6,7 @@ import * as dotenv from 'dotenv';
 import * as fs from 'fs';
 import * as path from 'path';
 import { DataSource, type DataSourceOptions } from 'typeorm';
-import databaseConfig from '../src/core/config/database.config';
+import databaseConfig from '../src/infrastructure/config/database.config';
 
 /**
  * ⚠️ 注意：Jest 的 globalSetup 运行在独立上下文，
