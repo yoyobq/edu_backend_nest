@@ -12,6 +12,7 @@ import { Module } from '@nestjs/common';
 // Resolvers
 import { AccountResolver } from './account/account.resolver';
 import { UserInfoResolver } from './account/user-info.resolver';
+import { AuthResolver } from './auth/auth.resolver';
 import { CoachResolver } from './identity-management/coach/coach.resolver';
 import { CustomerResolver } from './identity-management/customer/customer.resolver';
 import { IdentityManagementResolver } from './identity-management/identity-management.resolver';
@@ -41,6 +42,7 @@ import { RolesGuard } from './guards/roles.guard';
   providers: [
     // Resolvers
     AccountResolver,
+    AuthResolver,
     RegistrationResolver,
     VerificationRecordResolver,
     IdentityManagementResolver, // 注册身份管理 resolver
@@ -56,6 +58,7 @@ import { RolesGuard } from './guards/roles.guard';
   exports: [
     // Resolvers
     AccountResolver,
+    AuthResolver,
     RegistrationResolver,
     VerificationRecordResolver,
     IdentityManagementResolver, // 导出身份管理 resolver
