@@ -16,6 +16,7 @@ import { AccountEntity } from './base/entities/account.entity';
 import { UserInfoEntity } from './base/entities/user-info.entity';
 import { AccountService } from './base/services/account.service';
 import { AccountQueryService } from './queries/account.query.service';
+import { LearnerQueryService } from './queries/learner.query.service';
 
 import {
   PROFILE_PROVIDER_MAP_TOKEN, // 对外：聚合 Map token
@@ -127,6 +128,7 @@ export class AccountModule {
       providers: [
         AccountService,
         AccountQueryService,
+        LearnerQueryService,
         AccountSecurityService,
         providerMapFactory, // 聚合 Map
       ],
@@ -134,6 +136,7 @@ export class AccountModule {
         TypeOrmModule,
         AccountService,
         AccountQueryService,
+        LearnerQueryService,
         PROFILE_PROVIDER_MAP_TOKEN, // 对外只暴露聚合后的 Map
       ],
     };
