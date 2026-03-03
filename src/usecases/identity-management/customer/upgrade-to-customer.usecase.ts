@@ -134,7 +134,7 @@ export class UpgradeToCustomerUsecase {
     if (idempotentResult) return idempotentResult;
 
     // 3. 创建客户记录
-    const savedCustomer = await this.createCustomer(
+    const customerId = await this.createCustomer(
       { accountId, name, contactPhone, preferredContactTime, remark },
       manager,
     );
@@ -160,7 +160,7 @@ export class UpgradeToCustomerUsecase {
 
     return {
       success: true,
-      customerId: savedCustomer.id,
+      customerId,
       accessToken: tokens.accessToken,
       refreshToken: tokens.refreshToken,
       message: 'UPGRADE_SUCCESS',
@@ -224,9 +224,10 @@ export class UpgradeToCustomerUsecase {
       remark?: string;
     },
     manager: AccountTransactionManager,
-  ) {
+  ): Promise<number> {
     const customerEntity = this.customerService.createCustomerEntity(data);
-    return await this.customerService.saveCustomer(customerEntity, manager);
+    const savedCustomer = await this.customerService.saveCustomer(customerEntity, manager);
+    return savedCustomer.id;
   }
 
   /**

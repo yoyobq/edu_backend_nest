@@ -28,6 +28,24 @@ export type UserInfoPatch = {
   unreadCount?: number;
 };
 
+type UserInfoUpdatePatch = {
+  nickname?: string;
+  gender?: Gender;
+  birthDate?: string | null;
+  avatarUrl?: string | null;
+  email?: string | null;
+  signature?: string | null;
+  address?: string | null;
+  phone?: string | null;
+  tags?: string[] | null;
+  geographic?: GeographicInfo | null;
+  userState?: UserState;
+  notifyCount?: number;
+  unreadCount?: number;
+};
+
+type UserInfoUpdateField = keyof UserInfoUpdatePatch;
+
 export interface UpdateVisibleUserInfoParams {
   session: UsecaseSession;
   targetAccountId: number;
@@ -231,10 +249,13 @@ export class UpdateVisibleUserInfoUsecase {
     patch: UserInfoPatch,
     current: UserInfoEntity,
     flags: { isManager: boolean; isSelf: boolean; isAdmin: boolean },
-  ): Promise<Partial<UserInfoEntity>> {
-    const out: Partial<UserInfoEntity> = {};
-    const allow = (key: keyof UserInfoEntity): boolean => this.isFieldAllowed(key, flags);
-    const assignIfChanged = <K extends keyof UserInfoEntity>(key: K, next: UserInfoEntity[K]) => {
+  ): Promise<UserInfoUpdatePatch> {
+    const out: UserInfoUpdatePatch = {};
+    const allow = (key: UserInfoUpdateField): boolean => this.isFieldAllowed(key, flags);
+    const assignIfChanged = <K extends UserInfoUpdateField>(
+      key: K,
+      next: UserInfoUpdatePatch[K],
+    ) => {
       if (next !== current[key]) out[key] = next as never;
     };
 
@@ -247,8 +268,8 @@ export class UpdateVisibleUserInfoUsecase {
   private async applyBasicFields(
     patch: UserInfoPatch,
     current: UserInfoEntity,
-    allow: (key: keyof UserInfoEntity) => boolean,
-    assignIfChanged: <K extends keyof UserInfoEntity>(key: K, next: UserInfoEntity[K]) => void,
+    allow: (key: UserInfoUpdateField) => boolean,
+    assignIfChanged: <K extends UserInfoUpdateField>(key: K, next: UserInfoUpdatePatch[K]) => void,
   ): Promise<void> {
     await this.applyNicknameField(patch, current, allow, assignIfChanged);
     this.applyGenderBirthdateFields(patch, allow, assignIfChanged);
@@ -261,8 +282,8 @@ export class UpdateVisibleUserInfoUsecase {
   private async applyNicknameField(
     patch: UserInfoPatch,
     current: UserInfoEntity,
-    allow: (key: keyof UserInfoEntity) => boolean,
-    assignIfChanged: <K extends keyof UserInfoEntity>(key: K, next: UserInfoEntity[K]) => void,
+    allow: (key: UserInfoUpdateField) => boolean,
+    assignIfChanged: <K extends UserInfoUpdateField>(key: K, next: UserInfoUpdatePatch[K]) => void,
   ): Promise<void> {
     if (typeof patch.nickname !== 'undefined' && allow('nickname')) {
       assignIfChanged('nickname', await this.sanitizeNickname(patch.nickname, current));
@@ -274,8 +295,8 @@ export class UpdateVisibleUserInfoUsecase {
    */
   private applyGenderBirthdateFields(
     patch: UserInfoPatch,
-    allow: (key: keyof UserInfoEntity) => boolean,
-    assignIfChanged: <K extends keyof UserInfoEntity>(key: K, next: UserInfoEntity[K]) => void,
+    allow: (key: UserInfoUpdateField) => boolean,
+    assignIfChanged: <K extends UserInfoUpdateField>(key: K, next: UserInfoUpdatePatch[K]) => void,
   ): void {
     if (typeof patch.gender !== 'undefined' && allow('gender')) {
       assignIfChanged('gender', this.sanitizeGender(patch.gender));
@@ -290,8 +311,8 @@ export class UpdateVisibleUserInfoUsecase {
    */
   private applyStringFields(
     patch: UserInfoPatch,
-    allow: (key: keyof UserInfoEntity) => boolean,
-    assignIfChanged: <K extends keyof UserInfoEntity>(key: K, next: UserInfoEntity[K]) => void,
+    allow: (key: UserInfoUpdateField) => boolean,
+    assignIfChanged: <K extends UserInfoUpdateField>(key: K, next: UserInfoUpdatePatch[K]) => void,
   ): void {
     if (typeof patch.avatarUrl !== 'undefined' && allow('avatarUrl')) {
       assignIfChanged(
@@ -322,8 +343,8 @@ export class UpdateVisibleUserInfoUsecase {
   private applyExtendedFields(
     patch: UserInfoPatch,
     current: UserInfoEntity,
-    allow: (key: keyof UserInfoEntity) => boolean,
-    assignIfChanged: <K extends keyof UserInfoEntity>(key: K, next: UserInfoEntity[K]) => void,
+    allow: (key: UserInfoUpdateField) => boolean,
+    assignIfChanged: <K extends UserInfoUpdateField>(key: K, next: UserInfoUpdatePatch[K]) => void,
   ): void {
     if (typeof patch.tags !== 'undefined' && allow('tags')) {
       const v = this.sanitizeTags(patch.tags);
@@ -339,8 +360,8 @@ export class UpdateVisibleUserInfoUsecase {
 
   private applyManagerSelfOnlyFields(
     patch: UserInfoPatch,
-    allow: (key: keyof UserInfoEntity) => boolean,
-    assignIfChanged: <K extends keyof UserInfoEntity>(key: K, next: UserInfoEntity[K]) => void,
+    allow: (key: UserInfoUpdateField) => boolean,
+    assignIfChanged: <K extends UserInfoUpdateField>(key: K, next: UserInfoUpdatePatch[K]) => void,
     _flags: { isManager: boolean; isSelf: boolean; isAdmin: boolean },
   ): void {
     if (typeof patch.userState !== 'undefined') {
@@ -487,10 +508,10 @@ export class UpdateVisibleUserInfoUsecase {
    * - 非 manager：允许基础与联系白名单（不含 userState）
    */
   private isFieldAllowed(
-    key: keyof UserInfoEntity,
+    key: UserInfoUpdateField,
     flags: { isManager: boolean; isSelf: boolean; isAdmin: boolean },
   ): boolean {
-    const selfManagerAllowed: (keyof UserInfoEntity)[] = [
+    const selfManagerAllowed: UserInfoUpdateField[] = [
       'nickname',
       'gender',
       'birthDate',
@@ -505,8 +526,8 @@ export class UpdateVisibleUserInfoUsecase {
       'notifyCount',
       'unreadCount',
     ];
-    const managerOtherAllowed: (keyof UserInfoEntity)[] = ['nickname', 'avatarUrl', 'phone'];
-    const nonManagerAllowed: (keyof UserInfoEntity)[] = [
+    const managerOtherAllowed: UserInfoUpdateField[] = ['nickname', 'avatarUrl', 'phone'];
+    const nonManagerAllowed: UserInfoUpdateField[] = [
       'nickname',
       'gender',
       'birthDate',
@@ -540,16 +561,20 @@ export class UpdateVisibleUserInfoUsecase {
   /**
    * 将补丁应用到实体
    */
-  private applyPatchToEntity(target: UserInfoEntity, patch: Partial<UserInfoEntity>): void {
-    const keys = Object.keys(patch) as (keyof UserInfoEntity)[];
-    for (const k of keys) {
-      // 禁止修改敏感/系统字段
-      if (k === 'accessGroup' || k === 'metaDigest' || k === 'account' || k === 'accountId') {
-        continue;
-      }
-      // 更新时间由装饰器维护；无需手动写入
-      target[k] = patch[k] as never;
-    }
+  private applyPatchToEntity(target: UserInfoEntity, patch: UserInfoUpdatePatch): void {
+    if (typeof patch.nickname !== 'undefined') target.nickname = patch.nickname;
+    if (typeof patch.gender !== 'undefined') target.gender = patch.gender;
+    if (typeof patch.birthDate !== 'undefined') target.birthDate = patch.birthDate;
+    if (typeof patch.avatarUrl !== 'undefined') target.avatarUrl = patch.avatarUrl;
+    if (typeof patch.email !== 'undefined') target.email = patch.email;
+    if (typeof patch.signature !== 'undefined') target.signature = patch.signature;
+    if (typeof patch.address !== 'undefined') target.address = patch.address;
+    if (typeof patch.phone !== 'undefined') target.phone = patch.phone;
+    if (typeof patch.tags !== 'undefined') target.tags = patch.tags;
+    if (typeof patch.geographic !== 'undefined') target.geographic = patch.geographic;
+    if (typeof patch.userState !== 'undefined') target.userState = patch.userState;
+    if (typeof patch.notifyCount !== 'undefined') target.notifyCount = patch.notifyCount;
+    if (typeof patch.unreadCount !== 'undefined') target.unreadCount = patch.unreadCount;
   }
 }
 
