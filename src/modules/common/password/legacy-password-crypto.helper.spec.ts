@@ -1,7 +1,7 @@
-// src/core/common/password/password.pbkdf2.helper.spec.ts
-import { PasswordPbkdf2Helper } from './password.pbkdf2.helper';
+// src/modules/common/password/legacy-password-crypto.helper.spec.ts
+import { LegacyPasswordCryptoHelper } from './legacy-password-crypto.helper';
 
-describe('PasswordPbkdf2Helper', () => {
+describe('LegacyPasswordCryptoHelper', () => {
   it('应该使用 Node.js crypto 模块生成正确的哈希值', () => {
     // Arrange
     const password = 'guest';
@@ -10,7 +10,7 @@ describe('PasswordPbkdf2Helper', () => {
       'c3e10d4a4af293057b42eb10bbf05f436b0a771f8269cb689f8a2b361fbd28d2c5abc547bef1aaf349299be5453a4e62cb6135479d15fa8434841e4528940620';
 
     // Act
-    const actualHash = PasswordPbkdf2Helper.hashPasswordWithCrypto(password, salt);
+    const actualHash = LegacyPasswordCryptoHelper.hashPasswordWithCrypto(password, salt);
 
     // Assert
     expect(actualHash).toBe(expectedHash);
@@ -25,7 +25,11 @@ describe('PasswordPbkdf2Helper', () => {
         'c3e10d4a4af293057b42eb10bbf05f436b0a771f8269cb689f8a2b361fbd28d2c5abc547bef1aaf349299be5453a4e62cb6135479d15fa8434841e4528940620';
 
       // Act
-      const isValid = PasswordPbkdf2Helper.verifyPasswordWithCrypto(password, salt, hashedPassword);
+      const isValid = LegacyPasswordCryptoHelper.verifyPasswordWithCrypto(
+        password,
+        salt,
+        hashedPassword,
+      );
 
       // Assert
       expect(isValid).toBe(true);
@@ -39,7 +43,7 @@ describe('PasswordPbkdf2Helper', () => {
         'c3e10d4a4af293057b42eb10bbf05f436b0a771f8269cb689f8a2b361fbd28d2c5abc547bef1aaf349299be5453a4e62cb6135479d15fa8434841e4528940620';
 
       // Act
-      const isValid = PasswordPbkdf2Helper.verifyPasswordWithCrypto(
+      const isValid = LegacyPasswordCryptoHelper.verifyPasswordWithCrypto(
         wrongPassword,
         salt,
         hashedPassword,
@@ -58,10 +62,10 @@ describe('PasswordPbkdf2Helper', () => {
     //     const salt = new Date('2023-03-15T10:18:09Z').toString();
     //     const expectedHash =
     //       'c3e10d4a4af293057b42eb10bbf05f436b0a771f8269cb689f8a2b361fbd28d2c5abc547bef1aaf349299be5453a4e62cb6135479d15fa8434841e4528940620';
-
+    //
     //     // Act
-    //     const actualHash = PasswordPbkdf2Helper.hashPassword(password, salt);
-
+    //     const actualHash = LegacyPasswordCryptoHelper.hashPassword(password, salt);
+    //
     //     // Assert
     //     expect(actualHash).toBe(expectedHash);
     //   });

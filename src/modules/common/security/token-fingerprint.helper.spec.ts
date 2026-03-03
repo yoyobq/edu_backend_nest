@@ -1,5 +1,5 @@
 /* eslint-disable max-lines-per-function */
-// src/core/security/token-fingerprint.helper.spec.ts
+// src/modules/common/security/token-fingerprint.helper.spec.ts
 import { createHash } from 'crypto';
 import { TokenFingerprintHelper } from './token-fingerprint.helper';
 

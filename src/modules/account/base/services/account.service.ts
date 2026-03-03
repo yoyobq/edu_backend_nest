@@ -9,7 +9,7 @@ import {
 } from '@app-types/models/account.types';
 import { ACCOUNT_ERROR, AUTH_ERROR, DomainError } from '@core/common/errors/domain-error';
 import { normalizeEmail } from '@core/common/normalize/normalize.helper';
-import { PasswordPbkdf2Helper } from '@core/common/password/password.pbkdf2.helper';
+import { LegacyPasswordCryptoHelper } from '@modules/common/password/legacy-password-crypto.helper';
 import { Inject, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { EntityManager, Repository } from 'typeorm';
@@ -249,7 +249,7 @@ export class AccountService {
     // 应用与 PasswordPolicyService 相同的预处理
     const processedPassword = AccountService.preprocessPassword(password);
     const salt = createdAt.toString();
-    return PasswordPbkdf2Helper.hashPasswordWithCrypto(processedPassword, salt);
+    return LegacyPasswordCryptoHelper.hashPasswordWithCrypto(processedPassword, salt);
   }
 
   /** 验证密码 */
@@ -257,7 +257,11 @@ export class AccountService {
     // 应用与 PasswordPolicyService 相同的预处理
     const processedPassword = AccountService.preprocessPassword(password);
     const salt = createdAt.toString();
-    return PasswordPbkdf2Helper.verifyPasswordWithCrypto(processedPassword, salt, hashedPassword);
+    return LegacyPasswordCryptoHelper.verifyPasswordWithCrypto(
+      processedPassword,
+      salt,
+      hashedPassword,
+    );
   }
 
   /**

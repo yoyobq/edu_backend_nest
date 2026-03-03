@@ -1,4 +1,4 @@
-// src/core/security/token-fingerprint.helper.ts
+// src/modules/common/security/token-fingerprint.helper.ts
 import { createHash } from 'crypto';
 
 /**

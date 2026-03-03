@@ -7,7 +7,7 @@ import {
   VerificationRecordType,
 } from '@app-types/models/verification-record.types';
 import { DomainError, VERIFICATION_RECORD_ERROR } from '@core/common/errors/domain-error';
-import { TokenFingerprintHelper } from '@core/security/token-fingerprint.helper';
+import { TokenFingerprintHelper } from '@modules/common/security/token-fingerprint.helper';
 import { Injectable } from '@nestjs/common';
 import { VerificationRecordReadRepository } from '../repositories/verification-record.read.repo';
 import { VerificationRecordEntity } from '../verification-record.entity';
