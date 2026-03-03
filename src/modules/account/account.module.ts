@@ -15,6 +15,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { AccountEntity } from './base/entities/account.entity';
 import { UserInfoEntity } from './base/entities/user-info.entity';
 import { AccountService } from './base/services/account.service';
+import { AccountQueryService } from './queries/account.query.service';
 
 import {
   PROFILE_PROVIDER_MAP_TOKEN, // 对外：聚合 Map token
@@ -125,12 +126,14 @@ export class AccountModule {
       ],
       providers: [
         AccountService,
+        AccountQueryService,
         AccountSecurityService,
         providerMapFactory, // 聚合 Map
       ],
       exports: [
         TypeOrmModule,
         AccountService,
+        AccountQueryService,
         PROFILE_PROVIDER_MAP_TOKEN, // 对外只暴露聚合后的 Map
       ],
     };

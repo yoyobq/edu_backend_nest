@@ -3,7 +3,7 @@
 import { VerificationRecordType, SubjectType } from '@app-types/models/verification-record.types';
 import { DomainError, VERIFICATION_RECORD_ERROR } from '@core/common/errors/domain-error';
 import { Injectable } from '@nestjs/common';
-import { VerificationReadService } from '@src/modules/verification-record/services/verification-read.service';
+import { ConsumableQueryService } from '@src/modules/verification-record/queries/consumable.query.service';
 import { VerificationRecordService } from '@src/modules/verification-record/verification-record.service';
 import { ConsumeVerificationRecordUsecase } from '@src/usecases/verification-record/consume-verification-record.usecase';
 import { InviteCoachHandler } from './coach/invite-coach.handler';
@@ -39,7 +39,7 @@ export class ConsumeVerificationFlowUsecase {
   constructor(
     private readonly consumeVerificationRecordUsecase: ConsumeVerificationRecordUsecase,
     private readonly verificationRecordService: VerificationRecordService,
-    private readonly verificationReadService: VerificationReadService,
+    private readonly consumableQueryService: ConsumableQueryService,
     private readonly resetPasswordHandler: ResetPasswordHandler,
     private readonly inviteCoachHandler: InviteCoachHandler,
     private readonly inviteManagerHandler: InviteManagerHandler,
@@ -79,7 +79,7 @@ export class ConsumeVerificationFlowUsecase {
 
       // 第一步：在事务中重新验证并获取验证记录视图
       // 这里需要重新验证是因为从预读到消费之间可能有状态变化
-      const recordView = await this.verificationReadService.findConsumableRecord(token);
+      const recordView = await this.consumableQueryService.findConsumableRecord(token);
 
       if (!recordView) {
         throw new DomainError(

@@ -1,18 +1,18 @@
 // 文件位置：src/usecases/account/get-account-by-id.usecase.ts
 import { Injectable } from '@nestjs/common';
-import { AccountService } from '@src/modules/account/base/services/account.service';
+import { AccountQueryService } from '@src/modules/account/queries/account.query.service';
 
-type AccountDetail = Awaited<ReturnType<AccountService['getAccountById']>>;
+type AccountDetail = Awaited<ReturnType<AccountQueryService['getAccountById']>>;
 
 @Injectable()
 export class GetAccountByIdUsecase {
-  constructor(private readonly accountService: AccountService) {}
+  constructor(private readonly accountQueryService: AccountQueryService) {}
 
   /**
    * 获取账户详情
    * @param accountId 账户 ID
    */
   async execute(accountId: number): Promise<AccountDetail> {
-    return await this.accountService.getAccountById(accountId);
+    return await this.accountQueryService.getAccountById(accountId);
   }
 }

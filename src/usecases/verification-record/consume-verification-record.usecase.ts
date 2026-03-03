@@ -19,10 +19,10 @@ import {
   type VerificationRecordUpdateQueryBuilder,
 } from '@src/modules/verification-record/verification-record.service';
 import {
-  VerificationReadService,
   VerificationRecordDetailView,
+  VerificationRecordQueryService,
   VerificationRecordView,
-} from '@src/modules/verification-record/services/verification-read.service';
+} from '@src/modules/verification-record/queries/verification-record.query.service';
 
 /**
  * 通过 token 消费验证记录用例参数
@@ -165,7 +165,7 @@ export class ConsumeVerificationRecordUsecase {
 
   constructor(
     private readonly verificationRecordService: VerificationRecordService,
-    private readonly verificationReadService: VerificationReadService,
+    private readonly verificationRecordQueryService: VerificationRecordQueryService,
   ) {}
 
   /**
@@ -280,7 +280,7 @@ export class ConsumeVerificationRecordUsecase {
           throw new DomainError(VERIFICATION_RECORD_ERROR.RECORD_NOT_FOUND, '验证记录不存在');
         }
 
-        return this.verificationReadService.toDetailView(updatedRecord);
+        return this.verificationRecordQueryService.toDetailView(updatedRecord);
       } catch (error) {
         if (error instanceof DomainError) {
           throw error;
@@ -356,7 +356,7 @@ export class ConsumeVerificationRecordUsecase {
         throw new DomainError(VERIFICATION_RECORD_ERROR.RECORD_NOT_FOUND, '验证记录不存在');
       }
 
-      return this.verificationReadService.toCleanView(updatedRecord);
+      return this.verificationRecordQueryService.toCleanView(updatedRecord);
     } catch (error) {
       if (error instanceof DomainError) {
         throw error;

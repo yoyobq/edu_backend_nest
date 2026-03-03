@@ -7,9 +7,9 @@ import {
 import { DomainError, VERIFICATION_RECORD_ERROR } from '@core/common/errors/domain-error';
 import { Injectable } from '@nestjs/common';
 import {
-  VerificationReadService,
+  VerificationRecordQueryService,
   VerificationRecordView,
-} from '@src/modules/verification-record/services/verification-read.service';
+} from '@src/modules/verification-record/queries/verification-record.query.service';
 import { VerificationRecordService } from '@src/modules/verification-record/verification-record.service';
 
 /**
@@ -34,7 +34,7 @@ export interface FindVerificationRecordUsecaseParams {
 export class FindVerificationRecordUsecase {
   constructor(
     private readonly verificationRecordService: VerificationRecordService,
-    private readonly verificationReadService: VerificationReadService,
+    private readonly verificationRecordQueryService: VerificationRecordQueryService,
   ) {}
 
   /**
@@ -94,7 +94,7 @@ export class FindVerificationRecordUsecase {
         return null;
       }
 
-      return this.verificationReadService.toCleanView(record);
+      return this.verificationRecordQueryService.toCleanView(record);
     } catch (error) {
       throw new DomainError(
         VERIFICATION_RECORD_ERROR.QUERY_FAILED,
@@ -138,7 +138,7 @@ export class FindVerificationRecordUsecase {
         })
         .getOne();
 
-      return record ? this.verificationReadService.toCleanView(record) : null;
+      return record ? this.verificationRecordQueryService.toCleanView(record) : null;
     } catch (error) {
       throw new DomainError(
         VERIFICATION_RECORD_ERROR.QUERY_FAILED,
