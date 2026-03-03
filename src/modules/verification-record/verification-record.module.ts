@@ -7,6 +7,8 @@ import { CoachServiceModule } from '@modules/account/identities/training/coach/c
 import { ManagerServiceModule } from '@modules/account/identities/training/manager/manager-service.module';
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { ConsumableQueryService } from './queries/consumable.query.service';
+import { VerificationRecordQueryService } from './queries/verification-record.query.service';
 import { VerificationRecordReadRepository } from './repositories/verification-record.read.repo';
 import { VerificationReadService } from './services/verification-read.service';
 import { VerificationRecordEntity } from './verification-record.entity';
@@ -28,6 +30,8 @@ import { VerificationRecordService } from './verification-record.service';
     VerificationRecordService,
     VerificationRecordReadRepository,
     VerificationReadService,
+    ConsumableQueryService,
+    VerificationRecordQueryService,
     VerificationCodeHelper,
   ],
   exports: [
@@ -35,6 +39,8 @@ import { VerificationRecordService } from './verification-record.service';
     VerificationRecordService,
     VerificationRecordReadRepository,
     VerificationReadService,
+    ConsumableQueryService,
+    VerificationRecordQueryService,
     VerificationCodeHelper,
   ],
 })

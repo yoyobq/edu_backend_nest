@@ -10,6 +10,7 @@ import { ThirdPartyProviderEnum } from '@app-types/models/account.types';
 import { ThirdPartyProvider } from './interfaces/third-party-provider.interface';
 import { WeAppProvider } from './providers/weapp.provider';
 import { WechatProvider } from './providers/wechat.provider';
+import { ThirdPartyAuthQueryService } from './queries/third-party-auth.query.service';
 import { PROVIDER_MAP, ThirdPartyAuthService } from './third-party-auth.service';
 
 /**
@@ -36,7 +37,13 @@ const providerMapFactory: Provider = {
  */
 @Module({
   imports: [TypeOrmModule.forFeature([ThirdPartyAuthEntity]), HttpModule, ConfigModule],
-  providers: [WeAppProvider, WechatProvider, providerMapFactory, ThirdPartyAuthService],
-  exports: [ThirdPartyAuthService],
+  providers: [
+    WeAppProvider,
+    WechatProvider,
+    providerMapFactory,
+    ThirdPartyAuthService,
+    ThirdPartyAuthQueryService,
+  ],
+  exports: [ThirdPartyAuthService, ThirdPartyAuthQueryService],
 })
 export class ThirdPartyAuthModule {}

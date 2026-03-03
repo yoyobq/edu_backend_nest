@@ -8,6 +8,7 @@ import {
   AccountService,
   type AccountTransactionManager,
 } from '@src/modules/account/base/services/account.service';
+import { AccountQueryService } from '@src/modules/account/queries/account.query.service';
 import { AUTH_ERROR, DomainError } from '../../core/common/errors/domain-error';
 
 /**
@@ -18,6 +19,7 @@ import { AUTH_ERROR, DomainError } from '../../core/common/errors/domain-error';
 export class CreateAccountUsecase {
   constructor(
     private readonly accountService: AccountService,
+    private readonly accountQueryService: AccountQueryService,
     private readonly passwordPolicyService: PasswordPolicyService,
   ) {}
 
@@ -39,7 +41,7 @@ export class CreateAccountUsecase {
 
     // 有外部事务则复用；否则自己开
     const account = manager ? await run(manager) : await this.accountService.runTransaction(run);
-    return this.accountService.toUserAccountView(account);
+    return this.accountQueryService.toUserAccountView(account);
   }
 
   /**
