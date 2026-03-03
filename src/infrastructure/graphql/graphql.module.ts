@@ -1,4 +1,4 @@
-// src/core/graphql/graphql.module.ts
+// src/infrastructure/graphql/graphql.module.ts
 
 import { ApolloServerPluginLandingPageLocalDefault } from '@apollo/server/plugin/landingPage/default';
 import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo';

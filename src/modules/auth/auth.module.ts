@@ -1,7 +1,7 @@
 // src/modules/auth/auth.module.ts
 
 import { TokenHelper } from '@core/common/token/token.helper';
-import { CoreJwtModule } from '@core/jwt/jwt.module';
+import { CoreJwtModule } from '@src/infrastructure/jwt/jwt.module';
 import { Module } from '@nestjs/common';
 import { PassportModule } from '@nestjs/passport';
 import { AccountInstallerModule } from '@src/modules/account/account-installer.module';
