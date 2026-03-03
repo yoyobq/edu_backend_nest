@@ -9,6 +9,20 @@ import { AccountService } from '@src/modules/account/base/services/account.servi
 import { CoachSortField, type OrderDirection } from '@src/types/common/sort.types';
 import { UserState } from '@app-types/models/user-info.types';
 
+type CoachView = {
+  readonly id: number;
+  readonly accountId: number;
+  readonly name: string;
+  readonly remark: string | null;
+  readonly level: number;
+  readonly description: string | null;
+  readonly avatarUrl: string | null;
+  readonly specialty: string | null;
+  readonly deactivatedAt: Date | null;
+  readonly createdAt: Date;
+  readonly updatedAt: Date;
+};
+
 /**
  * 列出教练列表的输入参数
  */
@@ -47,7 +61,7 @@ export interface PaginatedCoaches {
  * 教练列表项（包含 userinfo 补充信息）
  */
 export interface CoachListItem {
-  entity: CoachEntity;
+  view: CoachView;
   userState: UserState | null;
   loginHistory: { ip: string; timestamp: string; audience?: string }[] | null;
   userPhone: string | null;
@@ -98,7 +112,12 @@ export class ListCoachesUsecase {
         const history: { ip: string; timestamp: string; audience?: string }[] | null =
           acc?.recentLoginHistory ?? null;
         const phone: string | null = ui?.phone ?? null;
-        return { entity, userState: state, loginHistory: history, userPhone: phone };
+        return {
+          view: this.toView(entity),
+          userState: state,
+          loginHistory: history,
+          userPhone: phone,
+        };
       }),
     );
 
@@ -108,6 +127,22 @@ export class ListCoachesUsecase {
       page: result.page,
       limit: result.limit,
       totalPages: result.totalPages,
+    };
+  }
+
+  private toView(entity: CoachEntity): CoachView {
+    return {
+      id: entity.id,
+      accountId: entity.accountId,
+      name: entity.name,
+      remark: entity.remark,
+      level: entity.level,
+      description: entity.description,
+      avatarUrl: entity.avatarUrl,
+      specialty: entity.specialty,
+      deactivatedAt: entity.deactivatedAt ?? null,
+      createdAt: entity.createdAt,
+      updatedAt: entity.updatedAt,
     };
   }
 }

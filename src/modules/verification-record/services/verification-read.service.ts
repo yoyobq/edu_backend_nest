@@ -2,6 +2,7 @@
 
 import { AudienceTypeEnum } from '@app-types/models/account.types';
 import {
+  SubjectType,
   VerificationRecordStatus,
   VerificationRecordType,
 } from '@app-types/models/verification-record.types';
@@ -271,7 +272,7 @@ export class VerificationReadService {
    * @param record 验证记录实体
    * @returns 清洁的记录视图
    */
-  private toCleanView(record: VerificationRecordEntity): VerificationRecordView {
+  toCleanView(record: VerificationRecordEntity): VerificationRecordView {
     return {
       id: record.id,
       type: record.type,
@@ -288,6 +289,42 @@ export class VerificationReadService {
       // 注意：不包含原始 payload，避免泄露 email/phone 等 PII 信息
     };
   }
+
+  toDetailView(record: VerificationRecordEntity): VerificationRecordDetailView {
+    return {
+      id: record.id,
+      type: record.type,
+      status: record.status,
+      expiresAt: record.expiresAt,
+      notBefore: record.notBefore,
+      targetAccountId: record.targetAccountId,
+      subjectType: record.subjectType,
+      subjectId: record.subjectId,
+      payload: record.payload,
+      issuedByAccountId: record.issuedByAccountId,
+      consumedByAccountId: record.consumedByAccountId,
+      consumedAt: record.consumedAt,
+      createdAt: record.createdAt,
+      updatedAt: record.updatedAt,
+    };
+  }
+}
+
+export interface VerificationRecordDetailView {
+  id: number;
+  type: VerificationRecordType;
+  status: VerificationRecordStatus;
+  expiresAt: Date;
+  notBefore: Date | null;
+  targetAccountId: number | null;
+  subjectType: SubjectType | null;
+  subjectId: number | null;
+  payload: Record<string, unknown> | null;
+  issuedByAccountId: number | null;
+  consumedByAccountId: number | null;
+  consumedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 /**
@@ -338,7 +375,7 @@ export interface VerificationRecordView {
   /** 目标账号 ID */
   targetAccountId: number | null;
   /** 主体类型 */
-  subjectType: string | null;
+  subjectType: SubjectType | null;
   /** 主体 ID */
   subjectId: number | null;
   /** 公开载荷数据（仅包含非敏感字段） */

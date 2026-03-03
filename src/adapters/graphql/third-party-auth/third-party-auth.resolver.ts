@@ -179,7 +179,15 @@ export class ThirdPartyAuthResolver {
       unionId: input.unionId || undefined,
       accessToken: input.accessToken || undefined,
     });
-    return result as unknown as ThirdPartyAuthDTO;
+    return {
+      id: result.id,
+      accountId: result.accountId,
+      provider: result.provider,
+      providerUserId: result.providerUserId,
+      unionId: result.unionId,
+      createdAt: result.createdAt,
+      updatedAt: result.updatedAt,
+    };
   }
 
   /**
@@ -212,7 +220,16 @@ export class ThirdPartyAuthResolver {
   @UseGuards(JwtAuthGuard)
   @Query(() => [ThirdPartyAuthDTO], { description: '获取我的第三方绑定列表' })
   async myThirdPartyAuths(@currentUser() user: JwtPayload): Promise<ThirdPartyAuthDTO[]> {
-    return await this.getThirdPartyAuthsUsecase.execute({ accountId: user.sub });
+    const records = await this.getThirdPartyAuthsUsecase.execute({ accountId: user.sub });
+    return records.map((record) => ({
+      id: record.id,
+      accountId: record.accountId,
+      provider: record.provider,
+      providerUserId: record.providerUserId,
+      unionId: record.unionId,
+      createdAt: record.createdAt,
+      updatedAt: record.updatedAt,
+    }));
   }
 
   /**

@@ -15,6 +15,22 @@ import {
 } from '../../../modules/account/identities/training/learner/account-learner.service';
 import { ManagerService } from '../../../modules/account/identities/training/manager/manager.service';
 
+type LearnerView = {
+  readonly id: number;
+  readonly accountId: number | null;
+  readonly customerId: number;
+  readonly name: string;
+  readonly gender: Gender;
+  readonly birthDate: string | null;
+  readonly avatarUrl: string | null;
+  readonly specialNeeds: string | null;
+  readonly countPerSession: number;
+  readonly remark: string | null;
+  readonly deactivatedAt: Date | null;
+  readonly createdAt: Date;
+  readonly updatedAt: Date;
+};
+
 /**
  * 管理员更新学员信息输入参数
  */
@@ -60,7 +76,7 @@ export class UpdateLearnerByManagerUsecase {
    * @param input 更新参数
    * @returns 更新后的学员实体
    */
-  async execute(accountId: number, input: UpdateLearnerByManagerInput): Promise<LearnerEntity> {
+  async execute(accountId: number, input: UpdateLearnerByManagerInput): Promise<LearnerView> {
     const manager = await this.managerService.findByAccountId(accountId);
     if (!manager) throw new DomainError(PERMISSION_ERROR.ACCESS_DENIED, '用户身份验证失败');
 
@@ -107,14 +123,15 @@ export class UpdateLearnerByManagerUsecase {
         updateData.deactivatedAt = null;
       }
 
-      if (!this.hasDataChanges(updateData, learner)) return learner;
+      if (!this.hasDataChanges(updateData, learner)) return this.toView(learner);
 
       if (input.name !== undefined || input.birthDate !== undefined) {
         const targetId = updateData.customerId ?? learner.customerId;
         await this.validateUniqueness(managerTx, input, learner, targetId);
       }
 
-      return await this.performUpdate(managerTx, input.id, updateData);
+      const updated = await this.performUpdate(managerTx, input.id, updateData);
+      return this.toView(updated);
     });
   }
 
@@ -211,5 +228,26 @@ export class UpdateLearnerByManagerUsecase {
       .findOne({ where: { id: learnerId } });
     if (!updated) throw new DomainError(LEARNER_ERROR.LEARNER_UPDATE_FAILED, '更新学员信息失败');
     return updated;
+  }
+
+  /**
+   * 映射学员只读模型
+   */
+  private toView(entity: LearnerEntity): LearnerView {
+    return {
+      id: entity.id,
+      accountId: entity.accountId ?? null,
+      customerId: entity.customerId,
+      name: entity.name,
+      gender: entity.gender,
+      birthDate: entity.birthDate ?? null,
+      avatarUrl: entity.avatarUrl ?? null,
+      specialNeeds: entity.specialNeeds ?? null,
+      countPerSession: entity.countPerSession,
+      remark: entity.remark ?? null,
+      deactivatedAt: entity.deactivatedAt ?? null,
+      createdAt: entity.createdAt,
+      updatedAt: entity.updatedAt,
+    };
   }
 }

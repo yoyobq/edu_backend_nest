@@ -6,6 +6,18 @@ import { CustomerService } from '@modules/account/identities/training/customer/a
 import { ManagerService } from '@modules/account/identities/training/manager/manager.service';
 import { Injectable } from '@nestjs/common';
 
+type CustomerView = {
+  readonly id: number;
+  readonly accountId: number | null;
+  readonly name: string;
+  readonly contactPhone: string | null;
+  readonly preferredContactTime: string | null;
+  readonly remark: string | null;
+  readonly deactivatedAt: Date | null;
+  readonly createdAt: Date;
+  readonly updatedAt: Date;
+};
+
 /**
  * 上线客户输入参数
  */
@@ -19,7 +31,7 @@ export interface ReactivateCustomerParams {
  */
 export interface ReactivateCustomerResult {
   /** 更新后的客户实体 */
-  customer: CustomerEntity;
+  customer: CustomerView;
   /** 是否发生状态变更（幂等为 false） */
   isUpdated: boolean;
 }
@@ -59,7 +71,7 @@ export class ReactivateCustomerUsecase {
 
     // 幂等：已上线直接返回
     if (!entity.deactivatedAt) {
-      return { customer: entity, isUpdated: false };
+      return { customer: this.toView(entity), isUpdated: false };
     }
 
     const now = new Date();
@@ -77,6 +89,20 @@ export class ReactivateCustomerUsecase {
     if (!updated) {
       throw new DomainError(ACCOUNT_ERROR.OPERATION_NOT_SUPPORTED, '上线客户失败');
     }
-    return { customer: updated, isUpdated: true };
+    return { customer: this.toView(updated), isUpdated: true };
+  }
+
+  private toView(entity: CustomerEntity): CustomerView {
+    return {
+      id: entity.id,
+      accountId: entity.accountId,
+      name: entity.name,
+      contactPhone: entity.contactPhone,
+      preferredContactTime: entity.preferredContactTime,
+      remark: entity.remark,
+      deactivatedAt: entity.deactivatedAt ?? null,
+      createdAt: entity.createdAt,
+      updatedAt: entity.updatedAt,
+    };
   }
 }

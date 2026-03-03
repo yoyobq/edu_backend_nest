@@ -38,6 +38,16 @@ export type BindThirdPartyInputModel = {
   accessToken?: string | null;
 };
 
+export type ThirdPartyAuthView = {
+  id: number;
+  accountId: number;
+  provider: ThirdPartyProviderEnum;
+  providerUserId: string;
+  unionId: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
 export type UnbindThirdPartyInputModel =
   | {
       id: number;

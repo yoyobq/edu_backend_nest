@@ -1,6 +1,7 @@
 // src/usecases/learner/list-learners.usecase.ts
 
 import { IdentityTypeEnum } from '@app-types/models/account.types';
+import { Gender } from '@app-types/models/user-info.types';
 import { Injectable } from '@nestjs/common';
 import { LearnerSortField, OrderDirection } from '@src/types/common/sort.types';
 import { DomainError, PERMISSION_ERROR } from '../../../core/common/errors/domain-error';
@@ -8,6 +9,22 @@ import { CustomerService } from '../../../modules/account/identities/training/cu
 import { LearnerEntity } from '../../../modules/account/identities/training/learner/account-learner.entity';
 import { LearnerService } from '../../../modules/account/identities/training/learner/account-learner.service';
 import { ManagerService } from '../../../modules/account/identities/training/manager/manager.service';
+
+type LearnerView = {
+  readonly id: number;
+  readonly accountId: number | null;
+  readonly customerId: number;
+  readonly name: string;
+  readonly gender: Gender;
+  readonly birthDate: string | null;
+  readonly avatarUrl: string | null;
+  readonly specialNeeds: string | null;
+  readonly countPerSession: number;
+  readonly remark: string | null;
+  readonly deactivatedAt: Date | null;
+  readonly createdAt: Date;
+  readonly updatedAt: Date;
+};
 
 /**
  * 分页查询参数
@@ -30,7 +47,7 @@ export interface PaginationInput {
  */
 export interface PaginatedLearners {
   /** 学员列表 */
-  items: LearnerEntity[];
+  items: LearnerView[];
   /** 总数量 */
   total: number;
   /** 当前页码 */
@@ -105,7 +122,7 @@ export class ListLearnersUsecase {
     totalPages: number;
   }): PaginatedLearners {
     return {
-      items: result.learners,
+      items: result.learners.map((learner) => this.toView(learner)),
       total: result.total,
       page: result.page,
       limit: result.limit,
@@ -243,5 +260,26 @@ export class ListLearnersUsecase {
       sortBy,
       sortOrder,
     });
+  }
+
+  /**
+   * 映射学员只读模型
+   */
+  private toView(entity: LearnerEntity): LearnerView {
+    return {
+      id: entity.id,
+      accountId: entity.accountId ?? null,
+      customerId: entity.customerId,
+      name: entity.name,
+      gender: entity.gender,
+      birthDate: entity.birthDate ?? null,
+      avatarUrl: entity.avatarUrl ?? null,
+      specialNeeds: entity.specialNeeds ?? null,
+      countPerSession: entity.countPerSession,
+      remark: entity.remark ?? null,
+      deactivatedAt: entity.deactivatedAt ?? null,
+      createdAt: entity.createdAt,
+      updatedAt: entity.updatedAt,
+    };
   }
 }

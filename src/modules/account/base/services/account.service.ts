@@ -321,6 +321,10 @@ export class AccountService {
       throw new DomainError(ACCOUNT_ERROR.ACCOUNT_NOT_FOUND, '账户不存在');
     }
 
+    return this.toUserAccountView(account);
+  }
+
+  toUserAccountView(account: AccountEntity): UserAccountView {
     return {
       id: account.id,
       loginName: account.loginName,

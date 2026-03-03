@@ -11,6 +11,22 @@ import {
 import { ManagerService } from '@modules/account/identities/training/manager/manager.service';
 import { Injectable } from '@nestjs/common';
 
+type LearnerView = {
+  readonly id: number;
+  readonly accountId: number | null;
+  readonly customerId: number;
+  readonly name: string;
+  readonly gender: Gender;
+  readonly birthDate: string | null;
+  readonly avatarUrl: string | null;
+  readonly specialNeeds: string | null;
+  readonly countPerSession: number;
+  readonly remark: string | null;
+  readonly deactivatedAt: Date | null;
+  readonly createdAt: Date;
+  readonly updatedAt: Date;
+};
+
 /**
  * 创建学员用例参数
  */
@@ -42,7 +58,7 @@ export interface CreateLearnerUsecaseParams {
  */
 export interface CreateLearnerUsecaseResult {
   /** 创建的学员实体 */
-  learner: LearnerEntity;
+  learner: LearnerView;
   /** 是否为新创建（false 表示已存在） */
   isNewlyCreated: boolean;
 }
@@ -117,7 +133,25 @@ export class CreateLearnerUsecase {
         createdBy: currentAccountId,
       });
 
-      return { learner, isNewlyCreated: true };
+      return { learner: this.toView(learner), isNewlyCreated: true };
     });
+  }
+
+  private toView(entity: LearnerEntity): LearnerView {
+    return {
+      id: entity.id,
+      accountId: entity.accountId ?? null,
+      customerId: entity.customerId,
+      name: entity.name,
+      gender: entity.gender,
+      birthDate: entity.birthDate ?? null,
+      avatarUrl: entity.avatarUrl ?? null,
+      specialNeeds: entity.specialNeeds ?? null,
+      countPerSession: entity.countPerSession,
+      remark: entity.remark ?? null,
+      deactivatedAt: entity.deactivatedAt ?? null,
+      createdAt: entity.createdAt,
+      updatedAt: entity.updatedAt,
+    };
   }
 }

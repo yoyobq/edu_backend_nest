@@ -1,6 +1,6 @@
 // src/usecases/registration/register-with-email.usecase.ts
 
-import { AccountStatus, IdentityTypeEnum } from '@app-types/models/account.types';
+import { AccountStatus, IdentityTypeEnum, UserAccountView } from '@app-types/models/account.types';
 import { VerificationRecordType } from '@app-types/models/verification-record.types';
 import { ACCOUNT_ERROR, DomainError } from '@core/common/errors';
 import {
@@ -10,7 +10,6 @@ import {
 } from '@core/common/network/network-access.helper';
 import { TokenFingerprintHelper } from '@core/security/token-fingerprint.helper';
 import { Injectable } from '@nestjs/common';
-import { AccountEntity } from '@src/modules/account/base/entities/account.entity';
 import { AccountService } from '@src/modules/account/base/services/account.service';
 import {
   RegisterWithEmailParams,
@@ -190,7 +189,7 @@ export class RegisterWithEmailUsecase {
     accessGroup: IdentityTypeEnum[];
     identityHint: IdentityTypeEnum;
     metaDigest: IdentityTypeEnum[];
-  }): Promise<AccountEntity> {
+  }): Promise<UserAccountView> {
     const {
       loginName,
       loginEmail,

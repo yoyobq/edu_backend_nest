@@ -4,6 +4,16 @@ import { ManagerEntity } from '@modules/account/identities/training/manager/acco
 import { ManagerService } from '@modules/account/identities/training/manager/manager.service';
 import { Injectable } from '@nestjs/common';
 
+export type ManagerView = {
+  readonly id: number;
+  readonly accountId: number;
+  readonly name: string;
+  readonly remark: string | null;
+  readonly deactivatedAt: Date | null;
+  readonly createdAt: Date;
+  readonly updatedAt: Date;
+};
+
 /**
  * 更新 Manager 信息用例的输入参数
  */
@@ -33,7 +43,7 @@ export class UpdateManagerUsecase {
   /**
    * 执行更新 Manager 信息
    */
-  async execute(params: UpdateManagerUsecaseParams): Promise<ManagerEntity> {
+  async execute(params: UpdateManagerUsecaseParams): Promise<ManagerView> {
     const { currentAccountId } = params;
 
     const ctx = await this.resolveIdentityContext(currentAccountId, params);
@@ -47,7 +57,7 @@ export class UpdateManagerUsecase {
 
       const updateData = this.prepareUpdateData({ ...params });
       if (!this.hasDataChanges(updateData, entity)) {
-        return entity;
+        return this.toView(entity);
       }
 
       updateData.updatedBy = currentAccountId;
@@ -58,7 +68,7 @@ export class UpdateManagerUsecase {
       if (!updated) {
         throw new DomainError(ACCOUNT_ERROR.OPERATION_NOT_SUPPORTED, '更新 Manager 信息失败');
       }
-      return updated;
+      return this.toView(updated);
     });
   }
 
@@ -122,5 +132,17 @@ export class UpdateManagerUsecase {
       throw new DomainError(ACCOUNT_ERROR.OPERATION_NOT_SUPPORTED, '备注长度不能超过 255');
     }
     updateData.remark = val;
+  }
+
+  private toView(entity: ManagerEntity): ManagerView {
+    return {
+      id: entity.id,
+      accountId: entity.accountId,
+      name: entity.name,
+      remark: entity.remark,
+      deactivatedAt: entity.deactivatedAt ?? null,
+      createdAt: entity.createdAt,
+      updatedAt: entity.updatedAt,
+    };
   }
 }
