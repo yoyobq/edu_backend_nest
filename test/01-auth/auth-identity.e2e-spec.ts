@@ -1,11 +1,11 @@
 // test/01-auth/auth-identity.e2e-spec.ts
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import { TokenHelper } from '@src/core/common/token/token.helper';
 import { CoachEntity } from '@src/modules/account/identities/training/coach/account-coach.entity';
 import { CustomerEntity } from '@src/modules/account/identities/training/customer/account-customer.entity';
 import { LearnerEntity } from '@src/modules/account/identities/training/learner/account-learner.entity';
 import { ManagerEntity } from '@src/modules/account/identities/training/manager/account-manager.entity';
+import { TokenHelper } from '@src/modules/auth/token.helper';
 
 import { IdentityTypeEnum, LoginTypeEnum } from '@src/types/models/account.types';
 import request from 'supertest';
@@ -356,6 +356,10 @@ describe('Auth Identity (e2e)', () => {
           },
         },
       });
+
+    if (response.body?.errors?.length) {
+      throw new Error(JSON.stringify(response.body.errors));
+    }
 
     return response;
   };
