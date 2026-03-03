@@ -4,6 +4,7 @@ import { AccountUsecasesModule } from '@src/usecases/account/account-usecases.mo
 import { AuthUsecasesModule } from '@src/usecases/auth/auth-usecases.module';
 import { IdentityManagementUsecasesModule } from '@src/usecases/identity-management/identity-management-usecases.module';
 import { RegistrationUsecasesModule } from '@src/usecases/registration/registration-usecases.module';
+import { ThirdPartyAccountsUsecasesModule } from '@src/usecases/third-party-accounts/third-party-accounts-usecases.module';
 import { VerificationUsecasesModule } from '@src/usecases/verification/verification-usecases.module';
 
 import { Module } from '@nestjs/common';
@@ -33,6 +34,7 @@ import { RolesGuard } from './guards/roles.guard';
     AccountUsecasesModule,
     AuthUsecasesModule,
     RegistrationUsecasesModule,
+    ThirdPartyAccountsUsecasesModule,
     IdentityManagementUsecasesModule,
     VerificationUsecasesModule,
   ],

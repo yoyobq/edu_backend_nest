@@ -1,5 +1,3 @@
-<!-- 文件位置: /var/www/backend/docs/usecase.rules.md -->
-
 # Usecase 说明
 
 ## 目标与定位
@@ -12,12 +10,22 @@
 ## 边界与依赖
 
 - adapters → usecases
-- usecases → modules(service) 或 core
-- modules(service) → infrastructure 或 core
+- usecases → modules(service) / core
+- usecases → usecases（仅限编排型依赖）
+- modules(service) → infrastructure / core
 - 禁止 usecases 直接依赖 infrastructure
 - 禁止 adapters 依赖 modules(service) 或 infrastructure
 - ORM Entity 仅在 modules(service) 内部使用，上游不得直接暴露
 - 适配层不得返回 ORM Entity 或 QueryBuilder
+- Usecase 模块必须显式 imports 其依赖的 modules(service) 或 usecases 模块
+- 禁止依赖 AppModule 的隐式可见性或适配层转发
+
+## Usecase 依赖细则
+
+- 仅允许依赖同域的编排型 Usecase，不允许跨域依赖
+- 仅允许依赖 1 层，不允许链式多跳依赖
+- 不允许为获取某个 Service 而绕道依赖 Usecase
+- 禁止形成循环依赖
 
 ## 职责与输出
 
