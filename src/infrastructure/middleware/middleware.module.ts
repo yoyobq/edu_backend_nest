@@ -1,4 +1,4 @@
-// src/core/middleware/middleware.module.ts
+// src/infrastructure/middleware/middleware.module.ts
 
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { FormatResponseMiddleware } from './format-response.middleware';

@@ -6,14 +6,14 @@ import { GraphQLAdapterModule } from './adapters/graphql/graphql-adapter.module'
 import { IntegrationEventsAdapterModule } from './adapters/integration-events/integration-events-adapter.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { GqlAllExceptionsFilter } from './core/common/filters/graphql-exception.filter';
+import { GqlAllExceptionsFilter } from './infrastructure/graphql/filters/graphql-exception.filter';
 import { PasswordModule } from './core/common/password/password.module';
 import { AppConfigModule } from './infrastructure/config/config.module';
 import { DatabaseModule } from './infrastructure/database/database.module';
 import { FieldEncryptionModule } from './core/field-encryption/field-encryption.module';
 import { AppGraphQLModule } from './infrastructure/graphql/graphql.module';
 import { LoggerModule } from './core/logger/logger.module';
-import { MiddlewareModule } from './core/middleware/middleware.module';
+import { MiddlewareModule } from './infrastructure/middleware/middleware.module';
 import { AccountModule } from './modules/account/account.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { IntegrationEventsModule } from './modules/common/integration-events/integration-events.module';
