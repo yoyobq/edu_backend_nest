@@ -12,6 +12,16 @@ import {
   type VisibleDetailMode,
 } from '@src/usecases/account/get-visible-user-info.usecase';
 
+type ManagerView = {
+  readonly id: number;
+  readonly accountId: number;
+  readonly name: string;
+  readonly remark: string | null;
+  readonly deactivatedAt: Date | null;
+  readonly createdAt: Date;
+  readonly updatedAt: Date;
+};
+
 /**
  * 列出 Manager 列表的输入参数
  * @description 仅允许 manager 身份查询
@@ -35,7 +45,7 @@ export interface ListManagersParams {
  * Manager 分页结果
  */
 export interface ManagerListItem {
-  entity: ManagerEntity;
+  view: ManagerView;
   userState: UserState | null;
   loginHistory: { ip: string; timestamp: string; audience?: string }[] | null;
   userPhone: string | null;
@@ -129,7 +139,13 @@ export class ListManagersUsecase {
         }
         const history: { ip: string; timestamp: string; audience?: string }[] | null =
           acc?.recentLoginHistory ?? null;
-        return { entity, userState: state, loginHistory: history, userPhone: phone, userInfo };
+        return {
+          view: this.toView(entity),
+          userState: state,
+          loginHistory: history,
+          userPhone: phone,
+          userInfo,
+        };
       }),
     );
 
@@ -139,6 +155,18 @@ export class ListManagersUsecase {
       page: 1,
       limit: items.length,
       totalPages: 1,
+    };
+  }
+
+  private toView(entity: ManagerEntity): ManagerView {
+    return {
+      id: entity.id,
+      accountId: entity.accountId,
+      name: entity.name,
+      remark: entity.remark,
+      deactivatedAt: entity.deactivatedAt ?? null,
+      createdAt: entity.createdAt,
+      updatedAt: entity.updatedAt,
     };
   }
 }

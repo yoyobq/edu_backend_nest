@@ -6,13 +6,27 @@ import { Injectable } from '@nestjs/common';
 import { AccountService } from '@src/modules/account/base/services/account.service';
 import { UserState } from '@app-types/models/user-info.types';
 
+type CoachView = {
+  readonly id: number;
+  readonly accountId: number;
+  readonly name: string;
+  readonly remark: string | null;
+  readonly level: number;
+  readonly description: string | null;
+  readonly avatarUrl: string | null;
+  readonly specialty: string | null;
+  readonly deactivatedAt: Date | null;
+  readonly createdAt: Date;
+  readonly updatedAt: Date;
+};
+
 export interface GetMyCoachParams {
   /** 当前用户账户 ID */
   currentAccountId: number;
 }
 
 export interface GetMyCoachResult {
-  entity: CoachEntity;
+  view: CoachView;
   userState: UserState | null;
   loginHistory: { ip: string; timestamp: string; audience?: string }[] | null;
   userPhone: string | null;
@@ -49,6 +63,22 @@ export class GetMyCoachUsecase {
     const userPhone: string | null = ui?.phone ?? null;
     const loginHistory = acc?.recentLoginHistory ?? null;
 
-    return { entity, userState, loginHistory, userPhone };
+    return { view: this.toView(entity), userState, loginHistory, userPhone };
+  }
+
+  private toView(entity: CoachEntity): CoachView {
+    return {
+      id: entity.id,
+      accountId: entity.accountId,
+      name: entity.name,
+      remark: entity.remark,
+      level: entity.level,
+      description: entity.description,
+      avatarUrl: entity.avatarUrl,
+      specialty: entity.specialty,
+      deactivatedAt: entity.deactivatedAt ?? null,
+      createdAt: entity.createdAt,
+      updatedAt: entity.updatedAt,
+    };
   }
 }

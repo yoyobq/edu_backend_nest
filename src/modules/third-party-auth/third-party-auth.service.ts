@@ -2,6 +2,7 @@
 import { AudienceTypeEnum, ThirdPartyProviderEnum } from '@app-types/models/account.types';
 import {
   BindThirdPartyInputModel,
+  ThirdPartyAuthView,
   ThirdPartySession,
   UnbindThirdPartyInputModel,
 } from '@app-types/models/third-party-auth.types';
@@ -170,10 +171,10 @@ export class ThirdPartyAuthService {
    * 获取用户的第三方绑定列表
    * 查询指定用户的所有第三方平台绑定记录
    * @param accountId 用户账户 ID
-   * @returns 第三方认证实体列表 (仅包含必要字段)
+   * @returns 第三方认证视图列表
    */
-  async getThirdPartyAuths(accountId: number): Promise<ThirdPartyAuthEntity[]> {
-    return this.thirdPartyAuthRepository.find({
+  async getThirdPartyAuths(accountId: number): Promise<ThirdPartyAuthView[]> {
+    const records = await this.thirdPartyAuthRepository.find({
       where: { accountId },
       select: [
         'id',
@@ -185,6 +186,15 @@ export class ThirdPartyAuthService {
         'updatedAt',
       ],
     });
+    return records.map((record) => ({
+      id: record.id,
+      accountId: record.accountId,
+      provider: record.provider,
+      providerUserId: record.providerUserId,
+      unionId: record.unionId ?? null,
+      createdAt: record.createdAt,
+      updatedAt: record.updatedAt,
+    }));
   }
 
   /**

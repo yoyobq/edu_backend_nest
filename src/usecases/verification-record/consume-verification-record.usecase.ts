@@ -18,6 +18,11 @@ import {
   type VerificationRecordTransactionManager,
   type VerificationRecordUpdateQueryBuilder,
 } from '@src/modules/verification-record/verification-record.service';
+import {
+  VerificationReadService,
+  VerificationRecordDetailView,
+  VerificationRecordView,
+} from '@src/modules/verification-record/services/verification-read.service';
 
 /**
  * 通过 token 消费验证记录用例参数
@@ -158,14 +163,17 @@ export class ConsumeVerificationRecordUsecase {
     },
   ];
 
-  constructor(private readonly verificationRecordService: VerificationRecordService) {}
+  constructor(
+    private readonly verificationRecordService: VerificationRecordService,
+    private readonly verificationReadService: VerificationReadService,
+  ) {}
 
   /**
    * 通过 token 消费验证记录
    * @param params 消费参数
    * @returns 更新后的验证记录实体
    */
-  async consumeByToken(params: ConsumeByTokenUsecaseParams): Promise<VerificationRecordEntity> {
+  async consumeByToken(params: ConsumeByTokenUsecaseParams): Promise<VerificationRecordView> {
     const { token, consumedByAccountId, expectedType, subjectType, subjectId, manager } = params;
     const tokenFp = this.verificationRecordService.generateTokenFingerprint(token);
 
@@ -185,7 +193,7 @@ export class ConsumeVerificationRecordUsecase {
    * @param params 消费参数
    * @returns 更新后的验证记录实体
    */
-  async consumeById(params: ConsumeByIdUsecaseParams): Promise<VerificationRecordEntity> {
+  async consumeById(params: ConsumeByIdUsecaseParams): Promise<VerificationRecordView> {
     const { recordId, consumedByAccountId, expectedType, subjectType, subjectId, manager } = params;
 
     return this.executeConsumption({
@@ -210,7 +218,7 @@ export class ConsumeVerificationRecordUsecase {
     token: string,
     consumedByAccountId?: number,
     expectedType?: VerificationRecordType,
-  ): Promise<VerificationRecordEntity> {
+  ): Promise<VerificationRecordView> {
     return this.verificationRecordService.runTransaction(async (manager) => {
       return this.consumeByToken({ token, consumedByAccountId, expectedType, manager });
     });
@@ -225,7 +233,7 @@ export class ConsumeVerificationRecordUsecase {
   async consumeByIdInTransaction(
     recordId: number,
     consumedByAccountId?: number,
-  ): Promise<VerificationRecordEntity> {
+  ): Promise<VerificationRecordView> {
     return this.verificationRecordService.runTransaction(async (manager) => {
       return this.consumeById({ recordId, consumedByAccountId, manager });
     });
@@ -236,7 +244,7 @@ export class ConsumeVerificationRecordUsecase {
    * @param params 撤销参数
    * @returns 更新后的验证记录实体
    */
-  async revokeRecord(params: RevokeRecordUsecaseParams): Promise<VerificationRecordEntity> {
+  async revokeRecord(params: RevokeRecordUsecaseParams): Promise<VerificationRecordDetailView> {
     const { recordId, manager } = params;
 
     return this.verificationRecordService.runTransaction(async (transactionManager) => {
@@ -272,7 +280,7 @@ export class ConsumeVerificationRecordUsecase {
           throw new DomainError(VERIFICATION_RECORD_ERROR.RECORD_NOT_FOUND, '验证记录不存在');
         }
 
-        return updatedRecord;
+        return this.verificationReadService.toDetailView(updatedRecord);
       } catch (error) {
         if (error instanceof DomainError) {
           throw error;
@@ -293,7 +301,7 @@ export class ConsumeVerificationRecordUsecase {
    * @param recordId 记录 ID
    * @returns 更新后的验证记录实体
    */
-  async revokeRecordInTransaction(recordId: number): Promise<VerificationRecordEntity> {
+  async revokeRecordInTransaction(recordId: number): Promise<VerificationRecordDetailView> {
     return this.revokeRecord({ recordId });
   }
 
@@ -319,7 +327,7 @@ export class ConsumeVerificationRecordUsecase {
     notFoundMessage: string;
     context: ValidationContext;
     errorDetails: Record<string, unknown>;
-  }): Promise<VerificationRecordEntity> {
+  }): Promise<VerificationRecordView> {
     const {
       repository,
       whereCondition,
@@ -348,7 +356,7 @@ export class ConsumeVerificationRecordUsecase {
         throw new DomainError(VERIFICATION_RECORD_ERROR.RECORD_NOT_FOUND, '验证记录不存在');
       }
 
-      return updatedRecord;
+      return this.verificationReadService.toCleanView(updatedRecord);
     } catch (error) {
       if (error instanceof DomainError) {
         throw error;

@@ -1,11 +1,13 @@
 // src/usecases/third-party-accounts/bind-third-party-account.usecase.ts
 
 import { ThirdPartyProviderEnum } from '@app-types/models/account.types';
-import { BindThirdPartyInputModel } from '@app-types/models/third-party-auth.types';
+import {
+  BindThirdPartyInputModel,
+  ThirdPartyAuthView,
+} from '@app-types/models/third-party-auth.types';
 import { DomainError, THIRDPARTY_ERROR } from '@core/common/errors/domain-error';
 import { ThirdPartyAuthService } from '@modules/third-party-auth/third-party-auth.service';
 import { HttpException, Injectable } from '@nestjs/common';
-import { ThirdPartyAuthEntity } from '@src/modules/account/base/entities/third-party-auth.entity';
 import { PinoLogger } from 'nestjs-pino';
 
 /** 绑定第三方账户输入参数（协议无关） */
@@ -33,7 +35,7 @@ export class BindThirdPartyAccountUsecase {
    * @returns 绑定后的第三方认证实体
    * @throws DomainError 当参数无效或服务层返回错误时抛出领域错误
    */
-  async execute(params: BindThirdPartyAccountParams): Promise<ThirdPartyAuthEntity> {
+  async execute(params: BindThirdPartyAccountParams): Promise<ThirdPartyAuthView> {
     this.validateParams(params);
 
     try {
@@ -45,7 +47,15 @@ export class BindThirdPartyAccountUsecase {
         { accountId: params.accountId, provider: params.provider },
         '第三方账户绑定成功',
       );
-      return result;
+      return {
+        id: result.id,
+        accountId: result.accountId,
+        provider: result.provider,
+        providerUserId: result.providerUserId,
+        unionId: result.unionId ?? null,
+        createdAt: result.createdAt,
+        updatedAt: result.updatedAt,
+      };
     } catch (e) {
       throw this.normalizeError(e, THIRDPARTY_ERROR.BIND_FAILED, '绑定第三方账户失败');
     }

@@ -183,7 +183,7 @@ export class ManagerResolver {
     });
 
     const list = result.items.map((item) =>
-      this.mapManagerEntityToType(item.entity, {
+      this.mapManagerEntityToType(item.view, {
         userState: item.userState,
         userPhone: item.userPhone,
         loginHistory: item.loginHistory as LoginHistoryItem[] | null,

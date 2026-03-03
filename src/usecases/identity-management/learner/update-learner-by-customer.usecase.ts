@@ -14,6 +14,22 @@ import {
   type LearnerTransactionManager,
 } from '../../../modules/account/identities/training/learner/account-learner.service';
 
+type LearnerView = {
+  readonly id: number;
+  readonly accountId: number | null;
+  readonly customerId: number;
+  readonly name: string;
+  readonly gender: Gender;
+  readonly birthDate: string | null;
+  readonly avatarUrl: string | null;
+  readonly specialNeeds: string | null;
+  readonly countPerSession: number;
+  readonly remark: string | null;
+  readonly deactivatedAt: Date | null;
+  readonly createdAt: Date;
+  readonly updatedAt: Date;
+};
+
 /**
  * 客户更新学员信息输入参数
  */
@@ -56,7 +72,7 @@ export class UpdateLearnerByCustomerUsecase {
    * @param input 更新参数
    * @returns 更新后的学员实体
    */
-  async execute(accountId: number, input: UpdateLearnerByCustomerInput): Promise<LearnerEntity> {
+  async execute(accountId: number, input: UpdateLearnerByCustomerInput): Promise<LearnerView> {
     // 字段权限快速拦截
     if (input.countPerSession !== undefined) {
       throw new DomainError(PERMISSION_ERROR.ACCESS_DENIED, '无权限修改该字段: countPerSession');
@@ -76,13 +92,14 @@ export class UpdateLearnerByCustomerUsecase {
       const learner = await this.validateLearnerAccess(input.id, targetCustomerId);
 
       const updateData = this.prepareUpdateData(input, accountId);
-      if (!this.hasDataChanges(updateData, learner)) return learner;
+      if (!this.hasDataChanges(updateData, learner)) return this.toView(learner);
 
       if (input.name !== undefined || input.birthDate !== undefined) {
         await this.validateUniqueness(manager, input, learner, targetCustomerId);
       }
 
-      return await this.performUpdate(manager, input.id, updateData);
+      const updated = await this.performUpdate(manager, input.id, updateData);
+      return this.toView(updated);
     });
   }
 
@@ -186,5 +203,26 @@ export class UpdateLearnerByCustomerUsecase {
       throw new DomainError(LEARNER_ERROR.LEARNER_UPDATE_FAILED, '更新学员信息失败');
     }
     return updated;
+  }
+
+  /**
+   * 映射学员只读模型
+   */
+  private toView(entity: LearnerEntity): LearnerView {
+    return {
+      id: entity.id,
+      accountId: entity.accountId ?? null,
+      customerId: entity.customerId,
+      name: entity.name,
+      gender: entity.gender,
+      birthDate: entity.birthDate ?? null,
+      avatarUrl: entity.avatarUrl ?? null,
+      specialNeeds: entity.specialNeeds ?? null,
+      countPerSession: entity.countPerSession,
+      remark: entity.remark ?? null,
+      deactivatedAt: entity.deactivatedAt ?? null,
+      createdAt: entity.createdAt,
+      updatedAt: entity.updatedAt,
+    };
   }
 }

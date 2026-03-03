@@ -161,7 +161,7 @@ export class CoachResolver {
     });
 
     const list = result.items.map((item) =>
-      this.mapCoachEntityToType(item.entity, item.userState, item.loginHistory, item.userPhone),
+      this.mapCoachEntityToType(item.view, item.userState, item.loginHistory, item.userPhone),
     );
     return {
       coaches: list,
@@ -187,7 +187,7 @@ export class CoachResolver {
   async myCoach(@currentUser() user: JwtPayload): Promise<CoachType> {
     const result = await this.getMyCoachUsecase.execute({ currentAccountId: Number(user.sub) });
     return this.mapCoachEntityToType(
-      result.entity,
+      result.view,
       result.userState,
       result.loginHistory as LoginHistoryItem[] | null,
       result.userPhone,

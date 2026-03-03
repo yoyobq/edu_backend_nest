@@ -6,8 +6,10 @@ import {
 } from '@app-types/models/verification-record.types';
 import { DomainError, VERIFICATION_RECORD_ERROR } from '@core/common/errors/domain-error';
 import { Injectable } from '@nestjs/common';
-import { VerificationRecordEntity } from '@src/modules/verification-record/verification-record.entity';
-import { VerificationReadService } from '@src/modules/verification-record/services/verification-read.service';
+import {
+  VerificationReadService,
+  VerificationRecordView,
+} from '@src/modules/verification-record/services/verification-read.service';
 import { VerificationRecordService } from '@src/modules/verification-record/verification-record.service';
 
 /**
@@ -43,9 +45,7 @@ export class FindVerificationRecordUsecase {
    */
   async findActiveConsumableByToken(
     params: FindVerificationRecordUsecaseParams,
-  ): Promise<
-    (VerificationRecordEntity & { publicPayload: Record<string, unknown> | null }) | null
-  > {
+  ): Promise<VerificationRecordView | null> {
     try {
       const now = new Date();
       const { token, forAccountId, expectedType, ignoreTargetRestriction } = params;
@@ -94,9 +94,7 @@ export class FindVerificationRecordUsecase {
         return null;
       }
 
-      return Object.assign(record, {
-        publicPayload: this.verificationReadService.extractPublicPayload(record.payload),
-      });
+      return this.verificationReadService.toCleanView(record);
     } catch (error) {
       throw new DomainError(
         VERIFICATION_RECORD_ERROR.QUERY_FAILED,
@@ -122,7 +120,7 @@ export class FindVerificationRecordUsecase {
   async findActiveConsumableById(
     recordId: number,
     forAccountId: number,
-  ): Promise<VerificationRecordEntity | null> {
+  ): Promise<VerificationRecordView | null> {
     try {
       const now = new Date();
 
@@ -140,7 +138,7 @@ export class FindVerificationRecordUsecase {
         })
         .getOne();
 
-      return record;
+      return record ? this.verificationReadService.toCleanView(record) : null;
     } catch (error) {
       throw new DomainError(
         VERIFICATION_RECORD_ERROR.QUERY_FAILED,

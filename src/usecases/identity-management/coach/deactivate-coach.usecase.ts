@@ -5,6 +5,20 @@ import { CoachService } from '@modules/account/identities/training/coach/coach.s
 import { ManagerService } from '@modules/account/identities/training/manager/manager.service';
 import { Injectable } from '@nestjs/common';
 
+type CoachView = {
+  readonly id: number;
+  readonly accountId: number;
+  readonly name: string;
+  readonly remark: string | null;
+  readonly level: number;
+  readonly description: string | null;
+  readonly avatarUrl: string | null;
+  readonly specialty: string | null;
+  readonly deactivatedAt: Date | null;
+  readonly createdAt: Date;
+  readonly updatedAt: Date;
+};
+
 /**
  * 下线教练输入参数
  */
@@ -18,7 +32,7 @@ export interface DeactivateCoachParams {
  */
 export interface DeactivateCoachResult {
   /** 更新后的教练实体 */
-  coach: CoachEntity;
+  coach: CoachView;
   /** 是否发生状态变更（幂等为 false） */
   isUpdated: boolean;
 }
@@ -58,7 +72,7 @@ export class DeactivateCoachUsecase {
 
     // 幂等：已下线直接返回
     if (entity.deactivatedAt) {
-      return { coach: entity, isUpdated: false };
+      return { coach: this.toView(entity), isUpdated: false };
     }
 
     const now = new Date();
@@ -76,6 +90,22 @@ export class DeactivateCoachUsecase {
     if (!updated) {
       throw new DomainError(ACCOUNT_ERROR.OPERATION_NOT_SUPPORTED, '下线教练失败');
     }
-    return { coach: updated, isUpdated: true };
+    return { coach: this.toView(updated), isUpdated: true };
+  }
+
+  private toView(entity: CoachEntity): CoachView {
+    return {
+      id: entity.id,
+      accountId: entity.accountId,
+      name: entity.name,
+      remark: entity.remark,
+      level: entity.level,
+      description: entity.description,
+      avatarUrl: entity.avatarUrl,
+      specialty: entity.specialty,
+      deactivatedAt: entity.deactivatedAt ?? null,
+      createdAt: entity.createdAt,
+      updatedAt: entity.updatedAt,
+    };
   }
 }

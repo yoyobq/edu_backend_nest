@@ -1,5 +1,6 @@
 // src/usecases/account/create-account.usecase.ts
-import { AccountStatus } from '@app-types/models/account.types';
+import { AccountStatus, UserAccountView } from '@app-types/models/account.types';
+import { PasswordPolicyService } from '@core/common/password/password-policy.service';
 import { Injectable } from '@nestjs/common';
 import { AccountEntity } from '@src/modules/account/base/entities/account.entity';
 import { UserInfoEntity } from '@src/modules/account/base/entities/user-info.entity';
@@ -7,8 +8,7 @@ import {
   AccountService,
   type AccountTransactionManager,
 } from '@src/modules/account/base/services/account.service';
-import { PasswordPolicyService } from '@core/common/password/password-policy.service';
-import { DomainError, AUTH_ERROR } from '../../core/common/errors/domain-error';
+import { AUTH_ERROR, DomainError } from '../../core/common/errors/domain-error';
 
 /**
  * 创建账户用例
@@ -34,11 +34,12 @@ export class CreateAccountUsecase {
     accountData: Partial<AccountEntity>;
     userInfoData: Partial<UserInfoEntity>;
     manager?: AccountTransactionManager;
-  }): Promise<AccountEntity> {
+  }): Promise<UserAccountView> {
     const run = async (m: AccountTransactionManager) => this.doCreate(m, accountData, userInfoData);
 
     // 有外部事务则复用；否则自己开
-    return manager ? run(manager) : this.accountService.runTransaction(run);
+    const account = manager ? await run(manager) : await this.accountService.runTransaction(run);
+    return this.accountService.toUserAccountView(account);
   }
 
   /**

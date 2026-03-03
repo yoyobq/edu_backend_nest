@@ -5,6 +5,20 @@ import { CoachService } from '@modules/account/identities/training/coach/coach.s
 import { ManagerService } from '@modules/account/identities/training/manager/manager.service';
 import { Injectable } from '@nestjs/common';
 
+export type CoachView = {
+  readonly id: number;
+  readonly accountId: number;
+  readonly name: string;
+  readonly remark: string | null;
+  readonly level: number;
+  readonly description: string | null;
+  readonly avatarUrl: string | null;
+  readonly specialty: string | null;
+  readonly deactivatedAt: Date | null;
+  readonly createdAt: Date;
+  readonly updatedAt: Date;
+};
+
 /**
  * 更新教练信息用例的输入参数
  */
@@ -46,7 +60,7 @@ export class UpdateCoachUsecase {
   /**
    * 执行更新教练信息
    */
-  async execute(params: UpdateCoachUsecaseParams): Promise<CoachEntity> {
+  async execute(params: UpdateCoachUsecaseParams): Promise<CoachView> {
     const { currentAccountId } = params;
 
     const ctx = await this.resolveIdentityContext(currentAccountId, params);
@@ -60,7 +74,7 @@ export class UpdateCoachUsecase {
 
       const updateData = this.prepareUpdateData({ ...params }, ctx);
       if (!this.hasDataChanges(updateData, coach)) {
-        return coach;
+        return this.toView(coach);
       }
 
       updateData.updatedBy = currentAccountId;
@@ -71,7 +85,7 @@ export class UpdateCoachUsecase {
       if (!updated) {
         throw new DomainError(ACCOUNT_ERROR.OPERATION_NOT_SUPPORTED, '更新教练信息失败');
       }
-      return updated;
+      return this.toView(updated);
     });
   }
 
@@ -202,5 +216,21 @@ export class UpdateCoachUsecase {
       throw new DomainError(ACCOUNT_ERROR.OPERATION_NOT_SUPPORTED, '等级必须在 1-3 之间');
     }
     updateData.level = val;
+  }
+
+  private toView(entity: CoachEntity): CoachView {
+    return {
+      id: entity.id,
+      accountId: entity.accountId,
+      name: entity.name,
+      remark: entity.remark,
+      level: entity.level,
+      description: entity.description,
+      avatarUrl: entity.avatarUrl,
+      specialty: entity.specialty,
+      deactivatedAt: entity.deactivatedAt ?? null,
+      createdAt: entity.createdAt,
+      updatedAt: entity.updatedAt,
+    };
   }
 }

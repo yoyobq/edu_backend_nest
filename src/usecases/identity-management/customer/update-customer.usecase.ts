@@ -6,6 +6,18 @@ import { CustomerService } from '@modules/account/identities/training/customer/a
 import { ManagerService } from '@modules/account/identities/training/manager/manager.service';
 import { Injectable } from '@nestjs/common';
 
+type CustomerView = {
+  readonly id: number;
+  readonly accountId: number | null;
+  readonly name: string;
+  readonly contactPhone: string | null;
+  readonly preferredContactTime: string | null;
+  readonly remark: string | null;
+  readonly deactivatedAt: Date | null;
+  readonly createdAt: Date;
+  readonly updatedAt: Date;
+};
+
 /**
  * 更新客户信息用例的输入参数
  */
@@ -45,7 +57,7 @@ export class UpdateCustomerUsecase {
    * @param params 更新参数
    * @returns 更新后的客户实体
    */
-  async execute(params: UpdateCustomerUsecaseParams): Promise<CustomerEntity> {
+  async execute(params: UpdateCustomerUsecaseParams): Promise<CustomerView> {
     const { currentAccountId } = params;
 
     // 身份校验，确定目标客户 ID 以及允许更新的字段范围
@@ -67,7 +79,7 @@ export class UpdateCustomerUsecase {
 
       // 幂等检查：无任何变更时直接返回
       if (!this.hasDataChanges(updateData, customer)) {
-        return customer;
+        return this.toView(customer);
       }
 
       // 执行更新（显式更新审计字段）
@@ -81,7 +93,7 @@ export class UpdateCustomerUsecase {
         // 理论上不会发生；若发生视为更新失败
         throw new DomainError(ACCOUNT_ERROR.OPERATION_NOT_SUPPORTED, '更新客户信息失败');
       }
-      return updated;
+      return this.toView(updated);
     });
   }
 
@@ -201,6 +213,20 @@ export class UpdateCustomerUsecase {
       throw new DomainError(ACCOUNT_ERROR.OPERATION_NOT_SUPPORTED, '偏好联系时间长度不能超过 50');
     }
     updateData.preferredContactTime = val ?? null;
+  }
+
+  private toView(entity: CustomerEntity): CustomerView {
+    return {
+      id: entity.id,
+      accountId: entity.accountId,
+      name: entity.name,
+      contactPhone: entity.contactPhone,
+      preferredContactTime: entity.preferredContactTime,
+      remark: entity.remark,
+      deactivatedAt: entity.deactivatedAt ?? null,
+      createdAt: entity.createdAt,
+      updatedAt: entity.updatedAt,
+    };
   }
 
   /**

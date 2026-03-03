@@ -4,6 +4,16 @@ import { ManagerEntity } from '@modules/account/identities/training/manager/acco
 import { ManagerService } from '@modules/account/identities/training/manager/manager.service';
 import { Injectable } from '@nestjs/common';
 
+type ManagerView = {
+  readonly id: number;
+  readonly accountId: number;
+  readonly name: string;
+  readonly remark: string | null;
+  readonly deactivatedAt: Date | null;
+  readonly createdAt: Date;
+  readonly updatedAt: Date;
+};
+
 /** 上线 Manager 用例入参 */
 export interface ReactivateManagerParams {
   /** 目标 Manager ID */
@@ -13,7 +23,7 @@ export interface ReactivateManagerParams {
 /** 上线 Manager 用例结果 */
 export interface ReactivateManagerResult {
   /** Manager 实体 */
-  manager: ManagerEntity;
+  manager: ManagerView;
   /** 是否发生状态变更（幂等为 false） */
   isUpdated: boolean;
 }
@@ -47,7 +57,7 @@ export class ReactivateManagerUsecase {
 
     // 幂等：已上线直接返回
     if (!entity.deactivatedAt) {
-      return { manager: entity, isUpdated: false };
+      return { manager: this.toView(entity), isUpdated: false };
     }
 
     const now = new Date();
@@ -64,6 +74,18 @@ export class ReactivateManagerUsecase {
     if (!updated) {
       throw new DomainError(ACCOUNT_ERROR.OPERATION_NOT_SUPPORTED, '上线 Manager 失败');
     }
-    return { manager: updated, isUpdated: true };
+    return { manager: this.toView(updated), isUpdated: true };
+  }
+
+  private toView(entity: ManagerEntity): ManagerView {
+    return {
+      id: entity.id,
+      accountId: entity.accountId,
+      name: entity.name,
+      remark: entity.remark,
+      deactivatedAt: entity.deactivatedAt ?? null,
+      createdAt: entity.createdAt,
+      updatedAt: entity.updatedAt,
+    };
   }
 }
