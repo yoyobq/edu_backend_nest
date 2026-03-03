@@ -8,9 +8,9 @@ import {
   ThirdPartyProviderEnum,
 } from '@app-types/models/account.types';
 import { ACCOUNT_ERROR, AUTH_ERROR, DomainError } from '@core/common/errors/domain-error';
+import { AuthService } from '@modules/auth/auth.service';
 import { TokenHelper } from '@modules/auth/token.helper';
 import { Injectable } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { AccountService } from '@src/modules/account/base/services/account.service';
 import { CompleteUserData, FetchUserInfoUsecase } from '@usecases/account/fetch-user-info.usecase';
 import { PinoLogger } from 'nestjs-pino';
@@ -52,8 +52,8 @@ interface UserDataCollection {
 export class ExecuteLoginFlowUsecase {
   constructor(
     private readonly accountService: AccountService,
+    private readonly authService: AuthService,
     private readonly tokenHelper: TokenHelper,
-    private readonly configService: ConfigService,
     private readonly logger: PinoLogger,
     private readonly fetchUserInfoUsecase: FetchUserInfoUsecase,
   ) {
@@ -98,14 +98,8 @@ export class ExecuteLoginFlowUsecase {
    */
   private validateAudience(audience?: AudienceTypeEnum): void {
     if (audience) {
-      // 从 jwt.audience 配置中获取允许的客户端类型
-      const audienceConfig = this.configService.get<string>('jwt.audience') || '';
-      const allowedAudiences = audienceConfig
-        .split(',')
-        .map((item) => item.trim())
-        .filter((item) => item.length > 0);
-
-      if (!allowedAudiences.includes(audience)) {
+      const isValid = this.authService.validateAudience(audience);
+      if (!isValid) {
         throw new DomainError(AUTH_ERROR.INVALID_AUDIENCE, `无效的客户端类型: ${audience}`);
       }
     }
