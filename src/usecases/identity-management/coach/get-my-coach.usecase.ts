@@ -1,24 +1,14 @@
 // 文件位置：src/usecases/identity-management/coach/get-my-coach.usecase.ts
 import { DomainError, PERMISSION_ERROR } from '@core/common/errors/domain-error';
-import { CoachEntity } from '@modules/account/identities/training/coach/account-coach.entity';
-import { CoachService } from '@modules/account/identities/training/coach/coach.service';
+import {
+  CoachService,
+  type CoachProfile,
+} from '@modules/account/identities/training/coach/coach.service';
 import { Injectable } from '@nestjs/common';
 import { AccountService } from '@src/modules/account/base/services/account.service';
 import { UserState } from '@app-types/models/user-info.types';
 
-type CoachView = {
-  readonly id: number;
-  readonly accountId: number;
-  readonly name: string;
-  readonly remark: string | null;
-  readonly level: number;
-  readonly description: string | null;
-  readonly avatarUrl: string | null;
-  readonly specialty: string | null;
-  readonly deactivatedAt: Date | null;
-  readonly createdAt: Date;
-  readonly updatedAt: Date;
-};
+type CoachView = CoachProfile;
 
 export interface GetMyCoachParams {
   /** 当前用户账户 ID */
@@ -47,13 +37,8 @@ export class GetMyCoachUsecase {
   async execute(params: GetMyCoachParams): Promise<GetMyCoachResult> {
     const { currentAccountId } = params;
 
-    const isActive = await this.coachService.isActiveCoach(currentAccountId);
-    if (!isActive) {
-      throw new DomainError(PERMISSION_ERROR.ACCESS_DENIED, '仅活跃的 coach 可查看个人教练信息');
-    }
-
-    const entity = await this.coachService.findByAccountId(currentAccountId);
-    if (!entity) {
+    const view = await this.coachService.findProfileByAccountId(currentAccountId);
+    if (!view || view.deactivatedAt) {
       throw new DomainError(PERMISSION_ERROR.ACCESS_DENIED, '仅活跃的 coach 可查看个人教练信息');
     }
 
@@ -63,22 +48,6 @@ export class GetMyCoachUsecase {
     const userPhone: string | null = ui?.phone ?? null;
     const loginHistory = acc?.recentLoginHistory ?? null;
 
-    return { view: this.toView(entity), userState, loginHistory, userPhone };
-  }
-
-  private toView(entity: CoachEntity): CoachView {
-    return {
-      id: entity.id,
-      accountId: entity.accountId,
-      name: entity.name,
-      remark: entity.remark,
-      level: entity.level,
-      description: entity.description,
-      avatarUrl: entity.avatarUrl,
-      specialty: entity.specialty,
-      deactivatedAt: entity.deactivatedAt ?? null,
-      createdAt: entity.createdAt,
-      updatedAt: entity.updatedAt,
-    };
+    return { view, userState, loginHistory, userPhone };
   }
 }

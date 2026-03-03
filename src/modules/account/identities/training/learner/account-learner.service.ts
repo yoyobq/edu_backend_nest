@@ -174,6 +174,82 @@ export class LearnerService {
   }
 
   /**
+   * 使用可选事务管理器按 ID 查询学员
+   * @param params 查询参数
+   * @returns 学员实体或 null
+   */
+  async findByIdWithManager(params: {
+    id: number;
+    manager?: EntityManager;
+  }): Promise<LearnerEntity | null> {
+    const repo = params.manager
+      ? params.manager.getRepository(LearnerEntity)
+      : this.learnerRepository;
+    return await repo.findOne({ where: { id: params.id } });
+  }
+
+  /**
+   * 使用可选事务管理器按客户 ID 查询学员
+   * @param params 查询参数
+   * @returns 学员实体或 null
+   */
+  async findByIdAndCustomerId(params: {
+    id: number;
+    customerId: number;
+    manager?: EntityManager;
+  }): Promise<LearnerEntity | null> {
+    const repo = params.manager
+      ? params.manager.getRepository(LearnerEntity)
+      : this.learnerRepository;
+    return await repo.findOne({ where: { id: params.id, customerId: params.customerId } });
+  }
+
+  /**
+   * 使用事务管理器更新学员并回读
+   * @param params 更新参数
+   * @returns 更新后的学员实体或 null
+   */
+  async updateWithManager(params: {
+    id: number;
+    updateData: Partial<LearnerEntity>;
+    manager: EntityManager;
+  }): Promise<LearnerEntity | null> {
+    const repo = params.manager.getRepository(LearnerEntity);
+    await repo.update(params.id, params.updateData);
+    return await repo.findOne({ where: { id: params.id } });
+  }
+
+  /**
+   * 校验客户下学员姓名和生日唯一性
+   * @param params 校验参数
+   * @returns 是否唯一
+   */
+  async isNameAndBirthDateUniqueForCustomer(params: {
+    name: string;
+    birthDate: string | null;
+    customerId: number;
+    excludeId?: number;
+    manager?: EntityManager;
+  }): Promise<boolean> {
+    const repo = params.manager
+      ? params.manager.getRepository(LearnerEntity)
+      : this.learnerRepository;
+    const queryBuilder = repo
+      .createQueryBuilder('learner')
+      .where('learner.name = :name', { name: params.name })
+      .andWhere('learner.customerId = :customerId', { customerId: params.customerId })
+      .andWhere('learner.birthDate = :birthDate', { birthDate: params.birthDate })
+      .andWhere('learner.deactivatedAt IS NULL');
+
+    if (params.excludeId) {
+      queryBuilder.andWhere('learner.id != :excludeId', { excludeId: params.excludeId });
+    }
+
+    const count = await queryBuilder.getCount();
+    return count === 0;
+  }
+
+  /**
    * 根据学员姓名模糊查询
    * @param name 学员姓名（支持模糊匹配）
    * @returns 学员列表

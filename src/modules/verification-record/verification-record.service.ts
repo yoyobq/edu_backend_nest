@@ -3,18 +3,32 @@
 import {
   CreateVerificationRecordParams,
   FindVerificationRecordParams,
+  SubjectType,
   VerificationRecordStatus,
+  VerificationRecordType,
 } from '@app-types/models/verification-record.types';
 import { DomainError, VERIFICATION_RECORD_ERROR } from '@core/common/errors/domain-error';
 import { TokenFingerprintHelper } from '@modules/common/security/token-fingerprint.helper';
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { EntityManager, QueryFailedError, Repository, UpdateQueryBuilder } from 'typeorm';
+import { EntityManager, QueryFailedError, Repository } from 'typeorm';
 import { VerificationRecordEntity } from './verification-record.entity';
 
 export type VerificationRecordTransactionManager = EntityManager;
-export type VerificationRecordRepository = Repository<VerificationRecordEntity>;
-export type VerificationRecordUpdateQueryBuilder = UpdateQueryBuilder<VerificationRecordEntity>;
+
+export type VerificationRecordConsumeTargetConstraint =
+  | { mode: 'IGNORE' }
+  | { mode: 'NULL_ONLY' }
+  | { mode: 'MATCH_OR_NULL'; accountId: number };
+
+export type VerificationRecordValidationSnapshot = {
+  id: number;
+  type: VerificationRecordType;
+  status: VerificationRecordStatus;
+  expiresAt: Date;
+  notBefore: Date | null;
+  targetAccountId: number | null;
+};
 
 /**
  * 验证记录服务
@@ -333,6 +347,200 @@ export class VerificationRecordService {
         error,
       );
     }
+  }
+
+  async findActiveConsumableRecord(params: {
+    where: { id?: number; tokenFp?: Buffer };
+    forAccountId?: number;
+    expectedType?: VerificationRecordType;
+    ignoreTargetRestriction?: boolean;
+    now?: Date;
+  }): Promise<VerificationRecordEntity | null> {
+    const { where, forAccountId, expectedType, ignoreTargetRestriction } = params;
+    const now = params.now ?? new Date();
+
+    const queryBuilder = this.verificationRecordRepository
+      .createQueryBuilder('record')
+      .where('record.status = :activeStatus', {
+        activeStatus: VerificationRecordStatus.ACTIVE,
+      })
+      .andWhere('record.expiresAt > :now', { now })
+      .andWhere('(record.notBefore IS NULL OR record.notBefore <= :now)', { now });
+
+    if (where.id !== undefined) {
+      queryBuilder.andWhere('record.id = :recordId', { recordId: where.id });
+    }
+    if (where.tokenFp !== undefined) {
+      queryBuilder.andWhere('record.tokenFp = :tokenFp', { tokenFp: where.tokenFp });
+    }
+
+    const hasForAccountId = forAccountId !== undefined;
+    const shouldIgnoreTargetRestriction =
+      ignoreTargetRestriction === true ||
+      (!hasForAccountId && expectedType === VerificationRecordType.PASSWORD_RESET);
+    if (!shouldIgnoreTargetRestriction) {
+      if (hasForAccountId) {
+        queryBuilder.andWhere(
+          '(record.targetAccountId IS NULL OR record.targetAccountId = :forAccountId)',
+          {
+            forAccountId,
+          },
+        );
+      } else {
+        queryBuilder.andWhere('record.targetAccountId IS NULL');
+      }
+    }
+
+    if (expectedType) {
+      queryBuilder.andWhere('record.type = :expectedType', { expectedType });
+    }
+
+    return await queryBuilder.getOne();
+  }
+
+  async consumeRecord(params: {
+    where: { id?: number; tokenFp?: Buffer };
+    context: {
+      expectedType?: VerificationRecordType;
+      consumedByAccountId?: number;
+      subjectType?: SubjectType;
+      subjectId?: number;
+      now: Date;
+      targetConstraint: VerificationRecordConsumeTargetConstraint;
+    };
+    manager?: EntityManager;
+  }): Promise<{
+    affected: number;
+    updatedRecord: VerificationRecordEntity | null;
+    validationRecord: VerificationRecordValidationSnapshot | null;
+  }> {
+    const { where, context, manager } = params;
+    const repository = manager
+      ? manager.getRepository(VerificationRecordEntity)
+      : this.verificationRecordRepository;
+    const { consumedByAccountId, expectedType, subjectType, subjectId, now, targetConstraint } =
+      context;
+
+    const updateFields: Record<string, unknown> = {
+      status: VerificationRecordStatus.CONSUMED,
+      consumedAt: now,
+    };
+
+    if (consumedByAccountId !== undefined) {
+      updateFields.consumedByAccountId = consumedByAccountId;
+    }
+    if (subjectType !== undefined) {
+      updateFields.subjectType = subjectType;
+    }
+    if (subjectId !== undefined) {
+      updateFields.subjectId = subjectId;
+    }
+
+    const gracePeriodMs = 180 * 1000;
+    const gracePeriodAgo = new Date(now.getTime() - gracePeriodMs);
+
+    const queryBuilder = repository
+      .createQueryBuilder()
+      .update()
+      .set(updateFields)
+      .andWhere('status = :activeStatus', { activeStatus: VerificationRecordStatus.ACTIVE })
+      .andWhere('expiresAt > :gracePeriodAgo', { gracePeriodAgo })
+      .andWhere('(notBefore IS NULL OR notBefore <= :now)', { now });
+
+    if (where.id !== undefined) {
+      queryBuilder.andWhere('id = :recordId', { recordId: where.id });
+    }
+    if (where.tokenFp !== undefined) {
+      queryBuilder.andWhere('tokenFp = :tokenFp', { tokenFp: where.tokenFp });
+    }
+
+    if (targetConstraint.mode === 'MATCH_OR_NULL') {
+      queryBuilder.andWhere('(targetAccountId IS NULL OR targetAccountId = :consumedByAccountId)', {
+        consumedByAccountId: targetConstraint.accountId,
+      });
+    } else if (targetConstraint.mode === 'NULL_ONLY') {
+      queryBuilder.andWhere('targetAccountId IS NULL');
+    }
+
+    if (expectedType) {
+      queryBuilder.andWhere('type = :expectedType', { expectedType });
+    }
+
+    const updateResult = await queryBuilder.execute();
+    if (updateResult.affected === 0) {
+      const record = await repository.findOne({ where });
+      return {
+        affected: 0,
+        updatedRecord: null,
+        validationRecord: record
+          ? {
+              id: record.id,
+              type: record.type,
+              status: record.status,
+              expiresAt: record.expiresAt,
+              notBefore: record.notBefore,
+              targetAccountId: record.targetAccountId,
+            }
+          : null,
+      };
+    }
+
+    const updatedRecord = await repository.findOne({ where });
+    return {
+      affected: updateResult.affected ?? 0,
+      updatedRecord: updatedRecord ?? null,
+      validationRecord: null,
+    };
+  }
+
+  async revokeRecord(params: { recordId: number; manager?: EntityManager }): Promise<{
+    affected: number;
+    updatedRecord: VerificationRecordEntity | null;
+    currentRecord: VerificationRecordEntity | null;
+  }> {
+    const { recordId, manager } = params;
+    const repository = manager
+      ? manager.getRepository(VerificationRecordEntity)
+      : this.verificationRecordRepository;
+
+    const result = await repository
+      .createQueryBuilder()
+      .update()
+      .set({ status: VerificationRecordStatus.REVOKED })
+      .where('id = :recordId', { recordId })
+      .andWhere('status = :activeStatus', { activeStatus: VerificationRecordStatus.ACTIVE })
+      .execute();
+
+    if (result.affected === 0) {
+      const currentRecord = await repository.findOne({ where: { id: recordId } });
+      return {
+        affected: 0,
+        updatedRecord: null,
+        currentRecord,
+      };
+    }
+
+    const updatedRecord = await repository.findOne({ where: { id: recordId } });
+    return {
+      affected: result.affected ?? 0,
+      updatedRecord: updatedRecord ?? null,
+      currentRecord: null,
+    };
+  }
+
+  async getTargetAccountIdByRecordId(params: {
+    recordId: number;
+    manager?: EntityManager;
+  }): Promise<number | null> {
+    const { recordId, manager } = params;
+    const repository = manager
+      ? manager.getRepository(VerificationRecordEntity)
+      : this.verificationRecordRepository;
+    const record = await repository.findOne({
+      where: { id: recordId },
+      select: ['id', 'targetAccountId'],
+    });
+    return record?.targetAccountId ?? null;
   }
 
   /**

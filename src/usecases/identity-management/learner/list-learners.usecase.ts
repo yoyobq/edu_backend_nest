@@ -1,30 +1,16 @@
 // src/usecases/learner/list-learners.usecase.ts
 
 import { IdentityTypeEnum } from '@app-types/models/account.types';
-import { Gender } from '@app-types/models/user-info.types';
 import { Injectable } from '@nestjs/common';
 import { LearnerSortField, OrderDirection } from '@src/types/common/sort.types';
 import { DomainError, PERMISSION_ERROR } from '../../../core/common/errors/domain-error';
 import { CustomerService } from '../../../modules/account/identities/training/customer/account-customer.service';
-import { LearnerEntity } from '../../../modules/account/identities/training/learner/account-learner.entity';
 import { LearnerService } from '../../../modules/account/identities/training/learner/account-learner.service';
 import { ManagerService } from '../../../modules/account/identities/training/manager/manager.service';
-
-type LearnerView = {
-  readonly id: number;
-  readonly accountId: number | null;
-  readonly customerId: number;
-  readonly name: string;
-  readonly gender: Gender;
-  readonly birthDate: string | null;
-  readonly avatarUrl: string | null;
-  readonly specialNeeds: string | null;
-  readonly countPerSession: number;
-  readonly remark: string | null;
-  readonly deactivatedAt: Date | null;
-  readonly createdAt: Date;
-  readonly updatedAt: Date;
-};
+import {
+  LearnerQueryService,
+  type LearnerView,
+} from '../../../modules/account/queries/learner.query.service';
 
 /**
  * 分页查询参数
@@ -73,6 +59,7 @@ export class ListLearnersUsecase {
     private readonly learnerService: LearnerService,
     private readonly customerService: CustomerService,
     private readonly managerService: ManagerService,
+    private readonly learnerQueryService: LearnerQueryService,
   ) {}
 
   /**
@@ -115,14 +102,14 @@ export class ListLearnersUsecase {
   }
 
   private toOutput(result: {
-    learners: LearnerEntity[];
+    learners: LearnerView[];
     total: number;
     page: number;
     limit: number;
     totalPages: number;
   }): PaginatedLearners {
     return {
-      items: result.learners.map((learner) => this.toView(learner)),
+      items: result.learners,
       total: result.total,
       page: result.page,
       limit: result.limit,
@@ -151,7 +138,10 @@ export class ListLearnersUsecase {
       sortOrder: params.sortOrder,
       includeDeleted: false,
     });
-    return this.toOutput(result);
+    return this.toOutput({
+      ...result,
+      learners: result.learners.map((learner) => this.learnerQueryService.toView(learner)),
+    });
   }
 
   private async listForManager(
@@ -182,7 +172,10 @@ export class ListLearnersUsecase {
       sortOrder: params.sortOrder,
       includeDeleted: false,
     });
-    return this.toOutput(result);
+    return this.toOutput({
+      ...result,
+      learners: result.learners.map((learner) => this.learnerQueryService.toView(learner)),
+    });
   }
 
   private async fallbackByIdentities(
@@ -205,7 +198,10 @@ export class ListLearnersUsecase {
         sortOrder: params.sortOrder,
         includeDeleted: false,
       });
-      return this.toOutput(result);
+      return this.toOutput({
+        ...result,
+        learners: result.learners.map((learner) => this.learnerQueryService.toView(learner)),
+      });
     }
 
     const manager = await this.managerService.findByAccountId(accountId);
@@ -224,7 +220,10 @@ export class ListLearnersUsecase {
         sortOrder: params.sortOrder,
         includeDeleted: false,
       });
-      return this.toOutput(result);
+      return this.toOutput({
+        ...result,
+        learners: result.learners.map((learner) => this.learnerQueryService.toView(learner)),
+      });
     }
 
     throw new DomainError(
@@ -260,26 +259,5 @@ export class ListLearnersUsecase {
       sortBy,
       sortOrder,
     });
-  }
-
-  /**
-   * 映射学员只读模型
-   */
-  private toView(entity: LearnerEntity): LearnerView {
-    return {
-      id: entity.id,
-      accountId: entity.accountId ?? null,
-      customerId: entity.customerId,
-      name: entity.name,
-      gender: entity.gender,
-      birthDate: entity.birthDate ?? null,
-      avatarUrl: entity.avatarUrl ?? null,
-      specialNeeds: entity.specialNeeds ?? null,
-      countPerSession: entity.countPerSession,
-      remark: entity.remark ?? null,
-      deactivatedAt: entity.deactivatedAt ?? null,
-      createdAt: entity.createdAt,
-      updatedAt: entity.updatedAt,
-    };
   }
 }

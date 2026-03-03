@@ -1,17 +1,18 @@
 // src/usecases/identity-management/manager/update-manager.usecase.ts
 import { ACCOUNT_ERROR, DomainError, PERMISSION_ERROR } from '@core/common/errors/domain-error';
-import { ManagerEntity } from '@modules/account/identities/training/manager/account-manager.entity';
-import { ManagerService } from '@modules/account/identities/training/manager/manager.service';
+import {
+  ManagerService,
+  type ManagerProfile,
+} from '@modules/account/identities/training/manager/manager.service';
 import { Injectable } from '@nestjs/common';
 
-export type ManagerView = {
-  readonly id: number;
-  readonly accountId: number;
-  readonly name: string;
-  readonly remark: string | null;
-  readonly deactivatedAt: Date | null;
-  readonly createdAt: Date;
-  readonly updatedAt: Date;
+export type ManagerView = ManagerProfile;
+
+type ManagerUpdatePatch = {
+  name?: string;
+  remark?: string | null;
+  updatedBy?: number | null;
+  updatedAt?: Date;
 };
 
 /**
@@ -49,26 +50,27 @@ export class UpdateManagerUsecase {
     const ctx = await this.resolveIdentityContext(currentAccountId, params);
 
     return await this.managerService.runTransaction(async (manager) => {
-      const repo = manager.getRepository(ManagerEntity);
-      const entity = await repo.findOne({ where: { id: ctx.targetManagerId } });
-      if (!entity) {
+      const current = await this.managerService.findProfileById(ctx.targetManagerId, manager);
+      if (!current) {
         throw new DomainError(ACCOUNT_ERROR.ACCOUNT_NOT_FOUND, 'Manager 不存在');
       }
 
       const updateData = this.prepareUpdateData({ ...params });
-      if (!this.hasDataChanges(updateData, entity)) {
-        return this.toView(entity);
+      if (!this.hasDataChanges(updateData, current)) {
+        return current;
       }
 
       updateData.updatedBy = currentAccountId;
       updateData.updatedAt = new Date();
-      await repo.update(entity.id, updateData);
-
-      const updated = await repo.findOne({ where: { id: entity.id } });
+      const updated = await this.managerService.updateManagerWithManager({
+        id: ctx.targetManagerId,
+        updateData,
+        manager,
+      });
       if (!updated) {
         throw new DomainError(ACCOUNT_ERROR.OPERATION_NOT_SUPPORTED, '更新 Manager 信息失败');
       }
-      return this.toView(updated);
+      return updated;
     });
   }
 
@@ -82,7 +84,7 @@ export class UpdateManagerUsecase {
     currentAccountId: number,
     params: UpdateManagerUsecaseParams,
   ): Promise<{ targetManagerId: number }> {
-    const me = await this.managerService.findByAccountId(currentAccountId);
+    const me = await this.managerService.findProfileByAccountId(currentAccountId);
     if (!me) {
       throw new DomainError(PERMISSION_ERROR.ACCESS_DENIED, '仅 manager 可编辑资料');
     }
@@ -92,7 +94,7 @@ export class UpdateManagerUsecase {
     }
 
     // 允许编辑其他 manager 的资料（系统规则）
-    const target = await this.managerService.findById(params.managerId);
+    const target = await this.managerService.findProfileById(params.managerId);
     if (!target) {
       throw new DomainError(PERMISSION_ERROR.ACCESS_DENIED, '目标 Manager 不存在');
     }
@@ -100,22 +102,24 @@ export class UpdateManagerUsecase {
   }
 
   /** 准备更新数据 */
-  private prepareUpdateData(params: UpdateManagerUsecaseParams): Partial<ManagerEntity> {
-    const updateData: Partial<ManagerEntity> = {};
+  private prepareUpdateData(params: UpdateManagerUsecaseParams): ManagerUpdatePatch {
+    const updateData: ManagerUpdatePatch = {};
     this.applyName(updateData, params.name);
     this.applyRemark(updateData, params.remark);
     return updateData;
   }
 
   /** 幂等检查 */
-  private hasDataChanges(updateData: Partial<ManagerEntity>, current: ManagerEntity): boolean {
-    const keys = Object.keys(updateData) as (keyof ManagerEntity)[];
-    if (keys.length === 0) return false;
-    return keys.some((key) => updateData[key] !== current[key]);
+  private hasDataChanges(updateData: ManagerUpdatePatch, current: ManagerView): boolean {
+    const fields: ReadonlyArray<'name' | 'remark'> = ['name', 'remark'];
+    return fields.some((field) => {
+      if (typeof updateData[field] === 'undefined') return false;
+      return updateData[field] !== current[field];
+    });
   }
 
   /** 处理 name */
-  private applyName(updateData: Partial<ManagerEntity>, name: string | undefined): void {
+  private applyName(updateData: ManagerUpdatePatch, name: string | undefined): void {
     if (typeof name === 'undefined') return;
     const val = (name ?? '').trim();
     if (val.length > 64) {
@@ -125,24 +129,12 @@ export class UpdateManagerUsecase {
   }
 
   /** 处理 remark */
-  private applyRemark(updateData: Partial<ManagerEntity>, remark: string | null | undefined): void {
+  private applyRemark(updateData: ManagerUpdatePatch, remark: string | null | undefined): void {
     if (typeof remark === 'undefined') return;
     const val = remark ?? null;
     if (val && val.length > 255) {
       throw new DomainError(ACCOUNT_ERROR.OPERATION_NOT_SUPPORTED, '备注长度不能超过 255');
     }
     updateData.remark = val;
-  }
-
-  private toView(entity: ManagerEntity): ManagerView {
-    return {
-      id: entity.id,
-      accountId: entity.accountId,
-      name: entity.name,
-      remark: entity.remark,
-      deactivatedAt: entity.deactivatedAt ?? null,
-      createdAt: entity.createdAt,
-      updatedAt: entity.updatedAt,
-    };
   }
 }

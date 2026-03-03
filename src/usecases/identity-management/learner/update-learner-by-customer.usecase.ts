@@ -8,7 +8,6 @@ import {
   PERMISSION_ERROR,
 } from '../../../core/common/errors/domain-error';
 import { CustomerService } from '../../../modules/account/identities/training/customer/account-customer.service';
-import { LearnerEntity } from '../../../modules/account/identities/training/learner/account-learner.entity';
 import {
   LearnerService,
   type LearnerTransactionManager,
@@ -36,6 +35,17 @@ export interface UpdateLearnerByCustomerInput {
    */
   readonly countPerSession?: number;
 }
+
+type LearnerUpdatePatch = {
+  name?: string;
+  gender?: Gender;
+  birthDate?: string;
+  avatarUrl?: string;
+  specialNeeds?: string;
+  remark?: string;
+  updatedBy?: number | null;
+  updatedAt?: Date;
+};
 
 /**
  * 客户更新学员信息用例
@@ -117,8 +127,8 @@ export class UpdateLearnerByCustomerUsecase {
   private prepareUpdateData(
     input: UpdateLearnerByCustomerInput,
     accountId: number,
-  ): Partial<LearnerEntity> {
-    const updateData: Partial<LearnerEntity> = {};
+  ): LearnerUpdatePatch {
+    const updateData: LearnerUpdatePatch = {};
     if (input.name !== undefined) updateData.name = input.name;
     if (input.gender !== undefined) updateData.gender = input.gender;
     if (input.birthDate !== undefined) updateData.birthDate = input.birthDate;
@@ -133,7 +143,7 @@ export class UpdateLearnerByCustomerUsecase {
   /**
    * 幂等检查
    */
-  private hasDataChanges(updateData: Partial<LearnerEntity>, learner: LearnerView): boolean {
+  private hasDataChanges(updateData: LearnerUpdatePatch, learner: LearnerView): boolean {
     return Object.keys(updateData).some((key) => {
       if (key === 'updatedBy' || key === 'updatedAt') return true;
       const newValue = updateData[key as keyof typeof updateData];
@@ -156,18 +166,14 @@ export class UpdateLearnerByCustomerUsecase {
   ): Promise<void> {
     const checkName = input.name !== undefined ? input.name : learner.name;
     const checkBirthDate = input.birthDate !== undefined ? input.birthDate : learner.birthDate;
-
-    const existing = await manager
-      .getRepository(LearnerEntity)
-      .createQueryBuilder('learner')
-      .where('learner.customerId = :customerId', { customerId: targetCustomerId })
-      .andWhere('learner.name = :name', { name: checkName })
-      .andWhere('learner.birthDate = :birthDate', { birthDate: checkBirthDate })
-      .andWhere('learner.deactivatedAt IS NULL')
-      .andWhere('learner.id != :currentId', { currentId: input.id })
-      .getOne();
-
-    if (existing) {
+    const isUnique = await this.learnerService.isNameAndBirthDateUniqueForCustomer({
+      name: checkName,
+      birthDate: checkBirthDate,
+      customerId: targetCustomerId,
+      excludeId: input.id,
+      manager,
+    });
+    if (!isUnique) {
       throw new DomainError(
         LEARNER_ERROR.LEARNER_DUPLICATED,
         '同一客户下已存在相同姓名和生日的学员',
@@ -181,12 +187,13 @@ export class UpdateLearnerByCustomerUsecase {
   private async performUpdate(
     manager: LearnerTransactionManager,
     learnerId: number,
-    updateData: Partial<LearnerEntity>,
+    updateData: LearnerUpdatePatch,
   ): Promise<LearnerView> {
-    await manager.getRepository(LearnerEntity).update(learnerId, updateData);
-    const updated = await manager
-      .getRepository(LearnerEntity)
-      .findOne({ where: { id: learnerId } });
+    const updated = await this.learnerService.updateWithManager({
+      id: learnerId,
+      updateData,
+      manager,
+    });
     if (!updated) {
       throw new DomainError(LEARNER_ERROR.LEARNER_UPDATE_FAILED, '更新学员信息失败');
     }

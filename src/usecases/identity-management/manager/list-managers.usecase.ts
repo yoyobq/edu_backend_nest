@@ -1,7 +1,9 @@
 // src/usecases/identity-management/manager/list-managers.usecase.ts
 import { DomainError, PERMISSION_ERROR } from '@core/common/errors/domain-error';
-import { ManagerEntity } from '@modules/account/identities/training/manager/account-manager.entity';
-import { ManagerService } from '@modules/account/identities/training/manager/manager.service';
+import {
+  ManagerService,
+  type ManagerProfile,
+} from '@modules/account/identities/training/manager/manager.service';
 import { Injectable } from '@nestjs/common';
 import { AccountService } from '@src/modules/account/base/services/account.service';
 import { type UsecaseSession } from '@src/types/auth/session.types';
@@ -12,15 +14,7 @@ import {
   type VisibleDetailMode,
 } from '@src/usecases/account/get-visible-user-info.usecase';
 
-type ManagerView = {
-  readonly id: number;
-  readonly accountId: number;
-  readonly name: string;
-  readonly remark: string | null;
-  readonly deactivatedAt: Date | null;
-  readonly createdAt: Date;
-  readonly updatedAt: Date;
-};
+type ManagerView = ManagerProfile;
 
 /**
  * 列出 Manager 列表的输入参数
@@ -100,35 +94,33 @@ export class ListManagersUsecase {
       throw new DomainError(PERMISSION_ERROR.ACCESS_DENIED, '仅活跃的 manager 可查看 Manager 列表');
     }
 
-    const rows = await this.managerService.findAll(params.includeDeleted ?? false);
+    const rows = await this.managerService.findAllProfiles(params.includeDeleted ?? false);
 
     const items: ManagerListItem[] = await Promise.all(
-      rows.map(async (entity) => {
-        const acc = entity.accountId
-          ? await this.accountService.findOneById(entity.accountId)
-          : null;
+      rows.map(async (view) => {
+        const acc = view.accountId ? await this.accountService.findOneById(view.accountId) : null;
         const detail: VisibleDetailMode = params.detailMode ?? 'BASIC';
         let userInfo: ManagerListItem['userInfo'] = null;
         let state: UserState | null = null;
         let phone: string | null = null;
-        if (entity.accountId) {
+        if (view.accountId) {
           const session: UsecaseSession = { accountId: currentAccountId, roles: ['MANAGER'] };
           try {
-            const view = await this.getVisibleUserInfoUsecase.execute({
+            const detailView = await this.getVisibleUserInfoUsecase.execute({
               session,
-              targetAccountId: entity.accountId,
+              targetAccountId: view.accountId,
               detail,
             });
-            state = view.userState ?? null;
-            phone = view.phone ?? null;
+            state = detailView.userState ?? null;
+            phone = detailView.phone ?? null;
             userInfo = {
               mode: detail,
               view: {
-                accountId: view.accountId,
-                nickname: view.nickname,
-                gender: view.gender,
-                avatarUrl: view.avatarUrl,
-                phone: view.phone,
+                accountId: detailView.accountId,
+                nickname: detailView.nickname,
+                gender: detailView.gender,
+                avatarUrl: detailView.avatarUrl,
+                phone: detailView.phone,
               },
             };
           } catch {
@@ -140,7 +132,7 @@ export class ListManagersUsecase {
         const history: { ip: string; timestamp: string; audience?: string }[] | null =
           acc?.recentLoginHistory ?? null;
         return {
-          view: this.toView(entity),
+          view,
           userState: state,
           loginHistory: history,
           userPhone: phone,
@@ -155,18 +147,6 @@ export class ListManagersUsecase {
       page: 1,
       limit: items.length,
       totalPages: 1,
-    };
-  }
-
-  private toView(entity: ManagerEntity): ManagerView {
-    return {
-      id: entity.id,
-      accountId: entity.accountId,
-      name: entity.name,
-      remark: entity.remark,
-      deactivatedAt: entity.deactivatedAt ?? null,
-      createdAt: entity.createdAt,
-      updatedAt: entity.updatedAt,
     };
   }
 }

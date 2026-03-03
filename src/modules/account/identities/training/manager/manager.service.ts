@@ -8,6 +8,16 @@ import { ManagerEntity } from './account-manager.entity';
 
 export type ManagerTransactionManager = EntityManager;
 
+export type ManagerProfile = {
+  readonly id: number;
+  readonly accountId: number;
+  readonly name: string;
+  readonly remark: string | null;
+  readonly deactivatedAt: Date | null;
+  readonly createdAt: Date;
+  readonly updatedAt: Date;
+};
+
 /**
  * Manager 服务层
  * 提供 Manager 实体的 CRUD 操作和业务逻辑
@@ -34,6 +44,14 @@ export class ManagerService {
     return await repo.findOne({ where: { accountId } });
   }
 
+  async findProfileByAccountId(
+    accountId: number,
+    manager?: EntityManager,
+  ): Promise<ManagerProfile | null> {
+    const entity = await this.findByAccountId(accountId, manager);
+    return entity ? this.toProfile(entity) : null;
+  }
+
   /**
    * 根据 ID 查找 Manager
    * @param id Manager ID
@@ -43,6 +61,11 @@ export class ManagerService {
   async findById(id: number, manager?: EntityManager): Promise<ManagerEntity | null> {
     const repo = manager ? manager.getRepository(ManagerEntity) : this.managerRepository;
     return await repo.findOne({ where: { id } });
+  }
+
+  async findProfileById(id: number, manager?: EntityManager): Promise<ManagerProfile | null> {
+    const entity = await this.findById(id, manager);
+    return entity ? this.toProfile(entity) : null;
   }
 
   /**
@@ -172,6 +195,26 @@ export class ManagerService {
     });
   }
 
+  async updateManagerWithManager(params: {
+    id: number;
+    updateData: {
+      name?: string;
+      remark?: string | null;
+      deactivatedAt?: Date | null;
+      updatedBy?: number | null;
+      updatedAt?: Date;
+    };
+    manager: EntityManager;
+  }): Promise<ManagerProfile | null> {
+    const repo = params.manager.getRepository(ManagerEntity);
+    await repo.update(params.id, {
+      ...params.updateData,
+      updatedAt: params.updateData.updatedAt ?? new Date(),
+    });
+    const updated = await repo.findOne({ where: { id: params.id } });
+    return updated ? this.toProfile(updated) : null;
+  }
+
   /**
    * 检查 Manager 是否对目标 Customer 有授权
    * @param managerId Manager ID
@@ -204,5 +247,25 @@ export class ManagerService {
     }
     qb.orderBy('m.createdAt', 'DESC').addOrderBy('m.id', 'DESC');
     return await qb.getMany();
+  }
+
+  async findAllProfiles(
+    includeDeleted: boolean,
+    manager?: EntityManager,
+  ): Promise<ManagerProfile[]> {
+    const rows = await this.findAll(includeDeleted, manager);
+    return rows.map((row) => this.toProfile(row));
+  }
+
+  toProfile(entity: ManagerEntity): ManagerProfile {
+    return {
+      id: entity.id,
+      accountId: entity.accountId,
+      name: entity.name,
+      remark: entity.remark,
+      deactivatedAt: entity.deactivatedAt ?? null,
+      createdAt: entity.createdAt,
+      updatedAt: entity.updatedAt,
+    };
   }
 }

@@ -9,15 +9,10 @@ import {
 import { DomainError, THIRDPARTY_ERROR } from '@core/common/errors/domain-error';
 import { ThirdPartyAuthService } from '@modules/third-party-auth/third-party-auth.service';
 import { HttpException, Injectable } from '@nestjs/common';
-import { ThirdPartyAuthEntity } from '@src/modules/account/base/entities/third-party-auth.entity';
-import {
-  AccountService,
-  type AccountTransactionManager,
-} from '@src/modules/account/base/services/account.service';
+import { AccountService } from '@src/modules/account/base/services/account.service';
 import { CreateAccountUsecase } from '@usecases/account/create-account.usecase';
 import { GetWeappPhoneUsecase } from '@usecases/third-party-accounts/get-weapp-phone.usecase';
 import { PinoLogger } from 'nestjs-pino';
-import { ThirdPartySession } from '../../types/models/third-party-auth.types';
 import {
   ThirdPartyRegisterParams,
   ThirdPartyRegisterResult,
@@ -96,8 +91,10 @@ export class WeappRegisterUsecase {
       });
 
       // 6. 创建第三方绑定关系
-      await this.accountService.runTransaction(async (manager) => {
-        await this.createThirdPartyBinding(manager, account.id, session);
+      await this.tpa.bindThirdPartyForRegistration({
+        accountId: account.id,
+        provider: ThirdPartyProviderEnum.WEAPP,
+        session,
       });
 
       if (account.status !== AccountStatus.ACTIVE) {
@@ -203,26 +200,6 @@ export class WeappRegisterUsecase {
     };
 
     return { accountData, userInfoData };
-  }
-
-  /**
-   * 创建第三方绑定关系
-   */
-  private async createThirdPartyBinding(
-    manager: AccountTransactionManager,
-    accountId: number,
-    session: ThirdPartySession,
-  ): Promise<void> {
-    const thirdPartyAuth = new ThirdPartyAuthEntity();
-    thirdPartyAuth.accountId = accountId;
-    thirdPartyAuth.provider = ThirdPartyProviderEnum.WEAPP;
-    thirdPartyAuth.providerUserId = session.providerUserId;
-    thirdPartyAuth.unionId = session.unionId;
-    // 移除 profile 字段赋值，因为 ThirdPartyAuthEntity 中没有此字段
-    thirdPartyAuth.createdAt = new Date();
-    thirdPartyAuth.updatedAt = new Date();
-
-    await manager.save(ThirdPartyAuthEntity, thirdPartyAuth);
   }
 
   /**

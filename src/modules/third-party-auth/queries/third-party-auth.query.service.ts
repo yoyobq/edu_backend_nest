@@ -34,4 +34,16 @@ export class ThirdPartyAuthQueryService {
       updatedAt: record.updatedAt,
     }));
   }
+
+  toView(record: ThirdPartyAuthEntity): ThirdPartyAuthView {
+    return {
+      id: record.id,
+      accountId: record.accountId,
+      provider: record.provider,
+      providerUserId: record.providerUserId,
+      unionId: record.unionId ?? null,
+      createdAt: record.createdAt,
+      updatedAt: record.updatedAt,
+    };
+  }
 }

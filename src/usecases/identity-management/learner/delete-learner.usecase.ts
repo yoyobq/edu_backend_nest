@@ -8,7 +8,6 @@ import {
 } from '../../../core/common/errors/domain-error';
 import { CustomerService } from '../../../modules/account/identities/training/customer/account-customer.service';
 import { ManagerService } from '../../../modules/account/identities/training/manager/manager.service';
-import { LearnerEntity } from '../../../modules/account/identities/training/learner/account-learner.entity';
 import { LearnerService } from '../../../modules/account/identities/training/learner/account-learner.service';
 
 /**
@@ -79,17 +78,17 @@ export class DeleteLearnerUsecase {
 
     return await this.learnerService.runTransaction(async (manager) => {
       // 2. 查找学员并验证所有权
-      const learner = await manager.getRepository(LearnerEntity).findOne({
-        where: {
-          id: learnerId,
-          customerId: targetCustomerId,
-        },
+      const learner = await this.learnerService.findByIdAndCustomerId({
+        id: learnerId,
+        customerId: targetCustomerId,
+        manager,
       });
 
       if (!learner) {
         // 如果是查找不存在的学员，返回学员不存在错误
-        const learnerExists = await manager.getRepository(LearnerEntity).findOne({
-          where: { id: learnerId },
+        const learnerExists = await this.learnerService.findByIdWithManager({
+          id: learnerId,
+          manager,
         });
 
         if (!learnerExists) {
@@ -107,13 +106,17 @@ export class DeleteLearnerUsecase {
 
       // 4. 执行软删除
       const now = new Date();
-      const updateResult = await manager.getRepository(LearnerEntity).update(learnerId, {
-        deactivatedAt: now,
-        updatedBy: accountId,
-        updatedAt: now,
+      const updated = await this.learnerService.updateWithManager({
+        id: learnerId,
+        updateData: {
+          deactivatedAt: now,
+          updatedBy: accountId,
+          updatedAt: now,
+        },
+        manager,
       });
 
-      if (updateResult.affected === 0) {
+      if (!updated) {
         throw new DomainError(LEARNER_ERROR.LEARNER_DELETE_FAILED, '删除学员信息失败');
       }
 

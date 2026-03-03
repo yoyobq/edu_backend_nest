@@ -7,7 +7,10 @@ import {
 import { DomainError, VERIFICATION_RECORD_ERROR } from '@core/common/errors/domain-error';
 import { VerificationCodeHelper } from '@modules/verification-record/verification-code.helper';
 import { Injectable } from '@nestjs/common';
-import { VerificationRecordEntity } from '@src/modules/verification-record/verification-record.entity';
+import {
+  VerificationRecordDetailView,
+  VerificationRecordQueryService,
+} from '@src/modules/verification-record/queries/verification-record.query.service';
 import { VerificationRecordService } from '@src/modules/verification-record/verification-record.service';
 
 /**
@@ -30,7 +33,7 @@ export interface CreateVerificationRecordUsecaseParams
  */
 export interface CreateVerificationRecordUsecaseResult {
   /** 创建的验证记录实体 */
-  record: VerificationRecordEntity;
+  record: VerificationRecordDetailView;
   /** 生成的明文 token */
   token: string;
   /** 是否由服务端生成 token（true: 自动生成, false: 使用自定义 token） */
@@ -46,6 +49,7 @@ export class CreateVerificationRecordUsecase {
   constructor(
     private readonly verificationRecordService: VerificationRecordService,
     private readonly verificationCodeHelper: VerificationCodeHelper,
+    private readonly verificationRecordQueryService: VerificationRecordQueryService,
   ) {}
 
   /**
@@ -113,7 +117,11 @@ export class CreateVerificationRecordUsecase {
       token,
     });
 
-    return { record, token, generatedByServer };
+    return {
+      record: this.verificationRecordQueryService.toDetailView(record),
+      token,
+      generatedByServer,
+    };
   }
 
   /**

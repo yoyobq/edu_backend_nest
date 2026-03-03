@@ -40,6 +40,20 @@ export interface CreateCoachParams {
   createdBy?: number | null;
 }
 
+export type CoachProfile = {
+  readonly id: number;
+  readonly accountId: number;
+  readonly name: string;
+  readonly remark: string | null;
+  readonly level: number;
+  readonly description: string | null;
+  readonly avatarUrl: string | null;
+  readonly specialty: string | null;
+  readonly deactivatedAt: Date | null;
+  readonly createdAt: Date;
+  readonly updatedAt: Date;
+};
+
 /**
  * Coach 服务层
  * 提供 Coach 实体的 CRUD 操作和业务逻辑
@@ -68,6 +82,14 @@ export class CoachService {
     return await repo.findOne({ where: { accountId } });
   }
 
+  async findProfileByAccountId(
+    accountId: number,
+    manager?: EntityManager,
+  ): Promise<CoachProfile | null> {
+    const entity = await this.findByAccountId(accountId, manager);
+    return entity ? this.toProfile(entity) : null;
+  }
+
   /**
    * 根据 ID 查找 Coach
    * @param id Coach ID
@@ -77,6 +99,11 @@ export class CoachService {
   async findById(id: number, manager?: EntityManager): Promise<CoachEntity | null> {
     const repo = manager ? manager.getRepository(CoachEntity) : this.coachRepository;
     return await repo.findOne({ where: { id } });
+  }
+
+  async findProfileById(id: number, manager?: EntityManager): Promise<CoachProfile | null> {
+    const entity = await this.findById(id, manager);
+    return entity ? this.toProfile(entity) : null;
   }
 
   /**
@@ -166,6 +193,15 @@ export class CoachService {
         error,
       );
     }
+  }
+
+  async updateCoachWithManager(params: {
+    id: number;
+    updateData: Partial<Omit<CoachEntity, 'id' | 'accountId' | 'createdAt' | 'updatedAt'>>;
+    manager: EntityManager;
+  }): Promise<CoachProfile> {
+    const updated = await this.updateCoach(params.id, params.updateData, params.manager);
+    return this.toProfile(updated);
   }
 
   /**
@@ -297,6 +333,27 @@ export class CoachService {
     };
   }
 
+  async findPaginatedProfiles(params: {
+    readonly page?: number;
+    readonly limit?: number;
+    readonly sortBy?: import('@src/types/common/sort.types').CoachSortField;
+    readonly sortOrder?: 'ASC' | 'DESC';
+    readonly includeDeleted?: boolean;
+    readonly query?: string;
+  }): Promise<{
+    readonly coaches: CoachProfile[];
+    readonly total: number;
+    readonly page: number;
+    readonly limit: number;
+    readonly totalPages: number;
+  }> {
+    const result = await this.findPaginated(params);
+    return {
+      ...result,
+      coaches: result.coaches.map((coach) => this.toProfile(coach)),
+    };
+  }
+
   /**
    * 构建教练查询的基础 QueryBuilder（含过滤与排序）
    * @param options 查询构建参数
@@ -394,5 +451,21 @@ export class CoachService {
         }
       }),
     );
+  }
+
+  toProfile(entity: CoachEntity): CoachProfile {
+    return {
+      id: entity.id,
+      accountId: entity.accountId,
+      name: entity.name,
+      remark: entity.remark,
+      level: entity.level,
+      description: entity.description,
+      avatarUrl: entity.avatarUrl,
+      specialty: entity.specialty,
+      deactivatedAt: entity.deactivatedAt ?? null,
+      createdAt: entity.createdAt,
+      updatedAt: entity.updatedAt,
+    };
   }
 }

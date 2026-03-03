@@ -1,18 +1,12 @@
 // src/usecases/identity-management/manager/reactivate-manager.usecase.ts
 import { ACCOUNT_ERROR, DomainError, PERMISSION_ERROR } from '@core/common/errors/domain-error';
-import { ManagerEntity } from '@modules/account/identities/training/manager/account-manager.entity';
-import { ManagerService } from '@modules/account/identities/training/manager/manager.service';
+import {
+  ManagerService,
+  type ManagerProfile,
+} from '@modules/account/identities/training/manager/manager.service';
 import { Injectable } from '@nestjs/common';
 
-type ManagerView = {
-  readonly id: number;
-  readonly accountId: number;
-  readonly name: string;
-  readonly remark: string | null;
-  readonly deactivatedAt: Date | null;
-  readonly createdAt: Date;
-  readonly updatedAt: Date;
-};
+type ManagerView = ManagerProfile;
 
 /** 上线 Manager 用例入参 */
 export interface ReactivateManagerParams {
@@ -50,42 +44,32 @@ export class ReactivateManagerUsecase {
       throw new DomainError(PERMISSION_ERROR.ACCESS_DENIED, '仅 manager 可以上线');
     }
 
-    const entity = await this.managerService.findById(input.id);
-    if (!entity) {
+    const current = await this.managerService.findProfileById(input.id);
+    if (!current) {
       throw new DomainError(ACCOUNT_ERROR.ACCOUNT_NOT_FOUND, 'Manager 不存在');
     }
 
     // 幂等：已上线直接返回
-    if (!entity.deactivatedAt) {
-      return { manager: this.toView(entity), isUpdated: false };
+    if (!current.deactivatedAt) {
+      return { manager: current, isUpdated: false };
     }
 
     const now = new Date();
 
-    await this.managerService.runTransaction(async (tx) => {
-      await tx.getRepository(ManagerEntity).update(entity.id, {
-        deactivatedAt: null,
-        updatedBy: currentAccountId,
-        updatedAt: now,
+    const updated = await this.managerService.runTransaction(async (tx) => {
+      return this.managerService.updateManagerWithManager({
+        id: input.id,
+        updateData: {
+          deactivatedAt: null,
+          updatedBy: currentAccountId,
+          updatedAt: now,
+        },
+        manager: tx,
       });
     });
-
-    const updated = await this.managerService.findById(entity.id);
     if (!updated) {
       throw new DomainError(ACCOUNT_ERROR.OPERATION_NOT_SUPPORTED, '上线 Manager 失败');
     }
-    return { manager: this.toView(updated), isUpdated: true };
-  }
-
-  private toView(entity: ManagerEntity): ManagerView {
-    return {
-      id: entity.id,
-      accountId: entity.accountId,
-      name: entity.name,
-      remark: entity.remark,
-      deactivatedAt: entity.deactivatedAt ?? null,
-      createdAt: entity.createdAt,
-      updatedAt: entity.updatedAt,
-    };
+    return { manager: updated, isUpdated: true };
   }
 }

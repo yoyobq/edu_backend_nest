@@ -11,18 +11,17 @@ import {
   VERIFICATION_RECORD_ERROR,
 } from '@core/common/errors/domain-error';
 import { Injectable } from '@nestjs/common';
-import { VerificationRecordEntity } from '@src/modules/verification-record/verification-record.entity';
-import {
-  VerificationRecordService,
-  type VerificationRecordRepository,
-  type VerificationRecordTransactionManager,
-  type VerificationRecordUpdateQueryBuilder,
-} from '@src/modules/verification-record/verification-record.service';
 import {
   VerificationRecordDetailView,
   VerificationRecordQueryService,
   VerificationRecordView,
 } from '@src/modules/verification-record/queries/verification-record.query.service';
+import {
+  VerificationRecordService,
+  type VerificationRecordConsumeTargetConstraint,
+  type VerificationRecordTransactionManager,
+  type VerificationRecordValidationSnapshot,
+} from '@src/modules/verification-record/verification-record.service';
 
 /**
  * 通过 token 消费验证记录用例参数
@@ -74,7 +73,10 @@ export interface RevokeRecordUsecaseParams {
  * 验证失败原因检查器
  */
 interface FailureChecker {
-  check: (record: VerificationRecordEntity, context: ValidationContext) => DomainError | null;
+  check: (
+    record: VerificationRecordValidationSnapshot,
+    context: ValidationContext,
+  ) => DomainError | null;
   priority: number;
 }
 
@@ -178,13 +180,12 @@ export class ConsumeVerificationRecordUsecase {
     const tokenFp = this.verificationRecordService.generateTokenFingerprint(token);
 
     return this.executeConsumption({
-      repository: this.getRepository(manager),
-      whereCondition: { tokenFp },
-      whereClause: (qb) => qb.andWhere('tokenFp = :tokenFp', { tokenFp }),
+      where: { tokenFp },
       notFoundError: VERIFICATION_RECORD_ERROR.INVALID_TOKEN,
       notFoundMessage: '无效的验证 token',
       context: { consumedByAccountId, expectedType, subjectType, subjectId, now: new Date() },
       errorDetails: { consumedByAccountId, expectedType },
+      manager,
     });
   }
 
@@ -197,13 +198,12 @@ export class ConsumeVerificationRecordUsecase {
     const { recordId, consumedByAccountId, expectedType, subjectType, subjectId, manager } = params;
 
     return this.executeConsumption({
-      repository: this.getRepository(manager),
-      whereCondition: { id: recordId },
-      whereClause: (qb) => qb.andWhere('id = :recordId', { recordId }),
+      where: { id: recordId },
       notFoundError: VERIFICATION_RECORD_ERROR.RECORD_NOT_FOUND,
       notFoundMessage: '验证记录不存在或已失效',
       context: { consumedByAccountId, expectedType, subjectType, subjectId, now: new Date() },
       errorDetails: { recordId, consumedByAccountId, expectedType },
+      manager,
     });
   }
 
@@ -249,33 +249,25 @@ export class ConsumeVerificationRecordUsecase {
 
     return this.verificationRecordService.runTransaction(async (transactionManager) => {
       const activeManager = manager || transactionManager;
-      const repository = this.verificationRecordService.getRepository(activeManager);
 
       try {
-        // 使用 CAS 模式：原子性更新，只有状态为 ACTIVE 的记录才能被撤销
-        const result = await repository
-          .createQueryBuilder()
-          .update(VerificationRecordEntity)
-          .set({ status: VerificationRecordStatus.REVOKED })
-          .where('id = :recordId', { recordId })
-          .andWhere('status = :activeStatus', { activeStatus: VerificationRecordStatus.ACTIVE })
-          .execute();
+        const { affected, updatedRecord, currentRecord } =
+          await this.verificationRecordService.revokeRecord({
+            recordId,
+            manager: activeManager,
+          });
 
-        if (result.affected === 0) {
-          const record = await repository.findOne({ where: { id: recordId } });
-
-          if (!record) {
+        if (affected === 0) {
+          if (!currentRecord) {
             throw new DomainError(VERIFICATION_RECORD_ERROR.RECORD_NOT_FOUND, '验证记录不存在');
           }
-
           throw new DomainError(
             VERIFICATION_RECORD_ERROR.STATUS_NOT_ALLOWED,
             '验证记录状态不允许撤销操作',
-            { recordId, currentStatus: record.status },
+            { recordId, currentStatus: currentRecord.status },
           );
         }
 
-        const updatedRecord = await repository.findOne({ where: { id: recordId } });
         if (!updatedRecord) {
           throw new DomainError(VERIFICATION_RECORD_ERROR.RECORD_NOT_FOUND, '验证记录不存在');
         }
@@ -306,52 +298,31 @@ export class ConsumeVerificationRecordUsecase {
   }
 
   /**
-   * 获取仓库实例
-   */
-  private getRepository(
-    manager?: VerificationRecordTransactionManager,
-  ): VerificationRecordRepository {
-    return manager
-      ? this.verificationRecordService.getRepository(manager)
-      : this.verificationRecordService.getRepository();
-  }
-
-  /**
    * 执行消费操作的通用方法
    */
   private async executeConsumption(options: {
-    repository: VerificationRecordRepository;
-    whereCondition: Record<string, unknown>;
-    whereClause: (qb: VerificationRecordUpdateQueryBuilder) => VerificationRecordUpdateQueryBuilder;
+    where: { id?: number; tokenFp?: Buffer };
     notFoundError: string;
     notFoundMessage: string;
     context: ValidationContext;
     errorDetails: Record<string, unknown>;
+    manager?: VerificationRecordTransactionManager;
   }): Promise<VerificationRecordView> {
-    const {
-      repository,
-      whereCondition,
-      whereClause,
-      notFoundError,
-      notFoundMessage,
-      context,
-      errorDetails,
-    } = options;
+    const { where, notFoundError, notFoundMessage, context, errorDetails, manager } = options;
 
     try {
-      // 构建并执行原子更新操作
-      const queryBuilder = this.buildUpdateQuery(repository, context);
-      whereClause(queryBuilder);
+      const targetConstraint = this.resolveTargetConstraint(context);
+      const { affected, updatedRecord, validationRecord } =
+        await this.verificationRecordService.consumeRecord({
+          where,
+          context: { ...context, targetConstraint },
+          manager,
+        });
 
-      const updateResult = await queryBuilder.execute();
-
-      if (updateResult.affected === 0) {
-        const record = await repository.findOne({ where: whereCondition });
-        this.handleUpdateFailure(record, context, notFoundError, notFoundMessage);
+      if (affected === 0) {
+        this.handleUpdateFailure(validationRecord, context, notFoundError, notFoundMessage);
       }
 
-      // 返回更新后的记录
-      const updatedRecord = await repository.findOne({ where: whereCondition });
       if (!updatedRecord) {
         throw new DomainError(VERIFICATION_RECORD_ERROR.RECORD_NOT_FOUND, '验证记录不存在');
       }
@@ -375,87 +346,10 @@ export class ConsumeVerificationRecordUsecase {
   }
 
   /**
-   * 构建更新查询
-   */
-  private buildUpdateQuery(
-    repository: VerificationRecordRepository,
-    context: ValidationContext,
-  ): VerificationRecordUpdateQueryBuilder {
-    const { consumedByAccountId, expectedType, subjectType, subjectId, now } = context;
-
-    // 基础更新字段
-    const updateFields: Record<string, unknown> = {
-      status: VerificationRecordStatus.CONSUMED,
-      consumedAt: now,
-    };
-
-    // 仅在提供 consumedByAccountId 时才设置该字段
-    if (consumedByAccountId !== undefined) {
-      updateFields.consumedByAccountId = consumedByAccountId;
-    }
-
-    // 设置主体信息字段
-    if (subjectType !== undefined) {
-      updateFields.subjectType = subjectType;
-    }
-    if (subjectId !== undefined) {
-      updateFields.subjectId = subjectId;
-    }
-
-    // 计算包含 180 秒宽限期的过期时间
-    const gracePeriodMs = 180 * 1000; // 180 秒宽限期
-    const gracePeriodAgo = new Date(now.getTime() - gracePeriodMs);
-
-    const queryBuilder = repository
-      .createQueryBuilder()
-      .update(VerificationRecordEntity)
-      .set(updateFields)
-      .andWhere('status = :activeStatus', { activeStatus: VerificationRecordStatus.ACTIVE })
-      .andWhere('expiresAt > :gracePeriodAgo', { gracePeriodAgo })
-      .andWhere('(notBefore IS NULL OR notBefore <= :now)', { now });
-
-    // 权限检查：如果记录有 targetAccountId 限制
-    if (consumedByAccountId !== undefined) {
-      // 如果提供了消费者账号，检查权限匹配
-      queryBuilder.andWhere('(targetAccountId IS NULL OR targetAccountId = :consumedByAccountId)', {
-        consumedByAccountId,
-      });
-    } else {
-      // 如果未提供消费者账号，只允许消费没有 targetAccountId 限制的记录
-      // 特殊情况：PASSWORD_RESET 类型允许匿名消费，即使有 targetAccountId
-      if (expectedType === VerificationRecordType.PASSWORD_RESET) {
-        // PASSWORD_RESET 类型允许匿名消费，不需要额外的权限检查
-      } else if (expectedType === VerificationRecordType.INVITE_COACH) {
-        // INVITE_COACH 类型不允许匿名消费
-        throw new DomainError(
-          VERIFICATION_RECORD_ERROR.VERIFICATION_INVALID,
-          'Coach 邀请需要指定消费者账户 ID',
-        );
-      } else if (expectedType === VerificationRecordType.INVITE_MANAGER) {
-        // INVITE_MANAGER 类型不允许匿名消费
-        throw new DomainError(
-          VERIFICATION_RECORD_ERROR.VERIFICATION_INVALID,
-          'Manager 邀请需要指定消费者账户 ID',
-        );
-      } else {
-        // 对于其他类型，仅允许消费无 targetAccountId 限制的记录
-        queryBuilder.andWhere('targetAccountId IS NULL');
-      }
-    }
-
-    // 类型检查
-    if (expectedType) {
-      queryBuilder.andWhere('type = :expectedType', { expectedType });
-    }
-
-    return queryBuilder;
-  }
-
-  /**
    * 处理更新失败的情况
    */
   private handleUpdateFailure(
-    record: VerificationRecordEntity | null,
+    record: VerificationRecordValidationSnapshot | null,
     context: ValidationContext,
     notFoundError: string,
     notFoundMessage: string,
@@ -474,5 +368,30 @@ export class ConsumeVerificationRecordUsecase {
 
     // 如果所有检查都通过，说明是未知错误
     throw new DomainError(VERIFICATION_RECORD_ERROR.CONSUMPTION_FAILED, '验证码已被使用或已失效');
+  }
+
+  private resolveTargetConstraint(
+    context: ValidationContext,
+  ): VerificationRecordConsumeTargetConstraint {
+    const { consumedByAccountId, expectedType } = context;
+    if (consumedByAccountId !== undefined) {
+      return { mode: 'MATCH_OR_NULL', accountId: consumedByAccountId };
+    }
+    if (expectedType === VerificationRecordType.PASSWORD_RESET) {
+      return { mode: 'IGNORE' };
+    }
+    if (expectedType === VerificationRecordType.INVITE_COACH) {
+      throw new DomainError(
+        VERIFICATION_RECORD_ERROR.VERIFICATION_INVALID,
+        'Coach 邀请需要指定消费者账户 ID',
+      );
+    }
+    if (expectedType === VerificationRecordType.INVITE_MANAGER) {
+      throw new DomainError(
+        VERIFICATION_RECORD_ERROR.VERIFICATION_INVALID,
+        'Manager 邀请需要指定消费者账户 ID',
+      );
+    }
+    return { mode: 'NULL_ONLY' };
   }
 }

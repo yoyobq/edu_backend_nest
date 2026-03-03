@@ -18,6 +18,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { ThirdPartyAuthEntity } from '@src/modules/account/base/entities/third-party-auth.entity';
 import { Repository } from 'typeorm';
 import { ThirdPartyProvider } from './interfaces/third-party-provider.interface';
+import { ThirdPartyAuthQueryService } from './queries/third-party-auth.query.service';
 
 /** 第三方认证提供者映射的依赖注入标识 */
 export const PROVIDER_MAP = Symbol('THIRD_PARTY_PROVIDER_MAP');
@@ -33,6 +34,7 @@ export class ThirdPartyAuthService {
     private readonly thirdPartyAuthRepository: Repository<ThirdPartyAuthEntity>,
     @Inject(PROVIDER_MAP)
     private readonly adapters: Map<ThirdPartyProviderEnum, ThirdPartyProvider>,
+    private readonly thirdPartyAuthQueryService: ThirdPartyAuthQueryService,
   ) {}
 
   /**
@@ -89,7 +91,7 @@ export class ThirdPartyAuthService {
   async bindThirdParty(params: {
     accountId: number;
     input: BindThirdPartyInputModel;
-  }): Promise<ThirdPartyAuthEntity> {
+  }): Promise<ThirdPartyAuthView> {
     const { accountId, input } = params;
 
     // 检查当前账户是否已绑定该平台
@@ -117,7 +119,8 @@ export class ThirdPartyAuthService {
       accessToken: input.accessToken,
     });
 
-    return this.thirdPartyAuthRepository.save(thirdPartyAuth);
+    const saved = await this.thirdPartyAuthRepository.save(thirdPartyAuth);
+    return this.thirdPartyAuthQueryService.toView(saved);
   }
 
   /**
@@ -158,13 +161,22 @@ export class ThirdPartyAuthService {
   async findAccountByThirdParty(params: {
     provider: ThirdPartyProviderEnum;
     providerUserId: string;
-  }): Promise<ThirdPartyAuthEntity | null> {
+  }): Promise<ThirdPartyAuthView | null> {
     const { provider, providerUserId } = params;
 
-    return this.thirdPartyAuthRepository.findOne({
+    const record = await this.thirdPartyAuthRepository.findOne({
       where: { provider, providerUserId },
-      relations: ['account'],
+      select: [
+        'id',
+        'accountId',
+        'provider',
+        'providerUserId',
+        'unionId',
+        'createdAt',
+        'updatedAt',
+      ],
     });
+    return record ? this.thirdPartyAuthQueryService.toView(record) : null;
   }
 
   /**
@@ -211,7 +223,7 @@ export class ThirdPartyAuthService {
     accountId: number;
     provider: ThirdPartyProviderEnum;
     session: ThirdPartySession;
-  }): Promise<ThirdPartyAuthEntity> {
+  }): Promise<ThirdPartyAuthView> {
     const { accountId, provider, session } = params;
 
     // 检查当前账户是否已绑定该平台
@@ -239,7 +251,8 @@ export class ThirdPartyAuthService {
       accessToken: null, // ThirdPartySession 中没有 accessToken，设为 null
     });
 
-    return this.thirdPartyAuthRepository.save(thirdPartyAuth);
+    const saved = await this.thirdPartyAuthRepository.save(thirdPartyAuth);
+    return this.thirdPartyAuthQueryService.toView(saved);
   }
 
   /**
@@ -251,9 +264,19 @@ export class ThirdPartyAuthService {
   async findThirdPartyAuthByAccountId(
     accountId: number,
     provider: ThirdPartyProviderEnum,
-  ): Promise<ThirdPartyAuthEntity | null> {
-    return this.thirdPartyAuthRepository.findOne({
+  ): Promise<ThirdPartyAuthView | null> {
+    const record = await this.thirdPartyAuthRepository.findOne({
       where: { accountId, provider },
+      select: [
+        'id',
+        'accountId',
+        'provider',
+        'providerUserId',
+        'unionId',
+        'createdAt',
+        'updatedAt',
+      ],
     });
+    return record ? this.thirdPartyAuthQueryService.toView(record) : null;
   }
 }

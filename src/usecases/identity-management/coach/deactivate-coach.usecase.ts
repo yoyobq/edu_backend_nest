@@ -1,23 +1,13 @@
 // src/usecases/identity-management/coach/deactivate-coach.usecase.ts
 import { ACCOUNT_ERROR, DomainError, PERMISSION_ERROR } from '@core/common/errors/domain-error';
-import { CoachEntity } from '@modules/account/identities/training/coach/account-coach.entity';
-import { CoachService } from '@modules/account/identities/training/coach/coach.service';
+import {
+  CoachService,
+  type CoachProfile,
+} from '@modules/account/identities/training/coach/coach.service';
 import { ManagerService } from '@modules/account/identities/training/manager/manager.service';
 import { Injectable } from '@nestjs/common';
 
-type CoachView = {
-  readonly id: number;
-  readonly accountId: number;
-  readonly name: string;
-  readonly remark: string | null;
-  readonly level: number;
-  readonly description: string | null;
-  readonly avatarUrl: string | null;
-  readonly specialty: string | null;
-  readonly deactivatedAt: Date | null;
-  readonly createdAt: Date;
-  readonly updatedAt: Date;
-};
+type CoachView = CoachProfile;
 
 /**
  * 下线教练输入参数
@@ -65,47 +55,32 @@ export class DeactivateCoachUsecase {
     }
 
     // 查找教练
-    const entity = await this.coachService.findById(input.id);
-    if (!entity) {
+    const current = await this.coachService.findProfileById(input.id);
+    if (!current) {
       throw new DomainError(ACCOUNT_ERROR.ACCOUNT_NOT_FOUND, '教练不存在');
     }
 
     // 幂等：已下线直接返回
-    if (entity.deactivatedAt) {
-      return { coach: this.toView(entity), isUpdated: false };
+    if (current.deactivatedAt) {
+      return { coach: current, isUpdated: false };
     }
 
     const now = new Date();
 
     // 单事务更新，写入审计字段
-    await this.coachService.runTransaction(async (managerTx) => {
-      await managerTx.getRepository(CoachEntity).update(entity.id, {
-        deactivatedAt: now,
-        updatedBy: currentAccountId,
-        updatedAt: now,
+    const updated = await this.coachService.runTransaction(async (managerTx) => {
+      return this.coachService.updateCoachWithManager({
+        id: input.id,
+        updateData: {
+          deactivatedAt: now,
+          updatedBy: currentAccountId,
+        },
+        manager: managerTx,
       });
     });
-
-    const updated = await this.coachService.findById(entity.id);
     if (!updated) {
       throw new DomainError(ACCOUNT_ERROR.OPERATION_NOT_SUPPORTED, '下线教练失败');
     }
-    return { coach: this.toView(updated), isUpdated: true };
-  }
-
-  private toView(entity: CoachEntity): CoachView {
-    return {
-      id: entity.id,
-      accountId: entity.accountId,
-      name: entity.name,
-      remark: entity.remark,
-      level: entity.level,
-      description: entity.description,
-      avatarUrl: entity.avatarUrl,
-      specialty: entity.specialty,
-      deactivatedAt: entity.deactivatedAt ?? null,
-      createdAt: entity.createdAt,
-      updatedAt: entity.updatedAt,
-    };
+    return { coach: updated, isUpdated: true };
   }
 }
