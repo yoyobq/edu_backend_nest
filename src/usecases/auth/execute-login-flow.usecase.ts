@@ -8,7 +8,7 @@ import {
   ThirdPartyProviderEnum,
 } from '@app-types/models/account.types';
 import { ACCOUNT_ERROR, AUTH_ERROR, DomainError } from '@core/common/errors/domain-error';
-import { TokenHelper } from '@core/common/token/token.helper';
+import { TokenHelper } from '@modules/auth/token.helper';
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { AccountService } from '@src/modules/account/base/services/account.service';

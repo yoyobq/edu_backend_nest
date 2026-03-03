@@ -1,5 +1,5 @@
 // 文件位置： src/usecases/verification/verification-usecases.module.ts
-import { PasswordModule } from '@core/common/password/password.module';
+import { PasswordModule } from '@modules/common/password/password.module';
 import { AccountInstallerModule } from '@modules/account/account-installer.module';
 import { CoachServiceModule } from '@modules/account/identities/training/coach/coach-service.module';
 import { ManagerServiceModule } from '@modules/account/identities/training/manager/manager-service.module';

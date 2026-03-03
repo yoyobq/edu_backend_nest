@@ -2,7 +2,7 @@
 
 import { IdentityTypeEnum } from '@app-types/models/account.types';
 import { Gender, UserState, type GeographicInfo } from '@app-types/models/user-info.types';
-import { EncryptedField } from '@core/field-encryption';
+import { EncryptedField } from '@src/infrastructure/field-encryption/field-encryption.decorator';
 import { Field, ID } from '@nestjs/graphql';
 import {
   Column,

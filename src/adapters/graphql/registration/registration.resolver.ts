@@ -1,5 +1,5 @@
 // src/adapters/graphql/registration/registration.resolver.ts
-import { ValidateInput } from '@core/common/errors/validate-input.decorator';
+import { ValidateInput } from '@adapters/graphql/common/validate-input.decorator';
 import { Args, Context, Mutation, Resolver } from '@nestjs/graphql';
 import { RegisterWithEmailUsecase } from '@usecases/registration/register-with-email.usecase';
 import { RegisterWithThirdPartyUsecase } from '@usecases/registration/register-with-third-party.usecase';

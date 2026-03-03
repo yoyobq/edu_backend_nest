@@ -1,7 +1,7 @@
 // src/modules/verification-record/verification-record.module.ts
 
-import { PasswordModule } from '@core/common/password/password.module';
-import { VerificationCodeHelper } from '@core/common/token/verification-code.helper';
+import { PasswordModule } from '@modules/common/password/password.module';
+import { VerificationCodeHelper } from './verification-code.helper';
 import { AccountInstallerModule } from '@modules/account/account-installer.module';
 import { CoachServiceModule } from '@modules/account/identities/training/coach/coach-service.module';
 import { ManagerServiceModule } from '@modules/account/identities/training/manager/manager-service.module';

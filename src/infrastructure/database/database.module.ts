@@ -1,7 +1,7 @@
 // src/infrastructure/database/database.module.ts
 
-import { FieldEncryptionModule } from '@core/field-encryption/field-encryption.module';
-import { FieldEncryptionSubscriber } from '@core/field-encryption/field-encryption.subscriber';
+import { FieldEncryptionModule } from '@src/infrastructure/field-encryption/field-encryption.module';
+import { FieldEncryptionSubscriber } from '@src/infrastructure/field-encryption/field-encryption.subscriber';
 import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { TypeOrmModule, TypeOrmModuleOptions } from '@nestjs/typeorm';

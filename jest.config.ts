@@ -19,6 +19,8 @@ const config: Config = {
   // 模块路径映射
   moduleNameMapper: {
     // eslint-disable-next-line @typescript-eslint/naming-convention
+    '^@src/(.*)$': '<rootDir>/src/$1',
+    // eslint-disable-next-line @typescript-eslint/naming-convention
     '^src/(.*)$': '<rootDir>/src/$1',
     // eslint-disable-next-line @typescript-eslint/naming-convention
     '^@core/(.*)$': '<rootDir>/src/core/$1',

@@ -2,7 +2,7 @@
 
 import { Field, InputType, Int, ObjectType } from '@nestjs/graphql';
 import { IsNotEmpty, IsString, MinLength } from 'class-validator';
-import { IsValidPassword } from '@core/common/password/password-validation.decorator';
+import { IsValidPassword } from '@adapters/graphql/common/password-validation.decorator';
 
 /**
  * 重置密码输入参数
