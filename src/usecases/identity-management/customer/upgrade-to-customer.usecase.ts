@@ -3,7 +3,7 @@
 import { AccountStatus, AudienceTypeEnum, IdentityTypeEnum } from '@app-types/models/account.types';
 import { Injectable } from '@nestjs/common';
 import { ACCOUNT_ERROR, DomainError } from '@src/core/common/errors/domain-error';
-import { TokenHelper } from '@src/core/common/token/token.helper';
+import { TokenHelper } from '@modules/auth/token.helper';
 import {
   AccountService,
   type AccountTransactionManager,

@@ -1,6 +1,3 @@
-// src/core/common/password/password-validation.decorator.ts
-
-import { Injectable } from '@nestjs/common';
 import {
   registerDecorator,
   ValidationOptions,
@@ -8,20 +5,12 @@ import {
   ValidatorConstraint,
   ValidatorConstraintInterface,
 } from 'class-validator';
-import { PasswordPolicyService } from './password-policy.service';
+import { PasswordPolicyService } from '@core/common/password/password-policy.service';
 
-/**
- * 密码策略验证约束类
- * 使用依赖注入的方式获取 PasswordPolicyService
- */
 @ValidatorConstraint({ name: 'isValidPassword', async: false })
-@Injectable()
 export class IsValidPasswordConstraint implements ValidatorConstraintInterface {
-  constructor(private readonly passwordPolicyService: PasswordPolicyService) {}
+  private readonly passwordPolicyService = new PasswordPolicyService();
 
-  /**
-   * 验证密码是否符合策略要求
-   */
   validate(value: unknown): boolean {
     if (typeof value !== 'string') {
       return false;
@@ -31,9 +20,6 @@ export class IsValidPasswordConstraint implements ValidatorConstraintInterface {
     return result.isValid;
   }
 
-  /**
-   * 生成默认错误消息
-   */
   defaultMessage(args: ValidationArguments): string {
     if (typeof args.value !== 'string') {
       return '密码必须是字符串';
@@ -49,10 +35,6 @@ export class IsValidPasswordConstraint implements ValidatorConstraintInterface {
   }
 }
 
-/**
- * 密码策略验证装饰器
- * 使用统一的密码策略进行验证
- */
 // eslint-disable-next-line @typescript-eslint/naming-convention
 export function IsValidPassword(validationOptions?: ValidationOptions) {
   return function (object: object, propertyName: string) {

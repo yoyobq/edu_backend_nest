@@ -4,6 +4,6 @@ import { FieldEncryptionSubscriber } from './field-encryption.subscriber';
 
 @Module({
   providers: [FieldEncryptionService, FieldEncryptionSubscriber],
-  exports: [FieldEncryptionService, FieldEncryptionSubscriber], // 导出 subscriber
+  exports: [FieldEncryptionService, FieldEncryptionSubscriber],
 })
 export class FieldEncryptionModule {}

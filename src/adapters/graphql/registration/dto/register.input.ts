@@ -14,7 +14,7 @@ import {
   MaxLength,
   MinLength,
 } from 'class-validator';
-import { IsValidPassword } from '@core/common/password/password-validation.decorator';
+import { IsValidPassword } from '@adapters/graphql/common/password-validation.decorator';
 
 /**
  * 用户注册输入参数

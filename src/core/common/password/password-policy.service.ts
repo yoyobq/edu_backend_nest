@@ -1,7 +1,5 @@
 // src/core/common/password/password-policy.service.ts
 
-import { Injectable } from '@nestjs/common';
-
 /**
  * 密码策略配置
  */
@@ -38,7 +36,6 @@ export interface PasswordValidationResult {
  * 密码策略服务
  * 提供统一的密码复杂度校验和安全策略
  */
-@Injectable()
 export class PasswordPolicyService {
   /**
    * 默认密码策略配置

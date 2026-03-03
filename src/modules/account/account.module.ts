@@ -8,7 +8,7 @@
  * - 对外只导出 PROFILE_PROVIDER_MAP_TOKEN（聚合后的 Map），不导出底层 token
  */
 
-import { FieldEncryptionModule } from '@core/field-encryption/field-encryption.module';
+import { FieldEncryptionModule } from '@src/infrastructure/field-encryption/field-encryption.module';
 import { DynamicModule, Module, Provider, Type } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 

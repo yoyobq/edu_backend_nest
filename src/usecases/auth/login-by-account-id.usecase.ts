@@ -4,7 +4,7 @@ import { EnrichedLoginResult, LoginWarningType } from '@app-types/auth/login-flo
 import { JwtPayload } from '@app-types/jwt.types';
 import { AudienceTypeEnum, ThirdPartyProviderEnum } from '@app-types/models/account.types';
 import { AUTH_ERROR, DomainError } from '@core/common/errors';
-import { TokenHelper } from '@core/common/token/token.helper';
+import { TokenHelper } from '@modules/auth/token.helper';
 import { Injectable } from '@nestjs/common';
 import { DecideLoginRoleUsecase } from './decide-login-role.usecase';
 import { EnrichLoginWithIdentityUsecase } from './enrich-login-with-identity.usecase';

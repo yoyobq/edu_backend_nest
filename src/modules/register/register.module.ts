@@ -2,7 +2,7 @@
 
 import { AccountInstallerModule } from '@modules/account/account-installer.module';
 import { ThirdPartyAuthModule } from '@modules/third-party-auth/third-party-auth.module';
-import { PasswordModule } from '@core/common/password/password.module';
+import { PasswordModule } from '@modules/common/password/password.module';
 import { Module } from '@nestjs/common';
 
 @Module({

@@ -1,6 +1,6 @@
 // src/modules/auth/auth.service.ts
 
-import { TokenHelper } from '@core/common/token/token.helper';
+import { TokenHelper } from './token.helper';
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtPayload } from '@src/types/jwt.types';

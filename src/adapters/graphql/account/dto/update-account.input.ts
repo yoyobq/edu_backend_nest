@@ -2,7 +2,7 @@
 import { AccountStatus } from '@app-types/models/account.types';
 import { Field, InputType, Int } from '@nestjs/graphql';
 import { IsEmail, IsEnum, IsInt, IsOptional, IsString, MinLength } from 'class-validator';
-import { IsValidPassword } from '@core/common/password/password-validation.decorator';
+import { IsValidPassword } from '@adapters/graphql/common/password-validation.decorator';
 
 /**
  * 更新账户输入参数

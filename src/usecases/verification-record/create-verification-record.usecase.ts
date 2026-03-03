@@ -5,7 +5,7 @@ import {
   VerificationRecordType,
 } from '@app-types/models/verification-record.types';
 import { DomainError, VERIFICATION_RECORD_ERROR } from '@core/common/errors/domain-error';
-import { VerificationCodeHelper } from '@core/common/token/verification-code.helper';
+import { VerificationCodeHelper } from '@modules/verification-record/verification-code.helper';
 import { Injectable } from '@nestjs/common';
 import { VerificationRecordEntity } from '@src/modules/verification-record/verification-record.entity';
 import { VerificationRecordService } from '@src/modules/verification-record/verification-record.service';

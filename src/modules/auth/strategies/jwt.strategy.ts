@@ -1,7 +1,7 @@
 // src/modules/auth/strategies/jwt.strategy.ts
 
 import { JwtPayload } from '@app-types/jwt.types';
-import { TokenHelper } from '@core/common/token/token.helper';
+import { TokenHelper } from '../token.helper';
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';

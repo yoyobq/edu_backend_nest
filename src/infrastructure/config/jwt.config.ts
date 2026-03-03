@@ -1,4 +1,4 @@
-// src/core/config/jwt.config.ts
+// src/infrastructure/config/jwt.config.ts
 
 import { registerAs } from '@nestjs/config';
 
