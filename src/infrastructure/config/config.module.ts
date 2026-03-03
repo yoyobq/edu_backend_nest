@@ -1,12 +1,12 @@
-// src/core/config/config.module.ts
+// src/infrastructure/config/config.module.ts
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-import databaseConfig from './database.config'; // 添加数据库配置导入
-import graphqlConfig from './graphql.config';
-import jwtConfig from './jwt.config';
-import loggerConfig from './logger.config';
-import serverConfig from './server.config';
-import paginationConfig from './pagination.config';
+import databaseConfig from '@core/config/database.config';
+import graphqlConfig from '@core/config/graphql.config';
+import jwtConfig from '@core/config/jwt.config';
+import loggerConfig from '@core/config/logger.config';
+import paginationConfig from '@core/config/pagination.config';
+import serverConfig from '@core/config/server.config';
 
 @Module({
   imports: [

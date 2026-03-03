@@ -1,4 +1,4 @@
-// src/core/database/database.module.ts
+// src/infrastructure/database/database.module.ts
 
 import { FieldEncryptionModule } from '@core/field-encryption/field-encryption.module';
 import { FieldEncryptionSubscriber } from '@core/field-encryption/field-encryption.subscriber';

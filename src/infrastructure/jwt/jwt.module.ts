@@ -1,4 +1,4 @@
-// src/core/jwt/jwt.module.ts
+// src/infrastructure/jwt/jwt.module.ts
 
 import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
