@@ -13,22 +13,10 @@ import {
   LearnerService,
   type LearnerTransactionManager,
 } from '../../../modules/account/identities/training/learner/account-learner.service';
-
-type LearnerView = {
-  readonly id: number;
-  readonly accountId: number | null;
-  readonly customerId: number;
-  readonly name: string;
-  readonly gender: Gender;
-  readonly birthDate: string | null;
-  readonly avatarUrl: string | null;
-  readonly specialNeeds: string | null;
-  readonly countPerSession: number;
-  readonly remark: string | null;
-  readonly deactivatedAt: Date | null;
-  readonly createdAt: Date;
-  readonly updatedAt: Date;
-};
+import {
+  LearnerQueryService,
+  type LearnerView,
+} from '../../../modules/account/queries/learner.query.service';
 
 /**
  * 客户更新学员信息输入参数
@@ -64,13 +52,14 @@ export class UpdateLearnerByCustomerUsecase {
   constructor(
     private readonly customerService: CustomerService,
     private readonly learnerService: LearnerService,
+    private readonly learnerQueryService: LearnerQueryService,
   ) {}
 
   /**
    * 执行客户更新学员信息
    * @param accountId 当前账户 ID（客户）
    * @param input 更新参数
-   * @returns 更新后的学员实体
+   * @returns 更新后的学员信息
    */
   async execute(accountId: number, input: UpdateLearnerByCustomerInput): Promise<LearnerView> {
     // 字段权限快速拦截
@@ -92,14 +81,13 @@ export class UpdateLearnerByCustomerUsecase {
       const learner = await this.validateLearnerAccess(input.id, targetCustomerId);
 
       const updateData = this.prepareUpdateData(input, accountId);
-      if (!this.hasDataChanges(updateData, learner)) return this.toView(learner);
+      if (!this.hasDataChanges(updateData, learner)) return learner;
 
       if (input.name !== undefined || input.birthDate !== undefined) {
         await this.validateUniqueness(manager, input, learner, targetCustomerId);
       }
 
-      const updated = await this.performUpdate(manager, input.id, updateData);
-      return this.toView(updated);
+      return await this.performUpdate(manager, input.id, updateData);
     });
   }
 
@@ -109,7 +97,7 @@ export class UpdateLearnerByCustomerUsecase {
   private async validateLearnerAccess(
     learnerId: number,
     targetCustomerId: number,
-  ): Promise<LearnerEntity> {
+  ): Promise<LearnerView> {
     const learner = await this.learnerService.findById(learnerId);
     if (!learner) {
       throw new DomainError(LEARNER_ERROR.LEARNER_NOT_FOUND, '学员不存在');
@@ -120,7 +108,7 @@ export class UpdateLearnerByCustomerUsecase {
     if (learner.deactivatedAt) {
       throw new DomainError(LEARNER_ERROR.LEARNER_NOT_FOUND, '学员已被删除');
     }
-    return learner;
+    return this.learnerQueryService.toView(learner);
   }
 
   /**
@@ -145,11 +133,11 @@ export class UpdateLearnerByCustomerUsecase {
   /**
    * 幂等检查
    */
-  private hasDataChanges(updateData: Partial<LearnerEntity>, learner: LearnerEntity): boolean {
+  private hasDataChanges(updateData: Partial<LearnerEntity>, learner: LearnerView): boolean {
     return Object.keys(updateData).some((key) => {
       if (key === 'updatedBy' || key === 'updatedAt') return true;
       const newValue = updateData[key as keyof typeof updateData];
-      const oldValue = learner[key as keyof LearnerEntity];
+      const oldValue = learner[key as keyof LearnerView];
       if (typeof newValue === 'string' && typeof oldValue === 'string') {
         return newValue !== oldValue;
       }
@@ -163,7 +151,7 @@ export class UpdateLearnerByCustomerUsecase {
   private async validateUniqueness(
     manager: LearnerTransactionManager,
     input: UpdateLearnerByCustomerInput,
-    learner: LearnerEntity,
+    learner: LearnerView,
     targetCustomerId: number,
   ): Promise<void> {
     const checkName = input.name !== undefined ? input.name : learner.name;
@@ -188,13 +176,13 @@ export class UpdateLearnerByCustomerUsecase {
   }
 
   /**
-   * 执行数据库更新并返回最新实体
+   * 执行数据库更新并返回最新视图
    */
   private async performUpdate(
     manager: LearnerTransactionManager,
     learnerId: number,
     updateData: Partial<LearnerEntity>,
-  ): Promise<LearnerEntity> {
+  ): Promise<LearnerView> {
     await manager.getRepository(LearnerEntity).update(learnerId, updateData);
     const updated = await manager
       .getRepository(LearnerEntity)
@@ -202,27 +190,6 @@ export class UpdateLearnerByCustomerUsecase {
     if (!updated) {
       throw new DomainError(LEARNER_ERROR.LEARNER_UPDATE_FAILED, '更新学员信息失败');
     }
-    return updated;
-  }
-
-  /**
-   * 映射学员只读模型
-   */
-  private toView(entity: LearnerEntity): LearnerView {
-    return {
-      id: entity.id,
-      accountId: entity.accountId ?? null,
-      customerId: entity.customerId,
-      name: entity.name,
-      gender: entity.gender,
-      birthDate: entity.birthDate ?? null,
-      avatarUrl: entity.avatarUrl ?? null,
-      specialNeeds: entity.specialNeeds ?? null,
-      countPerSession: entity.countPerSession,
-      remark: entity.remark ?? null,
-      deactivatedAt: entity.deactivatedAt ?? null,
-      createdAt: entity.createdAt,
-      updatedAt: entity.updatedAt,
-    };
+    return this.learnerQueryService.toView(updated);
   }
 }

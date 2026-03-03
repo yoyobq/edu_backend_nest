@@ -212,7 +212,7 @@ export class WeappRegisterUsecase {
     manager: AccountTransactionManager,
     accountId: number,
     session: ThirdPartySession,
-  ): Promise<ThirdPartyAuthEntity> {
+  ): Promise<void> {
     const thirdPartyAuth = new ThirdPartyAuthEntity();
     thirdPartyAuth.accountId = accountId;
     thirdPartyAuth.provider = ThirdPartyProviderEnum.WEAPP;
@@ -222,7 +222,7 @@ export class WeappRegisterUsecase {
     thirdPartyAuth.createdAt = new Date();
     thirdPartyAuth.updatedAt = new Date();
 
-    return await manager.save(ThirdPartyAuthEntity, thirdPartyAuth);
+    await manager.save(ThirdPartyAuthEntity, thirdPartyAuth);
   }
 
   /**

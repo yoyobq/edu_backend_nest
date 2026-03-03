@@ -40,8 +40,7 @@ export class CreateAccountUsecase {
     const run = async (m: AccountTransactionManager) => this.doCreate(m, accountData, userInfoData);
 
     // 有外部事务则复用；否则自己开
-    const account = manager ? await run(manager) : await this.accountService.runTransaction(run);
-    return this.accountQueryService.toUserAccountView(account);
+    return manager ? await run(manager) : await this.accountService.runTransaction(run);
   }
 
   /**
@@ -49,13 +48,13 @@ export class CreateAccountUsecase {
    * @param manager 实体管理器
    * @param accountData 账户数据
    * @param userInfoData 用户信息数据
-   * @returns 创建的账户实体
+   * @returns 创建的账户信息
    */
   private async doCreate(
     manager: AccountTransactionManager,
     accountData: Partial<AccountEntity>,
     userInfoData: Partial<UserInfoEntity>,
-  ): Promise<AccountEntity> {
+  ): Promise<UserAccountView> {
     // 验证密码是否符合安全策略
     if (accountData.loginPassword) {
       const passwordValidation = this.passwordPolicyService.validatePassword(
@@ -96,6 +95,6 @@ export class CreateAccountUsecase {
     });
     await manager.save(userInfo);
 
-    return savedAccount;
+    return this.accountQueryService.toUserAccountView(savedAccount);
   }
 }
