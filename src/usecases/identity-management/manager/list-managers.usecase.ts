@@ -1,20 +1,19 @@
 // src/usecases/identity-management/manager/list-managers.usecase.ts
 import { DomainError, PERMISSION_ERROR } from '@core/common/errors/domain-error';
+import { ManagerService } from '@modules/account/identities/training/manager/manager.service';
 import {
-  ManagerService,
-  type ManagerProfile,
-} from '@modules/account/identities/training/manager/manager.service';
+  ManagerQueryService,
+  type ManagerListItem as ManagerListItemView,
+  type ManagerUserInfoView,
+} from '@modules/account/queries/manager.query.service';
 import { Injectable } from '@nestjs/common';
 import { AccountService } from '@src/modules/account/base/services/account.service';
 import { type UsecaseSession } from '@src/types/auth/session.types';
 import { ManagerSortField, type OrderDirection } from '@src/types/common/sort.types';
-import { Gender, UserState } from '@app-types/models/user-info.types';
 import {
   GetVisibleUserInfoUsecase,
   type VisibleDetailMode,
 } from '@src/usecases/account/get-visible-user-info.usecase';
-
-type ManagerView = ManagerProfile;
 
 /**
  * 列出 Manager 列表的输入参数
@@ -38,22 +37,7 @@ export interface ListManagersParams {
 /**
  * Manager 分页结果
  */
-export interface ManagerListItem {
-  view: ManagerView;
-  userState: UserState | null;
-  loginHistory: { ip: string; timestamp: string; audience?: string }[] | null;
-  userPhone: string | null;
-  userInfo?: {
-    mode: VisibleDetailMode;
-    view: {
-      accountId: number;
-      nickname: string;
-      gender: string | Gender;
-      avatarUrl: string | null;
-      phone: string | null;
-    };
-  } | null;
-}
+export type ManagerListItem = ManagerListItemView;
 
 export interface PaginatedManagers {
   /** 列表项（包含 userinfo 补充字段） */
@@ -77,6 +61,7 @@ export class ListManagersUsecase {
     private readonly managerService: ManagerService,
     private readonly accountService: AccountService,
     private readonly getVisibleUserInfoUsecase: GetVisibleUserInfoUsecase,
+    private readonly managerQueryService: ManagerQueryService,
   ) {}
 
   /**
@@ -100,44 +85,25 @@ export class ListManagersUsecase {
       rows.map(async (view) => {
         const acc = view.accountId ? await this.accountService.findOneById(view.accountId) : null;
         const detail: VisibleDetailMode = params.detailMode ?? 'BASIC';
-        let userInfo: ManagerListItem['userInfo'] = null;
-        let state: UserState | null = null;
-        let phone: string | null = null;
+        let userInfoView: ManagerUserInfoView | null = null;
         if (view.accountId) {
           const session: UsecaseSession = { accountId: currentAccountId, roles: ['MANAGER'] };
           try {
-            const detailView = await this.getVisibleUserInfoUsecase.execute({
+            userInfoView = await this.getVisibleUserInfoUsecase.execute({
               session,
               targetAccountId: view.accountId,
               detail,
             });
-            state = detailView.userState ?? null;
-            phone = detailView.phone ?? null;
-            userInfo = {
-              mode: detail,
-              view: {
-                accountId: detailView.accountId,
-                nickname: detailView.nickname,
-                gender: detailView.gender,
-                avatarUrl: detailView.avatarUrl,
-                phone: detailView.phone,
-              },
-            };
           } catch {
-            state = null;
-            phone = null;
-            userInfo = null;
+            userInfoView = null;
           }
         }
-        const history: { ip: string; timestamp: string; audience?: string }[] | null =
-          acc?.recentLoginHistory ?? null;
-        return {
+        return this.managerQueryService.toListItem({
           view,
-          userState: state,
-          loginHistory: history,
-          userPhone: phone,
-          userInfo,
-        };
+          detailMode: detail,
+          loginHistory: acc?.recentLoginHistory ?? null,
+          userInfoView,
+        });
       }),
     );
 

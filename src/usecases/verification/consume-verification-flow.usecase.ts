@@ -56,7 +56,13 @@ export class ConsumeVerificationFlowUsecase {
   registerHandler(handler: VerificationFlowHandler): void {
     for (const type of handler.supportedTypes) {
       if (this.handlers.has(type)) {
-        throw new Error(`验证流程处理器冲突: ${type} 已被注册`);
+        throw new DomainError(
+          VERIFICATION_RECORD_ERROR.HANDLER_CONFLICT,
+          `验证流程处理器冲突: ${type} 已被注册`,
+          {
+            type,
+          },
+        );
       }
       this.handlers.set(type, handler);
     }
