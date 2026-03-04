@@ -1,11 +1,22 @@
 // src/usecases/verification/consume-verification-flow.usecase.ts
 
-import { VerificationRecordType, SubjectType } from '@app-types/models/verification-record.types';
-import { DomainError, VERIFICATION_RECORD_ERROR } from '@core/common/errors/domain-error';
+import {
+  VerificationRecordType,
+  SubjectType,
+  VerificationRecordStatus,
+} from '@app-types/models/verification-record.types';
+import {
+  DomainError,
+  PERMISSION_ERROR,
+  VERIFICATION_RECORD_ERROR,
+} from '@core/common/errors/domain-error';
 import { Injectable } from '@nestjs/common';
 import { ConsumableQueryService } from '@src/modules/verification-record/queries/consumable.query.service';
-import { VerificationRecordService } from '@src/modules/verification-record/verification-record.service';
-import { ConsumeVerificationRecordUsecase } from '@src/usecases/verification-record/consume-verification-record.usecase';
+import {
+  VerificationRecordConsumeTargetConstraint,
+  VerificationRecordService,
+  VerificationRecordValidationSnapshot,
+} from '@src/modules/verification-record/verification-record.service';
 import { InviteCoachHandler } from './coach/invite-coach.handler';
 import { InviteCoachHandlerResult } from './coach/invite-coach-result.types';
 import { InviteManagerHandler } from './manager/invite-manager.handler';
@@ -37,7 +48,6 @@ export class ConsumeVerificationFlowUsecase {
   private readonly handlers = new Map<VerificationRecordType, VerificationFlowHandler>();
 
   constructor(
-    private readonly consumeVerificationRecordUsecase: ConsumeVerificationRecordUsecase,
     private readonly verificationRecordService: VerificationRecordService,
     private readonly consumableQueryService: ConsumableQueryService,
     private readonly resetPasswordHandler: ResetPasswordHandler,
@@ -140,7 +150,7 @@ export class ConsumeVerificationFlowUsecase {
       }
 
       // 第七步：消费验证记录（在同一事务中）
-      await this.consumeVerificationRecordUsecase.consumeByToken({
+      await this.consumeVerificationRecord({
         token,
         consumedByAccountId,
         expectedType: recordView.type,
@@ -185,5 +195,117 @@ export class ConsumeVerificationFlowUsecase {
    */
   isTypeSupported(type: VerificationRecordType): boolean {
     return this.handlers.has(type);
+  }
+
+  private async consumeVerificationRecord(params: {
+    token: string;
+    consumedByAccountId?: number;
+    expectedType?: VerificationRecordType;
+    subjectType?: SubjectType;
+    subjectId?: number;
+    manager?: Parameters<VerificationRecordService['consumeRecord']>[0]['manager'];
+  }): Promise<void> {
+    const { token, consumedByAccountId, expectedType, subjectType, subjectId, manager } = params;
+    const now = new Date();
+    const targetConstraint = this.resolveTargetConstraint({ consumedByAccountId, expectedType });
+    const tokenFp = this.verificationRecordService.generateTokenFingerprint(token);
+
+    const { affected, validationRecord } = await this.verificationRecordService.consumeRecord({
+      where: { tokenFp },
+      context: {
+        expectedType,
+        consumedByAccountId,
+        subjectType,
+        subjectId,
+        now,
+        targetConstraint,
+      },
+      manager,
+    });
+
+    if (affected === 0) {
+      this.throwConsumptionFailure(validationRecord, { consumedByAccountId, expectedType, now });
+    }
+  }
+
+  private throwConsumptionFailure(
+    record: VerificationRecordValidationSnapshot | null,
+    context: {
+      consumedByAccountId?: number;
+      expectedType?: VerificationRecordType;
+      now: Date;
+    },
+  ): never {
+    if (!record) {
+      throw new DomainError(VERIFICATION_RECORD_ERROR.INVALID_TOKEN, '无效的验证 token');
+    }
+
+    if (context.expectedType && record.type !== context.expectedType) {
+      throw new DomainError(VERIFICATION_RECORD_ERROR.VERIFICATION_INVALID, '验证码类型不匹配');
+    }
+
+    if (record.type !== VerificationRecordType.PASSWORD_RESET) {
+      if (record.targetAccountId && !context.consumedByAccountId) {
+        throw new DomainError(PERMISSION_ERROR.ACCESS_DENIED, '此验证码需要登录后使用');
+      }
+
+      if (
+        record.targetAccountId &&
+        context.consumedByAccountId &&
+        record.targetAccountId !== context.consumedByAccountId
+      ) {
+        throw new DomainError(PERMISSION_ERROR.ACCESS_DENIED, '您无权使用此验证码', {
+          targetAccountId: record.targetAccountId,
+          consumedByAccountId: context.consumedByAccountId,
+        });
+      }
+    }
+
+    if (record.status !== VerificationRecordStatus.ACTIVE) {
+      throw new DomainError(
+        VERIFICATION_RECORD_ERROR.RECORD_ALREADY_CONSUMED,
+        '验证码已被使用或已失效',
+      );
+    }
+
+    const expiresAtWithGracePeriod = new Date(record.expiresAt.getTime() + 180 * 1000);
+    if (expiresAtWithGracePeriod <= context.now) {
+      throw new DomainError(VERIFICATION_RECORD_ERROR.RECORD_EXPIRED, '验证码已过期，请重新获取');
+    }
+
+    if (record.notBefore && record.notBefore > context.now) {
+      throw new DomainError(
+        VERIFICATION_RECORD_ERROR.RECORD_NOT_ACTIVE_YET,
+        '验证码尚未到使用时间',
+      );
+    }
+
+    throw new DomainError(VERIFICATION_RECORD_ERROR.CONSUMPTION_FAILED, '验证码已被使用或已失效');
+  }
+
+  private resolveTargetConstraint(params: {
+    consumedByAccountId?: number;
+    expectedType?: VerificationRecordType;
+  }): VerificationRecordConsumeTargetConstraint {
+    const { consumedByAccountId, expectedType } = params;
+    if (consumedByAccountId !== undefined) {
+      return { mode: 'MATCH_OR_NULL', accountId: consumedByAccountId };
+    }
+    if (expectedType === VerificationRecordType.PASSWORD_RESET) {
+      return { mode: 'IGNORE' };
+    }
+    if (expectedType === VerificationRecordType.INVITE_COACH) {
+      throw new DomainError(
+        VERIFICATION_RECORD_ERROR.VERIFICATION_INVALID,
+        'Coach 邀请需要指定消费者账户 ID',
+      );
+    }
+    if (expectedType === VerificationRecordType.INVITE_MANAGER) {
+      throw new DomainError(
+        VERIFICATION_RECORD_ERROR.VERIFICATION_INVALID,
+        'Manager 邀请需要指定消费者账户 ID',
+      );
+    }
+    return { mode: 'NULL_ONLY' };
   }
 }
