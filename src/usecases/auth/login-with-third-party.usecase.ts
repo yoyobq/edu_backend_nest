@@ -1,6 +1,6 @@
 // src/usecases/auth/login-with-third-party.usecase.ts
 
-import { HttpException, Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 
 import { AudienceTypeEnum, ThirdPartyProviderEnum } from '@app-types/models/account.types';
 import { LoginResultModel } from '@app-types/models/auth.types';
@@ -92,19 +92,8 @@ export class LoginWithThirdPartyUsecase {
     try {
       return await this.tpa.resolveIdentity(args);
     } catch (e) {
-      if (e instanceof HttpException) {
-        const resp = e.getResponse() as
-          | string
-          | { errorCode?: string; errorMessage?: string; message?: string };
-        const code =
-          typeof resp === 'object' && resp?.errorCode
-            ? String(resp.errorCode)
-            : THIRDPARTY_ERROR.CREDENTIAL_INVALID;
-        const message =
-          typeof resp === 'object' && (resp.errorMessage || resp.message)
-            ? String(resp.errorMessage || resp.message)
-            : '第三方凭证无效或已过期';
-        throw new DomainError(code, message);
+      if (e instanceof DomainError) {
+        throw e;
       }
       // 其它未知错误统一收敛
       throw new DomainError(THIRDPARTY_ERROR.LOGIN_FAILED, '第三方登录失败', {

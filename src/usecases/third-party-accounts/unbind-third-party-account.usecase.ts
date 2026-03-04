@@ -14,6 +14,8 @@ export interface UnbindThirdPartyAccountParams {
 
 @Injectable()
 export class UnbindThirdPartyAccountUsecase {
+  private static readonly ALLOWED_ERROR_CODES = new Set<string>(Object.values(THIRDPARTY_ERROR));
+
   constructor(private readonly tpa: ThirdPartyAuthService) {}
 
   async execute(params: UnbindThirdPartyAccountParams): Promise<boolean> {
@@ -33,23 +35,35 @@ export class UnbindThirdPartyAccountUsecase {
       });
       return ok;
     } catch (e) {
-      if (e instanceof HttpException) {
-        const resp = e.getResponse() as
-          | string
-          | { errorCode?: string; errorMessage?: string; message?: string };
-        const code =
-          typeof resp === 'object' && resp?.errorCode
-            ? String(resp.errorCode)
-            : THIRDPARTY_ERROR.UNBIND_FAILED;
-        const message =
-          typeof resp === 'object' && (resp.errorMessage || resp.message)
-            ? String(resp.errorMessage || resp.message)
-            : '解绑第三方账户失败';
-        throw new DomainError(code, message);
-      }
-      throw new DomainError(THIRDPARTY_ERROR.UNBIND_FAILED, '解绑第三方账户失败', {
-        cause: (e as Error)?.message,
-      });
+      throw this.normalizeError(e);
     }
+  }
+
+  private normalizeError(error: unknown): DomainError {
+    if (error instanceof DomainError) {
+      return error;
+    }
+
+    if (error instanceof HttpException) {
+      const resp = error.getResponse() as
+        | string
+        | { errorCode?: string; errorMessage?: string; message?: string };
+      const responseErrorCode =
+        typeof resp === 'object' && resp?.errorCode ? String(resp.errorCode) : undefined;
+      const code =
+        responseErrorCode &&
+        UnbindThirdPartyAccountUsecase.ALLOWED_ERROR_CODES.has(responseErrorCode)
+          ? responseErrorCode
+          : THIRDPARTY_ERROR.UNBIND_FAILED;
+      const message =
+        typeof resp === 'object' && (resp.errorMessage || resp.message)
+          ? String(resp.errorMessage || resp.message)
+          : '解绑第三方账户失败';
+      return new DomainError(code, message);
+    }
+
+    return new DomainError(THIRDPARTY_ERROR.UNBIND_FAILED, '解绑第三方账户失败', {
+      cause: (error as Error)?.message,
+    });
   }
 }
