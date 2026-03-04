@@ -58,8 +58,8 @@ export class UnbindThirdPartyAccountUsecase {
       const message =
         typeof resp === 'object' && (resp.errorMessage || resp.message)
           ? String(resp.errorMessage || resp.message)
-          : '解绑第三方账户失败';
-      return new DomainError(code, message);
+          : undefined;
+      return new DomainError(code, message || '解绑第三方账户失败');
     }
 
     return new DomainError(THIRDPARTY_ERROR.UNBIND_FAILED, '解绑第三方账户失败', {
