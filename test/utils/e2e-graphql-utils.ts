@@ -4,7 +4,7 @@ import { AccountEntity } from '@src/modules/account/base/entities/account.entity
 import { CoachEntity } from '@src/modules/account/identities/training/coach/account-coach.entity';
 import { LearnerEntity } from '@src/modules/account/identities/training/learner/account-learner.entity';
 import { ManagerEntity } from '@src/modules/account/identities/training/manager/account-manager.entity';
-import { AudienceTypeEnum, LoginTypeEnum } from '@src/types/models/account.types';
+import { AudienceTypeEnum, LoginTypeEnum } from '@app-types/models/account.types';
 import request from 'supertest';
 import { DataSource } from 'typeorm';
 

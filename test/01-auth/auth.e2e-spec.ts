@@ -1,15 +1,15 @@
 // test/01-auth/auth.e2e-spec.ts
-import { INestApplication } from '@nestjs/common';
-import { Test, TestingModule } from '@nestjs/testing';
-import { AppModule } from '@src/app.module';
-import { AccountEntity } from '@src/modules/account/base/entities/account.entity';
 import {
   AccountStatus,
   AudienceTypeEnum,
   IdentityTypeEnum,
   LoginTypeEnum,
   ThirdPartyProviderEnum,
-} from '@src/types/models/account.types';
+} from '@app-types/models/account.types';
+import { INestApplication } from '@nestjs/common';
+import { Test, TestingModule } from '@nestjs/testing';
+import { AppModule } from '@src/app.module';
+import { AccountEntity } from '@src/modules/account/base/entities/account.entity';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { DataSource, In } from 'typeorm';

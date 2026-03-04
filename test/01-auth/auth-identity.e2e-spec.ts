@@ -7,7 +7,7 @@ import { LearnerEntity } from '@src/modules/account/identities/training/learner/
 import { ManagerEntity } from '@src/modules/account/identities/training/manager/account-manager.entity';
 import { TokenHelper } from '@src/modules/auth/token.helper';
 
-import { IdentityTypeEnum, LoginTypeEnum } from '@src/types/models/account.types';
+import { IdentityTypeEnum, LoginTypeEnum } from '@app-types/models/account.types';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { DataSource } from 'typeorm';
