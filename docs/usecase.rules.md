@@ -4,7 +4,7 @@
 
 - Usecase 负责写操作编排与业务流程协调。
 - 上游由 adapters 调用，下游只依赖 modules(service) 或 core。
-- 写操作（C/U/D）一律在 Usecase 内完成。
+- 写语义（C/U/D 的编排、校验、权限与错误映射）一律在 Usecase 内完成，modules(service) 仅提供细粒度写操作供 Usecase 编排。
 - Usecase 内允许短暂使用 Entity，但对外不得暴露 ORM Entity。
 
 ## 边界与依赖
@@ -24,7 +24,7 @@
 
 - 仅允许依赖同域的编排型 Usecase，不允许跨域依赖
 - 仅允许依赖 1 层，不允许链式多跳依赖
-- 若业务需要形成 A → B → C 依赖路径，应将 B → C 抽为独立的 Usecase
+- 若确需 A → B → C，则必须新增一个上层 Usecase 统一编排，由它直接调用 B 与 C（或底层 service），禁止由 B 再调用 C
 - 不允许为获取某个 Service 而绕道依赖 Usecase
 - 禁止形成循环依赖
 
@@ -38,6 +38,7 @@
 ## 读写协作方式
 
 - 纯读放在 modules(service) 的读服务，便于复用。
+- modules(service) 可提供基础写方法，但不得包含完整写语义或流程编排。
 - 跨域读取或跨模块读取提升为 Usecase，读实现仍在 QueryService 内。
 - 写后读优先走 QueryService，输出统一的 View / DTO。
 - 若写后读属于同域且读逻辑稳定，可复用 modules(service) 的只读方法，但输出仍以 View / DTO 为准。
