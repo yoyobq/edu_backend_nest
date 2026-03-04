@@ -21,6 +21,8 @@ export interface BindThirdPartyAccountParams {
 
 @Injectable()
 export class BindThirdPartyAccountUsecase {
+  private static readonly ALLOWED_ERROR_CODES = new Set<string>(Object.values(THIRDPARTY_ERROR));
+
   constructor(
     private readonly tpa: ThirdPartyAuthService,
     private readonly logger: PinoLogger,
@@ -92,12 +94,20 @@ export class BindThirdPartyAccountUsecase {
     fallbackCode: string,
     fallbackMessage: string,
   ): DomainError {
+    if (error instanceof DomainError) {
+      return error;
+    }
+
     if (error instanceof HttpException) {
       const resp = error.getResponse() as
         | string
         | { errorCode?: string; errorMessage?: string; message?: string };
+      const responseErrorCode =
+        typeof resp === 'object' && resp?.errorCode ? String(resp.errorCode) : undefined;
       const code =
-        typeof resp === 'object' && resp?.errorCode ? String(resp.errorCode) : fallbackCode;
+        responseErrorCode && BindThirdPartyAccountUsecase.ALLOWED_ERROR_CODES.has(responseErrorCode)
+          ? responseErrorCode
+          : fallbackCode;
       const message =
         typeof resp === 'object' && (resp.errorMessage || resp.message)
           ? String(resp.errorMessage || resp.message)

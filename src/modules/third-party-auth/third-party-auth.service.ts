@@ -7,20 +7,13 @@ import {
   ThirdPartySession,
   UnbindThirdPartyInputModel,
 } from '@app-types/models/third-party-auth.types';
-import {
-  BadRequestException,
-  HttpException,
-  HttpStatus,
-  Inject,
-  Injectable,
-  UnauthorizedException,
-} from '@nestjs/common';
+import { DomainError, THIRDPARTY_ERROR } from '@core/common/errors/domain-error';
+import { Inject, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ThirdPartyAuthEntity } from '@src/modules/account/base/entities/third-party-auth.entity';
 import { Repository } from 'typeorm';
 import { ThirdPartyProvider } from './interfaces/third-party-provider.interface';
 import { WeAppProvider } from './providers/weapp.provider';
-import { ThirdPartyAuthQueryService } from './queries/third-party-auth.query.service';
 
 /** 第三方认证提供者映射的依赖注入标识 */
 export const PROVIDER_MAP = Symbol('THIRD_PARTY_PROVIDER_MAP');
@@ -37,7 +30,6 @@ export class ThirdPartyAuthService {
     @Inject(PROVIDER_MAP)
     private readonly adapters: Map<ThirdPartyProviderEnum, ThirdPartyProvider>,
     private readonly weappProvider: WeAppProvider,
-    private readonly thirdPartyAuthQueryService: ThirdPartyAuthQueryService,
   ) {}
 
   /**
@@ -62,10 +54,10 @@ export class ThirdPartyAuthService {
   }): Promise<ThirdPartySession> {
     const adapter = this.adapters.get(provider);
     if (!adapter) {
-      throw new BadRequestException({
-        errorCode: 'THIRDPARTY_PROVIDER_NOT_SUPPORTED',
-        errorMessage: `不支持的第三方平台：${provider}`,
-      });
+      throw new DomainError(
+        THIRDPARTY_ERROR.PROVIDER_NOT_SUPPORTED,
+        `不支持的第三方平台：${provider}`,
+      );
     }
 
     try {
@@ -75,10 +67,7 @@ export class ThirdPartyAuthService {
       });
     } catch {
       // TODO: 在此处添加横切关注点：错误折叠、监控打点、限流重试、幂等去重等
-      throw new UnauthorizedException({
-        errorCode: 'THIRDPARTY_CREDENTIAL_INVALID',
-        errorMessage: '第三方凭证无效或已过期',
-      });
+      throw new DomainError(THIRDPARTY_ERROR.CREDENTIAL_INVALID, '第三方凭证无效或已过期');
     }
   }
 
@@ -102,7 +91,10 @@ export class ThirdPartyAuthService {
       where: { accountId, provider: input.provider },
     });
     if (existedByAccount) {
-      throw new HttpException(`该账户已绑定 ${input.provider} 平台`, HttpStatus.CONFLICT);
+      throw new DomainError(
+        THIRDPARTY_ERROR.ACCOUNT_ALREADY_BOUND,
+        `该账户已绑定 ${input.provider} 平台`,
+      );
     }
 
     // 检查该第三方账户是否已被其他用户绑定
@@ -110,7 +102,10 @@ export class ThirdPartyAuthService {
       where: { provider: input.provider, providerUserId: input.providerUserId },
     });
     if (existedByProvider) {
-      throw new HttpException(`该 ${input.provider} 账户已被其他用户绑定`, HttpStatus.CONFLICT);
+      throw new DomainError(
+        THIRDPARTY_ERROR.ACCOUNT_ALREADY_BOUND,
+        `该 ${input.provider} 账户已被其他用户绑定`,
+      );
     }
 
     // 创建新的绑定关系
@@ -123,7 +118,7 @@ export class ThirdPartyAuthService {
     });
 
     const saved = await this.thirdPartyAuthRepository.save(thirdPartyAuth);
-    return this.thirdPartyAuthQueryService.toView(saved);
+    return this.toView(saved);
   }
 
   /**
@@ -145,9 +140,9 @@ export class ThirdPartyAuthService {
 
     const result = await this.thirdPartyAuthRepository.delete(where);
     if (result.affected === 0) {
-      throw new HttpException(
+      throw new DomainError(
+        THIRDPARTY_ERROR.ACCOUNT_NOT_BOUND,
         input?.id ? `未找到绑定记录 ID=${input.id}` : `未找到 ${input.provider} 平台的绑定记录`,
-        HttpStatus.NOT_FOUND,
       );
     }
     return true;
@@ -179,7 +174,7 @@ export class ThirdPartyAuthService {
         'updatedAt',
       ],
     });
-    return record ? this.thirdPartyAuthQueryService.toView(record) : null;
+    return record ? this.toView(record) : null;
   }
 
   /**
@@ -234,7 +229,10 @@ export class ThirdPartyAuthService {
       where: { accountId, provider },
     });
     if (existedByAccount) {
-      throw new HttpException(`该账户已绑定 ${provider} 平台`, HttpStatus.CONFLICT);
+      throw new DomainError(
+        THIRDPARTY_ERROR.ACCOUNT_ALREADY_BOUND,
+        `该账户已绑定 ${provider} 平台`,
+      );
     }
 
     // 检查该第三方账户是否已被其他用户绑定
@@ -242,7 +240,10 @@ export class ThirdPartyAuthService {
       where: { provider, providerUserId: session.providerUserId },
     });
     if (existedByProvider) {
-      throw new HttpException(`该 ${provider} 账户已被其他用户绑定`, HttpStatus.CONFLICT);
+      throw new DomainError(
+        THIRDPARTY_ERROR.ACCOUNT_ALREADY_BOUND,
+        `该 ${provider} 账户已被其他用户绑定`,
+      );
     }
 
     // 创建新的绑定关系
@@ -255,7 +256,7 @@ export class ThirdPartyAuthService {
     });
 
     const saved = await this.thirdPartyAuthRepository.save(thirdPartyAuth);
-    return this.thirdPartyAuthQueryService.toView(saved);
+    return this.toView(saved);
   }
 
   /**
@@ -280,7 +281,19 @@ export class ThirdPartyAuthService {
         'updatedAt',
       ],
     });
-    return record ? this.thirdPartyAuthQueryService.toView(record) : null;
+    return record ? this.toView(record) : null;
+  }
+
+  private toView(record: ThirdPartyAuthEntity): ThirdPartyAuthView {
+    return {
+      id: record.id,
+      accountId: record.accountId,
+      provider: record.provider,
+      providerUserId: record.providerUserId,
+      unionId: record.unionId ?? null,
+      createdAt: record.createdAt,
+      updatedAt: record.updatedAt,
+    };
   }
 
   /**
