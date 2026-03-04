@@ -36,6 +36,11 @@ export interface UpdateLearnerByCustomerInput {
   readonly countPerSession?: number;
 }
 
+export interface UpdateLearnerByCustomerUsecaseParams {
+  accountId: number;
+  input: UpdateLearnerByCustomerInput;
+}
+
 type LearnerUpdatePatch = {
   name?: string;
   gender?: Gender;
@@ -67,11 +72,11 @@ export class UpdateLearnerByCustomerUsecase {
 
   /**
    * 执行客户更新学员信息
-   * @param accountId 当前账户 ID（客户）
-   * @param input 更新参数
+   * @param params 更新参数
    * @returns 更新后的学员信息
    */
-  async execute(accountId: number, input: UpdateLearnerByCustomerInput): Promise<LearnerView> {
+  async execute(params: UpdateLearnerByCustomerUsecaseParams): Promise<LearnerView> {
+    const { accountId, input } = params;
     // 字段权限快速拦截
     if (input.countPerSession !== undefined) {
       throw new DomainError(PERMISSION_ERROR.ACCESS_DENIED, '无权限修改该字段: countPerSession');

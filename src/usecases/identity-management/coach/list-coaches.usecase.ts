@@ -1,5 +1,6 @@
 // src/usecases/identity-management/coach/list-coaches.usecase.ts
 
+import { CoachSortField, type OrderDirection } from '@app-types/common/sort.types';
 import { DomainError, PERMISSION_ERROR } from '@core/common/errors/domain-error';
 import { CoachService } from '@modules/account/identities/training/coach/coach.service';
 import { ManagerService } from '@modules/account/identities/training/manager/manager.service';
@@ -8,7 +9,6 @@ import {
   type CoachListItem as CoachListItemView,
 } from '@modules/account/queries/coach.query.service';
 import { Injectable } from '@nestjs/common';
-import { CoachSortField, type OrderDirection } from '@app-types/common/sort.types';
 
 /**
  * 列出教练列表的输入参数
@@ -26,6 +26,11 @@ export interface ListCoachesParams {
   query?: string;
   /** 是否包含已停用记录（默认包含） */
   includeDeleted?: boolean;
+}
+
+export interface ListCoachesUsecaseParams {
+  currentAccountId: number;
+  params: ListCoachesParams;
 }
 
 /**
@@ -62,11 +67,11 @@ export class ListCoachesUsecase {
 
   /**
    * 执行列表查询
-   * @param currentAccountId 当前账户 ID
-   * @param params 分页与排序参数
+   * @param input 查询参数
    * @returns 教练分页结果
    */
-  async execute(currentAccountId: number, params: ListCoachesParams): Promise<PaginatedCoaches> {
+  async execute(input: ListCoachesUsecaseParams): Promise<PaginatedCoaches> {
+    const { currentAccountId, params } = input;
     // 仅允许 manager 身份执行教练列表查询
     const isActive = await this.managerService.isActiveManager(currentAccountId);
     if (!isActive) {

@@ -151,13 +151,16 @@ export class CoachResolver {
     @Args('input') input: ListCoachesInput,
     @currentUser() user: JwtPayload,
   ): Promise<ListCoachesOutput> {
-    const result: PaginatedCoaches = await this.listCoachesUsecase.execute(Number(user.sub), {
-      page: input.page,
-      limit: input.limit,
-      sortBy: input.sortBy,
-      sortOrder: input.sortOrder,
-      query: input.query ?? undefined,
-      includeDeleted: input.includeDeleted ?? true,
+    const result: PaginatedCoaches = await this.listCoachesUsecase.execute({
+      currentAccountId: Number(user.sub),
+      params: {
+        page: input.page,
+        limit: input.limit,
+        sortBy: input.sortBy,
+        sortOrder: input.sortOrder,
+        query: input.query ?? undefined,
+        includeDeleted: input.includeDeleted ?? true,
+      },
     });
 
     const list = result.items.map((item) =>

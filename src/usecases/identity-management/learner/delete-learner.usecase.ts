@@ -31,12 +31,15 @@ export class DeleteLearnerUsecase {
 
   /**
    * 执行删除学员信息（软删除）
-   * @param accountId 账户 ID
-   * @param learnerId 要删除的学员 ID
-   * @param customerId 目标客户 ID（可选，manager 身份时需要指定）
+   * @param input 删除参数
    * @returns 删除操作是否成功
    */
-  async execute(accountId: number, learnerId: number, customerId?: number): Promise<boolean> {
+  async execute(input: {
+    accountId: number;
+    learnerId: number;
+    customerId?: number;
+  }): Promise<boolean> {
+    const { accountId, learnerId, customerId } = input;
     // 双重身份验证：支持 customer 和 manager 身份
     let targetCustomerId: number;
 
