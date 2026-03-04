@@ -6,11 +6,12 @@ import {
   DomainError,
   isDomainError,
   JWT_ERROR,
+  PAGINATION_ERROR,
   PERMISSION_ERROR,
   THIRDPARTY_ERROR,
-  PAGINATION_ERROR,
 } from '@core/common/errors';
 import { ArgumentsHost, Catch, HttpException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { BaseExceptionFilter } from '@nestjs/core';
 import { GqlArgumentsHost } from '@nestjs/graphql';
 import { GraphQLError, GraphQLResolveInfo } from 'graphql';
@@ -74,39 +75,46 @@ function getGqlPath(host: ArgumentsHost): string[] | undefined {
 function buildGraphQLErrorFromHttpException(
   exception: HttpException,
   host: ArgumentsHost,
+  isProdEnv: boolean,
 ): GraphQLError {
   const status = exception.getStatus();
   const resp = exception.getResponse() as string | ExceptionPayload; // ← 统一用公共类型
   const { code, errorCode, errorMessage, fallbackMsg } = extractPayload(resp);
-  const finalMessage =
+  const passthroughMessage =
     errorMessage ??
     fallbackMsg ??
     (typeof exception.message === 'string' ? exception.message : 'Request failed');
+  const finalMessage = isProdEnv ? '请求失败' : passthroughMessage;
 
   return new GraphQLError(finalMessage, {
     path: getGqlPath(host),
     extensions: {
-      code: code ?? mapHttpToGqlCode(status),
+      code: isProdEnv ? 'INTERNAL_SERVER_ERROR' : (code ?? mapHttpToGqlCode(status)),
       httpStatus: status,
-      ...(errorCode ? { errorCode } : {}),
-      ...(errorMessage ? { errorMessage } : {}),
+      ...(isProdEnv ? {} : errorCode ? { errorCode } : {}),
+      ...(isProdEnv ? {} : errorMessage ? { errorMessage } : {}),
     },
   });
 }
 
 /** 从未知异常构建 GraphQL 错误 */
-function buildGraphQLErrorFromUnknown(exception: unknown, host: ArgumentsHost): GraphQLError {
-  const msg =
+function buildGraphQLErrorFromUnknown(
+  exception: unknown,
+  host: ArgumentsHost,
+  isProdEnv: boolean,
+): GraphQLError {
+  const passthroughMessage =
     typeof (exception as { message?: unknown }).message === 'string'
       ? (exception as { message: string }).message
       : 'Internal server error';
+  const msg = isProdEnv ? '系统繁忙，请稍后重试' : passthroughMessage;
 
   return new GraphQLError(msg, {
     path: getGqlPath(host),
     extensions: {
       code: 'INTERNAL_SERVER_ERROR',
       httpStatus: 500,
-      errorCode: 'INTERNAL_ERROR',
+      ...(isProdEnv ? {} : { errorCode: 'INTERNAL_ERROR' }),
     },
   });
 }
@@ -189,7 +197,13 @@ function buildGraphQLErrorFromDomainError(
 
 @Catch()
 export class GqlAllExceptionsFilter extends BaseExceptionFilter {
+  constructor(private readonly configService: ConfigService) {
+    super();
+  }
+
   override catch(exception: unknown, host: ArgumentsHost) {
+    const isProdEnv = this.configService.get<string>('NODE_ENV') === 'production';
+
     // HTTP 请求仍用默认处理；其余（GraphQL/RPC/WS）走下方分支
     if (host.getType() === 'http') {
       return super.catch(exception, host);
@@ -201,9 +215,9 @@ export class GqlAllExceptionsFilter extends BaseExceptionFilter {
     }
 
     if (exception instanceof HttpException) {
-      return buildGraphQLErrorFromHttpException(exception, host);
+      return buildGraphQLErrorFromHttpException(exception, host, isProdEnv);
     }
 
-    return buildGraphQLErrorFromUnknown(exception, host);
+    return buildGraphQLErrorFromUnknown(exception, host, isProdEnv);
   }
 }

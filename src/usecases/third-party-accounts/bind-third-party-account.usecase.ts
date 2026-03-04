@@ -84,7 +84,7 @@ export class BindThirdPartyAccountUsecase {
 
   /**
    * 标准化错误为 DomainError
-   * 将 `HttpException` 转译为领域错误，其它错误使用兜底错误码
+   * 将 HTTP 风格异常转译为领域错误，其它错误使用兜底错误码
    * @param error 捕获的错误
    * @param fallbackCode 兜底错误码
    * @param fallbackMessage 兜底错误信息
@@ -111,9 +111,10 @@ export class BindThirdPartyAccountUsecase {
       const message =
         typeof resp === 'object' && (resp.errorMessage || resp.message)
           ? String(resp.errorMessage || resp.message)
-          : fallbackMessage;
+          : undefined;
+      const finalMessage = message || fallbackMessage;
       this.logger.error({ code, message }, '绑定第三方账户失败');
-      return new DomainError(code, message);
+      return new DomainError(code, finalMessage);
     }
 
     const cause = (error as Error)?.message;

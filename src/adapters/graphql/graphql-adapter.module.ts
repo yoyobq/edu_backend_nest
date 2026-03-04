@@ -20,6 +20,7 @@ import { IdentityManagementResolver } from './identity-management/identity-manag
 import { LearnerResolver } from './identity-management/learner/learner.resolver';
 import { ManagerResolver } from './identity-management/manager/manager.resolver';
 import { RegistrationResolver } from './registration/registration.resolver';
+import { ThirdPartyAuthResolver } from './third-party-auth/third-party-auth.resolver';
 import { VerificationRecordResolver } from './verification-record/verification-record.resolver';
 
 // Guards
@@ -45,6 +46,7 @@ import { RolesGuard } from './guards/roles.guard';
     // Resolvers
     AccountResolver,
     AuthResolver,
+    ThirdPartyAuthResolver,
     RegistrationResolver,
     VerificationRecordResolver,
     IdentityManagementResolver, // 注册身份管理 resolver
@@ -61,6 +63,7 @@ import { RolesGuard } from './guards/roles.guard';
     // Resolvers
     AccountResolver,
     AuthResolver,
+    ThirdPartyAuthResolver,
     RegistrationResolver,
     VerificationRecordResolver,
     IdentityManagementResolver, // 导出身份管理 resolver

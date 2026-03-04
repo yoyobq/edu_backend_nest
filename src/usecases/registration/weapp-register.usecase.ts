@@ -113,7 +113,10 @@ export class WeappRegisterUsecase {
       }
 
       if (error instanceof HttpException) {
-        throw error;
+        throw new DomainError(
+          THIRDPARTY_ERROR.PROVIDER_API_ERROR,
+          error.message || '第三方服务调用失败',
+        );
       }
 
       this.logger.error(
