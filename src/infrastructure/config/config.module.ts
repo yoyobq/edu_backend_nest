@@ -1,7 +1,15 @@
 // src/infrastructure/config/config.module.ts
 import { Module } from '@nestjs/common';
-import { ConfigModule, ConfigFactory, registerAs } from '@nestjs/config';
+import { ConfigFactory, ConfigModule, registerAs } from '@nestjs/config';
 import { IncomingMessage, ServerResponse } from 'http';
+
+const getRequiredEnv = (key: string): string => {
+  const value = process.env[key];
+  if (!value || value.trim().length === 0) {
+    throw new Error(`${key} is required`);
+  }
+  return value;
+};
 
 /**
  * 生成 GraphQL 配置
@@ -184,7 +192,7 @@ const databaseConfig: ConfigFactory = () => ({
  */
 const jwtConfig = registerAs('jwt', () => ({
   // 用于签名 JWT 的密钥（建议走环境变量管理）
-  secret: process.env.JWT_SECRET || 'U5p!rKb6$8+dmXZ3@Fjw7zT#G^Rh4bCn',
+  secret: getRequiredEnv('JWT_SECRET'),
 
   // Access Token 有效期
   expiresIn: process.env.JWT_EXPIRES_IN || '2h',
@@ -208,7 +216,7 @@ const jwtConfig = registerAs('jwt', () => ({
  */
 const paginationConfig = () => ({
   pagination: {
-    hmacSecret: process.env.PAGINATION_HMAC_SECRET || 'dev-placeholder-secret',
+    hmacSecret: getRequiredEnv('PAGINATION_HMAC_SECRET'),
   },
 });
 

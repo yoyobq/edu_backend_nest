@@ -18,12 +18,8 @@ import { TypeOrmSort } from '@src/infrastructure/typeorm/sort/typeorm-sort';
       inject: [ConfigService],
       useFactory: (config: ConfigService) => {
         const secret = config.get<string>('pagination.hmacSecret');
-        const nodeEnv = config.get<string>('NODE_ENV') ?? process.env.NODE_ENV ?? 'development';
         if (!secret) {
-          if (nodeEnv === 'production') {
-            throw new Error('pagination.hmacSecret is required in production');
-          }
-          return new HmacCursorSigner('dev-placeholder-secret');
+          throw new Error('pagination.hmacSecret is required');
         }
         return new HmacCursorSigner(secret);
       },
