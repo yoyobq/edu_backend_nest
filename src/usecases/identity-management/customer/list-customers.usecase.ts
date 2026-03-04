@@ -1,15 +1,14 @@
 // src/usecases/identity-management/customer/list-customers.usecase.ts
 
 import { DomainError, PERMISSION_ERROR } from '@core/common/errors/domain-error';
-import {
-  CustomerProfile,
-  CustomerService,
-} from '@modules/account/identities/training/customer/account-customer.service';
+import { CustomerService } from '@modules/account/identities/training/customer/account-customer.service';
 import { ManagerService } from '@modules/account/identities/training/manager/manager.service';
+import {
+  CustomerQueryService,
+  type CustomerListItem as CustomerListItemView,
+} from '@modules/account/queries/customer.query.service';
 import { Injectable } from '@nestjs/common';
-import { AccountService } from '@src/modules/account/base/services/account.service';
 import { CustomerSortField, type OrderDirection } from '@app-types/common/sort.types';
-import { UserState } from '@app-types/models/user-info.types';
 
 /**
  * 列出客户列表的输入参数
@@ -36,18 +35,7 @@ export interface ListCustomersParams {
 /**
  * 客户分页结果
  */
-export interface CustomerLoginHistoryItem {
-  ip: string;
-  timestamp: string;
-  audience?: string;
-}
-
-export interface CustomerListItem {
-  customer: CustomerProfile;
-  userState: UserState | null;
-  loginHistory: CustomerLoginHistoryItem[] | null;
-  userPhone: string | null;
-}
+export type CustomerListItem = CustomerListItemView;
 
 export interface PaginatedCustomers {
   /** 列表项 */
@@ -70,7 +58,7 @@ export class ListCustomersUsecase {
   constructor(
     private readonly customerService: CustomerService,
     private readonly managerService: ManagerService,
-    private readonly accountService: AccountService,
+    private readonly customerQueryService: CustomerQueryService,
   ) {}
 
   /**
@@ -99,17 +87,7 @@ export class ListCustomersUsecase {
     });
 
     const items: CustomerListItem[] = await Promise.all(
-      result.customers.map(async (customer) => {
-        const ui = customer.accountId
-          ? await this.accountService.findUserInfoByAccountId(customer.accountId)
-          : null;
-        const acc = customer.accountId
-          ? await this.accountService.findOneById(customer.accountId)
-          : null;
-        const state: UserState | null = ui?.userState ?? null;
-        const history: CustomerLoginHistoryItem[] | null = acc?.recentLoginHistory ?? null;
-        return { customer, userState: state, loginHistory: history, userPhone: ui?.phone ?? null };
-      }),
+      result.customers.map((customer) => this.customerQueryService.toListItem({ customer })),
     );
 
     return {

@@ -9,7 +9,7 @@ import {
 import { ManagerService } from '@modules/account/identities/training/manager/manager.service';
 import { AccountService } from '@src/modules/account/base/services/account.service';
 import { UserState } from '@app-types/models/user-info.types';
-import { type CustomerLoginHistoryItem } from './list-customers.usecase';
+import { type CustomerLoginHistoryItem } from '@modules/account/queries/customer.query.service';
 
 export interface GetCustomerParams {
   currentAccountId: number;

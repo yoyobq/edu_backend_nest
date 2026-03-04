@@ -16,6 +16,8 @@ import { AccountEntity } from './base/entities/account.entity';
 import { UserInfoEntity } from './base/entities/user-info.entity';
 import { AccountService } from './base/services/account.service';
 import { AccountQueryService } from './queries/account.query.service';
+import { CoachQueryService } from './queries/coach.query.service';
+import { CustomerQueryService } from './queries/customer.query.service';
 import { LearnerQueryService } from './queries/learner.query.service';
 import { ManagerQueryService } from './queries/manager.query.service';
 
@@ -129,6 +131,8 @@ export class AccountModule {
       providers: [
         AccountService,
         AccountQueryService,
+        CoachQueryService,
+        CustomerQueryService,
         LearnerQueryService,
         ManagerQueryService,
         AccountSecurityService,
@@ -138,6 +142,8 @@ export class AccountModule {
         TypeOrmModule,
         AccountService,
         AccountQueryService,
+        CoachQueryService,
+        CustomerQueryService,
         LearnerQueryService,
         ManagerQueryService,
         AccountSecurityService,

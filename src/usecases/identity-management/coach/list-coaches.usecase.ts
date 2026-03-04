@@ -1,17 +1,14 @@
 // src/usecases/identity-management/coach/list-coaches.usecase.ts
 
-import { UserState } from '@app-types/models/user-info.types';
 import { DomainError, PERMISSION_ERROR } from '@core/common/errors/domain-error';
-import {
-  CoachService,
-  type CoachProfile,
-} from '@modules/account/identities/training/coach/coach.service';
+import { CoachService } from '@modules/account/identities/training/coach/coach.service';
 import { ManagerService } from '@modules/account/identities/training/manager/manager.service';
+import {
+  CoachQueryService,
+  type CoachListItem as CoachListItemView,
+} from '@modules/account/queries/coach.query.service';
 import { Injectable } from '@nestjs/common';
-import { AccountService } from '@src/modules/account/base/services/account.service';
 import { CoachSortField, type OrderDirection } from '@app-types/common/sort.types';
-
-type CoachView = CoachProfile;
 
 /**
  * 列出教练列表的输入参数
@@ -50,12 +47,7 @@ export interface PaginatedCoaches {
 /**
  * 教练列表项（包含 userinfo 补充信息）
  */
-export interface CoachListItem {
-  view: CoachView;
-  userState: UserState | null;
-  loginHistory: { ip: string; timestamp: string; audience?: string }[] | null;
-  userPhone: string | null;
-}
+export type CoachListItem = CoachListItemView;
 
 /**
  * 列出教练列表用例（仅允许 manager 身份）
@@ -65,7 +57,7 @@ export class ListCoachesUsecase {
   constructor(
     private readonly coachService: CoachService,
     private readonly managerService: ManagerService,
-    private readonly accountService: AccountService,
+    private readonly coachQueryService: CoachQueryService,
   ) {}
 
   /**
@@ -91,22 +83,7 @@ export class ListCoachesUsecase {
     });
 
     const items: CoachListItem[] = await Promise.all(
-      result.coaches.map(async (view) => {
-        const ui = view.accountId
-          ? await this.accountService.findUserInfoByAccountId(view.accountId)
-          : null;
-        const acc = view.accountId ? await this.accountService.findOneById(view.accountId) : null;
-        const state: UserState | null = ui?.userState ?? null;
-        const history: { ip: string; timestamp: string; audience?: string }[] | null =
-          acc?.recentLoginHistory ?? null;
-        const phone: string | null = ui?.phone ?? null;
-        return {
-          view,
-          userState: state,
-          loginHistory: history,
-          userPhone: phone,
-        };
-      }),
+      result.coaches.map((view) => this.coachQueryService.toListItem({ view })),
     );
 
     return {
