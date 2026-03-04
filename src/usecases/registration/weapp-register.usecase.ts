@@ -3,15 +3,15 @@
 import {
   AccountStatus,
   AudienceTypeEnum,
-  IdentityTypeEnum, // 添加 IdentityTypeEnum 导入
+  IdentityTypeEnum,
   ThirdPartyProviderEnum,
+  UserAccountView,
 } from '@app-types/models/account.types';
 import { DomainError, THIRDPARTY_ERROR } from '@core/common/errors/domain-error';
 import { ThirdPartyAuthService } from '@modules/third-party-auth/third-party-auth.service';
 import { HttpException, Injectable } from '@nestjs/common';
 import { AccountService } from '@src/modules/account/base/services/account.service';
-import { CreateAccountUsecase } from '@usecases/account/create-account.usecase';
-import { GetWeappPhoneUsecase } from '@usecases/third-party-accounts/get-weapp-phone.usecase';
+import { AccountQueryService } from '@src/modules/account/queries/account.query.service';
 import { PinoLogger } from 'nestjs-pino';
 import {
   ThirdPartyRegisterParams,
@@ -52,8 +52,7 @@ export class WeappRegisterUsecase {
   constructor(
     private readonly tpa: ThirdPartyAuthService,
     private readonly accountService: AccountService,
-    private readonly createAccountUsecase: CreateAccountUsecase,
-    private readonly getWeappPhoneUsecase: GetWeappPhoneUsecase,
+    private readonly accountQueryService: AccountQueryService,
     private readonly logger: PinoLogger,
   ) {
     this.logger.setContext(WeappRegisterUsecase.name);
@@ -85,7 +84,7 @@ export class WeappRegisterUsecase {
       });
 
       // 5. 创建账户
-      const account = await this.createAccountUsecase.execute({
+      const account = await this.createAccount({
         accountData,
         userInfoData,
       });
@@ -169,12 +168,12 @@ export class WeappRegisterUsecase {
     let phone: string | undefined;
     if (phoneCode) {
       try {
-        const phoneResult = await this.getWeappPhoneUsecase.execute({
+        const phoneInfo = await this.tpa.getWeappPhoneNumber({
           phoneCode: phoneCode,
-          audience: audience,
+          audience,
         });
 
-        phone = phoneResult.phoneInfo.phoneNumber;
+        phone = phoneInfo.phoneNumber;
 
         this.logger.info('成功获取用户手机号', { phoneNumber: phone });
       } catch (error) {
@@ -186,9 +185,10 @@ export class WeappRegisterUsecase {
     // 准备账户数据
     const accountData = {
       status: AccountStatus.ACTIVE,
-      audience: audience, // 使用传入的 audience 参数
-      loginEmail: `weapp_${Date.now()}_${Math.random().toString(36).slice(2, 8)}@local`, // 添加统一的登录邮箱格式
-      identityHint: IdentityTypeEnum.REGISTRANT, // 修复：使用 IdentityTypeEnum 枚举
+      audience,
+      loginEmail: `weapp_${Date.now()}_${Math.random().toString(36).slice(2, 8)}@local`,
+      loginPassword: `Tmp#${Date.now()}Aa1`,
+      identityHint: IdentityTypeEnum.REGISTRANT,
     };
 
     // 准备用户信息数据
@@ -196,7 +196,7 @@ export class WeappRegisterUsecase {
       nickname,
       phone,
       accessGroup: [IdentityTypeEnum.REGISTRANT],
-      metaDigest: [IdentityTypeEnum.REGISTRANT], // 修复：直接传入数组，让装饰器自动处理
+      metaDigest: [IdentityTypeEnum.REGISTRANT],
     };
 
     return { accountData, userInfoData };
@@ -220,5 +220,59 @@ export class WeappRegisterUsecase {
       authCredential,
       audience,
     };
+  }
+
+  /**
+   * 创建账户与用户信息
+   * @param params 创建参数
+   * @returns 账户视图
+   */
+  private async createAccount(params: {
+    accountData: {
+      status: AccountStatus;
+      audience: AudienceTypeEnum;
+      loginEmail: string;
+      loginPassword: string;
+      identityHint: IdentityTypeEnum;
+    };
+    userInfoData: {
+      nickname: string;
+      phone?: string;
+      accessGroup: IdentityTypeEnum[];
+      metaDigest: IdentityTypeEnum[];
+    };
+  }): Promise<UserAccountView> {
+    const { accountData, userInfoData } = params;
+    return await this.accountService.runTransaction(async (manager) => {
+      const account = this.accountService.createAccountEntity({
+        manager,
+        accountData: {
+          ...accountData,
+          loginPassword: 'temp',
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      });
+      const savedAccount = await this.accountService.saveAccount({ account, manager });
+
+      savedAccount.loginPassword = AccountService.hashPasswordWithTimestamp(
+        accountData.loginPassword,
+        savedAccount.createdAt,
+      );
+      await this.accountService.saveAccount({ account: savedAccount, manager });
+
+      const userInfo = this.accountService.createUserInfoEntity({
+        manager,
+        userInfoData: {
+          accountId: savedAccount.id,
+          ...userInfoData,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      });
+      await this.accountService.saveUserInfo({ userInfo, manager });
+
+      return this.accountQueryService.toUserAccountView(savedAccount);
+    });
   }
 }

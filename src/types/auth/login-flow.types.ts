@@ -1,6 +1,6 @@
 // src/types/auth/login-flow.types.ts
 
-import { AudienceTypeEnum, IdentityTypeEnum } from '@app-types/models/account.types';
+import { AccountStatus, AudienceTypeEnum, IdentityTypeEnum } from '@app-types/models/account.types';
 
 /**
  * ExecuteLoginFlowUsecase 输出类型
@@ -85,7 +85,7 @@ export interface MinimalAccountInfo {
   id: number;
   loginName: string | null; // 修复：从 string 改为 string | null
   loginEmail: string | null; // 修复：从 string 改为 string | null
-  status: string;
+  status: AccountStatus;
   identityHint: IdentityTypeEnum | null;
   createdAt: Date;
   updatedAt: Date;

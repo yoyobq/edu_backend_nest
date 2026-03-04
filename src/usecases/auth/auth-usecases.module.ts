@@ -2,7 +2,6 @@ import { AuthModule } from '@modules/auth/auth.module';
 import { ThirdPartyAuthModule } from '@modules/third-party-auth/third-party-auth.module';
 import { Module } from '@nestjs/common';
 import { AccountInstallerModule } from '@src/modules/account/account-installer.module';
-import { AccountUsecasesModule } from '@src/usecases/account/account-usecases.module';
 import { DecideLoginRoleUsecase } from '@src/usecases/auth/decide-login-role.usecase';
 import { EnrichLoginWithIdentityUsecase } from '@src/usecases/auth/enrich-login-with-identity.usecase';
 import { ExecuteLoginFlowUsecase } from '@src/usecases/auth/execute-login-flow.usecase';
@@ -11,7 +10,7 @@ import { LoginWithPasswordUsecase } from '@src/usecases/auth/login-with-password
 import { LoginWithThirdPartyUsecase } from '@src/usecases/auth/login-with-third-party.usecase';
 
 @Module({
-  imports: [AuthModule, ThirdPartyAuthModule, AccountInstallerModule, AccountUsecasesModule],
+  imports: [AuthModule, ThirdPartyAuthModule, AccountInstallerModule],
   providers: [
     LoginWithPasswordUsecase,
     ExecuteLoginFlowUsecase,

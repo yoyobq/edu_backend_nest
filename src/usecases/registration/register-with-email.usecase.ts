@@ -2,17 +2,23 @@
 
 import { AccountStatus, IdentityTypeEnum, UserAccountView } from '@app-types/models/account.types';
 import { VerificationRecordType } from '@app-types/models/verification-record.types';
-import { ACCOUNT_ERROR, DomainError } from '@core/common/errors';
+import {
+  ACCOUNT_ERROR,
+  AUTH_ERROR,
+  DomainError,
+  VERIFICATION_RECORD_ERROR,
+} from '@core/common/errors';
 import { isPrivateIp, isServerIp } from '@core/common/network/network-access.helper';
+import { PasswordPolicyService } from '@core/common/password/password-policy.service';
 import { TokenFingerprintHelper } from '@modules/common/security/token-fingerprint.helper';
 import { Injectable } from '@nestjs/common';
 import { AccountService } from '@src/modules/account/base/services/account.service';
+import { AccountQueryService } from '@src/modules/account/queries/account.query.service';
+import { VerificationRecordService } from '@src/modules/verification-record/verification-record.service';
 import {
   RegisterWithEmailParams,
   RegisterWithEmailResult,
 } from '@app-types/models/registration.types';
-import { CreateAccountUsecase } from '@usecases/account/create-account.usecase';
-import { ConsumeVerificationFlowUsecase } from '@usecases/verification/consume-verification-flow.usecase';
 import { PinoLogger } from 'nestjs-pino';
 
 /**
@@ -23,8 +29,9 @@ import { PinoLogger } from 'nestjs-pino';
 export class RegisterWithEmailUsecase {
   constructor(
     private readonly accountService: AccountService,
-    private readonly createAccountUsecase: CreateAccountUsecase,
-    private readonly consumeVerificationFlowUsecase: ConsumeVerificationFlowUsecase,
+    private readonly accountQueryService: AccountQueryService,
+    private readonly passwordPolicyService: PasswordPolicyService,
+    private readonly verificationRecordService: VerificationRecordService,
     private readonly logger: PinoLogger,
   ) {
     this.logger.setContext(RegisterWithEmailUsecase.name);
@@ -75,9 +82,8 @@ export class RegisterWithEmailUsecase {
       // 如果提供了邀请令牌，尝试消费邀请码
       if (inviteToken) {
         try {
-          await this.consumeVerificationFlowUsecase.execute({
-            token: inviteToken,
-            expectedType: VerificationRecordType.INVITE_COACH,
+          await this.consumeInviteToken({
+            inviteToken,
             consumedByAccountId: account.id,
           });
           const tokenFp = TokenFingerprintHelper.generateTokenFingerprint({ token: inviteToken });
@@ -114,6 +120,33 @@ export class RegisterWithEmailUsecase {
       }
 
       throw new DomainError(ACCOUNT_ERROR.REGISTRATION_FAILED, '注册失败');
+    }
+  }
+
+  /**
+   * 消费邀请 token
+   * @param params 消费参数
+   */
+  private async consumeInviteToken(params: {
+    inviteToken: string;
+    consumedByAccountId: number;
+  }): Promise<void> {
+    const tokenFp = this.verificationRecordService.generateTokenFingerprint(params.inviteToken);
+    const now = new Date();
+    const result = await this.verificationRecordService.consumeRecord({
+      where: { tokenFp },
+      context: {
+        expectedType: VerificationRecordType.INVITE_COACH,
+        consumedByAccountId: params.consumedByAccountId,
+        now,
+        targetConstraint: {
+          mode: 'MATCH_OR_NULL',
+          accountId: params.consumedByAccountId,
+        },
+      },
+    });
+    if (result.affected === 0) {
+      throw new DomainError(VERIFICATION_RECORD_ERROR.VERIFICATION_INVALID, '邀请码不可用');
     }
   }
 
@@ -206,24 +239,50 @@ export class RegisterWithEmailUsecase {
       metaDigest,
     } = preparedData;
 
-    // 调用 CreateAccountUsecase 处理复杂的账户创建逻辑
-    return await this.createAccountUsecase.execute({
-      accountData: {
-        loginName,
-        loginEmail,
+    return await this.accountService.runTransaction(async (manager) => {
+      const passwordValidation = this.passwordPolicyService.validatePassword(loginPassword);
+      if (!passwordValidation.isValid) {
+        throw new DomainError(
+          AUTH_ERROR.INVALID_PASSWORD,
+          `密码不符合安全要求: ${passwordValidation.errors.join(', ')}`,
+        );
+      }
+
+      const account = this.accountService.createAccountEntity({
+        manager,
+        accountData: {
+          loginName,
+          loginEmail,
+          loginPassword: 'temp',
+          status,
+          identityHint,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      });
+      const savedAccount = await this.accountService.saveAccount({ account, manager });
+
+      savedAccount.loginPassword = AccountService.hashPasswordWithTimestamp(
         loginPassword,
-        status,
-        identityHint,
-      },
-      userInfoData: {
-        nickname,
-        email,
-        accessGroup,
-        metaDigest, // 修复：直接传入数组，让装饰器自动处理
-      },
-      // 添加 manager 参数，传入 undefined 让 CreateAccountUsecase 自己管理事务
-      // TODO: 本地注册还可传入更多身份数据
-      manager: undefined,
+        savedAccount.createdAt,
+      );
+      await this.accountService.saveAccount({ account: savedAccount, manager });
+
+      const userInfo = this.accountService.createUserInfoEntity({
+        manager,
+        userInfoData: {
+          accountId: savedAccount.id,
+          nickname,
+          email,
+          accessGroup,
+          metaDigest,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      });
+      await this.accountService.saveUserInfo({ userInfo, manager });
+
+      return this.accountQueryService.toUserAccountView(savedAccount);
     });
   }
 }

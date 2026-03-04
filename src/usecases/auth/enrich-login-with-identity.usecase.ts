@@ -1,17 +1,77 @@
 // src/usecases/auth/enrich-login-with-identity.usecase.ts
 
-import { IdentityTypeEnum } from '@app-types/models/account.types';
+import { LoginWarningType } from '@app-types/auth/login-flow.types';
+import { EmploymentStatus, IdentityTypeEnum } from '@app-types/models/account.types';
+import { Gender } from '@app-types/models/user-info.types';
+import { parseStaffId } from '@core/account/identity/parse-staff-id';
+import { LoginResultQueryService } from '@modules/auth/queries/login-result.query.service';
 import { Injectable } from '@nestjs/common';
+import { AccountService } from '@src/modules/account/base/services/account.service';
 import { PinoLogger } from 'nestjs-pino';
 import {
   EnrichedLoginResult,
   EnrichLoginWithIdentityInput,
   IEnrichLoginWithIdentityUsecase,
-  LoginWarningType,
-  MinimalAccountInfo,
-  MinimalUserInfo,
 } from '../../types/auth/login-flow.types';
-import { FetchIdentityByRoleUsecase, RawIdentity } from '../account/fetch-identity-by-role.usecase';
+
+type StaffIdentity = {
+  id: number;
+  accountId: number;
+  name: string;
+  departmentId: number | null;
+  remark: string | null;
+  jobTitle: string | null;
+  employmentStatus: EmploymentStatus;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+type CoachIdentity = {
+  id: number;
+  accountId: number;
+  name: string;
+  remark: string | null;
+  specialty: string | null;
+  employmentStatus: EmploymentStatus;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+type ManagerIdentity = {
+  id: number;
+  accountId: number;
+  name: string;
+  remark: string | null;
+  employmentStatus: EmploymentStatus;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+type CustomerIdentity = {
+  id: number;
+  accountId: number | null;
+  name: string;
+  contactPhone: string | null;
+  preferredContactTime: string | null;
+  remark: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+type LearnerIdentity = {
+  id: number;
+  accountId: number | null;
+  customerId: number;
+  name: string;
+  gender: Gender;
+  birthDate: string | null;
+  avatarUrl: string | null;
+  specialNeeds: string | null;
+  countPerSession: number | null;
+  remark: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+};
 
 /**
  * 登录身份装配用例
@@ -20,7 +80,8 @@ import { FetchIdentityByRoleUsecase, RawIdentity } from '../account/fetch-identi
 @Injectable()
 export class EnrichLoginWithIdentityUsecase implements IEnrichLoginWithIdentityUsecase {
   constructor(
-    private readonly fetchIdentityByRoleUsecase: FetchIdentityByRoleUsecase,
+    private readonly loginResultQueryService: LoginResultQueryService,
+    private readonly accountService: AccountService,
     private readonly logger: PinoLogger,
   ) {
     this.logger.setContext(EnrichLoginWithIdentityUsecase.name);
@@ -37,24 +98,19 @@ export class EnrichLoginWithIdentityUsecase implements IEnrichLoginWithIdentityU
     // 设置默认选项
     const { includeIdentity = true, includeAccount = true, includeUserInfo = true } = options;
 
-    const warnings: string[] = [];
-    // 修复：使用 unknown 类型
+    const warnings: LoginWarningType[] = [];
     let identity: unknown = null;
 
-    // 身份装配逻辑
     if (includeIdentity) {
-      const identityProcessingResult = await this.processIdentityByRole(
-        finalRole,
+      const identityResult = await this.queryIdentityByRole({
         accountId,
-        warnings,
-      );
-      // 修复：直接赋值，不进行类型转换
-      identity = identityProcessingResult.identity;
-      warnings.push(...identityProcessingResult.warnings);
+        role: finalRole,
+      });
+      identity = identityResult.identity;
+      warnings.push(...identityResult.warnings);
     }
 
-    // 构造完整的客户端响应体
-    const result = this.buildEnrichedResult({
+    const result = this.loginResultQueryService.toEnrichedLoginResult({
       tokens,
       accountId,
       finalRole,
@@ -73,155 +129,165 @@ export class EnrichLoginWithIdentityUsecase implements IEnrichLoginWithIdentityU
     return result;
   }
 
-  /**
-   * 根据角色处理身份信息
-   * @param finalRole 最终角色
-   * @param accountId 账户ID
-   * @param warnings 警告列表
-   * @returns 身份处理结果
-   */
-  private async processIdentityByRole(
-    finalRole: IdentityTypeEnum,
-    accountId: number,
-    warnings: string[],
-  ): Promise<{ identity: unknown; warnings: string[] }> {
-    if (finalRole === IdentityTypeEnum.REGISTRANT) {
-      // REGISTRANT 角色不需要查询身份信息
+  private async queryIdentityByRole(params: {
+    accountId: number;
+    role: IdentityTypeEnum;
+  }): Promise<{ identity: unknown; warnings: LoginWarningType[] }> {
+    const { accountId, role } = params;
+    const warnings: LoginWarningType[] = [];
+
+    if (role === IdentityTypeEnum.REGISTRANT) {
       return { identity: null, warnings };
     }
 
-    // 其他角色需要查询身份信息
     try {
-      const identityResult = await this.fetchIdentityByRoleUsecase.execute({
-        accountId,
-        role: finalRole,
-      });
-
-      return this.handleIdentityResult(identityResult, accountId, finalRole, warnings);
-    } catch (error) {
-      // 身份查询失败
+      const identityResult = await this.findIdentityByRole({ accountId, role });
+      if (!identityResult.found || identityResult.identity === null) {
+        warnings.push(LoginWarningType.IDENTITY_UNAVAILABLE);
+        return { identity: null, warnings };
+      }
+      if (this.checkIdentityDisabled(identityResult.identity)) {
+        warnings.push(LoginWarningType.IDENTITY_DISABLED);
+        return { identity: null, warnings };
+      }
+      return { identity: identityResult.identity, warnings };
+    } catch {
       warnings.push(LoginWarningType.IDENTITY_UNAVAILABLE);
-      this.logger.error(
-        {
-          accountId,
-          finalRole,
-          error: error instanceof Error ? error.message : 'Unknown error',
-        },
-        `账户 ${accountId} 角色 ${finalRole} 身份信息获取失败`,
-      );
       return { identity: null, warnings };
     }
   }
 
-  /**
-   * 处理身份查询结果
-   * @param identityResult 身份查询结果
-   * @param accountId 账户ID
-   * @param finalRole 最终角色
-   * @param warnings 警告列表
-   * @returns 处理后的身份信息和警告
-   */
-  private handleIdentityResult(
-    identityResult: RawIdentity,
+  private async findIdentityByRole(params: {
+    role: IdentityTypeEnum;
+    accountId: number;
+  }): Promise<{ found: boolean; identity: unknown }> {
+    const { role, accountId } = params;
+    switch (role) {
+      case IdentityTypeEnum.STAFF:
+        return await this.findStaffIdentity(accountId);
+      case IdentityTypeEnum.COACH:
+        return await this.findCoachIdentity(accountId);
+      case IdentityTypeEnum.MANAGER:
+        return await this.findManagerIdentity(accountId);
+      case IdentityTypeEnum.CUSTOMER:
+        return await this.findCustomerIdentity(accountId);
+      case IdentityTypeEnum.LEARNER:
+        return await this.findLearnerIdentity(accountId);
+      default:
+        return { found: false, identity: null };
+    }
+  }
+
+  private async findStaffIdentity(
     accountId: number,
-    finalRole: IdentityTypeEnum,
-    warnings: string[],
-  ): { identity: unknown; warnings: string[] } {
-    // 修复：正确处理 RawIdentity 类型，检查是否有 data 属性
-    if (identityResult.kind === 'NONE') {
-      // 查无身份信息
-      warnings.push(LoginWarningType.IDENTITY_UNAVAILABLE);
-      this.logger.warn(
-        {
-          accountId,
-          finalRole,
-        },
-        `账户 ${accountId} 角色 ${finalRole} 未找到身份信息`,
-      );
-      return { identity: null, warnings };
+  ): Promise<{ found: boolean; identity: unknown }> {
+    const entity = await this.accountService.findStaffByAccountId(accountId);
+    if (!entity) {
+      return { found: false, identity: null };
     }
-
-    // 有身份信息的情况，检查是否被停用
-    const identityData = identityResult.data;
-    const isDisabled = this.checkIdentityDisabled(identityData);
-
-    if (isDisabled) {
-      warnings.push(LoginWarningType.IDENTITY_DISABLED);
-      this.logger.warn(
-        {
-          accountId,
-          finalRole,
-          identityStatus: 'disabled',
-        },
-        `账户 ${accountId} 角色 ${finalRole} 身份信息已停用`,
-      );
-      return { identity: null, warnings };
-    }
-
-    return { identity: identityData, warnings };
+    const identity: StaffIdentity = {
+      id: parseStaffId({ id: entity.id }),
+      accountId: entity.accountId,
+      name: entity.name,
+      departmentId: entity.departmentId,
+      remark: entity.remark,
+      jobTitle: entity.jobTitle,
+      employmentStatus: entity.employmentStatus,
+      createdAt: entity.createdAt,
+      updatedAt: entity.updatedAt,
+    };
+    return { found: true, identity };
   }
 
-  /**
-   * 检查身份是否被停用
-   * @param identityData 身份数据
-   * @returns 是否被停用
-   */
+  private async findCoachIdentity(
+    accountId: number,
+  ): Promise<{ found: boolean; identity: unknown }> {
+    const entity = await this.accountService.findCoachByAccountId(accountId);
+    if (!entity || entity.deactivatedAt) {
+      return { found: false, identity: null };
+    }
+    const identity: CoachIdentity = {
+      id: entity.id,
+      accountId: entity.accountId,
+      name: entity.name,
+      remark: entity.remark,
+      specialty: entity.specialty,
+      employmentStatus: EmploymentStatus.ACTIVE,
+      createdAt: entity.createdAt,
+      updatedAt: entity.updatedAt,
+    };
+    return { found: true, identity };
+  }
+
+  private async findManagerIdentity(
+    accountId: number,
+  ): Promise<{ found: boolean; identity: unknown }> {
+    const entity = await this.accountService.findManagerByAccountId(accountId);
+    if (!entity || entity.deactivatedAt) {
+      return { found: false, identity: null };
+    }
+    const identity: ManagerIdentity = {
+      id: entity.id,
+      accountId: entity.accountId,
+      name: entity.name,
+      remark: entity.remark,
+      employmentStatus: EmploymentStatus.ACTIVE,
+      createdAt: entity.createdAt,
+      updatedAt: entity.updatedAt,
+    };
+    return { found: true, identity };
+  }
+
+  private async findCustomerIdentity(
+    accountId: number,
+  ): Promise<{ found: boolean; identity: unknown }> {
+    const entity = await this.accountService.findCustomerByAccountId(accountId);
+    if (!entity || entity.deactivatedAt) {
+      return { found: false, identity: null };
+    }
+    const identity: CustomerIdentity = {
+      id: entity.id,
+      accountId: entity.accountId,
+      name: entity.name,
+      contactPhone: entity.contactPhone,
+      preferredContactTime: entity.preferredContactTime,
+      remark: entity.remark,
+      createdAt: entity.createdAt,
+      updatedAt: entity.updatedAt,
+    };
+    return { found: true, identity };
+  }
+
+  private async findLearnerIdentity(
+    accountId: number,
+  ): Promise<{ found: boolean; identity: unknown }> {
+    const entity = await this.accountService.findLearnerByAccountId(accountId);
+    if (!entity) {
+      return { found: false, identity: null };
+    }
+    const identity: LearnerIdentity = {
+      id: entity.id,
+      accountId: entity.accountId,
+      customerId: entity.customerId,
+      name: entity.name,
+      gender: entity.gender,
+      birthDate: entity.birthDate,
+      avatarUrl: entity.avatarUrl,
+      specialNeeds: entity.specialNeeds,
+      countPerSession: entity.countPerSession,
+      remark: entity.remark,
+      createdAt: entity.createdAt,
+      updatedAt: entity.updatedAt,
+    };
+    return { found: true, identity };
+  }
+
   private checkIdentityDisabled(identityData: unknown): boolean {
     if (identityData && typeof identityData === 'object' && 'status' in identityData) {
       const status = (identityData as { status?: string }).status;
       return status === 'SUSPENDED' || status === 'LEFT' || status === 'INACTIVE';
     }
     return false;
-  }
-
-  /**
-   * 构建增强的登录结果
-   * @param params 构建参数
-   * @returns 增强的登录结果
-   */
-  private buildEnrichedResult(params: {
-    tokens: { accessToken: string; refreshToken: string };
-    accountId: number;
-    finalRole: IdentityTypeEnum;
-    accessGroup: IdentityTypeEnum[];
-    account: MinimalAccountInfo;
-    userInfo: MinimalUserInfo;
-    identity: unknown; // 修复：使用 unknown 类型
-    warnings: string[];
-    includeAccount: boolean;
-    includeUserInfo: boolean;
-  }): EnrichedLoginResult {
-    const {
-      tokens,
-      accountId,
-      finalRole,
-      accessGroup,
-      account,
-      userInfo,
-      identity,
-      warnings,
-      includeAccount,
-      includeUserInfo,
-    } = params;
-
-    return {
-      // 认证信息
-      accessToken: tokens.accessToken,
-      refreshToken: tokens.refreshToken,
-      accountId,
-
-      // 角色和身份
-      role: finalRole,
-      identity, // 直接使用 unknown 类型
-      accessGroup,
-
-      // 账号和用户信息（根据选项决定是否包含）
-      ...(includeAccount && { account }),
-      ...(includeUserInfo && { userInfo }),
-
-      // 警告信息（仅在有警告时返回）
-      ...(warnings.length > 0 && { warnings }),
-    };
   }
 
   /**
@@ -235,7 +301,7 @@ export class EnrichLoginWithIdentityUsecase implements IEnrichLoginWithIdentityU
     accountId: number,
     finalRole: IdentityTypeEnum,
     identity: unknown,
-    warnings: string[],
+    warnings: LoginWarningType[],
   ): void {
     this.logger.info(
       {
