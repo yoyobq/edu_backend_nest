@@ -159,6 +159,15 @@ export const PAGINATION_ERROR = {
 Object.freeze(PAGINATION_ERROR);
 
 export type PaginationErrorCode = (typeof PAGINATION_ERROR)[keyof typeof PAGINATION_ERROR];
+export type DomainErrorCode =
+  | AuthErrorCode
+  | AccountErrorCode
+  | ThirdPartyErrorCode
+  | JwtErrorCode
+  | PermissionErrorCode
+  | VerificationRecordErrorCode
+  | LearnerErrorCode
+  | PaginationErrorCode;
 
 // 类型守卫：统一判断是否为领域错误（兼容多包/反序列化场景）
 export const isDomainError = (error: unknown): error is DomainError => {

@@ -1,5 +1,5 @@
 // src/infrastructure/graphql/filters/graphql-exception.filter.ts
-import { ExceptionPayload } from '@app-types/errors/exception-payload';
+import { ExceptionPayload } from '@app-types/errors/exception-payload.types';
 import {
   ACCOUNT_ERROR,
   AUTH_ERROR,
