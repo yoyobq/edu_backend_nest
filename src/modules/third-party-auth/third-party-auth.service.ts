@@ -2,6 +2,7 @@
 import { AudienceTypeEnum, ThirdPartyProviderEnum } from '@app-types/models/account.types';
 import {
   BindThirdPartyInputModel,
+  PhoneNumberResult,
   ThirdPartyAuthView,
   ThirdPartySession,
   UnbindThirdPartyInputModel,
@@ -18,6 +19,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { ThirdPartyAuthEntity } from '@src/modules/account/base/entities/third-party-auth.entity';
 import { Repository } from 'typeorm';
 import { ThirdPartyProvider } from './interfaces/third-party-provider.interface';
+import { WeAppProvider } from './providers/weapp.provider';
 import { ThirdPartyAuthQueryService } from './queries/third-party-auth.query.service';
 
 /** 第三方认证提供者映射的依赖注入标识 */
@@ -34,6 +36,7 @@ export class ThirdPartyAuthService {
     private readonly thirdPartyAuthRepository: Repository<ThirdPartyAuthEntity>,
     @Inject(PROVIDER_MAP)
     private readonly adapters: Map<ThirdPartyProviderEnum, ThirdPartyProvider>,
+    private readonly weappProvider: WeAppProvider,
     private readonly thirdPartyAuthQueryService: ThirdPartyAuthQueryService,
   ) {}
 
@@ -278,5 +281,24 @@ export class ThirdPartyAuthService {
       ],
     });
     return record ? this.thirdPartyAuthQueryService.toView(record) : null;
+  }
+
+  /**
+   * 获取微信小程序手机号
+   * @param params 获取参数
+   * @returns 手机号信息
+   */
+  async getWeappPhoneNumber(params: {
+    phoneCode: string;
+    audience: AudienceTypeEnum;
+  }): Promise<PhoneNumberResult> {
+    const accessToken = await this.weappProvider.getAccessToken({
+      audience: params.audience,
+    });
+    return await this.weappProvider.getPhoneNumber({
+      phoneCode: params.phoneCode,
+      accessToken,
+      audience: params.audience,
+    });
   }
 }

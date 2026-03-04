@@ -4,45 +4,20 @@ import { BasicLoginResult } from '@app-types/auth/login-flow.types';
 import {
   AccountStatus,
   AudienceTypeEnum,
-  IdentityTypeEnum,
   ThirdPartyProviderEnum,
 } from '@app-types/models/account.types';
 import { ACCOUNT_ERROR, AUTH_ERROR, DomainError } from '@core/common/errors/domain-error';
+import { AccountSecurityService } from '@modules/account/base/services/account-security.service';
 import { AuthService } from '@modules/auth/auth.service';
+import {
+  LoginBootstrapQueryService,
+  LoginUserDataCollection,
+} from '@modules/auth/queries/login-bootstrap.query.service';
+import { LoginResultQueryService } from '@modules/auth/queries/login-result.query.service';
 import { TokenHelper } from '@modules/auth/token.helper';
 import { Injectable } from '@nestjs/common';
 import { AccountService } from '@src/modules/account/base/services/account.service';
-import { CompleteUserData, FetchUserInfoUsecase } from '@usecases/account/fetch-user-info.usecase';
 import { PinoLogger } from 'nestjs-pino';
-
-/**
- * 用户数据集合接口
- */
-interface UserDataCollection {
-  userWithAccessGroup: {
-    id: number;
-    loginEmail: string | null;
-    // 不应信任 token 中的 accessGroup，而应根据 id 从数据库中获取
-    accessGroup: IdentityTypeEnum[];
-  };
-  account: {
-    id: number;
-    loginName: string | null;
-    loginEmail: string | null;
-    status: AccountStatus; // 修改：从 string 改为 AccountStatus
-    identityHint: string | null;
-    createdAt: Date;
-    updatedAt: Date;
-  };
-  userInfo: {
-    id: number;
-    accountId: number;
-    nickname: string;
-    avatarUrl: string | null;
-    createdAt: Date;
-    updatedAt: Date;
-  };
-}
 
 /**
  * 执行登录流程用例
@@ -52,10 +27,12 @@ interface UserDataCollection {
 export class ExecuteLoginFlowUsecase {
   constructor(
     private readonly accountService: AccountService,
+    private readonly accountSecurityService: AccountSecurityService,
     private readonly authService: AuthService,
     private readonly tokenHelper: TokenHelper,
+    private readonly loginBootstrapQueryService: LoginBootstrapQueryService,
+    private readonly loginResultQueryService: LoginResultQueryService,
     private readonly logger: PinoLogger,
-    private readonly fetchUserInfoUsecase: FetchUserInfoUsecase,
   ) {
     this.logger.setContext(ExecuteLoginFlowUsecase.name);
   }
@@ -89,7 +66,10 @@ export class ExecuteLoginFlowUsecase {
     await this.handleLoginHistory({ accountId, ip, audience, provider });
 
     // 构建并返回基础登录结果
-    return this.buildLoginResult(userData, tokens);
+    return this.loginResultQueryService.toBasicLoginResult({
+      userData,
+      tokens,
+    });
   }
 
   /**
@@ -107,22 +87,26 @@ export class ExecuteLoginFlowUsecase {
 
   /**
    * 获取用户相关数据
-   * 使用 FetchUserInfoUsecase 统一获取用户数据，包含安全验证
    * @param accountId 账户 ID
    * @returns 用户数据集合
    */
-  private async fetchUserData(accountId: number): Promise<UserDataCollection> {
-    // 使用 FetchUserInfoUsecase 获取完整用户数据（包含安全验证）
-    const completeUserData: CompleteUserData = await this.fetchUserInfoUsecase.executeForLoginFlow({
-      accountId,
-    });
-
-    const { userInfoView, rawUserInfo } = completeUserData;
-
-    // 获取账户信息（用于构建返回结果）
+  private async fetchUserData(accountId: number): Promise<LoginUserDataCollection> {
     const account = await this.accountService.findOneById(accountId);
     if (!account) {
       throw new DomainError(ACCOUNT_ERROR.ACCOUNT_NOT_FOUND, '账户不存在');
+    }
+
+    const rawUserInfo = await this.accountService.findUserInfoByAccountId(accountId);
+    if (!rawUserInfo) {
+      throw new DomainError(ACCOUNT_ERROR.USER_INFO_NOT_FOUND, '用户信息不存在');
+    }
+
+    const securityResult = this.accountSecurityService.checkAndHandleAccountSecurity({
+      ...account,
+      userInfo: rawUserInfo,
+    });
+    if (securityResult.wasSuspended) {
+      throw new DomainError(ACCOUNT_ERROR.ACCOUNT_SUSPENDED, '账户因安全问题已被暂停');
     }
 
     // 检查账户状态
@@ -130,23 +114,10 @@ export class ExecuteLoginFlowUsecase {
       throw new DomainError(AUTH_ERROR.ACCOUNT_INACTIVE, '账户未激活');
     }
 
-    // 构建兼容的数据结构
-    const userWithAccessGroup = {
-      id: account.id,
-      loginEmail: account.loginEmail,
-      accessGroup: userInfoView.accessGroup, // 使用经过安全验证的 accessGroup
-    };
-
-    const userInfo = {
-      id: rawUserInfo?.id || 0,
-      accountId: rawUserInfo?.accountId || accountId,
-      nickname: userInfoView.nickname || '',
-      avatarUrl: userInfoView.avatarUrl,
-      createdAt: rawUserInfo?.createdAt || new Date(),
-      updatedAt: rawUserInfo?.updatedAt || new Date(),
-    };
-
-    return { userWithAccessGroup, account, userInfo };
+    return this.loginBootstrapQueryService.toLoginUserDataCollection({
+      account,
+      userInfo: rawUserInfo,
+    });
   }
 
   /**
@@ -156,7 +127,7 @@ export class ExecuteLoginFlowUsecase {
    * @returns JWT tokens 对象
    */
   private generateTokens(
-    userData: UserDataCollection,
+    userData: LoginUserDataCollection,
     audience?: AudienceTypeEnum,
   ): {
     accessToken: string;
@@ -223,80 +194,5 @@ export class ExecuteLoginFlowUsecase {
         '记录登录历史失败',
       );
     }
-  }
-
-  /**
-   * 构建登录结果
-   * @param userData 用户数据集合
-   * @param tokens JWT tokens
-   * @returns 基础登录结果
-   */
-  private buildLoginResult(
-    userData: UserDataCollection,
-    tokens: { accessToken: string; refreshToken: string },
-  ): BasicLoginResult {
-    const { userWithAccessGroup, account, userInfo } = userData;
-
-    // 只调用一次 parseIdentityHint，避免重复解析
-    const parsedIdentityHint = this.parseIdentityHint(account.identityHint);
-
-    return {
-      tokens,
-      accountId: account.id,
-      roleFromHint: parsedIdentityHint, // 使用缓存的解析结果
-      accessGroup: userWithAccessGroup.accessGroup,
-      account: {
-        id: account.id,
-        loginName: account.loginName,
-        loginEmail: account.loginEmail,
-        status: account.status,
-        identityHint: parsedIdentityHint, // 使用缓存的解析结果
-        createdAt: account.createdAt,
-        updatedAt: account.updatedAt,
-      },
-      userInfo: {
-        id: userInfo.id,
-        accountId: userInfo.accountId,
-        nickname: userInfo.nickname,
-        avatarUrl: userInfo.avatarUrl,
-        createdAt: userInfo.createdAt,
-        updatedAt: userInfo.updatedAt,
-      },
-    };
-  }
-
-  /**
-   * 验证 audience 枚举值是否有效
-   * @param audience 客户端类型枚举
-   * @param allowedAudiences 允许的客户端类型列表
-   * @returns 是否有效
-   */
-  private validateAudienceEnum(
-    audience: AudienceTypeEnum,
-    allowedAudiences: AudienceTypeEnum[],
-  ): boolean {
-    const allowedSet = new Set(allowedAudiences);
-    return allowedSet.has(audience);
-  }
-
-  /**
-   * 安全解析身份提示字符串为枚举类型
-   * @param identityHint 身份提示字符串
-   * @returns 解析后的枚举值或 null
-   */
-  private parseIdentityHint(identityHint: string | null): IdentityTypeEnum | null {
-    if (!identityHint) {
-      return null;
-    }
-
-    // 检查是否为有效的枚举值
-    const enumValues = Object.values(IdentityTypeEnum) as string[];
-    if (enumValues.includes(identityHint)) {
-      return identityHint as IdentityTypeEnum;
-    }
-
-    // 如果不是有效枚举值，记录警告并返回 null
-    this.logger.warn({ identityHint, validValues: enumValues }, '无效的身份提示值，将返回 null');
-    return null;
   }
 }
