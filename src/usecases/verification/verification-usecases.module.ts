@@ -5,9 +5,6 @@ import { CoachServiceModule } from '@modules/account/identities/training/coach/c
 import { ManagerServiceModule } from '@modules/account/identities/training/manager/manager-service.module';
 import { Module } from '@nestjs/common';
 import { VerificationRecordModule } from '@src/modules/verification-record/verification-record.module';
-import { ConsumeVerificationRecordUsecase } from '@src/usecases/verification-record/consume-verification-record.usecase';
-import { CreateVerificationRecordUsecase } from '@src/usecases/verification-record/create-verification-record.usecase';
-import { FindVerificationRecordUsecase } from '@src/usecases/verification-record/find-verification-record.usecase';
 import { InviteCoachHandler } from '@src/usecases/verification/coach/invite-coach.handler';
 import { ConsumeVerificationFlowUsecase } from '@src/usecases/verification/consume-verification-flow.usecase';
 import { AcceptInviteCoachUsecase } from '@src/usecases/verification/invite/accept-invite-coach.usecase';
@@ -25,9 +22,6 @@ import { ResetPasswordUsecase } from '@src/usecases/verification/password/reset-
     ManagerServiceModule,
   ],
   providers: [
-    CreateVerificationRecordUsecase,
-    ConsumeVerificationRecordUsecase,
-    FindVerificationRecordUsecase,
     ConsumeVerificationFlowUsecase,
     ResetPasswordUsecase,
     ResetPasswordHandler,
@@ -36,11 +30,6 @@ import { ResetPasswordUsecase } from '@src/usecases/verification/password/reset-
     InviteManagerHandler,
     AcceptInviteManagerUsecase,
   ],
-  exports: [
-    CreateVerificationRecordUsecase,
-    ConsumeVerificationRecordUsecase,
-    FindVerificationRecordUsecase,
-    ConsumeVerificationFlowUsecase,
-  ],
+  exports: [ConsumeVerificationFlowUsecase],
 })
 export class VerificationUsecasesModule {}
