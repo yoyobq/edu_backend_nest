@@ -5,7 +5,7 @@ import { UseGuards } from '@nestjs/common';
 import { Args, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { currentUser } from '@src/adapters/graphql/decorators/current-user.decorator';
 import { JwtAuthGuard } from '@src/adapters/graphql/guards/jwt-auth.guard';
-import { OrderDirection } from '@src/types/common/sort.types';
+import { OrderDirection } from '@app-types/common/sort.types';
 import { CreateLearnerUsecase } from '@src/usecases/identity-management/learner/create-learner.usecase';
 import { DeleteLearnerUsecase } from '@src/usecases/identity-management/learner/delete-learner.usecase';
 import { GetLearnerUsecase } from '@src/usecases/identity-management/learner/get-learner.usecase';

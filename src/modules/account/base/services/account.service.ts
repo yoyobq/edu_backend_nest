@@ -5,7 +5,7 @@ import {
   AccountWithAccessGroup,
   AudienceTypeEnum,
   IdentityTypeEnum,
-  LoginHistoryItem,
+  LoginHistoryItemModel,
   ThirdPartyProviderEnum,
   UserAccountView,
 } from '@app-types/models/account.types';
@@ -44,7 +44,7 @@ export interface AccountCreateData {
   status?: AccountStatus;
   audience?: AudienceTypeEnum;
   identityHint?: string | null;
-  recentLoginHistory?: LoginHistoryItem[] | null;
+  recentLoginHistory?: LoginHistoryItemModel[] | null;
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -137,9 +137,12 @@ export class AccountService {
       select: ['recentLoginHistory'],
     });
 
-    const newHistoryItem: LoginHistoryItem = { ip: ip || '', timestamp, audience };
+    const newHistoryItem: LoginHistoryItemModel = { ip: ip || '', timestamp, audience };
     const existingHistory = account?.recentLoginHistory || [];
-    const updatedHistory: LoginHistoryItem[] = [newHistoryItem, ...existingHistory.slice(0, 4)];
+    const updatedHistory: LoginHistoryItemModel[] = [
+      newHistoryItem,
+      ...existingHistory.slice(0, 4),
+    ];
 
     await this.accountRepository.update(accountId, {
       recentLoginHistory: updatedHistory,

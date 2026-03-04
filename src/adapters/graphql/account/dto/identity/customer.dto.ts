@@ -1,7 +1,7 @@
 // src/adapters/graphql/account/dto/identity/customer.dto.ts
 import { UserState } from '@app-types/models/user-info.types';
 import { Field, Int, ObjectType } from '@nestjs/graphql';
-import { LoginHistoryItem } from '../../enums/login-history.types';
+import { LoginHistoryItemGql } from '../../enums/login-history.types';
 
 /**
  * 客户身份信息 DTO
@@ -41,6 +41,6 @@ export class CustomerType {
   @Field(() => Date, { description: '停用时间', nullable: true })
   deactivatedAt!: Date | null;
 
-  @Field(() => [LoginHistoryItem], { description: '最近登录历史（最多 5 条）', nullable: true })
-  loginHistory!: LoginHistoryItem[] | null;
+  @Field(() => [LoginHistoryItemGql], { description: '最近登录历史（最多 5 条）', nullable: true })
+  loginHistory!: LoginHistoryItemGql[] | null;
 }

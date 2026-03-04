@@ -1,7 +1,7 @@
 // src/adapters/graphql/identity-management/customer/dto/customer.input.list.ts
 
 import { Field, InputType, Int } from '@nestjs/graphql';
-import { CustomerSortField, OrderDirection } from '@src/types/common/sort.types';
+import { CustomerSortField, OrderDirection } from '@app-types/common/sort.types';
 import { IsEnum, IsInt, IsOptional, Max, Min } from 'class-validator';
 
 /**

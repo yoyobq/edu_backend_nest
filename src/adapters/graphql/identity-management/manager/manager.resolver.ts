@@ -5,7 +5,7 @@ import { UserState } from '@app-types/models/user-info.types';
 import { UseGuards } from '@nestjs/common';
 import { Args, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { ManagerType } from '@src/adapters/graphql/account/dto/identity/manager.dto';
-import { LoginHistoryItem } from '@src/adapters/graphql/account/enums/login-history.types';
+import { LoginHistoryItemGql } from '@src/adapters/graphql/account/enums/login-history.types';
 import { currentUser } from '@src/adapters/graphql/decorators/current-user.decorator';
 import { JwtAuthGuard } from '@src/adapters/graphql/guards/jwt-auth.guard';
 import { ListManagersInput } from '@src/adapters/graphql/identity-management/manager/dto/manager.input.list';
@@ -66,7 +66,7 @@ export class ManagerResolver {
     });
     let phone: string | null = null;
     let userState: UserState | null = null;
-    let loginHistory: LoginHistoryItem[] | null = null;
+    let loginHistory: LoginHistoryItemGql[] | null = null;
     if (entity.accountId) {
       // 可见性驱动读取用户信息，确保与 Customer 对齐的 userinfo 合并策略
       try {
@@ -145,7 +145,7 @@ export class ManagerResolver {
     extras?: {
       userState?: UserState | null;
       userPhone?: string | null;
-      loginHistory?: LoginHistoryItem[] | null;
+      loginHistory?: LoginHistoryItemGql[] | null;
     },
   ): ManagerType {
     const dto: ManagerType = {
@@ -186,7 +186,7 @@ export class ManagerResolver {
       this.mapManagerEntityToType(item.view, {
         userState: item.userState,
         userPhone: item.userPhone,
-        loginHistory: item.loginHistory as LoginHistoryItem[] | null,
+        loginHistory: item.loginHistory as LoginHistoryItemGql[] | null,
       }),
     );
     return {

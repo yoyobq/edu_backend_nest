@@ -1,7 +1,7 @@
 // src/adapters/graphql/account/dto/account-detail.dto.ts
 import { AccountStatus } from '@app-types/models/account.types';
 import { Field, ID, ObjectType } from '@nestjs/graphql';
-import { LoginHistoryItem } from '@src/adapters/graphql/account/enums/login-history.types';
+import { LoginHistoryItemGql } from '@src/adapters/graphql/account/enums/login-history.types';
 
 /**
  * user_account 表数据传输对象
@@ -23,8 +23,8 @@ export class UserAccountDTO {
   @Field(() => String, { description: '身份类型提示', nullable: true })
   identityHint!: string | null;
 
-  @Field(() => [LoginHistoryItem], { description: '最近登录历史', nullable: true })
-  recentLoginHistory!: LoginHistoryItem[] | null;
+  @Field(() => [LoginHistoryItemGql], { description: '最近登录历史', nullable: true })
+  recentLoginHistory!: LoginHistoryItemGql[] | null;
 
   @Field(() => Date, { description: '创建时间' })
   createdAt!: Date;

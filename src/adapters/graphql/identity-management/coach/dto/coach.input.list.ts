@@ -1,7 +1,7 @@
 // src/adapters/graphql/dto/coach/coach.input.list.ts
 
 import { Field, InputType, Int } from '@nestjs/graphql';
-import { CoachSortField, OrderDirection } from '@src/types/common/sort.types';
+import { CoachSortField, OrderDirection } from '@app-types/common/sort.types';
 import { IsBoolean, IsEnum, IsInt, IsOptional, Max, Min } from 'class-validator';
 
 /**

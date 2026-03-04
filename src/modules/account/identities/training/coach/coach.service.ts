@@ -12,7 +12,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { normalizePhone } from '@src/core/common/normalize/normalize.helper';
 import { UserInfoEntity } from '@src/modules/account/base/entities/user-info.entity';
 import { PaginationService } from '@src/modules/common/pagination.service';
-import { CoachSortField } from '@src/types/common/sort.types';
+import { CoachSortField } from '@app-types/common/sort.types';
 import { Brackets, EntityManager, IsNull, Repository, SelectQueryBuilder } from 'typeorm';
 import { CoachEntity } from './account-coach.entity';
 

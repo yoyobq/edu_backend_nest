@@ -8,7 +8,7 @@ import {
 import { ManagerService } from '@modules/account/identities/training/manager/manager.service';
 import { Injectable } from '@nestjs/common';
 import { AccountService } from '@src/modules/account/base/services/account.service';
-import { CustomerSortField, type OrderDirection } from '@src/types/common/sort.types';
+import { CustomerSortField, type OrderDirection } from '@app-types/common/sort.types';
 import { UserState } from '@app-types/models/user-info.types';
 
 /**
@@ -20,7 +20,7 @@ export interface ListCustomersParams {
   /** 每页数量，默认 10，最大 100 */
   limit?: number;
   /** 排序字段 */
-  sortBy?: import('@src/types/common/sort.types').CustomerSortField;
+  sortBy?: import('@app-types/common/sort.types').CustomerSortField;
   /** 排序方向 */
   sortOrder?: OrderDirection;
   /** 搜索关键词（按姓名/手机号） */

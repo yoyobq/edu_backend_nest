@@ -23,7 +23,7 @@ import {
   CustomerSortField,
   LearnerSortField,
   OrderDirection,
-} from '@src/types/common/sort.types';
+} from '@app-types/common/sort.types';
 
 export function registerEnums(): void {
   registerEnumType(AccountStatus, { name: 'AccountStatus' });

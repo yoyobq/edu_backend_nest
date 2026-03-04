@@ -1,4 +1,4 @@
-export interface LoginHistoryItem {
+export interface LoginHistoryItemModel {
   ip: string; // 登录 IP 地址
   timestamp: string; // 登录时间（ISO 格式）
   audience?: string; // 可选：客户端类型
@@ -63,7 +63,7 @@ export type UserAccountView = {
   loginEmail: string | null;
   status: AccountStatus;
   identityHint: string | null;
-  recentLoginHistory: LoginHistoryItem[] | null;
+  recentLoginHistory: LoginHistoryItemModel[] | null;
   createdAt: Date;
   updatedAt: Date;
 };

@@ -9,7 +9,7 @@ import {
 import { ManagerService } from '@modules/account/identities/training/manager/manager.service';
 import { Injectable } from '@nestjs/common';
 import { AccountService } from '@src/modules/account/base/services/account.service';
-import { CoachSortField, type OrderDirection } from '@src/types/common/sort.types';
+import { CoachSortField, type OrderDirection } from '@app-types/common/sort.types';
 
 type CoachView = CoachProfile;
 
