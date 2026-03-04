@@ -1,291 +1,201 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# AIGC Friendly Architecture Backend
 
-<p align="center">基于 <a href="http://nestjs.com/" target="_blank">NestJS</a> 框架构建的现代化后端 API 服务</p>
-<p align="center">
-  <a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-  <a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-</p>
+![License](https://img.shields.io/badge/license-MIT-blue.svg)
+![TypeScript](https://img.shields.io/badge/language-TypeScript-3178C6.svg)
+![NestJS](https://img.shields.io/badge/framework-NestJS-E0234E.svg)
+![Node](https://img.shields.io/badge/node-%3E%3D18-green.svg)
+
+基于 NestJS + TypeScript 的后端 API 项目，当前以 GraphQL 为主入口，使用 MySQL + TypeORM，并遵循严格的分层架构约束。
+
+## 💡 核心理念：AIGC Friendly
+
+本项目专为 **AI 辅助编程（Copilot / Agent）** 场景优化，旨在提供一个 AI 容易理解、维护与扩展的架构模版：
+
+- **清晰的上下文边界**：Adapters / Usecases / Core / Infrastructure 分层明确，AI 容易定位代码职责。
+- **显式的依赖规则**：严格的单向依赖约束，减少 AI 生成循环依赖或错误引用的概率。
+- **规范化的读写分离**：Query Service (读) 与 Usecases (写) 分离，便于 AI 识别副作用与事务边界。
+- **自文档化代码**：通过显式的规则文档 (`docs/*.rules.md`) 与强类型约束，辅助 AI 进行更准确的代码生成。
+
+## 目录
+
+- [项目简介](#项目简介)
+- [技术栈](#技术栈)
+- [项目结构与架构](#项目结构与架构)
+- [功能概览](#功能概览)
+- [快速开始](#快速开始)
+- [开发与测试](#开发与测试)
+- [API 访问](#api-访问)
+- [贡献指南](#贡献指南)
+- [许可证](#许可证)
 
 ## 项目简介
 
-这是一个基于 [NestJS](https://github.com/nestjs/nest) 框架的 TypeScript 后端项目，集成了 GraphQL API、MySQL 数据库和现代化的日志系统。
+项目面向账号体系、身份管理与验证流程等业务场景，提供统一鉴权、分页 / 排序 / 搜索与错误映射能力。它不仅仅是一个脚手架，更是一套经过实践验证的领域驱动设计（DDD）轻量级落地实现。
 
 ## 技术栈
 
-- **框架**: NestJS (Node.js)
-- **语言**: TypeScript
-- **数据库**: MySQL 8.0
+- **Runtime**: Node.js
+- **Framework**: NestJS
+- **Language**: TypeScript
+- **Database**: MySQL 8.0
 - **ORM**: TypeORM
-- **API**: GraphQL (Apollo Server)
-- **日志**: Pino Logger
-- **配置管理**: @nestjs/config
-- **数据验证**: class-validator + class-transformer
+- **API Protocol**: GraphQL (Apollo Server)
+- **Logging**: Pino
+- **Configuration**: @nestjs/config
+- **Validation**: class-validator + class-transformer
 
-## 项目结构
+## 项目结构与架构
 
-```
+### 目录结构
+
+```text
 src/
-├── adapters/                    # 适配层： GraphQL 入口 / 集成事件适配
-│   ├── graphql/
-│   └── http/
-│   └── integration-events/
-├── app.module.ts                # 应用主模块
-├── app.controller.ts            # HTTP 根路径
-├── core/                        # 纯规则与端口接口（无 I/O）
-│   ├── common/
-│   ├── config/
-│   ├── database/
-│   ├── field-encryption/
-│   ├── graphql/
-│   ├── jwt/
-│   ├── logger/
-│   ├── middleware/
-│   ├── pagination/
-│   ├── search/
-│   ├── security/
-│   └── sort/
-├── infrastructure/              # 外部依赖具体实现（仅实现端口）
-│   ├── mail/
-│   ├── security/
-│   └── typeorm/
-├── main.ts                      # 应用入口
-├── modules/                     # 领域模块服务（对内复用的读/写服务）
-│   ├── account/
-│   ├── auth/
-│   ├── common/
-│   ├── identity-management/
-│   ├── register/
-│   ├── third-party-auth/
-│   └── verification-record/
-├── cats/                        # 示例模块（未在主模块注册）
-├── types/                       # 类型与模型定义
-│   ├── auth/
-│   ├── common/
-│   ├── errors/
-│   ├── gql/
-│   ├── jwt.types.ts
-│   ├── models/
-│   ├── response.types.ts
-│   └── services/
-├── usecases/                    # 用例编排（跨域读写与事务）
-│   ├── account/
-│   ├── auth/
-│   ├── identity-management/
-│   ├── registration/
-│   ├── third-party-accounts/
-│   ├── verification/
-│   └── verification-record/
-└── utils/                       # 工具与测试辅助
-    ├── logger/
-    └── test/
-test/
-├── 00-app/
-├── 01-auth/
-├── 02-register/
-├── 03-roles-guard/
-├── 04-user-info/
-├── 05-verification-record/
-├── 06-identity-management/
-├── 07-pagination-sort-search/
-└── ...
-
-env/
-└── .env.example
+├── adapters/                    # 入口适配层（GraphQL / HTTP）
+├── core/                        # 领域模型、纯规则、端口接口
+├── infrastructure/              # 外部依赖实现（DB、配置、安全等）
+├── modules/                     # 同域可复用服务（读写能力承载）
+├── usecases/                    # 用例编排层（流程、事务、权限组合）
+├── types/                       # 跨层共享类型
+├── app.module.ts
+├── main.ts
+└── schema.graphql
 ```
 
-## 架构分层与依赖方向
+### 架构分层与依赖方向
 
-为保持可维护性与安全性，项目采用分层架构并严格限定依赖方向：
+项目采用固定分层，并限制依赖方向（Strict Layered Architecture）：
 
-- 分层职责：
-  - `adapters`：作为入口适配，仅做输入输出适配与解析，不含业务规则。
-  - `usecases`：负责编排业务用例，执行写操作（创建/更新/删除），定义并开启事务；跨域读/写一律在此提升为用例。
-  - `modules (service)`：同域内可复用的读/写服务，暴露 DTO/只读模型，内部可使用 ORM 实体；通过 DI 承接 `infrastructure` 实现。
-  - `infrastructure`：实现 `core` 端口并对接外部依赖（数据库、邮件等），不编排业务规则。
-  - `core`：只放领域模型/值对象/端口接口与纯函数，不引入或依赖任何框架/驱动；不得出现 I/O 或副作用。
+#### 1. 职责划分
 
-- 允许的依赖方向：
-  - `adapters → usecases`
-  - `usecases → modules (service) | core`
-  - `modules (service) → infrastructure | core`
-  - `infrastructure → core`
+- **`adapters`**: 只做输入解析、权限接入与输出封装。
+- **`usecases`**: 负责编排写流程、事务边界与错误映射。
+- **`modules(service)`**: 承载同域可复用读写服务，提供 DTO / 只读视图，其中 **Query Service** 负责只读、权限判定与输出规范化。
+- **`infrastructure`**: 实现 `core` 端口并对接外部系统，不做业务编排。
+- **`core`**: 只保留领域规则、模型、值对象与端口抽象，不依赖任何外部框架。
 
-- 禁止的依赖方向：
-  - `adapters → modules (service) / infrastructure`
-  - `usecases → infrastructure`
-  - `任意层 → adapters`
+#### 2. 依赖规则
 
-- 其他关键约束：
-  - 纯读操作尽量放在 `modules/_/_.service`，便于复用；写操作（创建/更新/删除）统一在 `usecases`。
-  - ORM 实体仅在 `modules (service)` 内部使用；对上游暴露的是 DTO/只读模型。
-  - 所有外部依赖的配置/密钥通过配置模块注入（如 `ConfigService`），禁止硬编码在 `infrastructure` 或 `usecases`；`core` 不得读取配置。
-  - 事务由 `usecases` 定义与开启；`modules (service)` 提供细粒度方法，由用例编排到同一事务上下文内，禁止在各模块各自开启跨域事务。
+- **允许**: `adapters → usecases`, `usecases → modules | core`, `modules → infrastructure | core`, `infrastructure → core`
+- **禁止**: 反向依赖、跨层跳跃依赖（如 `adapters` 直接调 `infrastructure`）
 
-## 环境配置
+#### 3. 详细规则
 
-1. 复制环境变量配置文件：
+更多细节请参考 `docs/` 下的规则文档：
 
-```bash
-cp env/.env.example env/.env.development
-```
+- [Core Rules](docs/core.rules.md)
+- [Adapters Rules](docs/adapters.rules.md)
+- [Usecase Rules](docs/usecase.rules.md)
+- [Modules Rules](docs/modules.rules.md)
+- [Query Service Rules](docs/queryservice.rules.md)
+- [Infrastructure Rules](docs/infrastructure.rules.md)
 
-2. 配置数据库连接信息：
+## 功能概览
 
-```bash
-# 数据库配置
-DB_HOST=localhost
-DB_PORT=3306
-DB_USER=your_username
-DB_PASS=your_password
-DB_NAME=your_database
-DB_TIMEZONE=+08:00
-DB_SYNCHRONIZE=false
-DB_LOGGING=true
-DB_POOL_SIZE=10
+### 平台基础能力
 
-# 服务器配置
-SERVER_HOST=127.0.0.1
-SERVER_PORT=3000
+- ✅ **GraphQL API**: 统一入口与错误映射
+- ✅ **Auth & Security**: JWT 鉴权、角色访问控制 (RBAC)、字段加密、安全签名
+- ✅ **Data Access**: 分页 / 排序 / 搜索通用能力、数据库事务支持
+- ✅ **Observability**: 结构化日志 (Pino)、配置管理
 
-# 环境变量
-NODE_ENV=development
-```
+### 业务域能力
 
-## 项目安装
+- ✅ **Auth**: 账号密码登录 / 第三方登录集成
+- ✅ **Registration**: 邮箱注册流程 / 第三方快捷注册
+- ✅ **Identity Management**: 多角色管理 (Coach / Manager / Learner)
+- ✅ **Verification**: 验证码生成与验证流程（邀请、重置密码、绑定）
 
-```bash
-# 安装依赖
-$ npm install
-```
+## 快速开始
 
-## 运行项目
+### 环境准备
 
-```bash
-# 开发模式
-$ npm run dev
-# 或
-$ npm run start:dev
+- Node.js >= 18
+- MySQL >= 8.0
+- npm / yarn / pnpm
 
-# 生产模式
-$ npm run start:prod
+### 安装与运行
 
-# 调试模式
-$ npm run start:debug
-```
+1. **安装依赖**
 
-## 测试
+   ```bash
+   npm install
+   ```
 
-```bash
-# 单元测试
-$ npm run test
+2. **配置环境变量**
 
-# 端到端测试
-$ npm run test:e2e
+   ```bash
+   cp env/.env.example env/.env.development
+   # 编辑 env/.env.development 填入数据库配置
+   ```
 
-# 测试覆盖率
-$ npm run test:cov
+3. **启动应用**
 
-# 监听模式测试
-$ npm run test:watch
-```
+   ```bash
+   # 开发模式
+   npm run start:dev
 
-## 代码质量
+   # 生产模式
+   npm run start:prod
+   ```
+
+## 开发与测试
+
+### 常用命令
 
 ```bash
 # 代码格式化
-$ npm run format
+npm run format
 
-# 代码检查和修复
-$ npm run lint
+# Lint 检查与修复
+npm run lint
+
+# TypeScript 类型检查
+npm run typecheck
 ```
 
-## API 文档
-
-项目启动后，可以通过以下地址访问：
-
-- **GraphQL Landing Page**: `http://localhost:3000/graphql` (开发环境)
-- **GraphQL Schema**: 自动生成在 `src/schema.graphql`
-
-## 已实现功能
-
-### 平台能力
-
-- ✅ 配置管理：多环境配置支持，类型安全的配置服务
-- ✅ 日志系统：基于 Pino 的高性能日志记录
-- ✅ 数据库集成：TypeORM + MySQL 8.0，支持连接池与事务
-- ✅ GraphQL API：Apollo Server 集成，自动生成 Schema
-- ✅ HTTP 根路径：GET / 返回基础响应
-- ✅ 分页 / 排序 / 搜索：统一解析器与服务，支持安全分页与白名单排序
-- ✅ 安全与鉴权：JWT、角色守卫、字段加密（ Field Encryption ）、统一 GraphQL 错误映射
-
-### 业务模块
-
-- ✅ 账户：按 ID 查询账户信息，密码重置（验证流程消费）
-- ✅ 用户信息：可见性规则查询（基础 / 完整），更新可见字段与访问组
-- ✅ 认证：账号密码登录
-- ✅ 注册：邮箱注册、第三方注册
-- ✅ 第三方账号：第三方登录、绑定 / 解绑、微信小程序二维码生成与手机号获取
-- ✅ 身份管理：Customer / Coach / Manager 的更新、下线、上线、列表与详情
-- ✅ 学员管理：Learner 的创建、更新（Customer / Manager）、删除、列表分页与详情
-- ✅ 验证记录：创建、查找、消费；支持邀请与重置密码等验证流程
-- ✅ 示例模块：Cats 的 GraphQL CRUD（未在主模块注册）
-
-## 开发指南
-
-### 新增模块流程（遵循分层与依赖方向）
-
-- 在 `core` 定义领域模型 / 值对象与端口接口，保持纯函数与零副作用。
-- 在 `infrastructure` 实现端口并对接外部依赖；禁止编排业务规则。
-- 在 `modules (service)` 绑定 DI 并提供同域可复用的读 / 写服务，对上游暴露 DTO / 只读模型。
-- 在 `usecases` 编排跨域读写与事务，写操作（ C / U / D ）一律在此层进行。
-- 在 `adapters` 注册 GraphQL / HTTP 入口，避免副作用注册，统一走 `src/adapters/graphql/schema.init.ts`。
-- 排序与分页：绑定实体专用 `SortResolver` 白名单映射；`CURSOR` 模式优先使用 `PaginationService`；`OFFSET` 模式补稳定副键（如 `id`）。
-- 测试：在 `test/` 增加端到端用例覆盖排序、分页与权限流程。
-
-### 数据库迁移
+### 测试策略
 
 ```bash
-# 生成迁移文件
-npm run typeorm:migration:generate -- -n MigrationName
+# 单元测试 (Unit Test)
+npm run test:unit
 
-# 运行迁移
-npm run typeorm:migration:run
+# 端到端测试 (E2E Test)
+npm run test:e2e
 
-# 回滚迁移
-npm run typeorm:migration:revert
+# 测试覆盖率
+npm run test:cov
 ```
 
-## 部署
+### 开发约定
 
-### 构建项目
+- **写操作 (Command)**: 统一在 `usecases` 层编排，处理事务。
+- **读操作 (Query)**: 优先在 `modules` 层的 Query Service 实现，高性能且无副作用。
+- **外部依赖**: 必须通过 `infrastructure` 实现 `core` 定义的接口，禁止业务层直接依赖 SDK。
+- **GraphQL**: 副作用（如 Dataloader 注册）统一在 `src/adapters/graphql/schema.init.ts` 管理。
 
-```bash
-$ npm run build
-```
+## API 访问
 
-### 生产环境运行
+项目启动后（默认端口 3000）：
 
-```bash
-$ npm run start:prod
-```
+- **Playground**: [http://localhost:3000/graphql](http://localhost:3000/graphql)
+- **Schema File**: `src/schema.graphql` (自动生成)
 
-## 相关资源
+## 贡献指南
 
-- [NestJS 官方文档](https://docs.nestjs.com)
-- [TypeORM 文档](https://typeorm.io)
-- [GraphQL 文档](https://graphql.org/learn/)
-- [Apollo Server 文档](https://www.apollographql.com/docs/apollo-server/)
+欢迎参与项目贡献！请遵循以下步骤：
 
-## 支持
-
-如果您在使用过程中遇到问题，请：
-
-1. 查看 [NestJS 官方文档](https://docs.nestjs.com)
-2. 访问 [NestJS Discord 社区](https://discord.gg/G7Qnnhy)
-3. 提交 Issue 到项目仓库
+1. Fork 本仓库
+2. 创建特性分支 (`git checkout -b feature/AmazingFeature`)
+3. 提交更改 (`git commit -m 'feat: Add some AmazingFeature'`) - 请遵循 Conventional Commits 规范
+4. 推送到分支 (`git push origin feature/AmazingFeature`)
+5. 提交 Pull Request
 
 ## 许可证
 
-本项目采用 MIT 许可证。
+本项目基于 [MIT 许可证](LICENSE) 开源。
+
+## 相关资源
+
+- [NestJS Documentation](https://docs.nestjs.com)
+- [TypeORM Documentation](https://typeorm.io)
+- [Apollo GraphQL](https://www.apollographql.com/docs/apollo-server/)
