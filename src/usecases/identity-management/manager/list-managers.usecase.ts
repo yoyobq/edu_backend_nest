@@ -6,14 +6,14 @@ import {
   type ManagerListItem as ManagerListItemView,
   type ManagerUserInfoView,
 } from '@modules/account/queries/manager.query.service';
+import {
+  AccountQueryService,
+  type VisibleDetailMode,
+} from '@modules/account/queries/account.query.service';
 import { Injectable } from '@nestjs/common';
 import { AccountService } from '@src/modules/account/base/services/account.service';
 import { type UsecaseSession } from '@app-types/auth/session.types';
 import { ManagerSortField, type OrderDirection } from '@app-types/common/sort.types';
-import {
-  GetVisibleUserInfoUsecase,
-  type VisibleDetailMode,
-} from '@src/usecases/account/get-visible-user-info.usecase';
 
 /**
  * 列出 Manager 列表的输入参数
@@ -60,7 +60,7 @@ export class ListManagersUsecase {
   constructor(
     private readonly managerService: ManagerService,
     private readonly accountService: AccountService,
-    private readonly getVisibleUserInfoUsecase: GetVisibleUserInfoUsecase,
+    private readonly accountQueryService: AccountQueryService,
     private readonly managerQueryService: ManagerQueryService,
   ) {}
 
@@ -89,7 +89,7 @@ export class ListManagersUsecase {
         if (view.accountId) {
           const session: UsecaseSession = { accountId: currentAccountId, roles: ['MANAGER'] };
           try {
-            userInfoView = await this.getVisibleUserInfoUsecase.execute({
+            userInfoView = await this.accountQueryService.getVisibleUserInfo({
               session,
               targetAccountId: view.accountId,
               detail,
