@@ -1,5 +1,6 @@
 // src/usecases/verification/bind-weapp.usecase.ts
 
+import { DomainError, VERIFICATION_RECORD_ERROR } from '@core/common/errors/domain-error';
 import { Injectable } from '@nestjs/common';
 import { VerificationFlowResult } from '../types/consume.types';
 
@@ -34,6 +35,9 @@ export class BindWeappUsecase {
    */
   execute(_params: BindWeappUsecaseParams): Promise<VerificationFlowResult> {
     // TODO: 实现微信小程序绑定逻辑
-    throw new Error('微信小程序绑定功能暂未实现');
+    throw new DomainError(
+      VERIFICATION_RECORD_ERROR.OPERATION_NOT_SUPPORTED,
+      '微信小程序绑定功能暂未实现',
+    );
   }
 }

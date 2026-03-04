@@ -1,5 +1,6 @@
 // src/usecases/verification/invite/accept-invite-learner.usecase.ts
 
+import { DomainError, VERIFICATION_RECORD_ERROR } from '@core/common/errors/domain-error';
 import { Injectable } from '@nestjs/common';
 import { VerificationFlowResult } from '../types/consume.types';
 
@@ -34,6 +35,9 @@ export class AcceptInviteLearnerUsecase {
    */
   execute(_params: AcceptInviteLearnerUsecaseParams): Promise<VerificationFlowResult> {
     // TODO: 实现接受学员邀请逻辑
-    throw new Error('接受学员邀请功能暂未实现');
+    throw new DomainError(
+      VERIFICATION_RECORD_ERROR.OPERATION_NOT_SUPPORTED,
+      '接受学员邀请功能暂未实现',
+    );
   }
 }

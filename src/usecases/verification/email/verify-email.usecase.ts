@@ -3,6 +3,7 @@
 // TODO: 临时注释掉整个文件内容以避免 ESLint 错误
 // 这个文件包含邮箱验证的业务逻辑，需要在后续开发中重新实现
 
+import { DomainError, VERIFICATION_RECORD_ERROR } from '@core/common/errors/domain-error';
 import { Injectable } from '@nestjs/common';
 import { VerificationFlowResult } from '../types/consume.types';
 
@@ -32,6 +33,9 @@ export class VerifyEmailUsecase {
    */
   execute(_params: VerifyEmailUsecaseParams): Promise<VerificationFlowResult> {
     // TODO: 实现邮箱验证逻辑
-    throw new Error('邮箱验证功能暂未实现');
+    throw new DomainError(
+      VERIFICATION_RECORD_ERROR.OPERATION_NOT_SUPPORTED,
+      '邮箱验证功能暂未实现',
+    );
   }
 }

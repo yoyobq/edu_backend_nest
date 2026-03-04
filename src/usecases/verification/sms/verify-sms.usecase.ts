@@ -1,5 +1,6 @@
 // src/usecases/verification/verify-sms.usecase.ts
 
+import { DomainError, VERIFICATION_RECORD_ERROR } from '@core/common/errors/domain-error';
 import { Injectable } from '@nestjs/common';
 import { VerificationFlowResult } from '../types/consume.types';
 
@@ -34,6 +35,9 @@ export class VerifySmsUsecase {
    */
   execute(_params: VerifySmsUsecaseParams): Promise<VerificationFlowResult> {
     // TODO: 实现短信验证逻辑
-    throw new Error('短信验证功能暂未实现');
+    throw new DomainError(
+      VERIFICATION_RECORD_ERROR.OPERATION_NOT_SUPPORTED,
+      '短信验证功能暂未实现',
+    );
   }
 }

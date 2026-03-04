@@ -1,5 +1,6 @@
 // src/usecases/verification/magic-link-login.usecase.ts
 
+import { DomainError, VERIFICATION_RECORD_ERROR } from '@core/common/errors/domain-error';
 import { Injectable } from '@nestjs/common';
 import { VerificationFlowResult } from '../types/consume.types';
 
@@ -34,6 +35,9 @@ export class MagicLinkLoginUsecase {
    */
   execute(_params: MagicLinkLoginUsecaseParams): Promise<VerificationFlowResult> {
     // TODO: 实现魔法链接登录逻辑
-    throw new Error('魔法链接登录功能暂未实现');
+    throw new DomainError(
+      VERIFICATION_RECORD_ERROR.OPERATION_NOT_SUPPORTED,
+      '魔法链接登录功能暂未实现',
+    );
   }
 }
