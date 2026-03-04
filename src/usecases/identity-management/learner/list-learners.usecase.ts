@@ -2,7 +2,7 @@
 
 import { IdentityTypeEnum } from '@app-types/models/account.types';
 import { Injectable } from '@nestjs/common';
-import { LearnerSortField, OrderDirection } from '@src/types/common/sort.types';
+import { LearnerSortField, OrderDirection } from '@app-types/common/sort.types';
 import { DomainError, PERMISSION_ERROR } from '../../../core/common/errors/domain-error';
 import { CustomerService } from '../../../modules/account/identities/training/customer/account-customer.service';
 import { LearnerService } from '../../../modules/account/identities/training/learner/account-learner.service';

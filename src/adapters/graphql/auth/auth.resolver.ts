@@ -2,12 +2,19 @@
 
 import { EmploymentStatus, IdentityTypeEnum } from '@app-types/models/account.types';
 import { AuthLoginModel, LoginResultModel, UserInfoView } from '@app-types/models/auth.types';
-import { Gender, GeographicInfo } from '@app-types/models/user-info.types';
+import { GeographicInfo } from '@app-types/models/user-info.types';
 import { parseStaffId } from '@core/account/identity/parse-staff-id';
 import { Args, Mutation, Resolver } from '@nestjs/graphql';
 import { CompleteUserData, FetchUserInfoUsecase } from '@usecases/account/fetch-user-info.usecase';
 import { LoginWithPasswordUsecase } from '@usecases/auth/login-with-password.usecase';
 import { CoachType } from '../account/dto/identity/coach.dto';
+import {
+  CoachIdentityEntity,
+  CustomerIdentityEntity,
+  LearnerIdentityEntity,
+  ManagerIdentityEntity,
+  StaffIdentityEntity,
+} from '../account/dto/identity/identity-entity.types';
 import { CustomerType } from '../account/dto/identity/customer.dto';
 import { IdentityUnionType } from '../account/dto/identity/identity-union.type';
 import { LearnerType } from '../account/dto/identity/learner.dto';
@@ -16,70 +23,6 @@ import { StaffType } from '../account/dto/identity/staff.dto';
 import { LoginResult } from '../account/dto/login-result.dto';
 import { UserInfoDTO } from '../account/dto/user-info.dto';
 import { AuthLoginInput } from './dto/auth-login.input';
-
-type ManagerIdentityEntity = {
-  id: number;
-  accountId: number;
-  name: string;
-  remark: string | null;
-  createdAt: Date;
-  updatedAt: Date;
-  deactivatedAt: Date | null;
-};
-
-type CoachIdentityEntity = {
-  id: number;
-  accountId: number;
-  name: string;
-  remark: string | null;
-  level: number | null;
-  description: string | null;
-  avatarUrl: string | null;
-  specialty: string[] | null;
-  createdAt: Date;
-  updatedAt: Date;
-  deactivatedAt: Date | null;
-};
-
-type StaffIdentityEntity = {
-  id: number | string;
-  accountId: number;
-  name: string;
-  departmentId: number | null;
-  remark: string | null;
-  jobTitle: string | null;
-  employmentStatus: EmploymentStatus;
-  createdAt: Date;
-  updatedAt: Date;
-};
-
-type CustomerIdentityEntity = {
-  id: number;
-  accountId: number;
-  name: string;
-  contactPhone: string | null;
-  preferredContactTime: string | null;
-  remark: string | null;
-  createdAt: Date;
-  updatedAt: Date;
-  deactivatedAt: Date | null;
-};
-
-type LearnerIdentityEntity = {
-  id: number;
-  accountId: number;
-  customerId: number;
-  name: string;
-  gender: Gender;
-  birthDate: string | null;
-  avatarUrl: string | null;
-  specialNeeds: string | null;
-  countPerSession: number | null;
-  remark: string | null;
-  createdAt: Date;
-  updatedAt: Date;
-  deactivatedAt: Date | null;
-};
 
 /**
  * 认证相关的 GraphQL Resolver

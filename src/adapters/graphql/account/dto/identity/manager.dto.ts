@@ -3,7 +3,7 @@
 import { EmploymentStatus } from '@app-types/models/account.types';
 import { UserState } from '@app-types/models/user-info.types';
 import { Field, Int, ObjectType } from '@nestjs/graphql';
-import { LoginHistoryItem } from '../../enums/login-history.types';
+import { LoginHistoryItemGql } from '../../enums/login-history.types';
 
 /**
  * 经理身份信息 DTO
@@ -46,8 +46,8 @@ export class ManagerType {
   @Field(() => Date, { description: '停用时间', nullable: true })
   deactivatedAt!: Date | null;
 
-  @Field(() => [LoginHistoryItem], { description: '最近登录历史（最多 5 条）', nullable: true })
-  loginHistory!: LoginHistoryItem[] | null;
+  @Field(() => [LoginHistoryItemGql], { description: '最近登录历史（最多 5 条）', nullable: true })
+  loginHistory!: LoginHistoryItemGql[] | null;
 }
 
 export type ManagerIdentityGraphType = ManagerType & { managerId: number };

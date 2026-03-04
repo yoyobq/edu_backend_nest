@@ -3,7 +3,7 @@
 import { TokenHelper } from './token.helper';
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { JwtPayload } from '@src/types/jwt.types';
+import { JwtPayload } from '@app-types/jwt.types';
 import { PinoLogger } from 'nestjs-pino';
 
 /**

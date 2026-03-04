@@ -6,7 +6,7 @@ import { canViewUserInfo } from '@core/account/policy/user-info-visibility.polic
 import { DomainError, PERMISSION_ERROR } from '@core/common/errors/domain-error';
 import { Injectable } from '@nestjs/common';
 import { AccountService } from '@src/modules/account/base/services/account.service';
-import { UsecaseSession } from '@src/types/auth/session.types';
+import { UsecaseSession } from '@app-types/auth/session.types';
 import { FetchUserInfoUsecase } from './fetch-user-info.usecase';
 
 export type VisibleDetailMode = 'BASIC' | 'FULL';

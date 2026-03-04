@@ -1,7 +1,7 @@
 // src/adapters/graphql/identity-management/learner/dto/learner.input.list.ts
 
 import { Field, InputType, Int } from '@nestjs/graphql';
-import { LearnerSortField, OrderDirection } from '@src/types/common/sort.types';
+import { LearnerSortField, OrderDirection } from '@app-types/common/sort.types';
 import { IsEnum, IsInt, IsOptional, Max, Min } from 'class-validator';
 
 /**

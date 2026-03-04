@@ -4,8 +4,8 @@ import { UserInfoView } from '@app-types/models/auth.types';
 import { type GeographicInfo } from '@app-types/models/user-info.types';
 import { UseGuards } from '@nestjs/common';
 import { Args, Int, Mutation, Query, Resolver } from '@nestjs/graphql';
-import { mapJwtToUsecaseSession, type UsecaseSession } from '@src/types/auth/session.types';
-import { JwtPayload } from '@src/types/jwt.types';
+import { mapJwtToUsecaseSession, type UsecaseSession } from '@app-types/auth/session.types';
+import { JwtPayload } from '@app-types/jwt.types';
 import { GetVisibleUserInfoUsecase } from '@src/usecases/account/get-visible-user-info.usecase';
 import {
   UpdateAccessGroupUsecase,

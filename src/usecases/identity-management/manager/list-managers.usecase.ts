@@ -8,8 +8,8 @@ import {
 } from '@modules/account/queries/manager.query.service';
 import { Injectable } from '@nestjs/common';
 import { AccountService } from '@src/modules/account/base/services/account.service';
-import { type UsecaseSession } from '@src/types/auth/session.types';
-import { ManagerSortField, type OrderDirection } from '@src/types/common/sort.types';
+import { type UsecaseSession } from '@app-types/auth/session.types';
+import { ManagerSortField, type OrderDirection } from '@app-types/common/sort.types';
 import {
   GetVisibleUserInfoUsecase,
   type VisibleDetailMode,

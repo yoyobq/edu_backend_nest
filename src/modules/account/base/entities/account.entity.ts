@@ -1,4 +1,4 @@
-import { AccountStatus, LoginHistoryItem } from '@app-types/models/account.types';
+import { AccountStatus, LoginHistoryItemModel } from '@app-types/models/account.types';
 import {
   Column,
   CreateDateColumn,
@@ -46,7 +46,7 @@ export class AccountEntity {
   status!: AccountStatus;
 
   @Column({ name: 'recent_login_history', type: 'json', nullable: true, comment: '最近5次登录IP' })
-  recentLoginHistory!: LoginHistoryItem[] | null;
+  recentLoginHistory!: LoginHistoryItemModel[] | null;
 
   @Column({
     name: 'identity_hint',

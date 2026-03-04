@@ -4,7 +4,7 @@ import { EmploymentStatus } from '@app-types/models/account.types';
 import { UserState } from '@app-types/models/user-info.types';
 import { UseGuards } from '@nestjs/common';
 import { Args, Mutation, Query, Resolver } from '@nestjs/graphql';
-import { LoginHistoryItem } from '@src/adapters/graphql/account/enums/login-history.types';
+import { LoginHistoryItemGql } from '@src/adapters/graphql/account/enums/login-history.types';
 import { currentUser } from '@src/adapters/graphql/decorators/current-user.decorator';
 import { JwtAuthGuard } from '@src/adapters/graphql/guards/jwt-auth.guard';
 import { DeactivateCoachUsecase } from '@src/usecases/identity-management/coach/deactivate-coach.usecase';
@@ -116,7 +116,7 @@ export class CoachResolver {
   private mapCoachEntityToType(
     entity: CoachEntityView,
     userState?: UserState | null,
-    loginHistory?: LoginHistoryItem[] | null,
+    loginHistory?: LoginHistoryItemGql[] | null,
     userPhone?: string | null,
   ): CoachType {
     const dto: CoachType = {
@@ -189,7 +189,7 @@ export class CoachResolver {
     return this.mapCoachEntityToType(
       result.view,
       result.userState,
-      result.loginHistory as LoginHistoryItem[] | null,
+      result.loginHistory as LoginHistoryItemGql[] | null,
       result.userPhone,
     );
   }
