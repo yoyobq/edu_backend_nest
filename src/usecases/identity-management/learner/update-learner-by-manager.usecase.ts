@@ -38,6 +38,11 @@ export interface UpdateLearnerByManagerInput {
   readonly deactivate?: boolean;
 }
 
+export interface UpdateLearnerByManagerUsecaseParams {
+  accountId: number;
+  input: UpdateLearnerByManagerInput;
+}
+
 type LearnerUpdatePatch = {
   name?: string;
   gender?: Gender;
@@ -74,11 +79,11 @@ export class UpdateLearnerByManagerUsecase {
 
   /**
    * 执行管理员更新学员信息
-   * @param accountId 当前账户 ID（manager）
-   * @param input 更新参数
+   * @param params 更新参数
    * @returns 更新后的学员信息
    */
-  async execute(accountId: number, input: UpdateLearnerByManagerInput): Promise<LearnerView> {
+  async execute(params: UpdateLearnerByManagerUsecaseParams): Promise<LearnerView> {
+    const { accountId, input } = params;
     const manager = await this.managerService.findByAccountId(accountId);
     if (!manager) throw new DomainError(PERMISSION_ERROR.ACCESS_DENIED, '用户身份验证失败');
 
