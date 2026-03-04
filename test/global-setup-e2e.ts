@@ -79,7 +79,7 @@ function loadE2EEnv(): void {
 
   // 兜底：确保关键变量存在
   if (!process.env.JWT_SECRET) {
-    process.env.JWT_SECRET = 'U5p!rKb6$8+dmXZ3@Fjw7zT#G^Rh4jWt';
+    process.env.JWT_SECRET = 'test-jwt-secret-e2e';
     console.log('🔑 JWT_SECRET 未设置，已使用默认测试值');
   } else {
     console.log('🔑 JWT_SECRET 已设置: ✅');
