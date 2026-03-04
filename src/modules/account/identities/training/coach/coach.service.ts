@@ -291,7 +291,7 @@ export class CoachService {
   async findPaginated(params: {
     readonly page?: number;
     readonly limit?: number;
-    readonly sortBy?: import('@src/types/common/sort.types').CoachSortField;
+    readonly sortBy?: import('@app-types/common/sort.types').CoachSortField;
     readonly sortOrder?: 'ASC' | 'DESC';
     readonly includeDeleted?: boolean;
     readonly query?: string;
@@ -336,7 +336,7 @@ export class CoachService {
   async findPaginatedProfiles(params: {
     readonly page?: number;
     readonly limit?: number;
-    readonly sortBy?: import('@src/types/common/sort.types').CoachSortField;
+    readonly sortBy?: import('@app-types/common/sort.types').CoachSortField;
     readonly sortOrder?: 'ASC' | 'DESC';
     readonly includeDeleted?: boolean;
     readonly query?: string;

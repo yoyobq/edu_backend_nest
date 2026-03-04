@@ -248,7 +248,7 @@ export class CustomerService {
   async findPaginated(params: {
     readonly page?: number;
     readonly limit?: number;
-    readonly sortBy?: import('@src/types/common/sort.types').CustomerSortField;
+    readonly sortBy?: import('@app-types/common/sort.types').CustomerSortField;
     readonly sortOrder?: 'ASC' | 'DESC';
     readonly includeDeleted?: boolean;
     readonly query?: string;

@@ -9,7 +9,7 @@ import { AppModule } from '@src/app.module';
 import { AccountEntity } from '@src/modules/account/base/entities/account.entity';
 import { UserInfoEntity } from '@src/modules/account/base/entities/user-info.entity';
 
-import { IdentityTypeEnum, LoginTypeEnum } from '@src/types/models/account.types';
+import { IdentityTypeEnum, LoginTypeEnum } from '@app-types/models/account.types';
 import { CreateAccountUsecase } from '@src/usecases/account/create-account.usecase';
 // 添加身份实体导入
 import request from 'supertest';
