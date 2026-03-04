@@ -2,9 +2,17 @@ import { Injectable } from '@nestjs/common';
 import * as CryptoJS from 'crypto-js';
 import { ENCRYPTED_FIELDS_METADATA_KEY } from './field-encryption.decorator';
 
+const getRequiredEnv = (key: string): string => {
+  const value = process.env[key];
+  if (!value || value.trim().length === 0) {
+    throw new Error(`${key} is required`);
+  }
+  return value;
+};
+
 const FIELD_ENCRYPTION_CONFIG = {
-  KEY: process.env.FIELD_ENCRYPTION_KEY ?? 'A9c3D7f1H5jL0xZ2',
-  IV: process.env.FIELD_ENCRYPTION_IV ?? 'R3uX6yB9eH2kM5oQ',
+  KEY: getRequiredEnv('FIELD_ENCRYPTION_KEY'),
+  IV: getRequiredEnv('FIELD_ENCRYPTION_IV'),
   META: {
     ALGORITHM: 'AES-128-CBC',
     KEY_LENGTH: 16,

@@ -2,9 +2,17 @@
 
 import { registerAs } from '@nestjs/config';
 
+const getRequiredEnv = (key: string): string => {
+  const value = process.env[key];
+  if (!value || value.trim().length === 0) {
+    throw new Error(`${key} is required`);
+  }
+  return value;
+};
+
 export default registerAs('jwt', () => ({
   // 用于签名 JWT 的密钥（建议走环境变量管理）
-  secret: process.env.JWT_SECRET || 'U5p!rKb6$8+dmXZ3@Fjw7zT#G^Rh4bCn',
+  secret: getRequiredEnv('JWT_SECRET'),
 
   // Access Token 有效期
   expiresIn: process.env.JWT_EXPIRES_IN || '2h',
