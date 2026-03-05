@@ -4,6 +4,7 @@ import { EmploymentStatus, IdentityTypeEnum } from '@app-types/models/account.ty
 import { AuthLoginModel, LoginResultModel, UserInfoView } from '@app-types/models/auth.types';
 import { GeographicInfo } from '@app-types/models/user-info.types';
 import { parseStaffId } from '@core/account/identity/parse-staff-id';
+import { DomainError, PERMISSION_ERROR } from '@core/common/errors/domain-error';
 import { Args, Mutation, Resolver } from '@nestjs/graphql';
 import { CompleteUserData, FetchUserInfoUsecase } from '@usecases/account/fetch-user-info.usecase';
 import { LoginWithPasswordUsecase } from '@usecases/auth/login-with-password.usecase';
@@ -177,7 +178,7 @@ export class AuthResolver {
       case IdentityTypeEnum.LEARNER:
         return this.mapLearnerIdentity(identity as LearnerIdentityEntity);
       default:
-        throw new Error(`不支持的身份类型: ${role}`);
+        throw new DomainError(PERMISSION_ERROR.ACCESS_DENIED, `不支持的身份类型: ${role}`);
     }
   }
 
