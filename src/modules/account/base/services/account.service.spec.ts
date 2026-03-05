@@ -1,4 +1,3 @@
-/* eslint-disable max-lines-per-function */
 // src/modules/account/base/services/account.service.spec.ts
 
 import { DomainError } from '@core/common/errors/domain-error';

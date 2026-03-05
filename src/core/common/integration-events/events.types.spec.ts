@@ -1,4 +1,3 @@
-/* eslint-disable max-lines-per-function */
 // src/core/common/integration-events/events.types.spec.ts
 import { buildEnvelope, makeEnvelope, type DedupKey, type ISO8601String } from './events.types';
 

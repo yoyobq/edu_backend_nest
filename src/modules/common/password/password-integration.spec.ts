@@ -1,4 +1,3 @@
-/* eslint-disable max-lines-per-function */
 // src/modules/common/password/password-integration.spec.ts
 import { AccountService } from '@modules/account/base/services/account.service';
 import { LegacyPasswordCryptoHelper } from '@modules/common/password/legacy-password-crypto.helper';
