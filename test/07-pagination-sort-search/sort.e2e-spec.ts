@@ -2,8 +2,8 @@
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { AppConfigModule } from '@src/core/config/config.module';
-import { DatabaseModule } from '@src/core/database/database.module';
+import { AppConfigModule } from '@src/infrastructure/config/config.module';
+import { DatabaseModule } from '@src/infrastructure/database/database.module';
 import { TypeOrmSort } from '@src/infrastructure/typeorm/sort/typeorm-sort';
 import { LearnerEntity } from '@src/modules/account/identities/training/learner/account-learner.entity';
 import { CustomerEntity } from '@src/modules/account/identities/training/customer/account-customer.entity';

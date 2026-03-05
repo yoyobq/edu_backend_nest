@@ -11,7 +11,7 @@ import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { initGraphQLSchema } from '@src/adapters/graphql/schema/schema.init';
 import { AppModule } from '@src/app.module';
-import { TokenHelper } from '@src/core/common/token/token.helper';
+import { TokenHelper } from '@modules/auth/token.helper';
 import { CustomerEntity } from '@src/modules/account/identities/training/customer/account-customer.entity';
 import { CreateAccountUsecase } from '@usecases/account/create-account.usecase';
 import request from 'supertest';
