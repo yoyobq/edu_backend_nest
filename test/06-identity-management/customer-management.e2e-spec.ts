@@ -120,7 +120,7 @@ describe('Customer Management (e2e)', () => {
   };
 
   describe('更新客户信息', () => {
-    it('初始会员等级应为数值 ID（客户查看）', async () => {
+    it('初始 contactPhone / remark / preferredContactTime 应为可空（客户查看）', async () => {
       const response = await request(app.getHttpServer())
         .post('/graphql')
         .set('Authorization', `Bearer ${customerAccessToken}`)
@@ -128,7 +128,7 @@ describe('Customer Management (e2e)', () => {
           query: `
             mutation UpdateCustomer($input: UpdateCustomerInput!) {
               updateCustomer(input: $input) {
-                customer { id membershipLevel }
+                customer { id contactPhone remark preferredContactTime }
               }
             }
           `,
@@ -141,8 +141,12 @@ describe('Customer Management (e2e)', () => {
 
       const customer = response.body.data.updateCustomer.customer;
       expect(customer.id).toBeDefined();
+      expect(customer.contactPhone === null || typeof customer.contactPhone === 'string').toBe(
+        true,
+      );
+      expect(customer.remark === null || typeof customer.remark === 'string').toBe(true);
       expect(
-        customer.membershipLevel === null || typeof customer.membershipLevel === 'number',
+        customer.preferredContactTime === null || typeof customer.preferredContactTime === 'string',
       ).toBe(true);
     });
     it('客户用户应该可以更新 name / phone / time / remark', async () => {
@@ -153,7 +157,7 @@ describe('Customer Management (e2e)', () => {
           query: `
             mutation UpdateCustomer($input: UpdateCustomerInput!) {
               updateCustomer(input: $input) {
-                customer { id name contactPhone preferredContactTime remark membershipLevel }
+                customer { id name contactPhone preferredContactTime remark }
               }
             }
           `,
@@ -177,13 +181,9 @@ describe('Customer Management (e2e)', () => {
       expect(customer.contactPhone).toBe('1234567890');
       expect(customer.preferredContactTime).toBe('周一 9:00-12:00');
       expect(customer.remark).toBe('E2E 客户自更新');
-      // 客户身份无权更新 membershipLevel，类型为数值或 null
-      expect(
-        customer.membershipLevel === null || typeof customer.membershipLevel === 'number',
-      ).toBe(true);
     });
 
-    it('管理员应该可以更新指定客户的 membershipLevel（数值 ID）', async () => {
+    it('管理员应该可以更新指定客户的 contactPhone / remark', async () => {
       const response = await request(app.getHttpServer())
         .post('/graphql')
         .set('Authorization', `Bearer ${managerAccessToken}`)
@@ -191,15 +191,15 @@ describe('Customer Management (e2e)', () => {
           query: `
             mutation UpdateCustomer($input: UpdateCustomerInput!) {
               updateCustomer(input: $input) {
-                customer { id membershipLevel remark }
+                customer { id contactPhone remark }
               }
             }
           `,
           variables: {
             input: {
               customerId,
-              membershipLevel: 2,
-              remark: 'E2E 管理员更新会员等级',
+              contactPhone: '13800138001',
+              remark: 'E2E 管理员更新备注',
             },
           },
         })
@@ -210,14 +210,12 @@ describe('Customer Management (e2e)', () => {
 
       const customer = response.body.data.updateCustomer.customer;
       expect(customer.id).toBe(customerId);
-      // GraphQL CustomerType membershipLevel 为数值或 null
-      expect(
-        customer.membershipLevel === null || typeof customer.membershipLevel === 'number',
-      ).toBe(true);
-      expect(customer.remark).toBe('E2E 管理员更新会员等级');
+      expect(customer.contactPhone).toBe('13800138001');
+      expect(customer.remark).toBe('E2E 管理员更新备注');
     });
 
-    it('管理员传入非法会员等级 ID 应报错', async () => {
+    it('管理员传入超长 contactPhone 应报错', async () => {
+      const longPhone = '1'.repeat(25);
       const response = await request(app.getHttpServer())
         .post('/graphql')
         .set('Authorization', `Bearer ${managerAccessToken}`)
@@ -225,14 +223,14 @@ describe('Customer Management (e2e)', () => {
           query: `
             mutation UpdateCustomer($input: UpdateCustomerInput!) {
               updateCustomer(input: $input) {
-                customer { id membershipLevel }
+                customer { id contactPhone }
               }
             }
           `,
           variables: {
             input: {
               customerId,
-              membershipLevel: 0,
+              contactPhone: longPhone,
             },
           },
         })
@@ -240,10 +238,11 @@ describe('Customer Management (e2e)', () => {
 
       expect(response.body.errors).toBeDefined();
       const msg = response.body.errors?.[0]?.message ?? '';
-      expect(msg).toMatch(/会员等级 ID 非法|非法/);
+      expect(msg).toMatch(/联系电话长度不能超过 20/);
     });
 
-    it('客户尝试更新 membershipLevel 应该报错（GraphQL 错误）', async () => {
+    it('客户输入超长 preferredContactTime 应触发 DTO 验证错误', async () => {
+      const longTime = 'T'.repeat(60);
       const response = await request(app.getHttpServer())
         .post('/graphql')
         .set('Authorization', `Bearer ${customerAccessToken}`)
@@ -251,22 +250,21 @@ describe('Customer Management (e2e)', () => {
           query: `
             mutation UpdateCustomer($input: UpdateCustomerInput!) {
               updateCustomer(input: $input) {
-                customer { id membershipLevel }
+                customer { id preferredContactTime }
               }
             }
           `,
           variables: {
             input: {
-              membershipLevel: 3,
+              preferredContactTime: longTime,
             },
           },
         })
         .expect(200);
 
-      // 应返回 GraphQL 错误（DomainError 映射）
       expect(response.body.errors).toBeDefined();
       const message = response.body.errors?.[0]?.message ?? '';
-      expect(message).toMatch(/客户无权修改会员等级|权限|无权/);
+      expect(message).toMatch(/偏好联系时间长度不能超过 50/);
     });
 
     it('客户输入超长姓名应触发 DTO 验证错误', async () => {
@@ -291,7 +289,7 @@ describe('Customer Management (e2e)', () => {
       expect(msg).toMatch(/客户姓名长度不能超过 64/);
     });
 
-    it('管理员未提供 customerId 更新 membershipLevel 应该报错', async () => {
+    it('管理员未提供 customerId 更新 remark 应该报错', async () => {
       const response = await request(app.getHttpServer())
         .post('/graphql')
         .set('Authorization', `Bearer ${managerAccessToken}`)
@@ -299,13 +297,13 @@ describe('Customer Management (e2e)', () => {
           query: `
             mutation UpdateCustomer($input: UpdateCustomerInput!) {
               updateCustomer(input: $input) {
-                customer { id membershipLevel }
+                customer { id remark }
               }
             }
           `,
           variables: {
             input: {
-              membershipLevel: 2,
+              remark: 'E2E 备注',
             },
           },
         })
@@ -324,14 +322,14 @@ describe('Customer Management (e2e)', () => {
           query: `
             mutation UpdateCustomer($input: UpdateCustomerInput!) {
               updateCustomer(input: $input) {
-                customer { id membershipLevel }
+                customer { id remark }
               }
             }
           `,
           variables: {
             input: {
               customerId: 999999,
-              membershipLevel: 2,
+              remark: 'E2E 备注',
             },
           },
         })
@@ -373,7 +371,7 @@ describe('Customer Management (e2e)', () => {
       const query = `
         query ListCustomers($input: ListCustomersInput!) {
           customers(input: $input) {
-            customers { id accountId name membershipLevel phone createdAt updatedAt }
+            customers { id accountId name phone createdAt updatedAt }
             pagination { page limit total totalPages hasNext hasPrev }
           }
         }
@@ -399,7 +397,7 @@ describe('Customer Management (e2e)', () => {
       const query = `
         query ListCustomers($input: ListCustomersInput!) {
           customers(input: $input) {
-            customers { id accountId name membershipLevel phone createdAt updatedAt }
+            customers { id accountId name phone createdAt updatedAt }
             pagination { page limit total totalPages hasNext hasPrev }
           }
         }
@@ -763,29 +761,27 @@ describe('Customer Management (e2e)', () => {
       expect(uiPhoneList.length).toBeGreaterThan(0);
     });
 
-    it('管理员支持 filters 精确过滤（membershipLevel / userState / contactPhone）', async () => {
+    it('管理员支持 filters 精确过滤（name / userState / contactPhone）', async () => {
       const queryGql = `
         query ListCustomers($input: ListCustomersInput!) {
           customers(input: $input) {
-            customers { id name membershipLevel contactPhone phone }
+            customers { id name contactPhone phone }
             pagination { page limit total totalPages }
           }
         }
       `;
 
-      const byLevel = await request(app.getHttpServer())
+      const byName = await request(app.getHttpServer())
         .post('/graphql')
         .set('Authorization', `Bearer ${managerAccessToken}`)
         .send({
           query: queryGql,
-          variables: { input: { page: 1, limit: 10, membershipLevel: 1 } },
+          variables: { input: { page: 1, limit: 10, name: 'testcustomer' } },
         })
         .expect(200);
-      expect(byLevel.body.errors).toBeUndefined();
-      const lvList = byLevel.body.data.customers.customers as Array<{
-        membershipLevel: number | null;
-      }>;
-      expect(Array.isArray(lvList)).toBe(true);
+      expect(byName.body.errors).toBeUndefined();
+      const nameList = byName.body.data.customers.customers as Array<{ id: number }>;
+      expect(Array.isArray(nameList)).toBe(true);
 
       const byState = await request(app.getHttpServer())
         .post('/graphql')
@@ -842,7 +838,7 @@ describe('Customer Management (e2e)', () => {
       const query = `
         query GetCustomer($input: GetCustomerInput!) {
           customer(input: $input) {
-            id accountId name contactPhone phone membershipLevel createdAt updatedAt deactivatedAt
+            id accountId name contactPhone phone createdAt updatedAt deactivatedAt
           }
         }
       `;
@@ -856,7 +852,7 @@ describe('Customer Management (e2e)', () => {
       expect(res.body.errors).toBeUndefined();
       const cust = res.body.data.customer;
       expect(cust.id).toBe(customerId);
-      expect(cust.membershipLevel === null || typeof cust.membershipLevel === 'number').toBe(true);
+      expect(cust.contactPhone === null || typeof cust.contactPhone === 'string').toBe(true);
     });
   });
 

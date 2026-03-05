@@ -6,7 +6,7 @@ import { App } from 'supertest/types';
 import { DataSource } from 'typeorm';
 import { postGql as postGqlUtils } from '../utils/e2e-graphql-utils';
 
-import { TokenHelper } from '@core/common/token/token.helper';
+import { TokenHelper } from '@modules/auth/token.helper';
 import { AppModule } from '@src/app.module';
 import { CoachEntity } from '@src/modules/account/identities/training/coach/account-coach.entity';
 import { LearnerEntity } from '@src/modules/account/identities/training/learner/account-learner.entity';
