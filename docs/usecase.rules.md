@@ -39,14 +39,16 @@
 
 - 纯读放在 modules(service) 的读服务，便于复用。
 - modules(service) 可提供基础写方法，但不得包含完整写语义或流程编排。
-- 跨域读取或跨模块读取提升为 Usecase，读实现仍在 QueryService 内。
+- 跨域读：只能由上层 Usecase 发起，通过被读域的 QueryService 获取。
+- 跨域写：只能通过事件 / outbox 或显式编排。
 - 写后读优先走 QueryService，输出统一的 View / DTO。
 - 若写后读属于同域且读逻辑稳定，可复用 modules(service) 的只读方法，但输出仍以 View / DTO 为准。
 
 ## 错误与权限
 
-- 业务错误统一使用 domain-error 中的 error_code。
-- Usecase 内完成权限组合判断，读侧细粒度权限与输出裁剪由 QueryService 负责。
+- 业务错误统一使用 domain-error 中的 error_code
+- 写用例的流程级授权由 Usecase 负责，QueryService 不参与写侧决策
+- 细粒度授权可抽为同域 PermissionPolicy / AccessPolicy（纯函数或 service），供 Usecase 与 QueryService 复用，但二者互不调用
 
 ## 事务与外部系统
 

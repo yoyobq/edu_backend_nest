@@ -292,7 +292,7 @@ export class EnrichLoginWithIdentityUsecase implements IEnrichLoginWithIdentityU
 
   /**
    * 记录装配完成日志
-   * @param accountId 账户ID
+   * @param accountId 账户 ID
    * @param finalRole 最终角色
    * @param identity 身份信息
    * @param warnings 警告列表
