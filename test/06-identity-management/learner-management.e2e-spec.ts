@@ -13,12 +13,8 @@ import { ManagerEntity } from '@src/modules/account/identities/training/manager/
 import { CreateAccountUsecase } from '@usecases/account/create-account.usecase';
 import { LearnerOutput } from '../../src/adapters/graphql/identity-management/learner/dto/learner.arg';
 import { initGraphQLSchema } from '../../src/adapters/graphql/schema/schema.init';
-import {
-  AccountStatus,
-  IdentityTypeEnum,
-  LoginTypeEnum,
-} from '../../src/types/models/account.types';
-import { Gender, UserState } from '../../src/types/models/user-info.types';
+import { AccountStatus, IdentityTypeEnum, LoginTypeEnum } from '@app-types/models/account.types';
+import { Gender, UserState } from '@app-types/models/user-info.types';
 
 type ApiLearner = Pick<LearnerOutput, 'id' | 'name' | 'customerId' | 'remark'>;
 

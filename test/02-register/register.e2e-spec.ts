@@ -9,8 +9,8 @@ import { AppModule } from '../../src/app.module';
 import { FieldEncryptionService } from '../../src/infrastructure/field-encryption/field-encryption.service';
 import { AccountEntity } from '../../src/modules/account/base/entities/account.entity';
 import { UserInfoEntity } from '../../src/modules/account/base/entities/user-info.entity';
-import { AccountStatus } from '../../src/types/models/account.types';
-import { RegisterTypeEnum } from '../../src/types/services/register.types';
+import { AccountStatus } from '@app-types/models/account.types';
+import { RegisterTypeEnum } from '@app-types/services/register.types';
 import { initGraphQLSchema } from '../../src/adapters/graphql/schema/schema.init';
 
 /**

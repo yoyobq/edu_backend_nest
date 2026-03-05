@@ -1,4 +1,3 @@
-/* eslint-disable max-lines-per-function */
 // src/core/common/password/password-policy.service.spec.ts
 
 import { PasswordPolicyService } from './password-policy.service';
