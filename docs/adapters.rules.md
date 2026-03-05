@@ -58,5 +58,5 @@
 - currentUser 统一从 GraphQL context 注入，避免 resolver 内重复解析。
 - 入参标准化用 class-transformer 与 class-validator 统一完成。
 - 入参适配为用例需要的参数，适配层不做业务规则判断。
-- 输出 DTO 映射必须在 Adapter 层完成，可放在 resolver 私有方法或独立 mapper。
+- Adapter 负责最终协议输出形态的映射（GraphQL ObjectType / HTTP Response shape），仅做 View / ReadModel 到 DTO 的薄映射或字段直通。
 - 认证错误统一走错误映射与错误码。
