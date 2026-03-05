@@ -14,19 +14,27 @@ const getRequiredEnv = (key: string): string => {
 /**
  * 生成 GraphQL 配置
  */
-const graphqlConfig = () => ({
-  graphql: {
-    schemaDestination: 'src/schema.graphql',
-    introspection: true,
-    playground: false,
-    sortSchema: true,
-    subscriptions: {
-      // graphql-ws 是 Apollo 要求的关键字，不能改名
-      // eslint-disable-next-line @typescript-eslint/naming-convention
-      'graphql-ws': true,
+const graphqlConfig = () => {
+  const isProduction = process.env.NODE_ENV === 'production';
+  const sandboxEnabled =
+    process.env.GRAPHQL_SANDBOX_ENABLED !== undefined
+      ? process.env.GRAPHQL_SANDBOX_ENABLED === 'true'
+      : !isProduction;
+
+  return {
+    graphql: {
+      schemaDestination: 'src/schema.graphql',
+      introspection: true,
+      playground: sandboxEnabled,
+      sortSchema: true,
+      subscriptions: {
+        // graphql-ws 是 Apollo 要求的关键字，不能改名
+        // eslint-disable-next-line @typescript-eslint/naming-convention
+        'graphql-ws': true,
+      },
     },
-  },
-});
+  };
+};
 
 /**
  * 生成 Server 配置

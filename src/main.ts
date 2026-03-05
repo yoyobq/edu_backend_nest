@@ -5,6 +5,7 @@ import { NestFactory } from '@nestjs/core';
 import { useContainer } from 'class-validator';
 import type { Express } from 'express';
 import { Logger } from 'nestjs-pino';
+import { initGraphQLSchema } from './adapters/graphql/schema/schema.init';
 import { AppModule } from './app.module';
 
 /**
@@ -12,6 +13,7 @@ import { AppModule } from './app.module';
  * 使用 NestJS ConfigService 获取配置信息
  */
 async function bootstrap() {
+  initGraphQLSchema();
   const app = await NestFactory.create(AppModule);
 
   // 隐匿技术栈：移除 Express 默认的 X-Powered-By 响应头

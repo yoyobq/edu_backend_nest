@@ -1,48 +1,51 @@
 import { Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import * as CryptoJS from 'crypto-js';
 import { ENCRYPTED_FIELDS_METADATA_KEY } from './field-encryption.decorator';
 
-const getRequiredEnv = (key: string): string => {
-  const value = process.env[key];
+const getRequiredConfig = (config: ConfigService, key: string): string => {
+  const value = config.get<string>(key);
   if (!value || value.trim().length === 0) {
     throw new Error(`${key} is required`);
   }
   return value;
 };
 
-const FIELD_ENCRYPTION_CONFIG = {
-  KEY: getRequiredEnv('FIELD_ENCRYPTION_KEY'),
-  IV: getRequiredEnv('FIELD_ENCRYPTION_IV'),
-  META: {
-    ALGORITHM: 'AES-128-CBC',
-    KEY_LENGTH: 16,
-    IV_LENGTH: 16,
-  } as const,
-};
+const FIELD_ENCRYPTION_META = {
+  KEY_LENGTH: 16,
+  IV_LENGTH: 16,
+} as const;
 
 @Injectable()
 export class FieldEncryptionService {
-  private readonly KEY = CryptoJS.lib.WordArray.create(
-    CryptoJS.enc.Utf8.parse(FIELD_ENCRYPTION_CONFIG.KEY).words,
-    FIELD_ENCRYPTION_CONFIG.META.KEY_LENGTH,
-  );
+  private readonly key: CryptoJS.lib.WordArray;
+  private readonly iv: CryptoJS.lib.WordArray;
 
-  private readonly IV = CryptoJS.lib.WordArray.create(
-    CryptoJS.enc.Utf8.parse(FIELD_ENCRYPTION_CONFIG.IV).words,
-    FIELD_ENCRYPTION_CONFIG.META.IV_LENGTH,
-  );
+  constructor(private readonly configService: ConfigService) {
+    const key = getRequiredConfig(this.configService, 'FIELD_ENCRYPTION_KEY');
+    const iv = getRequiredConfig(this.configService, 'FIELD_ENCRYPTION_IV');
+
+    this.key = CryptoJS.lib.WordArray.create(
+      CryptoJS.enc.Utf8.parse(key).words,
+      FIELD_ENCRYPTION_META.KEY_LENGTH,
+    );
+    this.iv = CryptoJS.lib.WordArray.create(
+      CryptoJS.enc.Utf8.parse(iv).words,
+      FIELD_ENCRYPTION_META.IV_LENGTH,
+    );
+  }
 
   encrypt(plain: string): string {
-    return CryptoJS.AES.encrypt(plain, this.KEY, {
-      iv: this.IV,
+    return CryptoJS.AES.encrypt(plain, this.key, {
+      iv: this.iv,
       mode: CryptoJS.mode.CBC,
       padding: CryptoJS.pad.Pkcs7,
     }).toString();
   }
 
   decrypt(cipher: string): string {
-    return CryptoJS.AES.decrypt(cipher, this.KEY, {
-      iv: this.IV,
+    return CryptoJS.AES.decrypt(cipher, this.key, {
+      iv: this.iv,
       mode: CryptoJS.mode.CBC,
       padding: CryptoJS.pad.Pkcs7,
     }).toString(CryptoJS.enc.Utf8);
