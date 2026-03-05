@@ -2,8 +2,10 @@
 
 import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { JwtModule } from '@nestjs/jwt';
+import { JwtModule, JwtModuleOptions } from '@nestjs/jwt';
 import { Algorithm } from 'jsonwebtoken';
+
+type JwtExpiresIn = NonNullable<JwtModuleOptions['signOptions']>['expiresIn'];
 
 /**
  * JWT 核心模块
@@ -16,7 +18,7 @@ import { Algorithm } from 'jsonwebtoken';
       useFactory: (config: ConfigService) => ({
         secret: config.get<string>('jwt.secret'),
         signOptions: {
-          expiresIn: config.get<string>('jwt.expiresIn'),
+          expiresIn: config.get<string>('jwt.expiresIn') as JwtExpiresIn,
           algorithm: config.get<string>('jwt.algorithm') as Algorithm,
           issuer: config.get<string>('jwt.issuer'),
           audience: config.get<string>('jwt.audience'),

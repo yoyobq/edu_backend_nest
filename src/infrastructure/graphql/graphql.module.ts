@@ -1,28 +1,35 @@
 // src/infrastructure/graphql/graphql.module.ts
 
+import { ApolloServerPluginLandingPageDisabled } from '@apollo/server/plugin/disabled';
 import { ApolloServerPluginLandingPageLocalDefault } from '@apollo/server/plugin/landingPage/default';
 import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo';
 import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { GraphQLModule } from '@nestjs/graphql';
-import { PinoLogger } from 'nestjs-pino';
 import type { Request } from 'express';
+import { PinoLogger } from 'nestjs-pino';
 
 /**
  * GraphQL 配置工厂函数
  * @param config 配置服务实例
  * @returns Apollo GraphQL 配置选项
  */
-const createGraphQLConfig = (config: ConfigService): ApolloDriverConfig => ({
-  autoSchemaFile: config.get<string>('graphql.schemaDestination'),
-  introspection: config.get<boolean>('graphql.introspection'),
-  playground: config.get<boolean>('graphql.playground'),
-  sortSchema: config.get<boolean>('graphql.sortSchema'),
-  subscriptions: config.get('graphql.subscriptions'),
-  plugins: [ApolloServerPluginLandingPageLocalDefault()],
-  // 将原始请求对象注入到 GraphQL 上下文，供 JwtAuthGuard 与 RolesGuard 读取 Authorization 头
-  context: ({ req }: { req: Request }) => ({ req }),
-});
+const createGraphQLConfig = (config: ConfigService): ApolloDriverConfig => {
+  const enableSandbox = config.get<boolean>('graphql.playground', false);
+
+  return {
+    autoSchemaFile: config.get<string>('graphql.schemaDestination'),
+    introspection: config.get<boolean>('graphql.introspection'),
+    playground: false,
+    sortSchema: config.get<boolean>('graphql.sortSchema'),
+    subscriptions: config.get('graphql.subscriptions'),
+    plugins: enableSandbox
+      ? [ApolloServerPluginLandingPageLocalDefault({ embed: true })]
+      : [ApolloServerPluginLandingPageDisabled()],
+    // 将原始请求对象注入到 GraphQL 上下文，供 JwtAuthGuard 与 RolesGuard 读取 Authorization 头
+    context: ({ req }: { req: Request }) => ({ req }),
+  };
+};
 
 /**
  * GraphQL 模块

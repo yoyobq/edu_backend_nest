@@ -102,14 +102,12 @@ export class CustomerResolver {
         contactPhone: input.contactPhone ?? undefined,
       },
     });
-    const customers = await Promise.all(
-      result.items.map((item) =>
-        this.mapCustomerEntityToType(
-          item.customer,
-          item.userState,
-          item.loginHistory,
-          item.userPhone,
-        ),
+    const customers = result.items.map((item) =>
+      this.mapCustomerEntityToType(
+        item.customer,
+        item.userState,
+        item.loginHistory,
+        item.userPhone,
       ),
     );
     return {

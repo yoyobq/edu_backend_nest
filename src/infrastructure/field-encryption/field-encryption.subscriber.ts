@@ -5,7 +5,7 @@ import { FieldEncryptionService } from './field-encryption.service';
 @Injectable()
 @EventSubscriber()
 export class FieldEncryptionSubscriber implements EntitySubscriberInterface<unknown> {
-  private readonly crypto = new FieldEncryptionService();
+  constructor(private readonly crypto: FieldEncryptionService) {}
 
   beforeInsert(event: InsertEvent<unknown>): void {
     if (event.entity) this.crypto.encryptEntity(event.entity);
