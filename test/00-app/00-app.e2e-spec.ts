@@ -4,7 +4,7 @@ import request from 'supertest';
 import { App } from 'supertest/types';
 import { DataSource } from 'typeorm';
 import { initGraphQLSchema } from '../../src/adapters/api/graphql/schema/schema.init';
-import { AppModule } from '../../src/app.module';
+import { ApiModule } from '../../src/bootstraps/api/api.module';
 
 describe('00-App 全局测试', () => {
   let app: INestApplication<App>;
@@ -14,7 +14,7 @@ describe('00-App 全局测试', () => {
     initGraphQLSchema();
 
     const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
+      imports: [ApiModule],
     }).compile();
 
     app = moduleFixture.createNestApplication();

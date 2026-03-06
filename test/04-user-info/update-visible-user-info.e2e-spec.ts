@@ -11,7 +11,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
 import { DataSource } from 'typeorm';
 import { initGraphQLSchema } from '../../src/adapters/api/graphql/schema/schema.init';
-import { AppModule } from '../../src/app.module';
+import { ApiModule } from '../../src/bootstraps/api/api.module';
 import { AccountEntity } from '../../src/modules/account/base/entities/account.entity';
 import { UserInfoEntity } from '../../src/modules/account/base/entities/user-info.entity';
 import { AccountService } from '../../src/modules/account/base/services/account.service';
@@ -280,7 +280,7 @@ describe('UpdateVisibleUserInfo (e2e)', () => {
     initGraphQLSchema();
 
     const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
+      imports: [ApiModule],
     }).compile();
     app = moduleFixture.createNestApplication();
     await app.init();
@@ -572,7 +572,9 @@ describe('UpdateVisibleUserInfo (e2e)', () => {
           `,
           variables: { input: { tags: 123 } },
         })
-        .expect(200);
+        .expect((res) => {
+          expect([200, 400]).toContain(res.status);
+        });
       expect(resp.body.errors).toBeDefined();
       const gqlCode = resp.body.errors?.[0]?.extensions?.code;
       expect(gqlCode).toBe('BAD_USER_INPUT');

@@ -18,7 +18,7 @@
 - ORM Entity 仅在 modules(service) 内部使用，上游不得直接暴露
 - 适配层不得返回 ORM Entity 或 QueryBuilder
 - Usecase 模块必须显式 imports 其依赖的 modules(service) 或 usecases 模块
-- 禁止依赖 AppModule 的隐式可见性或适配层转发
+- 禁止依赖 ApiModule 或 WorkerModule 的隐式可见性或适配层转发
 
 ## Usecase 依赖细则
 

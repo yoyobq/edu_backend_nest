@@ -7,7 +7,7 @@ import { DataSource } from 'typeorm';
 import { postGql as postGqlUtils } from '../utils/e2e-graphql-utils';
 
 import { TokenHelper } from '@modules/auth/token.helper';
-import { AppModule } from '@src/app.module';
+import { ApiModule } from '@src/bootstraps/api/api.module';
 import { CoachEntity } from '@src/modules/account/identities/training/coach/account-coach.entity';
 import { LearnerEntity } from '@src/modules/account/identities/training/learner/account-learner.entity';
 import { ManagerEntity } from '@src/modules/account/identities/training/manager/account-manager.entity';
@@ -216,7 +216,7 @@ describe('05-VerificationRecord 邀请与 WeApp 二维码 E2E', () => {
     };
 
     const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
+      imports: [ApiModule],
     })
       .overrideProvider(WeAppProvider)
       .useValue(mockWeAppProvider)

@@ -14,7 +14,7 @@ import { DataSource } from 'typeorm';
 
 import { UserState } from '@app-types/models/user-info.types';
 import { initGraphQLSchema } from '@src/adapters/api/graphql/schema/schema.init';
-import { AppModule } from '@src/app.module';
+import { ApiModule } from '@src/bootstraps/api/api.module';
 import { CreateAccountUsecase } from '@src/usecases/account/create-account.usecase';
 import { cleanupTestAccounts, seedTestAccounts, testAccountsConfig } from '../utils/test-accounts';
 
@@ -35,7 +35,7 @@ describe('Auth Identity (e2e)', () => {
     initGraphQLSchema();
 
     const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
+      imports: [ApiModule],
     }).compile();
 
     app = moduleFixture.createNestApplication();

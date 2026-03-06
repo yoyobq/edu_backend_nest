@@ -6,7 +6,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
 import { Brackets, DataSource } from 'typeorm';
 import { initGraphQLSchema } from '../../src/adapters/api/graphql/schema/schema.init';
-import { AppModule } from '../../src/app.module';
+import { ApiModule } from '../../src/bootstraps/api/api.module';
 import { UserInfoEntity } from '../../src/modules/account/base/entities/user-info.entity';
 import { cleanupTestAccounts, seedTestAccounts, testAccountsConfig } from '../utils/test-accounts';
 
@@ -27,7 +27,7 @@ describe('Customer Management (e2e)', () => {
     initGraphQLSchema();
 
     const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
+      imports: [ApiModule],
     }).compile();
 
     app = moduleFixture.createNestApplication();
