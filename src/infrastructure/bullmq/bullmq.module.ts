@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { BullModule } from '@nestjs/bullmq';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import type { RedisOptions } from 'ioredis';
+import { BULLMQ_QUEUES } from './bullmq.constants';
 
 const buildRedisOptions = (configService: ConfigService): RedisOptions => {
   const host = configService.get<string>('redis.host', '127.0.0.1');
@@ -37,6 +38,7 @@ const buildRedisOptions = (configService: ConfigService): RedisOptions => {
         };
       },
     }),
+    BullModule.registerQueue({ name: BULLMQ_QUEUES.INTEGRATION_EVENTS }),
   ],
   exports: [BullModule],
 })
