@@ -5,7 +5,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { Roles } from '@src/adapters/api/graphql/decorators/roles.decorator';
 import { JwtAuthGuard } from '@src/adapters/api/graphql/guards/jwt-auth.guard';
 import { RolesGuard } from '@src/adapters/api/graphql/guards/roles.guard';
-import { AppModule } from '@src/app.module';
+import { ApiModule } from '@src/bootstraps/api/api.module';
 import { AccountEntity } from '@src/modules/account/base/entities/account.entity';
 import { UserInfoEntity } from '@src/modules/account/base/entities/user-info.entity';
 
@@ -116,7 +116,7 @@ describe('RolesGuard (e2e)', () => {
     initGraphQLSchema();
 
     const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
+      imports: [ApiModule],
       // 直接注册测试用 Resolver，确保 GraphQL 能发现查询字段
       providers: [TestRolesResolver],
     }).compile();

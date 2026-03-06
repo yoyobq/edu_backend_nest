@@ -4,7 +4,7 @@ import type { ICursorSigner } from '@core/pagination/pagination.ports';
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { initGraphQLSchema } from '@src/adapters/api/graphql/schema/schema.init';
-import { AppModule } from '@src/app.module';
+import { ApiModule } from '@src/bootstraps/api/api.module';
 import { LearnerEntity } from '@src/modules/account/identities/training/learner/account-learner.entity';
 import { LearnerService } from '@src/modules/account/identities/training/learner/account-learner.service';
 import { PAGINATION_TOKENS } from '@src/modules/common/tokens/pagination.tokens';
@@ -30,7 +30,7 @@ describe('Learners Pagination (e2e)', () => {
     initGraphQLSchema();
 
     const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
+      imports: [ApiModule],
     }).compile();
 
     app = moduleFixture.createNestApplication();

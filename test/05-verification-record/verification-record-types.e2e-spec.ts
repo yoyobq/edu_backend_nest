@@ -7,7 +7,7 @@ import { postGql as postGqlUtils } from '../utils/e2e-graphql-utils';
 import { DataSource, IsNull, Not } from 'typeorm';
 
 import { TokenHelper } from '@modules/auth/token.helper';
-import { AppModule } from '@src/app.module';
+import { ApiModule } from '@src/bootstraps/api/api.module';
 import { LearnerEntity } from '@src/modules/account/identities/training/learner/account-learner.entity';
 import { CreateAccountUsecase } from '@usecases/account/create-account.usecase';
 import { initGraphQLSchema } from '../../src/adapters/api/graphql/schema/schema.init';
@@ -251,7 +251,7 @@ describe('验证记录类型测试 E2E', () => {
     initGraphQLSchema();
 
     const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
+      imports: [ApiModule],
     }).compile();
 
     app = moduleFixture.createNestApplication();

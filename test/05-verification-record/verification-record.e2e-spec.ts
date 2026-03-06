@@ -102,7 +102,7 @@ async function tryRevokeVerificationRecord(
   return res;
 }
 
-import { AppModule } from '@src/app.module';
+import { ApiModule } from '@src/bootstraps/api/api.module';
 import { LearnerEntity } from '@src/modules/account/identities/training/learner/account-learner.entity';
 import { VerificationRecordEntity } from '@src/modules/verification-record/verification-record.entity';
 import { CreateAccountUsecase } from '@src/usecases/account/create-account.usecase';
@@ -133,7 +133,7 @@ describe('验证记录签发 E2E 测试', () => {
     initGraphQLSchema();
 
     moduleFixture = await Test.createTestingModule({
-      imports: [AppModule],
+      imports: [ApiModule],
     }).compile();
 
     app = moduleFixture.createNestApplication();

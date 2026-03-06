@@ -5,7 +5,7 @@ import { useContainer } from 'class-validator';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { DataSource, In } from 'typeorm';
-import { AppModule } from '../../src/app.module';
+import { ApiModule } from '../../src/bootstraps/api/api.module';
 import { FieldEncryptionService } from '../../src/infrastructure/field-encryption/field-encryption.service';
 import { AccountEntity } from '../../src/modules/account/base/entities/account.entity';
 import { UserInfoEntity } from '../../src/modules/account/base/entities/user-info.entity';
@@ -127,13 +127,13 @@ describe('Register (e2e)', () => {
     initGraphQLSchema();
 
     const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
+      imports: [ApiModule],
     }).compile();
 
     app = moduleFixture.createNestApplication();
 
     // ✅ 让 class-validator 使用 Nest 容器解析 IsValidPasswordConstraint 的依赖
-    useContainer(app.select(AppModule), { fallbackOnErrors: true });
+    useContainer(app.select(ApiModule), { fallbackOnErrors: true });
 
     dataSource = moduleFixture.get<DataSource>(DataSource);
 
@@ -551,7 +551,7 @@ describe('Register (e2e)', () => {
       // 替换旧的 EncryptionHelper
       // encryptionHelper = new EncryptionHelper();
       // 使用新的服务
-      fieldEncryptionService = new FieldEncryptionService();
+      fieldEncryptionService = app.get(FieldEncryptionService);
     });
 
     /**

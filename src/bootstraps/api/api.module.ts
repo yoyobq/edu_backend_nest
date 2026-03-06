@@ -14,8 +14,8 @@ import { PasswordModule } from '@src/modules/common/password/password.module';
 import { RegisterModule } from '@src/modules/register/register.module';
 import { Module } from '@nestjs/common';
 import { APP_FILTER } from '@nestjs/core';
-import { AppController } from './app.controller';
-import { AppService } from './app.service';
+import { ApiController } from './api.controller';
+import { ApiService } from './api.service';
 
 @Module({
   imports: [
@@ -33,13 +33,13 @@ import { AppService } from './app.service';
     IntegrationEventsModule,
     IntegrationEventsAdapterModule,
   ],
-  controllers: [AppController],
+  controllers: [ApiController],
   providers: [
-    AppService,
+    ApiService,
     {
       provide: APP_FILTER,
       useClass: GqlAllExceptionsFilter,
     },
   ],
 })
-export class AppModule {}
+export class ApiModule {}

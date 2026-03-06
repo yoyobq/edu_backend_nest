@@ -5,7 +5,7 @@ import type { SortParam } from '@core/pagination/pagination.types';
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { initGraphQLSchema } from '@src/adapters/api/graphql/schema/schema.init';
-import { AppModule } from '@src/app.module';
+import { ApiModule } from '@src/bootstraps/api/api.module';
 import { CustomerEntity } from '@src/modules/account/identities/training/customer/account-customer.entity';
 import { LearnerEntity } from '@src/modules/account/identities/training/learner/account-learner.entity';
 import { PaginationModule } from '@src/modules/common/pagination.module';
@@ -46,7 +46,7 @@ describe('分页工具 (e2e)', () => {
     initGraphQLSchema();
 
     const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule, PaginationModule],
+      imports: [ApiModule, PaginationModule],
     }).compile();
 
     app = moduleFixture.createNestApplication();

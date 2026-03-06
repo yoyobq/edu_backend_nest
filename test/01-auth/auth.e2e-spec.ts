@@ -8,7 +8,7 @@ import {
 } from '@app-types/models/account.types';
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import { AppModule } from '@src/app.module';
+import { ApiModule } from '@src/bootstraps/api/api.module';
 import { AccountEntity } from '@src/modules/account/base/entities/account.entity';
 import request from 'supertest';
 import { App } from 'supertest/types';
@@ -91,7 +91,7 @@ describe('Auth (e2e)', () => {
     initGraphQLSchema();
 
     const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
+      imports: [ApiModule],
     })
       .overrideProvider(WeAppProvider)
       .useValue(mockWeAppProvider)

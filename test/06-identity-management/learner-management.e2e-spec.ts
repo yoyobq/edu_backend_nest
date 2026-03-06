@@ -6,7 +6,7 @@ import request from 'supertest';
 import { App } from 'supertest/types';
 import { DataSource } from 'typeorm';
 
-import { AppModule } from '@src/app.module';
+import { ApiModule } from '@src/bootstraps/api/api.module';
 import { CustomerEntity } from '@src/modules/account/identities/training/customer/account-customer.entity';
 import { LearnerEntity } from '@src/modules/account/identities/training/learner/account-learner.entity';
 import { ManagerEntity } from '@src/modules/account/identities/training/manager/account-manager.entity';
@@ -141,7 +141,7 @@ describe('学员管理 E2E 测试 - 全面权限控制', () => {
     initGraphQLSchema();
 
     const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
+      imports: [ApiModule],
     }).compile();
 
     app = moduleFixture.createNestApplication();

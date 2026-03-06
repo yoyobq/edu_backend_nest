@@ -4,14 +4,14 @@ import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
 import { App } from 'supertest/types';
-import { AppModule } from '../src/bootstraps/api/app.module';
+import { ApiModule } from '../src/bootstraps/api/api.module';
 
 describe('AppController (e2e)', () => {
   let app: INestApplication;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
+      imports: [ApiModule],
     }).compile();
 
     app = moduleFixture.createNestApplication();
