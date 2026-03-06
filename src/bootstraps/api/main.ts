@@ -6,7 +6,7 @@ import { useContainer } from 'class-validator';
 import type { Express } from 'express';
 import { Logger } from 'nestjs-pino';
 import { initGraphQLSchema } from '@src/adapters/api/graphql/schema/schema.init';
-import { AppModule } from '@src/app.module';
+import { AppModule } from '@src/bootstraps/api/app.module';
 
 /**
  * 应用程序启动函数
