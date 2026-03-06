@@ -12,7 +12,7 @@
     "start:dev": "NODE_ENV=development nest start --watch",
     "dev": "NODE_ENV=development nest start --watch",
     "start:debug": "nest start --debug --watch",
-    "start:prod": "NODE_ENV=production node dist/main",
+    "start:prod": "NODE_ENV=production node dist/bootstraps/api/main",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --cache --cache-location .eslintcache --fix",
     "typecheck": "tsc -p tsconfig.build.json --noEmit",
     "test:unit": "jest",

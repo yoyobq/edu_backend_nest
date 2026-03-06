@@ -5,8 +5,8 @@ import { NestFactory } from '@nestjs/core';
 import { useContainer } from 'class-validator';
 import type { Express } from 'express';
 import { Logger } from 'nestjs-pino';
-import { initGraphQLSchema } from './adapters/graphql/schema/schema.init';
-import { AppModule } from './app.module';
+import { initGraphQLSchema } from '@src/adapters/api/graphql/schema/schema.init';
+import { AppModule } from '@src/app.module';
 
 /**
  * 应用程序启动函数
