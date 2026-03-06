@@ -31,20 +31,20 @@ export default tseslint.config(
     },
     settings: {
       'boundaries/elements': [
-        { type: 'adapters-common', pattern: 'src/adapters/graphql/decorators', mode: 'folder' },
-        { type: 'adapters-common', pattern: 'src/adapters/graphql/guards', mode: 'folder' },
-        { type: 'adapters-common', pattern: 'src/adapters/graphql/common', mode: 'folder' },
-        { type: 'adapters-common', pattern: 'src/adapters/graphql/schema', mode: 'folder' },
-        { type: 'adapters-common', pattern: 'src/adapters/graphql/*.ts', mode: 'file' },
+        { type: 'adapters-common', pattern: 'src/adapters/api/graphql/decorators', mode: 'folder' },
+        { type: 'adapters-common', pattern: 'src/adapters/api/graphql/guards', mode: 'folder' },
+        { type: 'adapters-common', pattern: 'src/adapters/api/graphql/common', mode: 'folder' },
+        { type: 'adapters-common', pattern: 'src/adapters/api/graphql/schema', mode: 'folder' },
+        { type: 'adapters-common', pattern: 'src/adapters/api/graphql/*.ts', mode: 'file' },
         {
           type: 'adapters-scope',
-          pattern: 'src/adapters/graphql/*',
+          pattern: 'src/adapters/api/graphql/*',
           mode: 'folder',
           capture: ['adapterScope'],
         },
         {
           type: 'adapters-integration',
-          pattern: 'src/adapters/integration-events',
+          pattern: 'src/adapters/api/integration-events',
           mode: 'folder',
         },
         { type: 'usecases', pattern: 'src/usecases/**' },

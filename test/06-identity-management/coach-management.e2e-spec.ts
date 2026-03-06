@@ -7,7 +7,7 @@ import { AccountEntity } from '@src/modules/account/base/entities/account.entity
 import { UserInfoEntity } from '@src/modules/account/base/entities/user-info.entity';
 import request from 'supertest';
 import { DataSource } from 'typeorm';
-import { initGraphQLSchema } from '../../src/adapters/graphql/schema/schema.init';
+import { initGraphQLSchema } from '../../src/adapters/api/graphql/schema/schema.init';
 import { AppModule } from '../../src/app.module';
 import { cleanupTestAccounts, seedTestAccounts, testAccountsConfig } from '../utils/test-accounts';
 

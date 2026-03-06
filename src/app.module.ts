@@ -2,8 +2,8 @@
 
 import { Module } from '@nestjs/common';
 import { APP_FILTER } from '@nestjs/core';
-import { GraphQLAdapterModule } from './adapters/graphql/graphql-adapter.module';
-import { IntegrationEventsAdapterModule } from './adapters/integration-events/integration-events-adapter.module';
+import { GraphQLAdapterModule } from './adapters/api/graphql/graphql-adapter.module';
+import { IntegrationEventsAdapterModule } from './adapters/api/integration-events/integration-events-adapter.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { GqlAllExceptionsFilter } from './infrastructure/graphql/filters/graphql-exception.filter';

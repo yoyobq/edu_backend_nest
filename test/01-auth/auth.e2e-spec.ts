@@ -18,7 +18,7 @@ import { Gender, UserState } from '@app-types/models/user-info.types';
 import { ThirdPartyAuthEntity } from '@src/modules/account/base/entities/third-party-auth.entity';
 import { WeAppProvider } from '@src/modules/third-party-auth/providers/weapp.provider';
 import { CreateAccountUsecase } from '@src/usecases/account/create-account.usecase';
-import { initGraphQLSchema } from '../../src/adapters/graphql/schema/schema.init';
+import { initGraphQLSchema } from '../../src/adapters/api/graphql/schema/schema.init';
 import { cleanupTestAccounts, seedTestAccounts, testAccountsConfig } from '../utils/test-accounts';
 
 /**

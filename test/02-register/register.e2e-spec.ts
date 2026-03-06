@@ -11,7 +11,7 @@ import { AccountEntity } from '../../src/modules/account/base/entities/account.e
 import { UserInfoEntity } from '../../src/modules/account/base/entities/user-info.entity';
 import { AccountStatus } from '@app-types/models/account.types';
 import { RegisterTypeEnum } from '@app-types/services/register.types';
-import { initGraphQLSchema } from '../../src/adapters/graphql/schema/schema.init';
+import { initGraphQLSchema } from '../../src/adapters/api/graphql/schema/schema.init';
 
 /**
  * Register 模块 E2E 测试

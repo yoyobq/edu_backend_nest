@@ -2,9 +2,9 @@
 import { INestApplication, UseGuards } from '@nestjs/common';
 import { Query, Resolver } from '@nestjs/graphql';
 import { Test, TestingModule } from '@nestjs/testing';
-import { Roles } from '@src/adapters/graphql/decorators/roles.decorator';
-import { JwtAuthGuard } from '@src/adapters/graphql/guards/jwt-auth.guard';
-import { RolesGuard } from '@src/adapters/graphql/guards/roles.guard';
+import { Roles } from '@src/adapters/api/graphql/decorators/roles.decorator';
+import { JwtAuthGuard } from '@src/adapters/api/graphql/guards/jwt-auth.guard';
+import { RolesGuard } from '@src/adapters/api/graphql/guards/roles.guard';
 import { AppModule } from '@src/app.module';
 import { AccountEntity } from '@src/modules/account/base/entities/account.entity';
 import { UserInfoEntity } from '@src/modules/account/base/entities/user-info.entity';
@@ -17,7 +17,7 @@ import { App } from 'supertest/types';
 import { DataSource } from 'typeorm';
 import { executeGql as executeGqlUtils } from '../utils/e2e-graphql-utils';
 // 导入全局测试账户工具
-import { initGraphQLSchema } from '../../src/adapters/graphql/schema/schema.init';
+import { initGraphQLSchema } from '../../src/adapters/api/graphql/schema/schema.init';
 import { cleanupTestAccounts, seedTestAccounts, testAccountsConfig } from '../utils/test-accounts';
 
 /**

@@ -3,7 +3,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { DataSource } from 'typeorm';
-import { initGraphQLSchema } from '../../src/adapters/graphql/schema/schema.init';
+import { initGraphQLSchema } from '../../src/adapters/api/graphql/schema/schema.init';
 import { AppModule } from '../../src/app.module';
 
 describe('00-App 全局测试', () => {

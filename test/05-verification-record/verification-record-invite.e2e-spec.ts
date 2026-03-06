@@ -13,7 +13,7 @@ import { LearnerEntity } from '@src/modules/account/identities/training/learner/
 import { ManagerEntity } from '@src/modules/account/identities/training/manager/account-manager.entity';
 import { WeAppProvider } from '@src/modules/third-party-auth/providers/weapp.provider';
 import { CreateAccountUsecase } from '@usecases/account/create-account.usecase';
-import { initGraphQLSchema } from '../../src/adapters/graphql/schema/schema.init';
+import { initGraphQLSchema } from '../../src/adapters/api/graphql/schema/schema.init';
 import { cleanupTestAccounts, seedTestAccounts, testAccountsConfig } from '../utils/test-accounts';
 
 /**
