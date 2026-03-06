@@ -2,6 +2,7 @@
 
 import { AccountUsecasesModule } from '@src/usecases/account/account-usecases.module';
 import { AuthUsecasesModule } from '@src/usecases/auth/auth-usecases.module';
+import { EmailQueueUsecasesModule } from '@src/usecases/email-queue/email-queue-usecases.module';
 import { IdentityManagementUsecasesModule } from '@src/usecases/identity-management/identity-management-usecases.module';
 import { RegistrationUsecasesModule } from '@src/usecases/registration/registration-usecases.module';
 import { ThirdPartyAccountsUsecasesModule } from '@src/usecases/third-party-accounts/third-party-accounts-usecases.module';
@@ -14,6 +15,7 @@ import { Module } from '@nestjs/common';
 import { AccountResolver } from './account/account.resolver';
 import { UserInfoResolver } from './account/user-info.resolver';
 import { AuthResolver } from './auth/auth.resolver';
+import { EmailResolver } from './email/email.resolver';
 import { CoachResolver } from './identity-management/coach/coach.resolver';
 import { CustomerResolver } from './identity-management/customer/customer.resolver';
 import { IdentityManagementResolver } from './identity-management/identity-management.resolver';
@@ -36,6 +38,7 @@ import { RolesGuard } from './guards/roles.guard';
     // 导入业务模块以获取服务
     AccountUsecasesModule,
     AuthUsecasesModule,
+    EmailQueueUsecasesModule,
     RegistrationUsecasesModule,
     ThirdPartyAccountsUsecasesModule,
     IdentityManagementUsecasesModule,
@@ -47,6 +50,7 @@ import { RolesGuard } from './guards/roles.guard';
     AccountResolver,
     AuthResolver,
     ThirdPartyAuthResolver,
+    EmailResolver,
     RegistrationResolver,
     VerificationRecordResolver,
     IdentityManagementResolver, // 注册身份管理 resolver
@@ -64,6 +68,7 @@ import { RolesGuard } from './guards/roles.guard';
     AccountResolver,
     AuthResolver,
     ThirdPartyAuthResolver,
+    EmailResolver,
     RegistrationResolver,
     VerificationRecordResolver,
     IdentityManagementResolver, // 导出身份管理 resolver

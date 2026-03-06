@@ -1,8 +1,8 @@
 import { Injectable } from '@nestjs/common';
-import { PinoLogger } from 'nestjs-pino';
 import { BULLMQ_JOBS, BULLMQ_QUEUES } from '@src/infrastructure/bullmq/bullmq.constants';
 import { BullMqProducerGateway } from '@src/infrastructure/bullmq/producer.gateway';
-import type { QueueEmailInput, QueueEmailResult } from './email.types';
+import { PinoLogger } from 'nestjs-pino';
+import type { QueueEmailInput, QueueEmailResult } from './email-queue.types';
 
 @Injectable()
 export class EmailQueueService {
@@ -30,7 +30,7 @@ export class EmailQueueService {
     });
     this.logger.info(
       {
-        to: input.to,
+        to: this.maskEmail(input.to),
         jobId: job.jobId,
         traceId: job.traceId,
       },
@@ -40,5 +40,15 @@ export class EmailQueueService {
       jobId: job.jobId,
       traceId: job.traceId,
     };
+  }
+
+  private maskEmail(email: string): string {
+    const parts = email.split('@');
+    if (parts.length !== 2) return '***';
+    const [localPart, domainPart] = parts;
+    if (localPart.length <= 2) {
+      return `${localPart.charAt(0) || '*'}***@${domainPart}`;
+    }
+    return `${localPart.slice(0, 2)}***@${domainPart}`;
   }
 }

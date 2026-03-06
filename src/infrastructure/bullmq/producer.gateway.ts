@@ -2,10 +2,14 @@ import { getQueueToken } from '@nestjs/bullmq';
 import { Injectable } from '@nestjs/common';
 import { ModuleRef } from '@nestjs/core';
 import { type JobsOptions, Queue } from 'bullmq';
-import { randomUUID } from 'node:crypto';
 import { PinoLogger } from 'nestjs-pino';
-import { assertBullMqJobPayload, type BullMqJobName, type BullMqJobPayload } from './job-contract';
+import { randomUUID } from 'node:crypto';
 import { BULLMQ_QUEUE_JOBS, type BullMqQueueName } from './bullmq.constants';
+import {
+  assertBullMqJobPayload,
+  type BullMqJobName,
+  type BullMqJobPayload,
+} from './contracts/job-contract.registry';
 import { BULLMQ_QUEUE_REGISTRY } from './queue-registry';
 
 export interface EnqueueJobInput<Q extends BullMqQueueName, J extends BullMqJobName<Q>> {

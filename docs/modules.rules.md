@@ -41,3 +41,4 @@
 - 按 bounded context 划分模块目录，内部再区分 service、queries、entities。
 - 读服务命名以 query.service.ts 结尾，写服务命名以 service.ts 结尾。
 - QueryService 放在 src/modules/<bounded-context>/queries/ 目录。
+- 涉及多进程运行时，按进程职责拆分模块：API 入队能力与 worker 消费能力必须拆分为独立模块
