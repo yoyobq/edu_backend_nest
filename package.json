@@ -26,8 +26,8 @@
     "test:e2e": "clear && NODE_ENV=e2e jest -c ./test/jest-e2e.js --runInBand --detectOpenHandles",
     "test:e2e:watch": "NODE_ENV=e2e jest --config ./test/jest-e2e.json --watch",
     "test:e2e:debug": "NODE_ENV=e2e node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --config ./test/jest-e2e.json --runInBand",
-    "dev:worker": "NODE_ENV=development node src/bootstraps/worker/main.js",
-    "start:worker": "NODE_ENV=production node src/bootstraps/worker/main.js"
+    "dev:worker": "NODE_ENV=development ts-node src/bootstraps/worker/main.ts",
+    "start:worker": "NODE_ENV=production node dist/bootstraps/worker/main"
   },
   "dependencies": {
     "@apollo/server": "^5.4.0",

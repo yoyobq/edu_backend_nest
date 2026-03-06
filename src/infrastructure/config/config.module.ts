@@ -195,6 +195,26 @@ const databaseConfig: ConfigFactory = () => ({
   },
 });
 
+const redisConfig: ConfigFactory = () => {
+  const passwordRaw = process.env.REDIS_PASSWORD;
+  const password = passwordRaw && passwordRaw.trim().length > 0 ? passwordRaw : undefined;
+  return {
+    redis: {
+      host: process.env.REDIS_HOST || '127.0.0.1',
+      port: parseInt(process.env.REDIS_PORT || '6379', 10),
+      db: parseInt(process.env.REDIS_DB || '0', 10),
+      password,
+      tls: process.env.REDIS_TLS === 'true',
+    },
+  };
+};
+
+const bullmqConfig: ConfigFactory = () => ({
+  bullmq: {
+    prefix: process.env.BULLMQ_PREFIX || 'bullmq',
+  },
+});
+
 /**
  * 生成 JWT 配置
  */
@@ -241,6 +261,8 @@ const paginationConfig = () => ({
         serverConfig,
         loggerConfig,
         databaseConfig,
+        redisConfig,
+        bullmqConfig,
         jwtConfig,
         paginationConfig,
       ],
