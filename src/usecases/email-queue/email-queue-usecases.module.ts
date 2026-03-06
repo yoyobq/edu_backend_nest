@@ -1,10 +1,10 @@
 import { Module } from '@nestjs/common';
-import { EmailModule } from '@src/modules/common/email/email.module';
+import { EmailQueueModule } from '@src/modules/common/email-queue/email-queue.module';
 import { QueueEmailUsecase } from './queue-email.usecase';
 
 @Module({
-  imports: [EmailModule],
+  imports: [EmailQueueModule],
   providers: [QueueEmailUsecase],
   exports: [QueueEmailUsecase],
 })
-export class EmailUsecasesModule {}
+export class EmailQueueUsecasesModule {}

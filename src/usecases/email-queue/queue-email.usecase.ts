@@ -1,6 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import { EmailQueueService } from '@src/modules/common/email/email-queue.service';
-import type { QueueEmailInput, QueueEmailResult } from '@src/modules/common/email/email.types';
+import { EmailQueueService } from '@src/modules/common/email-queue/email-queue.service';
+import type {
+  QueueEmailInput,
+  QueueEmailResult,
+} from '@src/modules/common/email-queue/email-queue.types';
 
 @Injectable()
 export class QueueEmailUsecase {
