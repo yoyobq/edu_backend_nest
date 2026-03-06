@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { BullMqModule } from '@src/infrastructure/bullmq/bullmq.module';
+import { BullMqWorkerRuntime } from '@src/infrastructure/bullmq/worker.runtime';
 import { AppConfigModule } from '@src/infrastructure/config/config.module';
 import { LoggerModule } from '@src/infrastructure/logger/logger.module';
 import { RedisModule } from '@src/infrastructure/redis/redis.module';
@@ -17,5 +18,6 @@ import { IntegrationEventsUsecasesModule } from '@src/usecases/integration-event
     EmailWorkerUsecasesModule,
     IntegrationEventsUsecasesModule,
   ],
+  providers: [BullMqWorkerRuntime],
 })
 export class WorkerModule {}
