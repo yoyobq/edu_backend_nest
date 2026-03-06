@@ -11,8 +11,8 @@ import { CustomerEntity } from '@src/modules/account/identities/training/custome
 import { LearnerEntity } from '@src/modules/account/identities/training/learner/account-learner.entity';
 import { ManagerEntity } from '@src/modules/account/identities/training/manager/account-manager.entity';
 import { CreateAccountUsecase } from '@usecases/account/create-account.usecase';
-import { LearnerOutput } from '../../src/adapters/graphql/identity-management/learner/dto/learner.arg';
-import { initGraphQLSchema } from '../../src/adapters/graphql/schema/schema.init';
+import { LearnerOutput } from '../../src/adapters/api/graphql/identity-management/learner/dto/learner.arg';
+import { initGraphQLSchema } from '../../src/adapters/api/graphql/schema/schema.init';
 import { AccountStatus, IdentityTypeEnum, LoginTypeEnum } from '@app-types/models/account.types';
 import { Gender, UserState } from '@app-types/models/user-info.types';
 

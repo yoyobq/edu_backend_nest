@@ -4,7 +4,7 @@ import type { ICursorSigner } from '@core/pagination/pagination.ports';
 import type { SortParam } from '@core/pagination/pagination.types';
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import { initGraphQLSchema } from '@src/adapters/graphql/schema/schema.init';
+import { initGraphQLSchema } from '@src/adapters/api/graphql/schema/schema.init';
 import { AppModule } from '@src/app.module';
 import { CustomerEntity } from '@src/modules/account/identities/training/customer/account-customer.entity';
 import { LearnerEntity } from '@src/modules/account/identities/training/learner/account-learner.entity';

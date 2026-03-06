@@ -108,7 +108,7 @@ import { VerificationRecordEntity } from '@src/modules/verification-record/verif
 import { CreateAccountUsecase } from '@src/usecases/account/create-account.usecase';
 import { FindVerificationRecordUsecase } from '@src/usecases/verification-record/find-verification-record.usecase';
 import { seedTestAccounts, testAccountsConfig } from '../utils/test-accounts';
-import { initGraphQLSchema } from '../../src/adapters/graphql/schema/schema.init';
+import { initGraphQLSchema } from '../../src/adapters/api/graphql/schema/schema.init';
 
 /**
  * 验证记录签发 E2E 测试

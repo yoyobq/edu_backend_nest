@@ -10,7 +10,7 @@ import { TokenHelper } from '@modules/auth/token.helper';
 import { AppModule } from '@src/app.module';
 import { LearnerEntity } from '@src/modules/account/identities/training/learner/account-learner.entity';
 import { CreateAccountUsecase } from '@usecases/account/create-account.usecase';
-import { initGraphQLSchema } from '../../src/adapters/graphql/schema/schema.init';
+import { initGraphQLSchema } from '../../src/adapters/api/graphql/schema/schema.init';
 import { cleanupTestAccounts, seedTestAccounts, testAccountsConfig } from '../utils/test-accounts';
 
 /**

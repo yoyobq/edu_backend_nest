@@ -13,7 +13,7 @@ import { App } from 'supertest/types';
 import { DataSource } from 'typeorm';
 
 import { UserState } from '@app-types/models/user-info.types';
-import { initGraphQLSchema } from '@src/adapters/graphql/schema/schema.init';
+import { initGraphQLSchema } from '@src/adapters/api/graphql/schema/schema.init';
 import { AppModule } from '@src/app.module';
 import { CreateAccountUsecase } from '@src/usecases/account/create-account.usecase';
 import { cleanupTestAccounts, seedTestAccounts, testAccountsConfig } from '../utils/test-accounts';

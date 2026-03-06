@@ -9,7 +9,7 @@ import {
 import { Gender, UserState } from '@app-types/models/user-info.types';
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import { initGraphQLSchema } from '@src/adapters/graphql/schema/schema.init';
+import { initGraphQLSchema } from '@src/adapters/api/graphql/schema/schema.init';
 import { AppModule } from '@src/app.module';
 import { TokenHelper } from '@modules/auth/token.helper';
 import { CustomerEntity } from '@src/modules/account/identities/training/customer/account-customer.entity';
