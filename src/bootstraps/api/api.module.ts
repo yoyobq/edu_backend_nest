@@ -1,5 +1,6 @@
 import { GraphQLAdapterModule } from '@src/adapters/api/graphql/graphql-adapter.module';
 import { IntegrationEventsAdapterModule } from '@src/adapters/api/integration-events/integration-events-adapter.module';
+import { EmailAdapterModule } from '@src/adapters/api/email/email-adapter.module';
 import { AppConfigModule } from '@src/infrastructure/config/config.module';
 import { DatabaseModule } from '@src/infrastructure/database/database.module';
 import { FieldEncryptionModule } from '@src/infrastructure/field-encryption/field-encryption.module';
@@ -25,6 +26,7 @@ import { ApiService } from './api.service';
     DatabaseModule,
     AppGraphQLModule,
     GraphQLAdapterModule,
+    EmailAdapterModule,
     FieldEncryptionModule,
     PasswordModule,
     AccountModule,
