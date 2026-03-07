@@ -1,5 +1,7 @@
 # Usecase 说明
 
+- Worker 场景下的专项约束另见 `docs/worker-usecase.rules.md`。
+
 ## 目标与定位
 
 - Usecase 负责写操作编排与业务流程协调。
@@ -34,6 +36,8 @@
 - 读侧口径统一交给 QueryService，避免多个 Usecase 各自拼装输出。
 - Usecase 对外返回 View / DTO 或结果摘要，不返回 ORM Entity。
 - QueryService 上游只允许 Usecase 调用。
+- 对于 Worker 生命周期中的降级输入（如 failed 事件缺失 `job`），Usecase 必须接收显式上下文字段并完成可查询的失败记录落库。
+- 该类降级输入落库后应保证可追溯、可检索，并可支撑后续重试或人工决策。
 
 ## 读写协作方式
 
