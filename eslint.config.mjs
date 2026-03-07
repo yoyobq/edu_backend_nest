@@ -37,8 +37,14 @@ export default tseslint.config(
         { type: 'adapters-common', pattern: 'src/adapters/api/graphql/schema', mode: 'folder' },
         { type: 'adapters-common', pattern: 'src/adapters/api/graphql/*.ts', mode: 'file' },
         {
-          type: 'adapters-scope',
+          type: 'api-adapters-scope',
           pattern: 'src/adapters/api/graphql/*',
+          mode: 'folder',
+          capture: ['adapterScope'],
+        },
+        {
+          type: 'worker-adapters-scope',
+          pattern: 'src/adapters/worker/*',
           mode: 'folder',
           capture: ['adapterScope'],
         },
@@ -84,10 +90,19 @@ export default tseslint.config(
           default: 'disallow',
           rules: [
             {
-              from: 'adapters-scope',
+              from: 'api-adapters-scope',
               allow: [
                 'adapters-common',
-                ['adapters-scope', { adapterScope: '${from.adapterScope}' }],
+                ['api-adapters-scope', { adapterScope: '${from.adapterScope}' }],
+                'usecases',
+                'core',
+                'types',
+              ],
+            },
+            {
+              from: 'worker-adapters-scope',
+              allow: [
+                ['worker-adapters-scope', { adapterScope: '${from.adapterScope}' }],
                 'usecases',
                 'core',
                 'types',
