@@ -12,12 +12,37 @@ import {
 } from './contracts/job-contract.registry';
 import { BULLMQ_QUEUE_REGISTRY } from './queue-registry';
 
+export type BullMqEnqueueSource =
+  | 'user_action'
+  | 'admin_action'
+  | 'system'
+  | 'cron'
+  | 'domain_event'
+  | 'webhook';
+
+export interface BullMqEnqueueMeta {
+  // 发起账号 ID、发起时承担的角色
+  readonly actorAccountId?: number | string;
+  readonly actorActiveRole?: string;
+  // 目标对象
+  readonly bizType: string;
+  readonly bizKey: string;
+  readonly bizSubKey?: string;
+  // 触发来源、原因
+  readonly source: BullMqEnqueueSource;
+  readonly reason?: string;
+  // 记录事件设定时间，即时任务应和当前时间一致，定时任务应和设置时间一致
+  // ISO 8601 datetime string, e.g. "2023-01-01T00:00:00.000Z"
+  readonly occurredAt?: string;
+}
+
 export interface EnqueueJobInput<Q extends BullMqQueueName, J extends BullMqJobName<Q>> {
   readonly queueName: Q;
   readonly jobName: J;
   readonly payload: BullMqJobPayload<Q, J>;
   readonly dedupKey?: string;
   readonly traceId?: string;
+  readonly auditMeta?: BullMqEnqueueMeta;
   readonly options?: Readonly<Partial<JobsOptions>>;
 }
 
@@ -26,6 +51,7 @@ export interface EnqueueJobResult<Q extends BullMqQueueName, J extends BullMqJob
   readonly jobName: J;
   readonly jobId: string;
   readonly traceId: string;
+  readonly auditMeta?: BullMqEnqueueMeta;
 }
 
 @Injectable()
@@ -62,6 +88,7 @@ export class BullMqProducerGateway {
         jobName: input.jobName,
         jobId,
         traceId,
+        auditMeta: input.auditMeta,
       },
       'BullMQ job enqueued',
     );
@@ -70,6 +97,7 @@ export class BullMqProducerGateway {
       jobName: input.jobName,
       jobId,
       traceId,
+      auditMeta: input.auditMeta,
     };
   }
 
