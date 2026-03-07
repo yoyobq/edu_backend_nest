@@ -5,6 +5,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { ApiModule } from '@src/bootstraps/api/api.module';
 import { WorkerModule } from '@src/bootstraps/worker/worker.module';
 import { BULLMQ_QUEUES } from '@src/infrastructure/bullmq/bullmq.constants';
+import { BullMqWorkerRuntime } from '@src/infrastructure/bullmq/worker.runtime';
 import { Queue } from 'bullmq';
 import request from 'supertest';
 import { initGraphQLSchema } from '../../src/adapters/api/graphql/schema/schema.init';
@@ -123,5 +124,59 @@ describe('Email Queue + Worker (e2e)', () => {
     };
     expect(returnvalue.accepted).toBe(true);
     expect(typeof returnvalue.providerMessageId).toBe('string');
+  }, 60000);
+
+  it('should not register worker runtime in api application context', () => {
+    expect(() => apiApp.get(BullMqWorkerRuntime)).toThrow();
+  });
+
+  it('should enqueue email job and consume it to failed state', async () => {
+    const timestamp = Date.now();
+    const dedupKey = `e2e-email-fail-job-${timestamp}`;
+    const traceId = `e2e-email-fail-trace-${timestamp}`;
+
+    const mutation = `
+      mutation QueueEmail($input: QueueEmailInput!) {
+        queueEmail(input: $input) {
+          queued
+          jobId
+          traceId
+        }
+      }
+    `;
+
+    const response = await request(apiApp.getHttpServer())
+      .post('/graphql')
+      .send({
+        query: mutation,
+        variables: {
+          input: {
+            to: 'queue.e2e@fail.local',
+            subject: 'E2E email queue failure test',
+            text: 'queue-consume-failure-flow',
+            dedupKey,
+            traceId,
+            meta: {
+              source: 'e2e-failure',
+            },
+          },
+        },
+      })
+      .expect(200);
+
+    expect(response.body.errors).toBeUndefined();
+    expect(response.body.data.queueEmail.queued).toBe(true);
+    expect(response.body.data.queueEmail.jobId).toBe(dedupKey);
+    expect(response.body.data.queueEmail.traceId).toBe(traceId);
+
+    const finalState = await waitJobFinalState({
+      queue: emailQueue,
+      jobId: dedupKey,
+      timeoutMs: 20000,
+      pollMs: 150,
+    });
+
+    expect(finalState.state).toBe('failed');
+    expect(finalState.failedReason).toContain('Simulated email provider failure');
   }, 60000);
 });
