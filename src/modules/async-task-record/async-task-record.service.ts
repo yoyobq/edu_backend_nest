@@ -4,9 +4,11 @@ import { EntityManager, FindOptionsWhere, In, IsNull, Repository } from 'typeorm
 import { AsyncTaskRecordEntity, AsyncTaskRecordStatus } from './async-task-record.entity';
 import {
   AsyncTaskRecordView,
+  CreateAsyncTaskRecordInput,
   FindAsyncTaskRecordByQueueJobInput,
   ListAsyncTaskRecordsByBizTargetInput,
   ListAsyncTaskRecordsByTraceInput,
+  UpdateAsyncTaskRecordStatusInput,
 } from './async-task-record.types';
 
 export type AsyncTaskRecordTransactionManager = EntityManager;
@@ -86,6 +88,68 @@ export class AsyncTaskRecordService {
       return 0;
     }
     return await repository.count({ where: { status: In([...input.statuses]) } });
+  }
+
+  async createRecord(input: {
+    readonly data: CreateAsyncTaskRecordInput;
+    readonly manager?: EntityManager;
+  }): Promise<AsyncTaskRecordView> {
+    const repository = this.getRepository(input.manager);
+    const entity = repository.create({
+      queueName: input.data.queueName,
+      jobName: input.data.jobName,
+      jobId: input.data.jobId,
+      traceId: input.data.traceId,
+      actorAccountId: input.data.actorAccountId ?? null,
+      actorActiveRole: input.data.actorActiveRole ?? null,
+      bizType: input.data.bizType,
+      bizKey: input.data.bizKey,
+      bizSubKey: input.data.bizSubKey ?? null,
+      source: input.data.source,
+      reason: input.data.reason ?? null,
+      occurredAt: input.data.occurredAt ?? null,
+      dedupKey: input.data.dedupKey ?? null,
+      status: input.data.status,
+      attemptCount: input.data.attemptCount ?? 0,
+      maxAttempts: input.data.maxAttempts ?? null,
+      enqueuedAt: input.data.enqueuedAt,
+      startedAt: input.data.startedAt ?? null,
+      finishedAt: input.data.finishedAt ?? null,
+    });
+    const saved = await repository.save(entity);
+    return this.toView(saved);
+  }
+
+  async updateStatusByQueueJob(input: {
+    readonly where: FindAsyncTaskRecordByQueueJobInput;
+    readonly patch: UpdateAsyncTaskRecordStatusInput;
+    readonly manager?: EntityManager;
+  }): Promise<AsyncTaskRecordView | null> {
+    const repository = this.getRepository(input.manager);
+    const entity = await repository.findOne({ where: input.where });
+    if (!entity) {
+      return null;
+    }
+    if (input.patch.status !== undefined) {
+      entity.status = input.patch.status;
+    }
+    if (input.patch.attemptCount !== undefined) {
+      entity.attemptCount = input.patch.attemptCount;
+    }
+    if (input.patch.startedAt !== undefined) {
+      entity.startedAt = input.patch.startedAt;
+    }
+    if (input.patch.finishedAt !== undefined) {
+      entity.finishedAt = input.patch.finishedAt;
+    }
+    if (input.patch.reason !== undefined) {
+      entity.reason = input.patch.reason;
+    }
+    if (input.patch.occurredAt !== undefined) {
+      entity.occurredAt = input.patch.occurredAt;
+    }
+    const saved = await repository.save(entity);
+    return this.toView(saved);
   }
 
   async runTransaction<T>(callback: (manager: EntityManager) => Promise<T>): Promise<T> {

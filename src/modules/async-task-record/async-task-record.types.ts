@@ -1,3 +1,7 @@
+import type { AsyncTaskRecordSource, AsyncTaskRecordStatus } from './async-task-record.entity';
+
+export type { AsyncTaskRecordSource, AsyncTaskRecordStatus };
+
 export interface AsyncTaskRecordView {
   readonly id: number;
   readonly queueName: string;
@@ -9,11 +13,11 @@ export interface AsyncTaskRecordView {
   readonly bizType: string;
   readonly bizKey: string;
   readonly bizSubKey: string | null;
-  readonly source: 'user_action' | 'admin_action' | 'system' | 'cron' | 'domain_event' | 'webhook';
+  readonly source: AsyncTaskRecordSource;
   readonly reason: string | null;
   readonly occurredAt: Date | null;
   readonly dedupKey: string | null;
-  readonly status: 'queued' | 'processing' | 'succeeded' | 'failed' | 'cancelled';
+  readonly status: AsyncTaskRecordStatus;
   readonly attemptCount: number;
   readonly maxAttempts: number | null;
   readonly enqueuedAt: Date;
@@ -37,6 +41,37 @@ export interface ListAsyncTaskRecordsByBizTargetInput {
   readonly bizType: string;
   readonly bizKey: string;
   readonly bizSubKey?: string | null;
-  readonly statuses?: ReadonlyArray<'queued' | 'processing' | 'succeeded' | 'failed' | 'cancelled'>;
+  readonly statuses?: ReadonlyArray<AsyncTaskRecordStatus>;
   readonly limit?: number;
+}
+
+export interface CreateAsyncTaskRecordInput {
+  readonly queueName: string;
+  readonly jobName: string;
+  readonly jobId: string;
+  readonly traceId: string;
+  readonly actorAccountId?: number | null;
+  readonly actorActiveRole?: string | null;
+  readonly bizType: string;
+  readonly bizKey: string;
+  readonly bizSubKey?: string | null;
+  readonly source: AsyncTaskRecordSource;
+  readonly reason?: string | null;
+  readonly occurredAt?: Date | null;
+  readonly dedupKey?: string | null;
+  readonly status: AsyncTaskRecordStatus;
+  readonly attemptCount?: number;
+  readonly maxAttempts?: number | null;
+  readonly enqueuedAt: Date;
+  readonly startedAt?: Date | null;
+  readonly finishedAt?: Date | null;
+}
+
+export interface UpdateAsyncTaskRecordStatusInput {
+  readonly status?: AsyncTaskRecordStatus;
+  readonly attemptCount?: number;
+  readonly startedAt?: Date | null;
+  readonly finishedAt?: Date | null;
+  readonly reason?: string | null;
+  readonly occurredAt?: Date | null;
 }
