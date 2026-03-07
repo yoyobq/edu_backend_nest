@@ -11,6 +11,15 @@ const getRequiredEnv = (key: string): string => {
   return value;
 };
 
+const getRequiredIntEnv = (key: string): number => {
+  const value = getRequiredEnv(key);
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isFinite(parsed)) {
+    throw new Error(`${key} must be a valid integer`);
+  }
+  return parsed;
+};
+
 /**
  * 生成 GraphQL 配置
  */
@@ -200,9 +209,9 @@ const redisConfig: ConfigFactory = () => {
   const password = passwordRaw && passwordRaw.trim().length > 0 ? passwordRaw : undefined;
   return {
     redis: {
-      host: process.env.REDIS_HOST || '127.0.0.1',
-      port: parseInt(process.env.REDIS_PORT || '6379', 10),
-      db: parseInt(process.env.REDIS_DB || '0', 10),
+      host: getRequiredEnv('REDIS_HOST'),
+      port: getRequiredIntEnv('REDIS_PORT'),
+      db: getRequiredIntEnv('REDIS_DB'),
       password,
       tls: process.env.REDIS_TLS === 'true',
     },

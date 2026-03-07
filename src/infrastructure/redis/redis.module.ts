@@ -4,10 +4,26 @@ import Redis, { type RedisOptions } from 'ioredis';
 
 export const REDIS_CLIENT = Symbol('REDIS_CLIENT');
 
+const getRequiredConfigString = (configService: ConfigService, key: string): string => {
+  const value = configService.get<string>(key);
+  if (!value || value.trim().length === 0) {
+    throw new Error(`${key} is required`);
+  }
+  return value;
+};
+
+const getRequiredConfigNumber = (configService: ConfigService, key: string): number => {
+  const value = configService.get<number>(key);
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    throw new Error(`${key} must be a valid number`);
+  }
+  return value;
+};
+
 const buildRedisOptions = (configService: ConfigService): RedisOptions => {
-  const host = configService.get<string>('redis.host', '127.0.0.1');
-  const port = configService.get<number>('redis.port', 6379);
-  const db = configService.get<number>('redis.db', 0);
+  const host = getRequiredConfigString(configService, 'redis.host');
+  const port = getRequiredConfigNumber(configService, 'redis.port');
+  const db = getRequiredConfigNumber(configService, 'redis.db');
   const password = configService.get<string>('redis.password');
   const tlsEnabled = configService.get<boolean>('redis.tls', false);
   const options: RedisOptions = {
