@@ -38,6 +38,7 @@ export interface ConsumeEmailJobCompleteInput {
 
 export interface ConsumeEmailJobFailInput extends ConsumeEmailJobCompleteInput {
   readonly reason?: string;
+  readonly occurredAt?: Date;
 }
 
 @Injectable()
@@ -93,7 +94,7 @@ export class ConsumeEmailJobUsecase {
       enqueuedAt: input.enqueuedAt,
       startedAt: input.startedAt,
       finishedAt: input.finishedAt,
-      occurredAt: input.finishedAt,
+      occurredAt: input.occurredAt ?? input.finishedAt,
     });
   }
 

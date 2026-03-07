@@ -62,6 +62,7 @@ export function mapEmailSendJobToFailInput(input: {
   readonly job: EmailSendJob;
   readonly error: Error;
 }): ConsumeEmailJobFailInput {
+  const occurredAt = resolveDate({ timestamp: input.job.finishedOn });
   const jobId = resolveJobId({ job: input.job });
   return {
     queueName: EMAIL_QUEUE_NAME,
@@ -72,7 +73,8 @@ export function mapEmailSendJobToFailInput(input: {
     maxAttempts: resolveMaxAttempts({ job: input.job }),
     enqueuedAt: resolveDate({ timestamp: input.job.timestamp }),
     startedAt: resolveDate({ timestamp: input.job.processedOn }),
-    finishedAt: resolveDate({ timestamp: input.job.finishedOn }),
+    finishedAt: occurredAt,
+    occurredAt,
     reason: input.error.message.slice(0, 128),
   };
 }
@@ -91,6 +93,7 @@ export function mapMissingEmailSendJobToFailInput(input: {
     attemptsMade: 0,
     enqueuedAt: occurredAt,
     finishedAt: occurredAt,
+    occurredAt,
     reason: `worker_event_job_missing:${input.error.message.slice(0, 96)}`,
   };
 }
