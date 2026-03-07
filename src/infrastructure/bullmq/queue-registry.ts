@@ -39,18 +39,26 @@ export const BULLMQ_QUEUE_REGISTRY: Readonly<Record<BullMqQueueName, BullMqQueue
   [BULLMQ_QUEUES.EMAIL]: {
     queueName: BULLMQ_QUEUES.EMAIL,
     defaultJobOptions: {
-      attempts: 3,
+      // 总尝试次数，首次 1 + 重试 1
+      attempts: 2,
+      // 失败后的退避策略：指数退避，首轮延迟 2000 ms
       backoff: { type: 'exponential', delay: 2000 },
-      removeOnComplete: 1000,
-      removeOnFail: 5000,
+      // 成功任务最多保留 100 条，控制 Redis 内存占用
+      removeOnComplete: 100,
+      // 失败任务最多保留 100 条，保留基础排障样本
+      removeOnFail: 100,
     },
     runtime: {
-      concurrency: 5,
+      // Worker 并发数：同一时刻最多并行处理 2 个任务，降低自建邮件服务压力
+      concurrency: 2,
       limiter: {
-        max: 100,
+        // 限流窗口内最多处理 20 个任务，避免自建邮件服务突发拥塞
+        max: 20,
+        // 限流窗口时长 1000 ms
         duration: 1000,
       },
-      shutdownGraceMs: 15000,
+      // 停机时给 Worker 的优雅退出时间（毫秒），10 秒内尽量完成在途任务
+      shutdownGraceMs: 10000,
     },
   },
 };
