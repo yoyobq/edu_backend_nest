@@ -1,26 +1,26 @@
 import { Injectable } from '@nestjs/common';
 import type { AsyncTaskRecordSource } from '@src/modules/async-task-record/async-task-record.types';
-import { EmailDeliveryService } from '@src/modules/common/email-worker/email-delivery.service';
+import { AiWorkerService } from '@src/modules/common/ai-worker/ai-worker.service';
 import type {
-  SendEmailInput,
-  SendEmailResult,
-} from '@src/modules/common/email-worker/email-worker.types';
+  GenerateAiContentInput,
+  GenerateAiContentResult,
+} from '@src/modules/common/ai-worker/ai-worker.types';
 import { RecordAsyncTaskFinishedUsecase } from '@src/usecases/async-task-record/record-async-task-finished.usecase';
 import { RecordAsyncTaskStartedUsecase } from '@src/usecases/async-task-record/record-async-task-started.usecase';
 
-export interface ConsumeEmailJobProcessInput {
+export interface ConsumeAiGenerateJobProcessInput {
   readonly queueName: string;
   readonly jobName: string;
   readonly jobId: string;
   readonly traceId: string;
-  readonly payload: SendEmailInput;
+  readonly payload: GenerateAiContentInput;
   readonly attemptsMade: number;
   readonly maxAttempts?: number;
   readonly enqueuedAt?: Date;
   readonly startedAt?: Date;
 }
 
-export interface ConsumeEmailJobCompleteInput {
+export interface ConsumeAiGenerateJobCompleteInput {
   readonly queueName: string;
   readonly jobName: string;
   readonly jobId: string;
@@ -32,26 +32,26 @@ export interface ConsumeEmailJobCompleteInput {
   readonly finishedAt?: Date;
 }
 
-export interface ConsumeEmailJobFailInput extends ConsumeEmailJobCompleteInput {
+export interface ConsumeAiGenerateJobFailInput extends ConsumeAiGenerateJobCompleteInput {
   readonly reason?: string;
   readonly occurredAt?: Date;
 }
 
 @Injectable()
-export class ConsumeEmailJobUsecase {
+export class ConsumeAiGenerateJobUsecase {
   constructor(
-    private readonly emailDeliveryService: EmailDeliveryService,
+    private readonly aiWorkerService: AiWorkerService,
     private readonly recordAsyncTaskStartedUsecase: RecordAsyncTaskStartedUsecase,
     private readonly recordAsyncTaskFinishedUsecase: RecordAsyncTaskFinishedUsecase,
   ) {}
 
-  async process(input: ConsumeEmailJobProcessInput): Promise<SendEmailResult> {
+  async process(input: ConsumeAiGenerateJobProcessInput): Promise<GenerateAiContentResult> {
     await this.recordAsyncTaskStartedUsecase.execute({
       queueName: input.queueName,
       jobName: input.jobName,
       jobId: input.jobId,
       traceId: input.traceId,
-      bizType: 'email',
+      bizType: 'ai_generation',
       bizKey: input.jobId,
       source: this.resolveSource(),
       reason: 'worker_processing',
@@ -61,16 +61,16 @@ export class ConsumeEmailJobUsecase {
       startedAt: input.startedAt,
       occurredAt: input.startedAt,
     });
-    return await this.emailDeliveryService.send(input.payload);
+    return this.aiWorkerService.generate(input.payload);
   }
 
-  async complete(input: ConsumeEmailJobCompleteInput): Promise<void> {
+  async complete(input: ConsumeAiGenerateJobCompleteInput): Promise<void> {
     await this.recordAsyncTaskFinishedUsecase.execute({
       queueName: input.queueName,
       jobName: input.jobName,
       jobId: input.jobId,
       traceId: input.traceId,
-      bizType: 'email',
+      bizType: 'ai_generation',
       bizKey: input.jobId,
       source: this.resolveSource(),
       status: 'succeeded',
@@ -84,13 +84,13 @@ export class ConsumeEmailJobUsecase {
     });
   }
 
-  async fail(input: ConsumeEmailJobFailInput): Promise<void> {
+  async fail(input: ConsumeAiGenerateJobFailInput): Promise<void> {
     await this.recordAsyncTaskFinishedUsecase.execute({
       queueName: input.queueName,
       jobName: input.jobName,
       jobId: input.jobId,
       traceId: input.traceId,
-      bizType: 'email',
+      bizType: 'ai_generation',
       bizKey: input.jobId,
       source: this.resolveSource(),
       status: 'failed',
