@@ -34,6 +34,7 @@ export interface ConsumeAiGenerateJobCompleteInput {
 }
 
 export interface ConsumeAiGenerateJobFailInput extends ConsumeAiGenerateJobCompleteInput {
+  readonly bizType?: 'ai_generation' | 'ai_worker';
   readonly reason?: string;
   readonly occurredAt?: Date;
 }
@@ -124,7 +125,7 @@ export class ConsumeAiGenerateJobUsecase {
         jobName: input.jobName,
         jobId: input.jobId,
         traceId: input.traceId,
-        bizType: 'ai_generation',
+        bizType: input.bizType ?? 'ai_generation',
         bizKey: input.jobId,
         source: this.resolveSource(),
         status: 'failed',

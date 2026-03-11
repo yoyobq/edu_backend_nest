@@ -17,7 +17,7 @@ import {
   mapAiGenerateJobToCompleteInput,
   mapAiGenerateJobToFailInput,
   mapAiGenerateJobToProcessInput,
-  mapMissingAiGenerateJobToFailInput,
+  mapMissingAiJobToFailInput,
 } from './ai-generate.mapper';
 
 @Injectable()
@@ -67,7 +67,7 @@ export class AiJobHandler {
   async onFailed(input: { readonly job: AiJob | undefined; readonly error: Error }): Promise<void> {
     if (!input.job) {
       await this.consumeAiGenerateJobUsecase.fail(
-        mapMissingAiGenerateJobToFailInput({ error: input.error }),
+        mapMissingAiJobToFailInput({ error: input.error }),
       );
       return;
     }

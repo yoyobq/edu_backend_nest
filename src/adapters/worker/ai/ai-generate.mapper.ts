@@ -98,17 +98,19 @@ export function mapAiGenerateJobToFailInput(input: {
   };
 }
 
-export function mapMissingAiGenerateJobToFailInput(input: {
+export function mapMissingAiJobToFailInput(input: {
   readonly error: Error;
   readonly occurredAt?: Date;
 }): ConsumeAiGenerateJobFailInput {
   const occurredAt = input.occurredAt ?? new Date();
-  const jobId = resolveMissingJobId({ occurredAt, jobName: AI_GENERATE_JOB_NAME });
+  const jobName = 'unknown';
+  const jobId = resolveMissingJobId({ occurredAt, jobName });
   return {
     queueName: AI_QUEUE_NAME,
-    jobName: AI_GENERATE_JOB_NAME,
+    jobName,
     jobId,
     traceId: jobId,
+    bizType: 'ai_worker',
     attemptsMade: 0,
     enqueuedAt: occurredAt,
     finishedAt: occurredAt,
@@ -169,25 +171,6 @@ export function mapAiEmbedJobToFailInput(input: {
     finishedAt: occurredAt,
     occurredAt,
     reason: input.error.message.slice(0, 128),
-  };
-}
-
-export function mapMissingAiEmbedJobToFailInput(input: {
-  readonly error: Error;
-  readonly occurredAt?: Date;
-}): ConsumeAiEmbedJobFailInput {
-  const occurredAt = input.occurredAt ?? new Date();
-  const jobId = resolveMissingJobId({ occurredAt, jobName: AI_EMBED_JOB_NAME });
-  return {
-    queueName: AI_QUEUE_NAME,
-    jobName: AI_EMBED_JOB_NAME,
-    jobId,
-    traceId: jobId,
-    attemptsMade: 0,
-    enqueuedAt: occurredAt,
-    finishedAt: occurredAt,
-    occurredAt,
-    reason: `worker_event_job_missing:${input.error.message.slice(0, 96)}`,
   };
 }
 
