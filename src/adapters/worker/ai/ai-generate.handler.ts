@@ -3,7 +3,6 @@ import {
   ConsumeAiEmbedJobUsecase,
   ConsumeAiGenerateJobUsecase,
 } from '@src/usecases/ai-worker/consume-ai-generate-job.usecase';
-import { RecordAsyncTaskFinishedUsecase } from '@src/usecases/async-task-record/record-async-task-finished.usecase';
 import {
   AI_EMBED_JOB_NAME,
   AI_GENERATE_JOB_NAME,
@@ -18,7 +17,7 @@ import {
   mapAiGenerateJobToCompleteInput,
   mapAiGenerateJobToFailInput,
   mapAiGenerateJobToProcessInput,
-  mapMissingAiJobToFailedRecordInput,
+  mapMissingAiGenerateJobToFailInput,
 } from './ai-generate.mapper';
 
 @Injectable()
@@ -26,7 +25,6 @@ export class AiJobHandler {
   constructor(
     private readonly consumeAiGenerateJobUsecase: ConsumeAiGenerateJobUsecase,
     private readonly consumeAiEmbedJobUsecase: ConsumeAiEmbedJobUsecase,
-    private readonly recordAsyncTaskFinishedUsecase: RecordAsyncTaskFinishedUsecase,
   ) {}
 
   async processGenerate(input: { readonly job: AiGenerateJob }): Promise<AiGenerateResult> {
@@ -68,8 +66,8 @@ export class AiJobHandler {
 
   async onFailed(input: { readonly job: AiJob | undefined; readonly error: Error }): Promise<void> {
     if (!input.job) {
-      await this.recordAsyncTaskFinishedUsecase.execute(
-        mapMissingAiJobToFailedRecordInput({ error: input.error }),
+      await this.consumeAiGenerateJobUsecase.fail(
+        mapMissingAiGenerateJobToFailInput({ error: input.error }),
       );
       return;
     }

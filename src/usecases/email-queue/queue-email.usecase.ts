@@ -1,35 +1,35 @@
 import { Injectable } from '@nestjs/common';
+import { AsyncTaskRecordService } from '@src/modules/async-task-record/async-task-record.service';
 import type { AsyncTaskRecordSource } from '@src/modules/async-task-record/async-task-record.types';
 import { EmailQueueService } from '@src/modules/common/email-queue/email-queue.service';
 import type {
   QueueEmailInput,
   QueueEmailResult,
 } from '@src/modules/common/email-queue/email-queue.types';
-import { RecordAsyncTaskEnqueueFailedUsecase } from '@src/usecases/async-task-record/record-async-task-enqueue-failed.usecase';
-import { RecordAsyncTaskEnqueuedUsecase } from '@src/usecases/async-task-record/record-async-task-enqueued.usecase';
 
 @Injectable()
 export class QueueEmailUsecase {
   constructor(
     private readonly emailQueueService: EmailQueueService,
-    private readonly recordAsyncTaskEnqueuedUsecase: RecordAsyncTaskEnqueuedUsecase,
-    private readonly recordAsyncTaskEnqueueFailedUsecase: RecordAsyncTaskEnqueueFailedUsecase,
+    private readonly asyncTaskRecordService: AsyncTaskRecordService,
   ) {}
 
   async execute(input: QueueEmailInput): Promise<QueueEmailResult> {
     const occurredAt = new Date();
     const result = await this.enqueueOrThrow({ input, occurredAt });
-    await this.recordAsyncTaskEnqueuedUsecase.execute({
-      queueName: 'email',
-      jobName: 'send',
-      jobId: result.jobId,
-      traceId: result.traceId,
-      bizType: 'email',
-      bizKey: result.jobId,
-      source: this.resolveSource(),
-      reason: 'enqueue_accepted',
-      occurredAt,
-      dedupKey: input.dedupKey,
+    await this.asyncTaskRecordService.recordEnqueued({
+      data: {
+        queueName: 'email',
+        jobName: 'send',
+        jobId: result.jobId,
+        traceId: result.traceId,
+        bizType: 'email',
+        bizKey: result.jobId,
+        source: this.resolveSource(),
+        reason: 'enqueue_accepted',
+        occurredAt,
+        dedupKey: input.dedupKey,
+      },
     });
     return result;
   }
@@ -46,16 +46,18 @@ export class QueueEmailUsecase {
         traceId: input.input.traceId,
         occurredAt: input.occurredAt,
       });
-      await this.recordAsyncTaskEnqueueFailedUsecase.execute({
-        queueName: 'email',
-        jobName: 'send',
-        traceId,
-        bizType: 'email',
-        bizKey: traceId,
-        source: this.resolveSource(),
-        reason: normalizedError.message.slice(0, 128),
-        occurredAt: input.occurredAt,
-        dedupKey: input.input.dedupKey,
+      await this.asyncTaskRecordService.recordEnqueueFailed({
+        data: {
+          queueName: 'email',
+          jobName: 'send',
+          traceId,
+          bizType: 'email',
+          bizKey: traceId,
+          source: this.resolveSource(),
+          reason: normalizedError.message.slice(0, 128),
+          occurredAt: input.occurredAt,
+          dedupKey: input.input.dedupKey,
+        },
       });
       throw normalizedError;
     }

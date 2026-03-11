@@ -54,7 +54,7 @@ export class AsyncTaskRecordEntity {
   @Column({ name: 'job_id', type: 'varchar', length: 191, comment: 'BullMQ任务ID' })
   jobId!: string;
 
-  @Column({ name: 'trace_id', type: 'char', length: 36, comment: '链路追踪ID' })
+  @Column({ name: 'trace_id', type: 'varchar', length: 128, comment: '链路追踪ID' })
   traceId!: string;
 
   @Column({ name: 'actor_account_id', type: 'int', nullable: true, comment: '发起账号ID' })

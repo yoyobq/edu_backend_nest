@@ -45,6 +45,83 @@ export interface ListAsyncTaskRecordsByBizTargetInput {
   readonly limit?: number;
 }
 
+export interface RecordAsyncTaskEnqueuedInput {
+  readonly queueName: string;
+  readonly jobName: string;
+  readonly jobId: string;
+  readonly traceId: string;
+  readonly actorAccountId?: number | null;
+  readonly actorActiveRole?: string | null;
+  readonly bizType: string;
+  readonly bizKey: string;
+  readonly bizSubKey?: string | null;
+  readonly source: AsyncTaskRecordSource;
+  readonly reason?: string | null;
+  readonly occurredAt?: Date | null;
+  readonly dedupKey?: string | null;
+  readonly maxAttempts?: number | null;
+  readonly enqueuedAt?: Date;
+}
+
+export interface RecordAsyncTaskEnqueueFailedInput {
+  readonly queueName: string;
+  readonly jobName: string;
+  readonly jobId?: string;
+  readonly traceId: string;
+  readonly actorAccountId?: number | null;
+  readonly actorActiveRole?: string | null;
+  readonly bizType: string;
+  readonly bizKey: string;
+  readonly bizSubKey?: string | null;
+  readonly source: AsyncTaskRecordSource;
+  readonly reason?: string | null;
+  readonly occurredAt?: Date | null;
+  readonly dedupKey?: string | null;
+  readonly maxAttempts?: number | null;
+}
+
+export interface RecordAsyncTaskStartedInput {
+  readonly queueName: string;
+  readonly jobName: string;
+  readonly jobId: string;
+  readonly traceId: string;
+  readonly actorAccountId?: number | null;
+  readonly actorActiveRole?: string | null;
+  readonly bizType: string;
+  readonly bizKey: string;
+  readonly bizSubKey?: string | null;
+  readonly source: AsyncTaskRecordSource;
+  readonly reason?: string | null;
+  readonly dedupKey?: string | null;
+  readonly maxAttempts?: number | null;
+  readonly enqueuedAt?: Date;
+  readonly startedAt?: Date;
+  readonly occurredAt?: Date | null;
+  readonly attemptCount?: number;
+}
+
+export interface RecordAsyncTaskFinishedInput {
+  readonly queueName: string;
+  readonly jobName: string;
+  readonly jobId: string;
+  readonly traceId: string;
+  readonly actorAccountId?: number | null;
+  readonly actorActiveRole?: string | null;
+  readonly bizType: string;
+  readonly bizKey: string;
+  readonly bizSubKey?: string | null;
+  readonly source: AsyncTaskRecordSource;
+  readonly status: 'succeeded' | 'failed';
+  readonly reason?: string | null;
+  readonly dedupKey?: string | null;
+  readonly maxAttempts?: number | null;
+  readonly enqueuedAt?: Date;
+  readonly startedAt?: Date | null;
+  readonly finishedAt?: Date;
+  readonly occurredAt?: Date | null;
+  readonly attemptCount?: number;
+}
+
 export interface CreateAsyncTaskRecordInput {
   readonly queueName: string;
   readonly jobName: string;

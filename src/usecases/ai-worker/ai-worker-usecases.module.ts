@@ -1,13 +1,13 @@
 import { Module } from '@nestjs/common';
+import { AsyncTaskRecordModule } from '@src/modules/async-task-record/async-task-record.module';
 import { AiWorkerModule } from '@src/modules/common/ai-worker/ai-worker.module';
-import { AsyncTaskRecordUsecasesModule } from '@src/usecases/async-task-record/async-task-record-usecases.module';
 import {
   ConsumeAiEmbedJobUsecase,
   ConsumeAiGenerateJobUsecase,
 } from './consume-ai-generate-job.usecase';
 
 @Module({
-  imports: [AiWorkerModule, AsyncTaskRecordUsecasesModule],
+  imports: [AiWorkerModule, AsyncTaskRecordModule],
   providers: [ConsumeAiGenerateJobUsecase, ConsumeAiEmbedJobUsecase],
   exports: [ConsumeAiGenerateJobUsecase, ConsumeAiEmbedJobUsecase],
 })

@@ -8,6 +8,10 @@ import {
   FindAsyncTaskRecordByQueueJobInput,
   ListAsyncTaskRecordsByBizTargetInput,
   ListAsyncTaskRecordsByTraceInput,
+  RecordAsyncTaskEnqueuedInput,
+  RecordAsyncTaskEnqueueFailedInput,
+  RecordAsyncTaskFinishedInput,
+  RecordAsyncTaskStartedInput,
   UpdateAsyncTaskRecordStatusInput,
 } from './async-task-record.types';
 
@@ -144,6 +148,179 @@ export class AsyncTaskRecordService {
     }
   }
 
+  async recordEnqueued(input: {
+    readonly data: RecordAsyncTaskEnqueuedInput;
+    readonly manager?: EntityManager;
+  }): Promise<AsyncTaskRecordView> {
+    const occurredAt = input.data.occurredAt ?? input.data.enqueuedAt ?? new Date();
+    const enqueuedAt = input.data.enqueuedAt ?? occurredAt;
+    return await this.createRecordIfAbsent({
+      data: {
+        queueName: input.data.queueName,
+        jobName: input.data.jobName,
+        jobId: input.data.jobId,
+        traceId: input.data.traceId,
+        actorAccountId: input.data.actorAccountId,
+        actorActiveRole: input.data.actorActiveRole,
+        bizType: input.data.bizType,
+        bizKey: input.data.bizKey,
+        bizSubKey: input.data.bizSubKey,
+        source: input.data.source,
+        reason: input.data.reason,
+        occurredAt,
+        dedupKey: input.data.dedupKey,
+        status: 'queued',
+        attemptCount: 0,
+        maxAttempts: input.data.maxAttempts,
+        enqueuedAt,
+      },
+      manager: input.manager,
+    });
+  }
+
+  async recordEnqueueFailed(input: {
+    readonly data: RecordAsyncTaskEnqueueFailedInput;
+    readonly manager?: EntityManager;
+  }): Promise<AsyncTaskRecordView> {
+    const occurredAt = input.data.occurredAt ?? new Date();
+    return await this.createRecord({
+      data: {
+        queueName: input.data.queueName,
+        jobName: input.data.jobName,
+        jobId: this.resolveJobId({
+          jobId: input.data.jobId,
+          traceId: input.data.traceId,
+          occurredAt,
+        }),
+        traceId: input.data.traceId,
+        actorAccountId: input.data.actorAccountId,
+        actorActiveRole: input.data.actorActiveRole,
+        bizType: input.data.bizType,
+        bizKey: input.data.bizKey,
+        bizSubKey: input.data.bizSubKey,
+        source: input.data.source,
+        reason: input.data.reason ?? 'enqueue_failed',
+        occurredAt,
+        dedupKey: input.data.dedupKey,
+        status: 'failed',
+        attemptCount: 0,
+        maxAttempts: input.data.maxAttempts,
+        enqueuedAt: occurredAt,
+        finishedAt: occurredAt,
+      },
+      manager: input.manager,
+    });
+  }
+
+  async recordStarted(input: {
+    readonly data: RecordAsyncTaskStartedInput;
+    readonly manager?: EntityManager;
+  }): Promise<AsyncTaskRecordView> {
+    const startedAt = input.data.startedAt ?? new Date();
+    const occurredAt = input.data.occurredAt ?? startedAt;
+    const existing = await this.findByQueueJob({
+      where: { queueName: input.data.queueName, jobId: input.data.jobId },
+      manager: input.manager,
+    });
+    const attemptCount = input.data.attemptCount ?? Math.max((existing?.attemptCount ?? 0) + 1, 1);
+
+    if (existing) {
+      const updated = await this.updateStatusByQueueJob({
+        where: { queueName: input.data.queueName, jobId: input.data.jobId },
+        patch: {
+          status: 'processing',
+          startedAt,
+          occurredAt,
+          attemptCount,
+          reason: input.data.reason,
+        },
+        manager: input.manager,
+      });
+      if (updated) {
+        return updated;
+      }
+    }
+
+    return await this.createRecord({
+      data: {
+        queueName: input.data.queueName,
+        jobName: input.data.jobName,
+        jobId: input.data.jobId,
+        traceId: input.data.traceId,
+        actorAccountId: input.data.actorAccountId,
+        actorActiveRole: input.data.actorActiveRole,
+        bizType: input.data.bizType,
+        bizKey: input.data.bizKey,
+        bizSubKey: input.data.bizSubKey,
+        source: input.data.source,
+        reason: input.data.reason,
+        occurredAt,
+        dedupKey: input.data.dedupKey,
+        status: 'processing',
+        attemptCount,
+        maxAttempts: input.data.maxAttempts,
+        enqueuedAt: input.data.enqueuedAt ?? startedAt,
+        startedAt,
+      },
+      manager: input.manager,
+    });
+  }
+
+  async recordFinished(input: {
+    readonly data: RecordAsyncTaskFinishedInput;
+    readonly manager?: EntityManager;
+  }): Promise<AsyncTaskRecordView> {
+    const finishedAt = input.data.finishedAt ?? new Date();
+    const occurredAt = input.data.occurredAt ?? finishedAt;
+    const existing = await this.findByQueueJob({
+      where: { queueName: input.data.queueName, jobId: input.data.jobId },
+      manager: input.manager,
+    });
+    const attemptCount = input.data.attemptCount ?? existing?.attemptCount ?? 1;
+
+    if (existing) {
+      const updated = await this.updateStatusByQueueJob({
+        where: { queueName: input.data.queueName, jobId: input.data.jobId },
+        patch: {
+          status: input.data.status,
+          finishedAt,
+          occurredAt,
+          attemptCount,
+          reason: input.data.reason,
+        },
+        manager: input.manager,
+      });
+      if (updated) {
+        return updated;
+      }
+    }
+
+    return await this.createRecord({
+      data: {
+        queueName: input.data.queueName,
+        jobName: input.data.jobName,
+        jobId: input.data.jobId,
+        traceId: input.data.traceId,
+        actorAccountId: input.data.actorAccountId,
+        actorActiveRole: input.data.actorActiveRole,
+        bizType: input.data.bizType,
+        bizKey: input.data.bizKey,
+        bizSubKey: input.data.bizSubKey,
+        source: input.data.source,
+        reason: input.data.reason,
+        occurredAt,
+        dedupKey: input.data.dedupKey,
+        status: input.data.status,
+        attemptCount,
+        maxAttempts: input.data.maxAttempts,
+        enqueuedAt: input.data.enqueuedAt ?? finishedAt,
+        startedAt: input.data.startedAt ?? null,
+        finishedAt,
+      },
+      manager: input.manager,
+    });
+  }
+
   async updateStatusByQueueJob(input: {
     readonly where: FindAsyncTaskRecordByQueueJobInput;
     readonly patch: UpdateAsyncTaskRecordStatusInput;
@@ -189,6 +366,18 @@ export class AsyncTaskRecordService {
       return 50;
     }
     return Math.min(limit, 500);
+  }
+
+  private resolveJobId(input: {
+    readonly jobId?: string;
+    readonly traceId: string;
+    readonly occurredAt: Date;
+  }): string {
+    const normalized = input.jobId?.trim();
+    if (normalized) {
+      return normalized;
+    }
+    return `enqueue-failed:${input.traceId}:${input.occurredAt.getTime()}`;
   }
 
   private isUniqueConstraintViolation(error: unknown): boolean {
