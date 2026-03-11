@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { EntityManager, FindOptionsWhere, In, IsNull, Repository } from 'typeorm';
+import { EntityManager, FindOptionsWhere, In, IsNull, QueryFailedError, Repository } from 'typeorm';
 import { AsyncTaskRecordEntity, AsyncTaskRecordStatus } from './async-task-record.entity';
 import {
   AsyncTaskRecordView,
@@ -120,6 +120,30 @@ export class AsyncTaskRecordService {
     return this.toView(saved);
   }
 
+  async createRecordIfAbsent(input: {
+    readonly data: CreateAsyncTaskRecordInput;
+    readonly manager?: EntityManager;
+  }): Promise<AsyncTaskRecordView> {
+    try {
+      return await this.createRecord(input);
+    } catch (error: unknown) {
+      if (!this.isUniqueConstraintViolation(error)) {
+        throw error;
+      }
+      const existing = await this.findByQueueJob({
+        where: {
+          queueName: input.data.queueName,
+          jobId: input.data.jobId,
+        },
+        manager: input.manager,
+      });
+      if (existing) {
+        return existing;
+      }
+      throw error;
+    }
+  }
+
   async updateStatusByQueueJob(input: {
     readonly where: FindAsyncTaskRecordByQueueJobInput;
     readonly patch: UpdateAsyncTaskRecordStatusInput;
@@ -165,6 +189,39 @@ export class AsyncTaskRecordService {
       return 50;
     }
     return Math.min(limit, 500);
+  }
+
+  private isUniqueConstraintViolation(error: unknown): boolean {
+    if (!(error instanceof QueryFailedError)) {
+      return false;
+    }
+    const errorObject = error as unknown as {
+      readonly code?: string;
+      readonly errno?: number;
+      readonly sqlState?: string;
+      readonly driverError?: {
+        readonly code?: string;
+        readonly errno?: number;
+        readonly sqlState?: string;
+      };
+    };
+    const driverCode = errorObject.driverError?.code;
+    const driverErrno = errorObject.driverError?.errno;
+    const driverSqlState = errorObject.driverError?.sqlState;
+    if (
+      driverCode === 'ER_DUP_ENTRY' ||
+      driverErrno === 1062 ||
+      driverSqlState === '23000' ||
+      driverCode === '23505'
+    ) {
+      return true;
+    }
+    return (
+      errorObject.code === 'ER_DUP_ENTRY' ||
+      errorObject.errno === 1062 ||
+      errorObject.sqlState === '23000' ||
+      errorObject.code === '23505'
+    );
   }
 
   private toView(entity: AsyncTaskRecordEntity): AsyncTaskRecordView {

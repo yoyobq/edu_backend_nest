@@ -30,7 +30,7 @@ export class RecordAsyncTaskEnqueuedUsecase {
   async execute(input: RecordAsyncTaskEnqueuedUsecaseInput): Promise<AsyncTaskRecordView> {
     const occurredAt = input.occurredAt ?? input.enqueuedAt ?? new Date();
     const enqueuedAt = input.enqueuedAt ?? occurredAt;
-    return await this.asyncTaskRecordService.createRecord({
+    return await this.asyncTaskRecordService.createRecordIfAbsent({
       data: {
         queueName: input.queueName,
         jobName: input.jobName,

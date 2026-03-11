@@ -18,24 +18,34 @@ export class QueueEmailUsecase {
 
   async execute(input: QueueEmailInput): Promise<QueueEmailResult> {
     const occurredAt = new Date();
+    const result = await this.enqueueOrThrow({ input, occurredAt });
+    await this.recordAsyncTaskEnqueuedUsecase.execute({
+      queueName: 'email',
+      jobName: 'send',
+      jobId: result.jobId,
+      traceId: result.traceId,
+      bizType: 'email',
+      bizKey: result.jobId,
+      source: this.resolveSource(),
+      reason: 'enqueue_accepted',
+      occurredAt,
+      dedupKey: input.dedupKey,
+    });
+    return result;
+  }
+
+  private async enqueueOrThrow(input: {
+    readonly input: QueueEmailInput;
+    readonly occurredAt: Date;
+  }): Promise<QueueEmailResult> {
     try {
-      const result = await this.emailQueueService.enqueueSend(input);
-      await this.recordAsyncTaskEnqueuedUsecase.execute({
-        queueName: 'email',
-        jobName: 'send',
-        jobId: result.jobId,
-        traceId: result.traceId,
-        bizType: 'email',
-        bizKey: result.jobId,
-        source: this.resolveSource(),
-        reason: 'enqueue_accepted',
-        occurredAt,
-        dedupKey: input.dedupKey,
-      });
-      return result;
+      return await this.emailQueueService.enqueueSend(input.input);
     } catch (error: unknown) {
       const normalizedError = error instanceof Error ? error : new Error('email_enqueue_failed');
-      const traceId = this.resolveTraceId({ traceId: input.traceId, occurredAt });
+      const traceId = this.resolveTraceId({
+        traceId: input.input.traceId,
+        occurredAt: input.occurredAt,
+      });
       await this.recordAsyncTaskEnqueueFailedUsecase.execute({
         queueName: 'email',
         jobName: 'send',
@@ -44,8 +54,8 @@ export class QueueEmailUsecase {
         bizKey: traceId,
         source: this.resolveSource(),
         reason: normalizedError.message.slice(0, 128),
-        occurredAt,
-        dedupKey: input.dedupKey,
+        occurredAt: input.occurredAt,
+        dedupKey: input.input.dedupKey,
       });
       throw normalizedError;
     }
