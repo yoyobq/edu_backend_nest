@@ -22,12 +22,18 @@ export class EmailDeliveryService {
     const providerMessageId = `sendmail-${randomUUID()}`;
     const body = input.html ?? input.text ?? '';
     const contentType = input.html ? 'text/html; charset="UTF-8"' : 'text/plain; charset="UTF-8"';
-    const fromAddress = this.configService.get<string>('EMAIL_FROM');
-    const sendmailPath = this.configService.get<string>('SENDMAIL_PATH') ?? '/usr/sbin/sendmail';
+    const runAsUser = this.configService.get<string>('EMAIL_SEND_AS_USER');
+    const deliveryMode = 'sendmail';
+    const sendmailPath = '/usr/sbin/sendmail';
+    this.logger.info(
+      {
+        deliveryMode,
+        runAsUser: runAsUser?.trim() || undefined,
+        sendmailPath,
+      },
+      'Email delivery command resolved',
+    );
     const headers: string[] = [`To: ${input.to}`, `Subject: ${input.subject}`, 'MIME-Version: 1.0'];
-    if (fromAddress) {
-      headers.push(`From: ${fromAddress}`);
-    }
     headers.push(`Content-Type: ${contentType}`);
     const message = `${headers.join('\n')}\n\n${body}\n`;
     await this.sendWithSendmail({
@@ -35,6 +41,7 @@ export class EmailDeliveryService {
       to: input.to,
       subject: input.subject,
       sendmailPath,
+      runAsUser,
     });
     this.logger.info(
       {
@@ -59,10 +66,22 @@ export class EmailDeliveryService {
     readonly to: string;
     readonly subject: string;
     readonly sendmailPath: string;
+    readonly runAsUser?: string;
   }): Promise<void> {
     await new Promise<void>((resolve, reject) => {
-      const child = spawn(input.sendmailPath, ['-t', '-i'], { stdio: ['pipe', 'pipe', 'pipe'] });
+      const runAsUserValue = input.runAsUser?.trim() ?? '';
+      const shouldRunAsUser = runAsUserValue.length > 0;
+      const command = shouldRunAsUser ? 'sudo' : input.sendmailPath;
+      const args = shouldRunAsUser
+        ? ['-n', '-u', runAsUserValue, input.sendmailPath, '-t', '-i']
+        : ['-t', '-i'];
+      const child = spawn(command, args, { stdio: ['pipe', 'pipe', 'pipe'] });
       let stderr = '';
+      let stdout = '';
+      const commandLine = [command, ...args].join(' ');
+      child.stdout.on('data', (chunk: Buffer) => {
+        stdout += chunk.toString();
+      });
       child.stderr.on('data', (chunk: Buffer) => {
         stderr += chunk.toString();
       });
@@ -76,7 +95,7 @@ export class EmailDeliveryService {
         }
         reject(
           new Error(
-            `Sendmail failed (code ${code}) for ${input.to} subject "${input.subject}": ${stderr}`,
+            `Sendmail failed (code ${code}) cmd="${commandLine}" for ${input.to} subject "${input.subject}"; stdout="${stdout.slice(0, 256)}"; stderr="${stderr.slice(0, 512)}"`,
           ),
         );
       });

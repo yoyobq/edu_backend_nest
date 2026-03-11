@@ -22,7 +22,8 @@ const ENABLED_SPECS = [
   // '07-pagination-sort-search/learners-pagination.e2e-spec.ts',
   // '07-pagination-sort-search/sort.e2e-spec.ts',
   // '07-pagination-sort-search/search.e2e-spec.ts',
-  '08-email-queue-worker/email-queue-consume.e2e-spec.ts',
+  // '08-email-queue-worker/email-queue-consume.e2e-spec.ts',
+  '09-email-delivery-real/email-delivery-real.e2e-spec.ts',
 ];
 
 /** 可选：命令行临时指定（逗号分隔）

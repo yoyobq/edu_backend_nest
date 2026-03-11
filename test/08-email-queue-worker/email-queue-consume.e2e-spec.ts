@@ -1,8 +1,7 @@
 import { VerificationRecordType } from '@app-types/models/verification-record.types';
 import { TokenHelper } from '@modules/auth/token.helper';
 import { getQueueToken } from '@nestjs/bullmq';
-import { INestApplication, INestApplicationContext } from '@nestjs/common';
-import { NestFactory } from '@nestjs/core';
+import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { ApiModule } from '@src/bootstraps/api/api.module';
 import { WorkerModule } from '@src/bootstraps/worker/worker.module';
@@ -16,6 +15,11 @@ import {
   AsyncTaskRecordEntity,
   type AsyncTaskRecordStatus,
 } from '@src/modules/async-task-record/async-task-record.entity';
+import { EmailDeliveryService } from '@src/modules/common/email-worker/email-delivery.service';
+import type {
+  SendEmailInput,
+  SendEmailResult,
+} from '@src/modules/common/email-worker/email-worker.types';
 import { CreateAccountUsecase } from '@usecases/account/create-account.usecase';
 import { Queue } from 'bullmq';
 import request from 'supertest';
@@ -26,6 +30,18 @@ import { seedTestAccounts, testAccountsConfig } from '../utils/test-accounts';
 type FinalJobState = 'completed' | 'failed';
 
 const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
+
+class MockEmailDeliveryService {
+  send(input: SendEmailInput): Promise<SendEmailResult> {
+    if (input.to.includes('fail.local')) {
+      return Promise.reject(new Error('Simulated email provider failure'));
+    }
+    return Promise.resolve({
+      accepted: true,
+      providerMessageId: `mock-${Date.now()}`,
+    });
+  }
+}
 
 const QUEUE_EMAIL_MUTATION = `
   mutation QueueEmail($input: QueueEmailInput!) {
@@ -427,7 +443,7 @@ const queueEmail = async (input: {
 
 describe('邮件队列与 Worker（e2e）', () => {
   let apiApp: INestApplication;
-  let workerApp: INestApplicationContext;
+  let workerApp: INestApplication;
   let emailQueue: Queue;
   let workerRuntime: BullMqWorkerRuntime;
   let dataSource: DataSource;
@@ -442,7 +458,15 @@ describe('邮件队列与 Worker（e2e）', () => {
     apiApp = apiModuleFixture.createNestApplication();
     await apiApp.init();
 
-    workerApp = await NestFactory.createApplicationContext(WorkerModule);
+    const workerModuleFixture: TestingModule = await Test.createTestingModule({
+      imports: [WorkerModule],
+    })
+      .overrideProvider(EmailDeliveryService)
+      .useClass(MockEmailDeliveryService)
+      .compile();
+
+    workerApp = workerModuleFixture.createNestApplication();
+    await workerApp.init();
 
     emailQueue = apiApp.get<Queue>(getQueueToken(BULLMQ_QUEUES.EMAIL));
     workerRuntime = workerApp.get(BullMqWorkerRuntime);
