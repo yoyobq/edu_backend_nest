@@ -1,4 +1,5 @@
 import { BULLMQ_JOBS, BULLMQ_QUEUES, type BullMqQueueName } from '../bullmq.constants';
+import { AI_JOB_CONTRACT } from './ai.contract';
 import { EMAIL_JOB_CONTRACT } from './email.contract';
 import { INTEGRATION_EVENTS_JOB_CONTRACT } from './integration-events.contract';
 
@@ -7,6 +8,7 @@ type PayloadValidator<T> = (payload: unknown) => payload is T;
 type QueueJobContractMap = {
   readonly [BULLMQ_QUEUES.INTEGRATION_EVENTS]: typeof INTEGRATION_EVENTS_JOB_CONTRACT;
   readonly [BULLMQ_QUEUES.EMAIL]: typeof EMAIL_JOB_CONTRACT;
+  readonly [BULLMQ_QUEUES.AI]: typeof AI_JOB_CONTRACT;
 };
 
 export type BullMqJobName<Q extends BullMqQueueName> = keyof QueueJobContractMap[Q] & string;
@@ -39,6 +41,10 @@ export const BULLMQ_JOB_PAYLOAD_VALIDATORS = {
   },
   [BULLMQ_QUEUES.EMAIL]: {
     [BULLMQ_JOBS.EMAIL.SEND]: EMAIL_JOB_CONTRACT[BULLMQ_JOBS.EMAIL.SEND].payloadValidator,
+  },
+  [BULLMQ_QUEUES.AI]: {
+    [BULLMQ_JOBS.AI.GENERATE]: AI_JOB_CONTRACT[BULLMQ_JOBS.AI.GENERATE].payloadValidator,
+    [BULLMQ_JOBS.AI.EMBED]: AI_JOB_CONTRACT[BULLMQ_JOBS.AI.EMBED].payloadValidator,
   },
 } as const satisfies {
   readonly [Q in BullMqQueueName]: {
