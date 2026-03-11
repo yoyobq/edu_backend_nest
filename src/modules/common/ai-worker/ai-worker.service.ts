@@ -1,6 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { createHash } from 'node:crypto';
-import type { GenerateAiContentInput, GenerateAiContentResult } from './ai-worker.types';
+import type {
+  EmbedAiContentInput,
+  EmbedAiContentResult,
+  GenerateAiContentInput,
+  GenerateAiContentResult,
+} from './ai-worker.types';
 
 @Injectable()
 export class AiWorkerService {
@@ -11,7 +16,7 @@ export class AiWorkerService {
     const providerJobId = this.buildProviderJobId({
       provider,
       model: input.model,
-      prompt: normalizedPrompt,
+      content: normalizedPrompt,
     });
     return {
       accepted: true,
@@ -20,12 +25,35 @@ export class AiWorkerService {
     };
   }
 
+  embed(input: EmbedAiContentInput): EmbedAiContentResult {
+    const normalizedText = input.text.trim();
+    const provider = input.provider?.trim() || 'default';
+    const providerJobId = this.buildProviderJobId({
+      provider,
+      model: input.model,
+      content: normalizedText,
+    });
+    return {
+      accepted: true,
+      vector: this.buildVector({ model: input.model, text: normalizedText }),
+      providerJobId,
+    };
+  }
+
   private buildProviderJobId(input: {
     readonly provider: string;
     readonly model: string;
-    readonly prompt: string;
+    readonly content: string;
   }): string {
-    const digest = createHash('sha256').update(`${input.model}:${input.prompt}`).digest('hex');
+    const digest = createHash('sha256').update(`${input.model}:${input.content}`).digest('hex');
     return `${input.provider}:${digest.slice(0, 24)}`;
+  }
+
+  private buildVector(input: {
+    readonly model: string;
+    readonly text: string;
+  }): ReadonlyArray<number> {
+    const digest = createHash('sha256').update(`${input.model}:${input.text}`).digest();
+    return [digest[0] / 255, digest[1] / 255, digest[2] / 255, digest[3] / 255];
   }
 }

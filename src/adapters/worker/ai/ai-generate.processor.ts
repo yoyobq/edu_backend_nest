@@ -1,26 +1,57 @@
 import { OnWorkerEvent, Processor, WorkerHost } from '@nestjs/bullmq';
 import { Injectable } from '@nestjs/common';
-import { AiGenerateHandler } from './ai-generate.handler';
-import { AI_QUEUE_NAME, type AiGenerateJob, type AiGenerateResult } from './ai-generate.mapper';
+import { AiJobHandler } from './ai-generate.handler';
+import {
+  AI_EMBED_JOB_NAME,
+  AI_GENERATE_JOB_NAME,
+  AI_QUEUE_NAME,
+  type AiJob,
+  type AiJobResult,
+} from './ai-generate.mapper';
 
 @Injectable()
 @Processor(AI_QUEUE_NAME)
 export class AiGenerateProcessor extends WorkerHost {
-  constructor(private readonly handler: AiGenerateHandler) {
+  constructor(private readonly handler: AiJobHandler) {
     super();
   }
 
-  async process(job: AiGenerateJob): Promise<AiGenerateResult> {
-    return await this.handler.process({ job });
+  async process(job: AiJob): Promise<AiJobResult> {
+    if (job.name === AI_GENERATE_JOB_NAME) {
+      return await this.handler.processGenerate({ job });
+    }
+    if (job.name === AI_EMBED_JOB_NAME) {
+      return await this.handler.processEmbed({ job });
+    }
+    throw new Error('Unsupported AI job');
   }
 
   @OnWorkerEvent('completed')
-  async onCompleted(job: AiGenerateJob): Promise<void> {
-    await this.handler.onCompleted({ job });
+  async onCompleted(job: AiJob): Promise<void> {
+    if (job.name === AI_GENERATE_JOB_NAME) {
+      await this.handler.onGenerateCompleted({ job });
+      return;
+    }
+    if (job.name === AI_EMBED_JOB_NAME) {
+      await this.handler.onEmbedCompleted({ job });
+      return;
+    }
+    throw new Error('Unsupported AI job');
   }
 
   @OnWorkerEvent('failed')
-  async onFailed(job: AiGenerateJob | undefined, error: Error): Promise<void> {
-    await this.handler.onFailed({ job, error });
+  async onFailed(job: AiJob | undefined, error: Error): Promise<void> {
+    if (!job) {
+      throw new Error(`AI worker failed event missing job: ${error.message}`);
+    }
+    if (job.name === AI_GENERATE_JOB_NAME) {
+      await this.handler.onGenerateFailed({ job, error });
+      return;
+    }
+    if (job.name === AI_EMBED_JOB_NAME) {
+      await this.handler.onEmbedFailed({ job, error });
+      return;
+    }
+    throw new Error('Unsupported AI job');
   }
 }

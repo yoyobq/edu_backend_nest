@@ -10,3 +10,16 @@ export interface GenerateAiContentResult {
   readonly outputText: string;
   readonly providerJobId: string;
 }
+
+export interface EmbedAiContentInput {
+  readonly provider?: string;
+  readonly model: string;
+  readonly text: string;
+  readonly metadata?: Readonly<Record<string, string>>;
+}
+
+export interface EmbedAiContentResult {
+  readonly accepted: boolean;
+  readonly vector: ReadonlyArray<number>;
+  readonly providerJobId: string;
+}
