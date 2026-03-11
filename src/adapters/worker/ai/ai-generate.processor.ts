@@ -41,17 +41,6 @@ export class AiGenerateProcessor extends WorkerHost {
 
   @OnWorkerEvent('failed')
   async onFailed(job: AiJob | undefined, error: Error): Promise<void> {
-    if (!job) {
-      throw new Error(`AI worker failed event missing job: ${error.message}`);
-    }
-    if (job.name === AI_GENERATE_JOB_NAME) {
-      await this.handler.onGenerateFailed({ job, error });
-      return;
-    }
-    if (job.name === AI_EMBED_JOB_NAME) {
-      await this.handler.onEmbedFailed({ job, error });
-      return;
-    }
-    throw new Error('Unsupported AI job');
+    await this.handler.onFailed({ job, error });
   }
 }

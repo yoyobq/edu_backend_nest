@@ -3,19 +3,22 @@ import {
   ConsumeAiEmbedJobUsecase,
   ConsumeAiGenerateJobUsecase,
 } from '@src/usecases/ai-worker/consume-ai-generate-job.usecase';
+import { RecordAsyncTaskFinishedUsecase } from '@src/usecases/async-task-record/record-async-task-finished.usecase';
 import {
+  AI_EMBED_JOB_NAME,
+  AI_GENERATE_JOB_NAME,
   type AiEmbedJob,
   type AiEmbedResult,
   type AiGenerateJob,
   type AiGenerateResult,
+  type AiJob,
   mapAiEmbedJobToCompleteInput,
   mapAiEmbedJobToFailInput,
   mapAiEmbedJobToProcessInput,
   mapAiGenerateJobToCompleteInput,
   mapAiGenerateJobToFailInput,
   mapAiGenerateJobToProcessInput,
-  mapMissingAiEmbedJobToFailInput,
-  mapMissingAiGenerateJobToFailInput,
+  mapMissingAiJobToFailedRecordInput,
 } from './ai-generate.mapper';
 
 @Injectable()
@@ -23,6 +26,7 @@ export class AiJobHandler {
   constructor(
     private readonly consumeAiGenerateJobUsecase: ConsumeAiGenerateJobUsecase,
     private readonly consumeAiEmbedJobUsecase: ConsumeAiEmbedJobUsecase,
+    private readonly recordAsyncTaskFinishedUsecase: RecordAsyncTaskFinishedUsecase,
   ) {}
 
   async processGenerate(input: { readonly job: AiGenerateJob }): Promise<AiGenerateResult> {
@@ -48,32 +52,35 @@ export class AiJobHandler {
   }
 
   async onGenerateFailed(input: {
-    readonly job: AiGenerateJob | undefined;
+    readonly job: AiGenerateJob;
     readonly error: Error;
   }): Promise<void> {
-    if (!input.job) {
-      await this.consumeAiGenerateJobUsecase.fail(
-        mapMissingAiGenerateJobToFailInput({ error: input.error }),
-      );
-      return;
-    }
     await this.consumeAiGenerateJobUsecase.fail(
       mapAiGenerateJobToFailInput({ job: input.job, error: input.error }),
     );
   }
 
-  async onEmbedFailed(input: {
-    readonly job: AiEmbedJob | undefined;
-    readonly error: Error;
-  }): Promise<void> {
-    if (!input.job) {
-      await this.consumeAiEmbedJobUsecase.fail(
-        mapMissingAiEmbedJobToFailInput({ error: input.error }),
-      );
-      return;
-    }
+  async onEmbedFailed(input: { readonly job: AiEmbedJob; readonly error: Error }): Promise<void> {
     await this.consumeAiEmbedJobUsecase.fail(
       mapAiEmbedJobToFailInput({ job: input.job, error: input.error }),
     );
+  }
+
+  async onFailed(input: { readonly job: AiJob | undefined; readonly error: Error }): Promise<void> {
+    if (!input.job) {
+      await this.recordAsyncTaskFinishedUsecase.execute(
+        mapMissingAiJobToFailedRecordInput({ error: input.error }),
+      );
+      return;
+    }
+    if (input.job.name === AI_GENERATE_JOB_NAME) {
+      await this.onGenerateFailed({ job: input.job, error: input.error });
+      return;
+    }
+    if (input.job.name === AI_EMBED_JOB_NAME) {
+      await this.onEmbedFailed({ job: input.job, error: input.error });
+      return;
+    }
+    throw new Error('Unsupported AI job');
   }
 }

@@ -6,6 +6,7 @@ import type {
   ConsumeAiGenerateJobFailInput,
   ConsumeAiGenerateJobProcessInput,
 } from '@src/usecases/ai-worker/consume-ai-generate-job.usecase';
+import type { RecordAsyncTaskFinishedUsecaseInput } from '@src/usecases/async-task-record/record-async-task-finished.usecase';
 import type { Job } from 'bullmq';
 
 export const AI_QUEUE_NAME = 'ai';
@@ -188,6 +189,31 @@ export function mapMissingAiEmbedJobToFailInput(input: {
     finishedAt: occurredAt,
     occurredAt,
     reason: `worker_event_job_missing:${input.error.message.slice(0, 96)}`,
+  };
+}
+
+export function mapMissingAiJobToFailedRecordInput(input: {
+  readonly error: Error;
+  readonly occurredAt?: Date;
+  readonly jobName?: string;
+}): RecordAsyncTaskFinishedUsecaseInput {
+  const occurredAt = input.occurredAt ?? new Date();
+  const jobName = input.jobName?.trim() || 'unknown';
+  const jobId = resolveMissingJobId({ occurredAt, jobName });
+  return {
+    queueName: AI_QUEUE_NAME,
+    jobName,
+    jobId,
+    traceId: jobId,
+    bizType: 'ai_worker',
+    bizKey: jobId,
+    source: 'system',
+    status: 'failed',
+    reason: `worker_event_job_missing:${input.error.message.slice(0, 96)}`,
+    attemptCount: 0,
+    enqueuedAt: occurredAt,
+    finishedAt: occurredAt,
+    occurredAt,
   };
 }
 
