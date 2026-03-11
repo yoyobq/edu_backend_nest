@@ -86,7 +86,7 @@ export class ConsumeAiGenerateJobUsecase {
         bizKey: input.jobId,
         source: this.resolveSource(),
         reason: 'worker_processing',
-        attemptCount: this.resolveAttemptCount({ attemptsMade: input.attemptsMade }),
+        attemptCount: this.resolveProcessingAttemptCount({ attemptsMade: input.attemptsMade }),
         maxAttempts: input.maxAttempts,
         enqueuedAt: input.enqueuedAt,
         startedAt: input.startedAt,
@@ -108,7 +108,7 @@ export class ConsumeAiGenerateJobUsecase {
         source: this.resolveSource(),
         status: 'succeeded',
         reason: 'worker_completed',
-        attemptCount: this.resolveAttemptCount({ attemptsMade: input.attemptsMade }),
+        attemptCount: this.resolveFinalAttemptCount({ attemptsMade: input.attemptsMade }),
         maxAttempts: input.maxAttempts,
         enqueuedAt: input.enqueuedAt,
         startedAt: input.startedAt,
@@ -130,7 +130,7 @@ export class ConsumeAiGenerateJobUsecase {
         source: this.resolveSource(),
         status: 'failed',
         reason: input.reason,
-        attemptCount: this.resolveAttemptCount({ attemptsMade: input.attemptsMade }),
+        attemptCount: this.resolveFinalAttemptCount({ attemptsMade: input.attemptsMade }),
         maxAttempts: input.maxAttempts,
         enqueuedAt: input.enqueuedAt,
         startedAt: input.startedAt,
@@ -140,8 +140,12 @@ export class ConsumeAiGenerateJobUsecase {
     });
   }
 
-  private resolveAttemptCount(input: { readonly attemptsMade: number }): number {
+  private resolveProcessingAttemptCount(input: { readonly attemptsMade: number }): number {
     return Math.max(input.attemptsMade + 1, 1);
+  }
+
+  private resolveFinalAttemptCount(input: { readonly attemptsMade: number }): number {
+    return Math.max(input.attemptsMade, 1);
   }
 
   private resolveSource(): AsyncTaskRecordSource {
@@ -167,7 +171,7 @@ export class ConsumeAiEmbedJobUsecase {
         bizKey: input.jobId,
         source: this.resolveSource(),
         reason: 'worker_processing',
-        attemptCount: this.resolveAttemptCount({ attemptsMade: input.attemptsMade }),
+        attemptCount: this.resolveProcessingAttemptCount({ attemptsMade: input.attemptsMade }),
         maxAttempts: input.maxAttempts,
         enqueuedAt: input.enqueuedAt,
         startedAt: input.startedAt,
@@ -189,7 +193,7 @@ export class ConsumeAiEmbedJobUsecase {
         source: this.resolveSource(),
         status: 'succeeded',
         reason: 'worker_completed',
-        attemptCount: this.resolveAttemptCount({ attemptsMade: input.attemptsMade }),
+        attemptCount: this.resolveFinalAttemptCount({ attemptsMade: input.attemptsMade }),
         maxAttempts: input.maxAttempts,
         enqueuedAt: input.enqueuedAt,
         startedAt: input.startedAt,
@@ -211,7 +215,7 @@ export class ConsumeAiEmbedJobUsecase {
         source: this.resolveSource(),
         status: 'failed',
         reason: input.reason,
-        attemptCount: this.resolveAttemptCount({ attemptsMade: input.attemptsMade }),
+        attemptCount: this.resolveFinalAttemptCount({ attemptsMade: input.attemptsMade }),
         maxAttempts: input.maxAttempts,
         enqueuedAt: input.enqueuedAt,
         startedAt: input.startedAt,
@@ -221,8 +225,12 @@ export class ConsumeAiEmbedJobUsecase {
     });
   }
 
-  private resolveAttemptCount(input: { readonly attemptsMade: number }): number {
+  private resolveProcessingAttemptCount(input: { readonly attemptsMade: number }): number {
     return Math.max(input.attemptsMade + 1, 1);
+  }
+
+  private resolveFinalAttemptCount(input: { readonly attemptsMade: number }): number {
+    return Math.max(input.attemptsMade, 1);
   }
 
   private resolveSource(): AsyncTaskRecordSource {

@@ -1,22 +1,23 @@
 import { getQueueToken } from '@nestjs/bullmq';
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
+import { AiJobHandler } from '@src/adapters/worker/ai/ai-generate.handler';
+import type { AiGenerateJob } from '@src/adapters/worker/ai/ai-generate.mapper';
 import { ApiModule } from '@src/bootstraps/api/api.module';
 import { WorkerModule } from '@src/bootstraps/worker/worker.module';
-import { AiJobHandler } from '@src/adapters/worker/ai/ai-generate.handler';
+import { BULLMQ_JOBS, BULLMQ_QUEUES } from '@src/infrastructure/bullmq/bullmq.constants';
+import { BullMqWorkerRuntime } from '@src/infrastructure/bullmq/worker.runtime';
 import {
   AsyncTaskRecordEntity,
   type AsyncTaskRecordStatus,
 } from '@src/modules/async-task-record/async-task-record.entity';
+import { AiWorkerService } from '@src/modules/common/ai-worker/ai-worker.service';
 import {
   type EmbedAiContentInput,
   type EmbedAiContentResult,
   type GenerateAiContentInput,
   type GenerateAiContentResult,
 } from '@src/modules/common/ai-worker/ai-worker.types';
-import { AiWorkerService } from '@src/modules/common/ai-worker/ai-worker.service';
-import { BULLMQ_JOBS, BULLMQ_QUEUES } from '@src/infrastructure/bullmq/bullmq.constants';
-import { BullMqWorkerRuntime } from '@src/infrastructure/bullmq/worker.runtime';
 import { Queue } from 'bullmq';
 import { DataSource } from 'typeorm';
 import { initGraphQLSchema } from '../../src/adapters/api/graphql/schema/schema.init';
@@ -28,11 +29,21 @@ const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout
 class MockAiWorkerService {
   readonly generateCalls: GenerateAiContentInput[] = [];
   readonly embedCalls: EmbedAiContentInput[] = [];
+  private readonly generateAttemptsByPrompt = new Map<string, number>();
 
   generate(input: GenerateAiContentInput): GenerateAiContentResult {
     this.generateCalls.push(input);
+    const attemptKey = `${input.model}:${input.prompt}`;
+    const currentAttempt = (this.generateAttemptsByPrompt.get(attemptKey) ?? 0) + 1;
+    this.generateAttemptsByPrompt.set(attemptKey, currentAttempt);
     if (input.prompt.includes('__FAIL_GENERATE__')) {
       throw new Error('Mock AI generate failure');
+    }
+    if (input.prompt.includes('__RETRY_SUCCESS_2__') && currentAttempt <= 2) {
+      throw new Error(`Mock AI transient failure ${currentAttempt}`);
+    }
+    if (input.prompt.includes('__RETRY_EXHAUST__')) {
+      throw new Error(`Mock AI exhausted failure ${currentAttempt}`);
     }
     return {
       accepted: true,
@@ -311,7 +322,7 @@ describe('AI Worker（e2e）', () => {
       expect(record.reason).toBe('worker_completed');
       expect(record.bizType).toBe('ai_generation');
       expect(record.bizKey).toBe(jobId);
-      expect(record.attemptCount).toBe(attemptsMade + 1);
+      expect(record.attemptCount).toBe(attemptsMade);
       expect(record.maxAttempts).toBe(1);
       expect(record.startedAt).toBeInstanceOf(Date);
       expect(record.finishedAt).toBeInstanceOf(Date);
@@ -408,6 +419,92 @@ describe('AI Worker（e2e）', () => {
     }
   }, 60000);
 
+  it('attempts=3 前两次失败第三次成功时应落库 succeeded 且重试计数正确', async () => {
+    const timestamp = Date.now();
+    const jobId = `${BULLMQ_JOBS.AI.GENERATE}-ai-gen-retry-success-${timestamp}`;
+    const prompt = `__RETRY_SUCCESS_2__-${timestamp}`;
+
+    try {
+      await workerRuntime.stop();
+
+      await enqueueAiGenerate({
+        queue: aiQueue,
+        jobId,
+        prompt,
+        attempts: 3,
+      });
+
+      await workerRuntime.start();
+      const finalState = await waitJobFinalState({
+        queue: aiQueue,
+        jobId,
+        timeoutMs: 20000,
+        pollMs: 150,
+      });
+      expect(finalState.state).toBe('completed');
+      expect(finalState.returnvalue).toMatchObject({
+        accepted: true,
+        outputText: `mock-output:${prompt}`,
+      });
+
+      const record = await waitAsyncTaskRecord({
+        dataSource,
+        queueName: BULLMQ_QUEUES.AI,
+        jobId,
+        statuses: ['succeeded'],
+        timeoutMs: 20000,
+        pollMs: 150,
+      });
+      expect(record.status).toBe('succeeded');
+      expect(record.attemptCount).toBe(3);
+      expect(record.maxAttempts).toBe(3);
+      expect(record.reason).toBe('worker_completed');
+    } finally {
+      await workerRuntime.start();
+    }
+  }, 60000);
+
+  it('attempts=3 重试耗尽后应 failed 且 reason 仅来自最后一次错误', async () => {
+    const timestamp = Date.now();
+    const jobId = `${BULLMQ_JOBS.AI.GENERATE}-ai-gen-retry-failed-${timestamp}`;
+    const prompt = `__RETRY_EXHAUST__-${timestamp}`;
+
+    try {
+      await workerRuntime.stop();
+
+      await enqueueAiGenerate({
+        queue: aiQueue,
+        jobId,
+        prompt,
+        attempts: 3,
+      });
+
+      await workerRuntime.start();
+      const finalState = await waitJobFinalState({
+        queue: aiQueue,
+        jobId,
+        timeoutMs: 20000,
+        pollMs: 150,
+      });
+      expect(finalState.state).toBe('failed');
+
+      const record = await waitAsyncTaskRecord({
+        dataSource,
+        queueName: BULLMQ_QUEUES.AI,
+        jobId,
+        statuses: ['failed'],
+        timeoutMs: 20000,
+        pollMs: 150,
+      });
+      expect(record.status).toBe('failed');
+      expect(record.maxAttempts).toBe(3);
+      expect(record.reason).toContain('Mock AI exhausted failure 3');
+      expect(record.reason).not.toContain('Mock AI exhausted failure 1');
+    } finally {
+      await workerRuntime.start();
+    }
+  }, 60000);
+
   it('embed 失败时应落库为 failed 并写入失败原因', async () => {
     const timestamp = Date.now();
     const jobId = `${BULLMQ_JOBS.AI.EMBED}-ai-embed-fail-${timestamp}`;
@@ -495,6 +592,105 @@ describe('AI Worker（e2e）', () => {
       expect(record.status).toBe('succeeded');
       expect(recordCount).toBe(1);
       expect(aiWorkerMock.generateCalls.length - callsBefore).toBe(1);
+    } finally {
+      await workerRuntime.start();
+    }
+  }, 60000);
+
+  it('重复触发 completed 事件时不应新增记录', async () => {
+    const timestamp = Date.now();
+    const jobId = `${BULLMQ_JOBS.AI.GENERATE}-ai-gen-completed-idempotent-${timestamp}`;
+
+    try {
+      await workerRuntime.stop();
+      await enqueueAiGenerate({
+        queue: aiQueue,
+        jobId,
+        prompt: 'completed idempotent case',
+        attempts: 1,
+      });
+      await workerRuntime.start();
+      const finalState = await waitJobFinalState({
+        queue: aiQueue,
+        jobId,
+        timeoutMs: 20000,
+        pollMs: 150,
+      });
+      expect(finalState.state).toBe('completed');
+
+      const job = await aiQueue.getJob(jobId);
+      expect(job).toBeDefined();
+      await aiJobHandler.onGenerateCompleted({ job: job as unknown as AiGenerateJob });
+      await aiJobHandler.onGenerateCompleted({ job: job as unknown as AiGenerateJob });
+
+      const record = await waitAsyncTaskRecord({
+        dataSource,
+        queueName: BULLMQ_QUEUES.AI,
+        jobId,
+        statuses: ['succeeded'],
+        timeoutMs: 10000,
+        pollMs: 120,
+      });
+      const recordCount = await countAsyncTaskRecords({
+        dataSource,
+        queueName: BULLMQ_QUEUES.AI,
+        jobId,
+      });
+      expect(record.status).toBe('succeeded');
+      expect(recordCount).toBe(1);
+    } finally {
+      await workerRuntime.start();
+    }
+  }, 60000);
+
+  it('重复触发 failed 事件时不应新增记录', async () => {
+    const timestamp = Date.now();
+    const jobId = `${BULLMQ_JOBS.AI.GENERATE}-ai-gen-failed-idempotent-${timestamp}`;
+
+    try {
+      await workerRuntime.stop();
+      await enqueueAiGenerate({
+        queue: aiQueue,
+        jobId,
+        prompt: '__FAIL_GENERATE__',
+        attempts: 1,
+      });
+      await workerRuntime.start();
+      const finalState = await waitJobFinalState({
+        queue: aiQueue,
+        jobId,
+        timeoutMs: 20000,
+        pollMs: 150,
+      });
+      expect(finalState.state).toBe('failed');
+
+      const job = await aiQueue.getJob(jobId);
+      expect(job).toBeDefined();
+      await aiJobHandler.onGenerateFailed({
+        job: job as unknown as AiGenerateJob,
+        error: new Error('Manual idempotent failed event'),
+      });
+      await aiJobHandler.onGenerateFailed({
+        job: job as unknown as AiGenerateJob,
+        error: new Error('Manual idempotent failed event'),
+      });
+
+      const record = await waitAsyncTaskRecord({
+        dataSource,
+        queueName: BULLMQ_QUEUES.AI,
+        jobId,
+        statuses: ['failed'],
+        timeoutMs: 10000,
+        pollMs: 120,
+      });
+      const recordCount = await countAsyncTaskRecords({
+        dataSource,
+        queueName: BULLMQ_QUEUES.AI,
+        jobId,
+      });
+      expect(record.status).toBe('failed');
+      expect(record.reason).toContain('Manual idempotent failed event');
+      expect(recordCount).toBe(1);
     } finally {
       await workerRuntime.start();
     }
