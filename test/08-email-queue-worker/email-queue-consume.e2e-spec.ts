@@ -363,6 +363,22 @@ const findAsyncTaskRecord = async (input: {
   });
 };
 
+const findLatestAsyncTaskRecordByTrace = async (input: {
+  readonly dataSource: DataSource;
+  readonly queueName: string;
+  readonly traceId: string;
+}): Promise<AsyncTaskRecordEntity | null> => {
+  return await input.dataSource.getRepository(AsyncTaskRecordEntity).findOne({
+    where: {
+      queueName: input.queueName,
+      traceId: input.traceId,
+    },
+    order: {
+      id: 'DESC',
+    },
+  });
+};
+
 const countAsyncTaskRecords = async (input: {
   readonly dataSource: DataSource;
   readonly queueName: string;
@@ -399,6 +415,31 @@ const waitAsyncTaskRecord = async (input: {
     await sleep(input.pollMs);
   }
   throw new Error(`Async task record did not reach expected state in time: ${input.jobId}`);
+};
+
+const waitAsyncTaskRecordByTrace = async (input: {
+  readonly dataSource: DataSource;
+  readonly queueName: string;
+  readonly traceId: string;
+  readonly timeoutMs: number;
+  readonly pollMs: number;
+  readonly statuses?: ReadonlyArray<AsyncTaskRecordStatus>;
+}): Promise<AsyncTaskRecordEntity> => {
+  const deadline = Date.now() + input.timeoutMs;
+  while (Date.now() < deadline) {
+    const record = await findLatestAsyncTaskRecordByTrace({
+      dataSource: input.dataSource,
+      queueName: input.queueName,
+      traceId: input.traceId,
+    });
+    if (record) {
+      if (!input.statuses || input.statuses.includes(record.status)) {
+        return record;
+      }
+    }
+    await sleep(input.pollMs);
+  }
+  throw new Error(`Async task record did not reach expected state in time: ${input.traceId}`);
 };
 
 const queueEmail = async (input: {
@@ -512,12 +553,18 @@ describe('邮件队列与 Worker（e2e）', () => {
         const queuedJob = await emailQueue.getJob(dedupKey);
         expect(queuedJob).toBeDefined();
 
-        const recordBeforeStart = await findAsyncTaskRecord({
+        const recordBeforeStart = await waitAsyncTaskRecord({
           dataSource,
           queueName: BULLMQ_QUEUES.EMAIL,
           jobId: dedupKey,
+          statuses: ['queued'],
+          timeoutMs: 5000,
+          pollMs: 100,
         });
-        expect(recordBeforeStart).toBeNull();
+        expect(recordBeforeStart.status).toBe('queued');
+        expect(recordBeforeStart.source).toBe('user_action');
+        expect(recordBeforeStart.traceId).toBe(traceId);
+        expect(recordBeforeStart.reason).toBe('enqueue_accepted');
 
         await workerRuntime.start();
 
@@ -547,16 +594,16 @@ describe('邮件队列与 Worker（e2e）', () => {
         expect(record.queueName).toBe(BULLMQ_QUEUES.EMAIL);
         expect(record.jobName).toBe('send');
         expect(record.jobId).toBe(dedupKey);
-        expect(record.traceId).toBe(dedupKey);
+        expect(record.traceId).toBe(traceId);
         expect(record.status).toBe('succeeded');
-        expect(record.source).toBe('system');
+        expect(record.source).toBe('user_action');
         expect(record.reason).toBe('worker_completed');
         const attemptsMade = await getJobAttemptsMade({
           queue: emailQueue,
           jobId: dedupKey,
         });
         expect(record.attemptCount).toBe(attemptsMade + 1);
-        expect(record.maxAttempts).toBe(2);
+        expect(record.maxAttempts).toBeNull();
         expect(record.enqueuedAt).toBeInstanceOf(Date);
         expect(record.startedAt).toBeInstanceOf(Date);
         expect(record.finishedAt).toBeInstanceOf(Date);
@@ -594,12 +641,18 @@ describe('邮件队列与 Worker（e2e）', () => {
         const queuedJob = await emailQueue.getJob(dedupKey);
         expect(queuedJob).toBeDefined();
 
-        const recordBeforeStart = await findAsyncTaskRecord({
+        const recordBeforeStart = await waitAsyncTaskRecord({
           dataSource,
           queueName: BULLMQ_QUEUES.EMAIL,
           jobId: dedupKey,
+          statuses: ['queued'],
+          timeoutMs: 5000,
+          pollMs: 100,
         });
-        expect(recordBeforeStart).toBeNull();
+        expect(recordBeforeStart.status).toBe('queued');
+        expect(recordBeforeStart.source).toBe('user_action');
+        expect(recordBeforeStart.traceId).toBe(traceId);
+        expect(recordBeforeStart.reason).toBe('enqueue_accepted');
 
         await workerRuntime.start();
 
@@ -623,16 +676,16 @@ describe('邮件队列与 Worker（e2e）', () => {
         expect(record.queueName).toBe(BULLMQ_QUEUES.EMAIL);
         expect(record.jobName).toBe('send');
         expect(record.jobId).toBe(dedupKey);
-        expect(record.traceId).toBe(dedupKey);
+        expect(record.traceId).toBe(traceId);
         expect(record.status).toBe('failed');
-        expect(record.source).toBe('system');
+        expect(record.source).toBe('user_action');
         expect(record.reason).toContain('Simulated email provider failure');
         const attemptsMade = await getJobAttemptsMade({
           queue: emailQueue,
           jobId: dedupKey,
         });
         expect(record.attemptCount).toBe(attemptsMade + 1);
-        expect(record.maxAttempts).toBe(2);
+        expect(record.maxAttempts).toBeNull();
         expect(record.enqueuedAt).toBeInstanceOf(Date);
         expect(record.startedAt).toBeInstanceOf(Date);
         expect(record.finishedAt).toBeInstanceOf(Date);
@@ -677,12 +730,18 @@ describe('邮件队列与 Worker（e2e）', () => {
         expect(firstEnqueue.jobId).toBe(dedupKey);
         expect(secondEnqueue.jobId).toBe(dedupKey);
 
-        const recordBeforeStart = await findAsyncTaskRecord({
+        const recordBeforeStart = await waitAsyncTaskRecord({
           dataSource,
           queueName: BULLMQ_QUEUES.EMAIL,
           jobId: dedupKey,
+          statuses: ['queued'],
+          timeoutMs: 5000,
+          pollMs: 100,
         });
-        expect(recordBeforeStart).toBeNull();
+        expect(recordBeforeStart.status).toBe('queued');
+        expect(recordBeforeStart.source).toBe('user_action');
+        expect(recordBeforeStart.traceId).toBe(traceId);
+        expect(recordBeforeStart.reason).toBe('enqueue_accepted');
 
         await workerRuntime.start();
 
@@ -740,6 +799,18 @@ describe('邮件队列与 Worker（e2e）', () => {
       expect(response.body.data).toBeNull();
       expect(response.body.errors).toBeDefined();
       expect(response.body.errors[0].message).toContain('Custom Id cannot contain :');
+
+      const failedRecord = await waitAsyncTaskRecordByTrace({
+        dataSource,
+        queueName: BULLMQ_QUEUES.EMAIL,
+        traceId,
+        statuses: ['failed'],
+        timeoutMs: 5000,
+        pollMs: 100,
+      });
+      expect(failedRecord.jobName).toBe('send');
+      expect(failedRecord.source).toBe('user_action');
+      expect(failedRecord.reason).toContain('Custom Id cannot contain :');
     }, 60000);
   });
 
@@ -779,7 +850,7 @@ describe('邮件队列与 Worker（e2e）', () => {
         timeoutMs: 20000,
         pollMs: 150,
       });
-      expect(record.traceId).toBe(dedupKey);
+      expect(record.traceId).toBe(traceId);
       expect(record.jobId).toBe(enqueueResult.jobId);
       expect(record.status).toBe('succeeded');
     }, 60000);
