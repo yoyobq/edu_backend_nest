@@ -32,7 +32,11 @@ type FinalJobState = 'completed' | 'failed';
 const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
 class MockEmailDeliveryService {
-  send(input: SendEmailInput): Promise<SendEmailResult> {
+  async send(input: SendEmailInput): Promise<SendEmailResult> {
+    const slowMs = this.resolveSlowMs({ text: input.text ?? '', subject: input.subject });
+    if (slowMs > 0) {
+      await sleep(slowMs);
+    }
     if (input.to.includes('fail.local')) {
       return Promise.reject(new Error('Simulated email provider failure'));
     }
@@ -40,6 +44,19 @@ class MockEmailDeliveryService {
       accepted: true,
       providerMessageId: `mock-${Date.now()}`,
     });
+  }
+
+  private resolveSlowMs(input: { readonly text: string; readonly subject: string }): number {
+    const matched =
+      input.text.match(/__SLOW_MS_(\d+)__/) ?? input.subject.match(/__SLOW_MS_(\d+)__/);
+    if (!matched) {
+      return 0;
+    }
+    const parsed = Number(matched[1]);
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      return 0;
+    }
+    return Math.min(parsed, 5000);
   }
 }
 
@@ -539,8 +556,8 @@ describe('邮件队列与 Worker（e2e）', () => {
         const enqueueResult = await queueEmail({
           apiApp,
           to: 'queue.stage.success@example.com',
-          subject: 'E2E email queue stage success test',
-          text: 'queue-stage-success',
+          subject: 'E2E email queue stage success test __SLOW_MS_400__',
+          text: 'queue-stage-success __SLOW_MS_400__',
           dedupKey,
           traceId,
           source: 'e2e-success-stage',
@@ -567,6 +584,18 @@ describe('邮件队列与 Worker（e2e）', () => {
         expect(recordBeforeStart.reason).toBe('enqueue_accepted');
 
         await workerRuntime.start();
+        const processingRecord = await waitAsyncTaskRecord({
+          dataSource,
+          queueName: BULLMQ_QUEUES.EMAIL,
+          jobId: dedupKey,
+          statuses: ['processing'],
+          timeoutMs: 5000,
+          pollMs: 100,
+        });
+        expect(processingRecord.status).toBe('processing');
+        expect(processingRecord.reason).toBe('worker_processing');
+        expect(processingRecord.startedAt).toBeInstanceOf(Date);
+        expect(processingRecord.finishedAt).toBeNull();
 
         const finalState = await waitJobFinalState({
           queue: emailQueue,
@@ -602,7 +631,7 @@ describe('邮件队列与 Worker（e2e）', () => {
           queue: emailQueue,
           jobId: dedupKey,
         });
-        expect(record.attemptCount).toBe(attemptsMade + 1);
+        expect(record.attemptCount).toBe(attemptsMade);
         expect(record.maxAttempts).toBeNull();
         expect(record.enqueuedAt).toBeInstanceOf(Date);
         expect(record.startedAt).toBeInstanceOf(Date);
@@ -627,8 +656,8 @@ describe('邮件队列与 Worker（e2e）', () => {
         const enqueueResult = await queueEmail({
           apiApp,
           to: 'queue.stage.fail@fail.local',
-          subject: 'E2E email queue stage failure test',
-          text: 'queue-stage-failure',
+          subject: 'E2E email queue stage failure test __SLOW_MS_400__',
+          text: 'queue-stage-failure __SLOW_MS_400__',
           dedupKey,
           traceId,
           source: 'e2e-failure-stage',
@@ -655,6 +684,18 @@ describe('邮件队列与 Worker（e2e）', () => {
         expect(recordBeforeStart.reason).toBe('enqueue_accepted');
 
         await workerRuntime.start();
+        const processingRecord = await waitAsyncTaskRecord({
+          dataSource,
+          queueName: BULLMQ_QUEUES.EMAIL,
+          jobId: dedupKey,
+          statuses: ['processing'],
+          timeoutMs: 5000,
+          pollMs: 100,
+        });
+        expect(processingRecord.status).toBe('processing');
+        expect(processingRecord.reason).toBe('worker_processing');
+        expect(processingRecord.startedAt).toBeInstanceOf(Date);
+        expect(processingRecord.finishedAt).toBeNull();
 
         const finalState = await waitJobFinalState({
           queue: emailQueue,
@@ -684,7 +725,7 @@ describe('邮件队列与 Worker（e2e）', () => {
           queue: emailQueue,
           jobId: dedupKey,
         });
-        expect(record.attemptCount).toBe(attemptsMade + 1);
+        expect(record.attemptCount).toBe(attemptsMade);
         expect(record.maxAttempts).toBeNull();
         expect(record.enqueuedAt).toBeInstanceOf(Date);
         expect(record.startedAt).toBeInstanceOf(Date);

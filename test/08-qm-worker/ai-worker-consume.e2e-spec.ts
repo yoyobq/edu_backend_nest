@@ -11,6 +11,7 @@ import {
   AsyncTaskRecordEntity,
   type AsyncTaskRecordStatus,
 } from '@src/modules/async-task-record/async-task-record.entity';
+import { AsyncTaskRecordService } from '@src/modules/async-task-record/async-task-record.service';
 import { AiWorkerService } from '@src/modules/common/ai-worker/ai-worker.service';
 import {
   type EmbedAiContentInput,
@@ -31,8 +32,12 @@ class MockAiWorkerService {
   readonly embedCalls: EmbedAiContentInput[] = [];
   private readonly generateAttemptsByPrompt = new Map<string, number>();
 
-  generate(input: GenerateAiContentInput): GenerateAiContentResult {
+  async generate(input: GenerateAiContentInput): Promise<GenerateAiContentResult> {
     this.generateCalls.push(input);
+    const slowMs = this.resolveSlowMs({ content: input.prompt });
+    if (slowMs > 0) {
+      await sleep(slowMs);
+    }
     const attemptKey = `${input.model}:${input.prompt}`;
     const currentAttempt = (this.generateAttemptsByPrompt.get(attemptKey) ?? 0) + 1;
     this.generateAttemptsByPrompt.set(attemptKey, currentAttempt);
@@ -52,8 +57,12 @@ class MockAiWorkerService {
     };
   }
 
-  embed(input: EmbedAiContentInput): EmbedAiContentResult {
+  async embed(input: EmbedAiContentInput): Promise<EmbedAiContentResult> {
     this.embedCalls.push(input);
+    const slowMs = this.resolveSlowMs({ content: input.text });
+    if (slowMs > 0) {
+      await sleep(slowMs);
+    }
     if (input.text.includes('__FAIL_EMBED__')) {
       throw new Error('Mock AI embed failure');
     }
@@ -62,6 +71,18 @@ class MockAiWorkerService {
       vector: [0.11, 0.22, 0.33, 0.44],
       providerJobId: `mock-e-${this.embedCalls.length}`,
     };
+  }
+
+  private resolveSlowMs(input: { readonly content: string }): number {
+    const matched = input.content.match(/__SLOW_MS_(\d+)__/);
+    if (!matched) {
+      return 0;
+    }
+    const parsed = Number(matched[1]);
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      return 0;
+    }
+    return Math.min(parsed, 5000);
   }
 }
 
@@ -221,6 +242,29 @@ const waitLatestMissingRecord = async (input: {
   throw new Error('Missing-job degraded record was not created in time');
 };
 
+const recordAiEnqueued = async (input: {
+  readonly asyncTaskRecordService: AsyncTaskRecordService;
+  readonly jobName: string;
+  readonly jobId: string;
+  readonly traceId: string;
+  readonly maxAttempts?: number;
+}): Promise<void> => {
+  const bizType = input.jobName === BULLMQ_JOBS.AI.EMBED ? 'ai_embedding' : 'ai_generation';
+  await input.asyncTaskRecordService.recordEnqueued({
+    data: {
+      queueName: BULLMQ_QUEUES.AI,
+      jobName: input.jobName,
+      jobId: input.jobId,
+      traceId: input.traceId,
+      bizType,
+      bizKey: input.jobId,
+      source: 'system',
+      reason: 'enqueue_accepted',
+      maxAttempts: input.maxAttempts,
+    },
+  });
+};
+
 describe('AI Worker（e2e）', () => {
   let apiApp: INestApplication;
   let workerApp: INestApplication;
@@ -229,6 +273,7 @@ describe('AI Worker（e2e）', () => {
   let dataSource: DataSource;
   let aiWorkerMock: MockAiWorkerService;
   let aiJobHandler: AiJobHandler;
+  let asyncTaskRecordService: AsyncTaskRecordService;
 
   beforeAll(async () => {
     initGraphQLSchema();
@@ -253,6 +298,7 @@ describe('AI Worker（e2e）', () => {
     dataSource = apiApp.get(DataSource);
     aiWorkerMock = workerApp.get(AiWorkerService);
     aiJobHandler = workerApp.get(AiJobHandler);
+    asyncTaskRecordService = apiApp.get(AsyncTaskRecordService);
   }, 60000);
 
   afterAll(async () => {
@@ -271,29 +317,54 @@ describe('AI Worker（e2e）', () => {
   it('generate 成功时应落库为 succeeded，traceId 应与 jobId 对齐', async () => {
     const timestamp = Date.now();
     const jobId = `${BULLMQ_JOBS.AI.GENERATE}-ai-gen-trace-${timestamp}`;
+    const traceId = jobId;
 
     try {
       await workerRuntime.stop();
       const callsBefore = aiWorkerMock.generateCalls.length;
+      await recordAiEnqueued({
+        asyncTaskRecordService,
+        jobName: BULLMQ_JOBS.AI.GENERATE,
+        jobId,
+        traceId,
+        maxAttempts: 1,
+      });
 
       await enqueueAiGenerate({
         queue: aiQueue,
         jobId,
-        prompt: 'generate success case',
+        prompt: 'generate success case __SLOW_MS_400__',
         attempts: 1,
       });
 
       const queuedJob = await aiQueue.getJob(jobId);
       expect(queuedJob).toBeDefined();
-      expect(
-        await findAsyncTaskRecord({
-          dataSource,
-          queueName: BULLMQ_QUEUES.AI,
-          jobId,
-        }),
-      ).toBeNull();
+      const queuedRecord = await waitAsyncTaskRecord({
+        dataSource,
+        queueName: BULLMQ_QUEUES.AI,
+        jobId,
+        statuses: ['queued'],
+        timeoutMs: 5000,
+        pollMs: 100,
+      });
+      expect(queuedRecord.status).toBe('queued');
+      expect(queuedRecord.reason).toBe('enqueue_accepted');
+      expect(queuedRecord.traceId).toBe(traceId);
 
       await workerRuntime.start();
+      const processingRecord = await waitAsyncTaskRecord({
+        dataSource,
+        queueName: BULLMQ_QUEUES.AI,
+        jobId,
+        statuses: ['processing'],
+        timeoutMs: 5000,
+        pollMs: 100,
+      });
+      expect(processingRecord.status).toBe('processing');
+      expect(processingRecord.reason).toBe('worker_processing');
+      expect(processingRecord.startedAt).toBeInstanceOf(Date);
+      expect(processingRecord.finishedAt).toBeNull();
+
       const finalState = await waitJobFinalState({
         queue: aiQueue,
         jobId,
@@ -303,7 +374,7 @@ describe('AI Worker（e2e）', () => {
       expect(finalState.state).toBe('completed');
       expect(finalState.returnvalue).toMatchObject({
         accepted: true,
-        outputText: 'mock-output:generate success case',
+        outputText: 'mock-output:generate success case __SLOW_MS_400__',
       });
 
       const attemptsMade = await getJobAttemptsMade({ queue: aiQueue, jobId });
@@ -381,18 +452,39 @@ describe('AI Worker（e2e）', () => {
   it('generate 失败时应落库为 failed 并写入失败原因', async () => {
     const timestamp = Date.now();
     const jobId = `${BULLMQ_JOBS.AI.GENERATE}-ai-gen-fail-${timestamp}`;
+    const traceId = jobId;
 
     try {
       await workerRuntime.stop();
+      await recordAiEnqueued({
+        asyncTaskRecordService,
+        jobName: BULLMQ_JOBS.AI.GENERATE,
+        jobId,
+        traceId,
+        maxAttempts: 1,
+      });
 
       await enqueueAiGenerate({
         queue: aiQueue,
         jobId,
-        prompt: '__FAIL_GENERATE__',
+        prompt: '__FAIL_GENERATE__ __SLOW_MS_400__',
         attempts: 1,
       });
 
       await workerRuntime.start();
+      const processingRecord = await waitAsyncTaskRecord({
+        dataSource,
+        queueName: BULLMQ_QUEUES.AI,
+        jobId,
+        statuses: ['processing'],
+        timeoutMs: 5000,
+        pollMs: 100,
+      });
+      expect(processingRecord.status).toBe('processing');
+      expect(processingRecord.reason).toBe('worker_processing');
+      expect(processingRecord.startedAt).toBeInstanceOf(Date);
+      expect(processingRecord.finishedAt).toBeNull();
+
       const finalState = await waitJobFinalState({
         queue: aiQueue,
         jobId,
