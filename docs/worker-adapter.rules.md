@@ -80,6 +80,8 @@
 - 每个运行时钩子只允许调用一个对应职责入口；不得在同一钩子内串联多个业务阶段 Usecase。
 - 若需要“记录失败 + 指标上报”等技术动作，应由该单一入口在内部完成，不得由 Adapter 直接拆分串联多个入口。
 - failed 事件若出现 `job` 缺失，Adapter 不得直接 return，必须仍调用单一 Usecase 入口并传入显式降级上下文。
+- Adapter 在 failed 且 `job` 缺失时，必须先调用单一 fail 入口并传入显式降级上下文。
+- 允许在调用后再抛错做告警，但不得在调用前直接抛错。
 - 降级上下文至少包含 `queueName`、`jobName`、兜底 `jobId`、兜底 `traceId`、`occurredAt`、`reason` 等可追踪字段。
 - 降级上下文由 Adapter 显式构造并传参，禁止要求 Usecase 反查 BullMQ runtime 对象补齐字段。
 - Adapter 负责将 attempts、timestamps、identifiers 等 runtime 字段归一化为内部语义字段；Usecase 不应感知其底层来源。
@@ -87,7 +89,8 @@
 ## 多进程运行时约束
 
 - API 入队与 Worker 消费必须拆分为独立模块。
-- WorkerModule 只装配运行时能力与 AdapterModule，不承担业务编排。
+- WorkerModule 只导入运行时基础模块和 `*AdapterModule`，不承担业务编排。
+- `*UsecasesModule` 由对应 `*AdapterModule` 间接引入，避免在 WorkerModule 顶层编排业务依赖。
 - 不依赖“隐式可见性”，所有 usecase 依赖在模块中显式 imports。
 - Worker 进程只暴露运行时必需能力，不默认复用 API 进程的装配结果。
 - 队列运行时异常、失败重试与并发控制属于 Worker 进程职责，不得向业务 Usecase 泄漏为框架耦合。

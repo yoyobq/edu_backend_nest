@@ -21,6 +21,8 @@
 - 适配层不得返回 ORM Entity 或 QueryBuilder
 - Usecase 模块必须显式 imports 其依赖的 modules(service) 或 usecases 模块
 - 禁止依赖 ApiModule 或 WorkerModule 的隐式可见性或适配层转发
+- WorkerModule 不直接导入 `*UsecasesModule`，由对应 `*AdapterModule` 间接引入
+- 禁止在 WorkerModule 顶层编排 usecase 依赖，避免装配层职责膨胀
 
 ## Usecase 依赖细则
 
