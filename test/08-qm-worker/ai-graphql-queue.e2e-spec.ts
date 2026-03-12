@@ -667,6 +667,68 @@ describe('AI GraphQL 队列入口与 Worker 联动（e2e）', () => {
     }
   }, 60000);
 
+  it('queueAiEmbed 相同 dedupKey 重复命中应复用原 jobId/traceId 且不新增记录', async () => {
+    const timestamp = Date.now();
+    const dedupKey = `e2e-ai-graphql-embed-dedup-${timestamp}`;
+    const firstTraceId = `e2e-ai-graphql-embed-dedup-first-${timestamp}`;
+    const secondTraceId = `e2e-ai-graphql-embed-dedup-second-${timestamp}`;
+
+    try {
+      await workerRuntime.stop();
+      const firstResponse = await queueAiEmbed({
+        app: apiApp,
+        token: managerToken,
+        provider: 'openai',
+        model: 'text-embedding-3-small',
+        text: 'ai graphql embed dedup first',
+        dedupKey,
+        traceId: firstTraceId,
+      });
+      const secondResponse = await queueAiEmbed({
+        app: apiApp,
+        token: managerToken,
+        provider: 'openai',
+        model: 'text-embedding-3-small',
+        text: 'ai graphql embed dedup second',
+        dedupKey,
+        traceId: secondTraceId,
+      });
+
+      expect(firstResponse.body.errors).toBeUndefined();
+      expect(secondResponse.body.errors).toBeUndefined();
+
+      const firstData = parseQueueAiEmbedData(firstResponse);
+      const secondData = parseQueueAiEmbedData(secondResponse);
+      expect(firstData.jobId).toBe(dedupKey);
+      expect(secondData.jobId).toBe(dedupKey);
+      expect(firstData.traceId).toBe(firstTraceId);
+      expect(secondData.traceId).toBe(firstTraceId);
+
+      const record = await waitAsyncTaskRecord({
+        dataSource,
+        queueName: BULLMQ_QUEUES.AI,
+        jobId: dedupKey,
+        statuses: ['queued'],
+        timeoutMs: 8000,
+        pollMs: 120,
+      });
+      expect(record.traceId).toBe(firstTraceId);
+      expect(record.status).toBe('queued');
+      expect(record.reason).toBe('enqueue_accepted');
+      expect(record.jobName).toBe(BULLMQ_JOBS.AI.EMBED);
+      expect(record.bizType).toBe('ai_embedding');
+
+      const count = await countAsyncTaskRecords({
+        dataSource,
+        queueName: BULLMQ_QUEUES.AI,
+        jobId: dedupKey,
+      });
+      expect(count).toBe(1);
+    } finally {
+      await workerRuntime.start();
+    }
+  }, 60000);
+
   it('queueAiEmbed 未传 dedupKey 与 traceId 时应自动生成标识', async () => {
     const response = await queueAiEmbed({
       app: apiApp,
@@ -842,14 +904,17 @@ describe('AI GraphQL 队列入口与 Worker 联动（e2e）', () => {
     const timestamp = Date.now();
     const dedupKey = `e2e-ai-graphql-link-${timestamp}`;
     const traceId = `e2e-ai-graphql-link-trace-${timestamp}`;
-    const generateCallsBefore = aiWorkerMock.generateCalls.length;
+    const linkagePrompt = 'ai graphql worker linkage __SLOW_MS_200__';
+    const generateCallsByPromptBefore = aiWorkerMock.generateCalls.filter(
+      (call) => call.prompt === linkagePrompt,
+    ).length;
 
     const response = await queueAiGenerate({
       app: apiApp,
       token: managerToken,
       provider: 'openai',
       model: 'gpt-4o-mini',
-      prompt: 'ai graphql worker linkage __SLOW_MS_200__',
+      prompt: linkagePrompt,
       dedupKey,
       traceId,
     });
@@ -880,6 +945,9 @@ describe('AI GraphQL 队列入口与 Worker 联动（e2e）', () => {
     expect(record.reason).toBe('worker_completed');
     expect(record.bizType).toBe('ai_generation');
     expect(record.bizKey).toBe(traceId);
-    expect(aiWorkerMock.generateCalls.length - generateCallsBefore).toBe(1);
+    const generateCallsByPromptAfter = aiWorkerMock.generateCalls.filter(
+      (call) => call.prompt === linkagePrompt,
+    ).length;
+    expect(generateCallsByPromptAfter - generateCallsByPromptBefore).toBe(1);
   }, 60000);
 });

@@ -21,6 +21,7 @@ import {
   type GenerateAiContentInput,
   type GenerateAiContentResult,
 } from '@src/modules/common/ai-worker/ai-worker.types';
+import { ConsumeAiGenerateJobUsecase } from '@src/usecases/ai-worker/consume-ai-generate-job.usecase';
 import { Queue } from 'bullmq';
 import { DataSource } from 'typeorm';
 import { initGraphQLSchema } from '../../src/adapters/api/graphql/schema/schema.init';
@@ -289,6 +290,7 @@ describe('AI Worker（e2e）', () => {
   let aiJobHandler: AiJobHandler;
   let asyncTaskRecordService: AsyncTaskRecordService;
   let producerGateway: BullMqProducerGateway;
+  let consumeAiGenerateJobUsecase: ConsumeAiGenerateJobUsecase;
 
   beforeAll(async () => {
     initGraphQLSchema();
@@ -315,6 +317,7 @@ describe('AI Worker（e2e）', () => {
     aiJobHandler = workerApp.get(AiJobHandler);
     asyncTaskRecordService = apiApp.get(AsyncTaskRecordService);
     producerGateway = apiApp.get(BullMqProducerGateway);
+    consumeAiGenerateJobUsecase = workerApp.get(ConsumeAiGenerateJobUsecase);
   }, 60000);
 
   afterAll(async () => {
@@ -929,6 +932,73 @@ describe('AI Worker（e2e）', () => {
     expect(record.traceId.startsWith('missing-job:unknown:')).toBe(true);
     expect(record.bizKey).toBe(record.traceId);
     expect(record.reason).toContain(`worker_event_job_missing:${reasonKeyword}`);
+  }, 30000);
+
+  it('usecase 降级 fail 未传 bizKey 时应保持 ai_worker 语义', async () => {
+    const timestamp = Date.now();
+    const jobId = `ai-worker-fallback-bizkey-${timestamp}`;
+    const traceId = `ai-worker-fallback-trace-${timestamp}`;
+
+    await consumeAiGenerateJobUsecase.fail({
+      queueName: BULLMQ_QUEUES.AI,
+      jobName: 'unknown',
+      jobId,
+      traceId,
+      bizType: 'ai_worker',
+      attemptsMade: 1,
+      maxAttempts: 1,
+      reason: 'unsupported_ai_job:unknown:manual-fallback-check',
+      enqueuedAt: new Date(),
+      startedAt: new Date(),
+      finishedAt: new Date(),
+      occurredAt: new Date(),
+    });
+
+    const record = await waitAsyncTaskRecord({
+      dataSource,
+      queueName: BULLMQ_QUEUES.AI,
+      jobId,
+      statuses: ['failed'],
+      timeoutMs: 10000,
+      pollMs: 120,
+    });
+    expect(record.bizType).toBe('ai_worker');
+    expect(record.traceId).toBe(traceId);
+    expect(record.bizKey).toBe(traceId);
+    expect(record.reason).toBe('unsupported_ai_job:unknown:manual-fallback-check');
+  }, 30000);
+
+  it('usecase 普通 fail 非前缀 reason 应规范为 worker_failed 前缀', async () => {
+    const timestamp = Date.now();
+    const jobId = `ai-generate-usecase-fail-reason-${timestamp}`;
+    const traceId = `ai-generate-usecase-fail-trace-${timestamp}`;
+    const reason = `manual-failure-${timestamp}`;
+
+    await consumeAiGenerateJobUsecase.fail({
+      queueName: BULLMQ_QUEUES.AI,
+      jobName: BULLMQ_JOBS.AI.GENERATE,
+      jobId,
+      traceId,
+      attemptsMade: 1,
+      maxAttempts: 1,
+      reason,
+      enqueuedAt: new Date(),
+      startedAt: new Date(),
+      finishedAt: new Date(),
+      occurredAt: new Date(),
+    });
+
+    const record = await waitAsyncTaskRecord({
+      dataSource,
+      queueName: BULLMQ_QUEUES.AI,
+      jobId,
+      statuses: ['failed'],
+      timeoutMs: 10000,
+      pollMs: 120,
+    });
+    expect(record.bizType).toBe('ai_generation');
+    expect(record.bizKey).toBe(traceId);
+    expect(record.reason).toBe(`worker_failed:${reason}`);
   }, 30000);
 
   it('未知 jobName 走真实 worker 链路时应落库 ai_worker 降级语义', async () => {

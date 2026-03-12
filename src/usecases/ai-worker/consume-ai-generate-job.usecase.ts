@@ -130,23 +130,27 @@ export class ConsumeAiGenerateJobUsecase {
   }
 
   async fail(input: ConsumeAiGenerateJobFailInput): Promise<void> {
+    const bizType = input.bizType ?? 'ai_generation';
     await this.asyncTaskRecordService.recordFinished({
       data: {
         queueName: input.queueName,
         jobName: input.jobName,
         jobId: input.jobId,
         traceId: input.traceId,
-        bizType: input.bizType ?? 'ai_generation',
+        bizType,
         bizKey:
           input.bizKey ??
-          resolveAsyncTaskBizKey({
-            domain: 'ai_generation',
+          this.resolveGenerateFailBizKey({
+            bizType,
             traceId: input.traceId,
             jobId: input.jobId,
           }),
         source: this.resolveSource(),
         status: 'failed',
-        reason: input.reason,
+        reason: this.resolveGenerateFailReason({
+          bizType,
+          reason: input.reason,
+        }),
         attemptCount: this.resolveFinalAttemptCount({ attemptsMade: input.attemptsMade }),
         maxAttempts: input.maxAttempts,
         enqueuedAt: input.enqueuedAt,
@@ -163,6 +167,41 @@ export class ConsumeAiGenerateJobUsecase {
 
   private resolveFinalAttemptCount(input: { readonly attemptsMade: number }): number {
     return Math.max(input.attemptsMade, 1);
+  }
+
+  private resolveGenerateFailBizKey(input: {
+    readonly bizType: 'ai_generation' | 'ai_worker';
+    readonly traceId: string;
+    readonly jobId: string;
+  }): string {
+    if (input.bizType === 'ai_worker') {
+      return input.traceId;
+    }
+    return resolveAsyncTaskBizKey({
+      domain: 'ai_generation',
+      traceId: input.traceId,
+      jobId: input.jobId,
+    });
+  }
+
+  private resolveGenerateFailReason(input: {
+    readonly bizType: 'ai_generation' | 'ai_worker';
+    readonly reason?: string;
+  }): string {
+    const normalizedReason = input.reason?.trim() || 'worker_unknown_error';
+    if (input.bizType === 'ai_worker') {
+      return normalizedReason;
+    }
+    if (
+      normalizedReason.startsWith('worker_failed:') ||
+      normalizedReason.startsWith('missing_payload_trace_id')
+    ) {
+      return normalizedReason.slice(0, 128);
+    }
+    const prefix = 'worker_failed:';
+    const availableSummaryLength = Math.max(128 - prefix.length, 1);
+    const summary = normalizedReason.slice(0, availableSummaryLength);
+    return `${prefix}${summary}`;
   }
 
   private resolveSource(): AsyncTaskRecordSource {
