@@ -9,7 +9,7 @@ import type {
   GenerateAiContentInput,
   GenerateAiContentResult,
 } from '@src/modules/common/ai-worker/ai-worker.types';
-import { resolveAsyncTaskBizKey } from '@src/usecases/queue/async-task-identifier.policy';
+import { resolveAsyncTaskBizKey } from '@src/core/common/async-task/async-task-identifier.policy';
 
 export interface ConsumeAiGenerateJobProcessInput {
   readonly queueName: string;

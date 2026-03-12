@@ -10,7 +10,7 @@ import type {
 import {
   resolveAsyncTaskBizKey,
   resolveEnqueueFailureIdentifiers,
-} from '@src/usecases/queue/async-task-identifier.policy';
+} from '@src/core/common/async-task/async-task-identifier.policy';
 
 @Injectable()
 export class QueueEmailUsecase {

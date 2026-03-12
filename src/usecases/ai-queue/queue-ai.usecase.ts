@@ -1,5 +1,9 @@
 // src/usecases/ai-queue/queue-ai.usecase.ts
 import { Injectable } from '@nestjs/common';
+import {
+  resolveAsyncTaskBizKey,
+  resolveEnqueueFailureIdentifiers,
+} from '@src/core/common/async-task/async-task-identifier.policy';
 import { AsyncTaskRecordService } from '@src/modules/async-task-record/async-task-record.service';
 import type { AsyncTaskRecordSource } from '@src/modules/async-task-record/async-task-record.types';
 import { AiQueueService } from '@src/modules/common/ai-queue/ai-queue.service';
@@ -8,10 +12,6 @@ import type {
   QueueAiGenerateInput,
   QueueAiResult,
 } from '@src/modules/common/ai-queue/ai-queue.types';
-import {
-  resolveAsyncTaskBizKey,
-  resolveEnqueueFailureIdentifiers,
-} from '@src/usecases/queue/async-task-identifier.policy';
 
 @Injectable()
 export class QueueAiUsecase {

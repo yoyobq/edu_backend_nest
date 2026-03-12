@@ -1,9 +1,9 @@
 // src/usecases/email-worker/consume-email-job.usecase.ts
 import { Injectable } from '@nestjs/common';
+import { resolveAsyncTaskBizKey } from '@src/core/common/async-task/async-task-identifier.policy';
 import { AsyncTaskRecordService } from '@src/modules/async-task-record/async-task-record.service';
 import type { AsyncTaskRecordSource } from '@src/modules/async-task-record/async-task-record.types';
 import { EmailDeliveryService } from '@src/modules/common/email-worker/email-delivery.service';
-import { resolveAsyncTaskBizKey } from '@src/usecases/queue/async-task-identifier.policy';
 import type {
   SendEmailInput,
   SendEmailResult,

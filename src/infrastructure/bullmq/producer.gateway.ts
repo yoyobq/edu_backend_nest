@@ -84,29 +84,12 @@ export class BullMqProducerGateway {
     if (dedupKey) {
       const existingJob = await queue.getJob(dedupKey);
       if (existingJob) {
-        let existingTraceId = this.readTraceIdFromPayload(existingJob.data);
+        const existingTraceId = this.readTraceIdFromPayload(existingJob.data);
         if (!existingTraceId) {
-          const patchedPayload = this.attachResolvedTraceIdToPayload({
-            queueName: input.queueName,
-            payload: existingJob.data as BullMqJobPayload<Q, J>,
-            traceId,
-          });
-          try {
-            await existingJob.updateData(patchedPayload);
-            existingTraceId = this.readTraceIdFromPayload(patchedPayload);
-          } catch (error: unknown) {
-            this.logger.warn(
-              {
-                queueName: input.queueName,
-                jobName: input.jobName,
-                dedupKey,
-                error: error instanceof Error ? error.message : String(error),
-              },
-              'BullMQ existing job traceId patch failed',
-            );
-          }
+          throw new Error(
+            `missing_existing_payload_trace_id:${input.queueName}/${input.jobName}:${dedupKey}`,
+          );
         }
-        const resolvedTraceId = existingTraceId ?? traceId;
         const existingJobId =
           typeof existingJob.id === 'number'
             ? String(existingJob.id)
@@ -115,7 +98,7 @@ export class BullMqProducerGateway {
           queueName: input.queueName,
           jobName: input.jobName,
           jobId: existingJobId,
-          traceId: resolvedTraceId,
+          traceId: existingTraceId,
           auditMeta: input.auditMeta,
         };
       }
