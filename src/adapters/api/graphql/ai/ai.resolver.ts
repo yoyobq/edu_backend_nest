@@ -1,15 +1,172 @@
 // src/adapters/api/graphql/ai/ai.resolver.ts
 import { ValidateInput } from '@adapters/api/graphql/common/validate-input.decorator';
-import { Args, Mutation, Resolver } from '@nestjs/graphql';
+import { UseGuards } from '@nestjs/common';
+import {
+  Args,
+  Field,
+  InputType,
+  Int,
+  Mutation,
+  ObjectType,
+  Query,
+  Resolver,
+} from '@nestjs/graphql';
 import { qmWorkerEntry } from '@src/adapters/api/graphql/decorators/qm-worker-entry.decorator';
+import { Roles } from '@src/adapters/api/graphql/decorators/roles.decorator';
+import { JwtAuthGuard } from '@src/adapters/api/graphql/guards/jwt-auth.guard';
+import { RolesGuard } from '@src/adapters/api/graphql/guards/roles.guard';
+import { trimText } from '@src/core/common/text/text.helper';
+import type { AsyncTaskRecordView } from '@src/modules/async-task-record/async-task-record.types';
 import { QueueAiUsecase } from '@src/usecases/ai-queue/queue-ai.usecase';
+import { GetAsyncTaskRecordByQueueJobUsecase } from '@src/usecases/async-task-record/get-async-task-record-by-queue-job.usecase';
+import { ListAsyncTaskRecordsByBizTargetUsecase } from '@src/usecases/async-task-record/list-async-task-records-by-biz-target.usecase';
+import { ListAsyncTaskRecordsByTraceIdUsecase } from '@src/usecases/async-task-record/list-async-task-records-by-trace-id.usecase';
+import { Transform, TransformFnParams } from 'class-transformer';
+import { IsInt, IsNotEmpty, IsOptional, IsString, Max, Min } from 'class-validator';
 import { QueueAiEmbedInput } from './dto/queue-ai-embed.input';
 import { QueueAiGenerateInput } from './dto/queue-ai-generate.input';
 import { QueueAiResult } from './dto/queue-ai.result';
 
+const normalizeOptionalString = (value: unknown): string | null | undefined => {
+  if (typeof value === 'string') {
+    return value.trim();
+  }
+  if (value === null || value === undefined) {
+    return value;
+  }
+  return undefined;
+};
+
+@ObjectType()
+class AsyncTaskRecordDebugType {
+  @Field(() => Int)
+  id!: number;
+
+  @Field(() => String)
+  queueName!: string;
+
+  @Field(() => String)
+  jobName!: string;
+
+  @Field(() => String)
+  jobId!: string;
+
+  @Field(() => String)
+  traceId!: string;
+
+  @Field(() => String)
+  bizType!: string;
+
+  @Field(() => String)
+  bizKey!: string;
+
+  @Field(() => String, { nullable: true })
+  bizSubKey!: string | null;
+
+  @Field(() => String)
+  source!: string;
+
+  @Field(() => String, { nullable: true })
+  reason!: string | null;
+
+  @Field(() => String)
+  status!: string;
+
+  @Field(() => Int)
+  attemptCount!: number;
+
+  @Field(() => Int, { nullable: true })
+  maxAttempts!: number | null;
+
+  @Field(() => Date)
+  enqueuedAt!: Date;
+
+  @Field(() => Date, { nullable: true })
+  startedAt!: Date | null;
+
+  @Field(() => Date, { nullable: true })
+  finishedAt!: Date | null;
+
+  @Field(() => Date)
+  createdAt!: Date;
+
+  @Field(() => Date)
+  updatedAt!: Date;
+}
+
+@ObjectType()
+class AsyncTaskRecordDebugListResult {
+  @Field(() => [AsyncTaskRecordDebugType])
+  items!: AsyncTaskRecordDebugType[];
+}
+
+@InputType()
+class DebugAsyncTaskRecordsByTraceIdInput {
+  @Field(() => String)
+  @Transform(({ value }: TransformFnParams) => trimText(value))
+  @IsString()
+  @IsNotEmpty()
+  traceId!: string;
+
+  @Field(() => Int, { nullable: true })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(500)
+  limit?: number;
+}
+
+@InputType()
+class DebugAsyncTaskRecordsByBizTargetInput {
+  @Field(() => String)
+  @Transform(({ value }: TransformFnParams) => trimText(value))
+  @IsString()
+  @IsNotEmpty()
+  bizType!: string;
+
+  @Field(() => String)
+  @Transform(({ value }: TransformFnParams) => trimText(value))
+  @IsString()
+  @IsNotEmpty()
+  bizKey!: string;
+
+  @Field(() => String, { nullable: true })
+  @Transform(({ value }: TransformFnParams) => normalizeOptionalString(value))
+  @IsOptional()
+  @IsString()
+  bizSubKey?: string | null;
+
+  @Field(() => Int, { nullable: true })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(500)
+  limit?: number;
+}
+
+@InputType()
+class DebugAsyncTaskRecordByQueueJobInput {
+  @Field(() => String)
+  @Transform(({ value }: TransformFnParams) => trimText(value))
+  @IsString()
+  @IsNotEmpty()
+  queueName!: string;
+
+  @Field(() => String)
+  @Transform(({ value }: TransformFnParams) => trimText(value))
+  @IsString()
+  @IsNotEmpty()
+  jobId!: string;
+}
+
 @Resolver()
 export class AiResolver {
-  constructor(private readonly queueAiUsecase: QueueAiUsecase) {}
+  constructor(
+    private readonly queueAiUsecase: QueueAiUsecase,
+    private readonly listAsyncTaskRecordsByTraceIdUsecase: ListAsyncTaskRecordsByTraceIdUsecase,
+    private readonly listAsyncTaskRecordsByBizTargetUsecase: ListAsyncTaskRecordsByBizTargetUsecase,
+    private readonly getAsyncTaskRecordByQueueJobUsecase: GetAsyncTaskRecordByQueueJobUsecase,
+  ) {}
 
   @qmWorkerEntry('AI_STRICT')
   @Mutation(() => QueueAiResult, { description: '将 AI 生成请求加入队列' })
@@ -46,6 +203,87 @@ export class AiResolver {
       queued: true,
       jobId: result.jobId,
       traceId: result.traceId,
+    };
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('MANAGER', 'ADMIN')
+  @Query(() => AsyncTaskRecordDebugListResult, {
+    description: '内部调试审计：按 traceId 查询异步任务链路',
+  })
+  @ValidateInput()
+  async debugAsyncTaskRecordsByTraceId(
+    @Args('input') input: DebugAsyncTaskRecordsByTraceIdInput,
+  ): Promise<AsyncTaskRecordDebugListResult> {
+    const result = await this.listAsyncTaskRecordsByTraceIdUsecase.execute({
+      traceId: input.traceId,
+      limit: input.limit,
+    });
+    return {
+      items: result.items.map((item) => this.toDebugType(item)),
+    };
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('MANAGER', 'ADMIN')
+  @Query(() => AsyncTaskRecordDebugListResult, {
+    description: '内部调试审计：按 bizType 与 bizKey 查询异步任务记录',
+  })
+  @ValidateInput()
+  async debugAsyncTaskRecordsByBizTarget(
+    @Args('input') input: DebugAsyncTaskRecordsByBizTargetInput,
+  ): Promise<AsyncTaskRecordDebugListResult> {
+    const result = await this.listAsyncTaskRecordsByBizTargetUsecase.execute({
+      bizType: input.bizType,
+      bizKey: input.bizKey,
+      bizSubKey: input.bizSubKey,
+      limit: input.limit,
+    });
+    return {
+      items: result.items.map((item) => this.toDebugType(item)),
+    };
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('MANAGER', 'ADMIN')
+  @Query(() => AsyncTaskRecordDebugType, {
+    nullable: true,
+    description: '内部调试审计：按 queueName 与 jobId 查询单任务记录',
+  })
+  @ValidateInput()
+  async debugAsyncTaskRecordByQueueJob(
+    @Args('input') input: DebugAsyncTaskRecordByQueueJobInput,
+  ): Promise<AsyncTaskRecordDebugType | null> {
+    const record = await this.getAsyncTaskRecordByQueueJobUsecase.execute({
+      queueName: input.queueName,
+      jobId: input.jobId,
+    });
+    if (!record) {
+      return null;
+    }
+    return this.toDebugType(record);
+  }
+
+  private toDebugType(input: AsyncTaskRecordView): AsyncTaskRecordDebugType {
+    return {
+      id: input.id,
+      queueName: input.queueName,
+      jobName: input.jobName,
+      jobId: input.jobId,
+      traceId: input.traceId,
+      bizType: input.bizType,
+      bizKey: input.bizKey,
+      bizSubKey: input.bizSubKey,
+      source: input.source,
+      reason: input.reason,
+      status: input.status,
+      attemptCount: input.attemptCount,
+      maxAttempts: input.maxAttempts,
+      enqueuedAt: input.enqueuedAt,
+      startedAt: input.startedAt,
+      finishedAt: input.finishedAt,
+      createdAt: input.createdAt,
+      updatedAt: input.updatedAt,
     };
   }
 }
