@@ -98,7 +98,10 @@ export function mapMissingEmailSendJobToFailInput(input: {
   readonly occurredAt?: Date;
 }): ConsumeEmailJobFailInput {
   const occurredAt = input.occurredAt ?? new Date();
-  const jobId = resolveMissingJobId({ occurredAt });
+  const jobId = resolveMissingJobId({
+    occurredAt,
+    jobName: EMAIL_SEND_JOB_NAME,
+  });
   return {
     queueName: EMAIL_QUEUE_NAME,
     jobName: EMAIL_SEND_JOB_NAME,
@@ -149,6 +152,9 @@ function resolveTraceId(input: {
   return `degraded-trace:${input.job.name}:${jobId}`;
 }
 
-function resolveMissingJobId(input: { readonly occurredAt: Date }): string {
-  return `missing-job:${input.occurredAt.getTime()}`;
+function resolveMissingJobId(input: {
+  readonly occurredAt: Date;
+  readonly jobName: string;
+}): string {
+  return `missing-job:${input.jobName}:${input.occurredAt.getTime()}`;
 }

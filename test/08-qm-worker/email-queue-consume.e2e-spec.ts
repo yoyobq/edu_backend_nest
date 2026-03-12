@@ -4,6 +4,8 @@ import { TokenHelper } from '@modules/auth/token.helper';
 import { getQueueToken } from '@nestjs/bullmq';
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
+import { EmailSendHandler } from '@src/adapters/worker/email/email-send.handler';
+import { EMAIL_SEND_JOB_NAME } from '@src/adapters/worker/email/email-send.mapper';
 import { ApiModule } from '@src/bootstraps/api/api.module';
 import { WorkerModule } from '@src/bootstraps/worker/worker.module';
 import { BULLMQ_QUEUES } from '@src/infrastructure/bullmq/bullmq.constants';
@@ -460,6 +462,32 @@ const waitAsyncTaskRecordByTrace = async (input: {
   throw new Error(`Async task record did not reach expected state in time: ${input.traceId}`);
 };
 
+const waitFailedAsyncTaskRecordByReason = async (input: {
+  readonly dataSource: DataSource;
+  readonly queueName: string;
+  readonly reasonKeyword: string;
+  readonly timeoutMs: number;
+  readonly pollMs: number;
+}): Promise<AsyncTaskRecordEntity> => {
+  const deadline = Date.now() + input.timeoutMs;
+  while (Date.now() < deadline) {
+    const record = await input.dataSource.getRepository(AsyncTaskRecordEntity).findOne({
+      where: {
+        queueName: input.queueName,
+        status: 'failed',
+      },
+      order: {
+        id: 'DESC',
+      },
+    });
+    if (record && record.reason?.includes(input.reasonKeyword)) {
+      return record;
+    }
+    await sleep(input.pollMs);
+  }
+  throw new Error('Failed async task record with expected reason was not found in time');
+};
+
 const queueEmail = async (input: {
   readonly apiApp: INestApplication;
   readonly to: string;
@@ -506,6 +534,7 @@ describe('邮件队列与 Worker（e2e）', () => {
   let emailQueue: Queue;
   let workerRuntime: BullMqWorkerRuntime;
   let dataSource: DataSource;
+  let emailSendHandler: EmailSendHandler;
 
   beforeAll(async () => {
     initGraphQLSchema();
@@ -530,6 +559,7 @@ describe('邮件队列与 Worker（e2e）', () => {
     emailQueue = apiApp.get<Queue>(getQueueToken(BULLMQ_QUEUES.EMAIL));
     workerRuntime = workerApp.get(BullMqWorkerRuntime);
     dataSource = apiApp.get(DataSource);
+    emailSendHandler = workerApp.get(EmailSendHandler);
   }, 60000);
 
   afterAll(async () => {
@@ -859,6 +889,76 @@ describe('邮件队列与 Worker（e2e）', () => {
       expect(record.jobName).toBe('send');
       expect(record.source).toBe('user_action');
       expect(record.traceId).toBe(traceId);
+    }, 60000);
+
+    it('payload 缺失 traceId 时应走降级失败语义且不回流 jobId', async () => {
+      const timestamp = Date.now();
+      const jobId = `e2e-email-missing-trace-job-${timestamp}`;
+
+      try {
+        await workerRuntime.stop();
+        await emailQueue.add(
+          EMAIL_SEND_JOB_NAME,
+          {
+            to: 'queue.missing.trace@example.com',
+            subject: 'E2E email missing trace test',
+            text: 'queue-missing-trace',
+            meta: {
+              source: 'e2e-email-missing-trace',
+            },
+          },
+          {
+            jobId,
+            attempts: 1,
+            removeOnComplete: false,
+            removeOnFail: false,
+          },
+        );
+
+        await workerRuntime.start();
+        const finalState = await waitJobFinalState({
+          queue: emailQueue,
+          jobId,
+          timeoutMs: 20000,
+          pollMs: 150,
+        });
+        expect(finalState.state).toBe('failed');
+
+        const record = await waitAsyncTaskRecord({
+          dataSource,
+          queueName: BULLMQ_QUEUES.EMAIL,
+          jobId,
+          statuses: ['failed'],
+          timeoutMs: 20000,
+          pollMs: 150,
+        });
+        expect(record.traceId).toBe(`degraded-trace:${EMAIL_SEND_JOB_NAME}:${jobId}`);
+        expect(record.reason).toContain('missing_payload_trace_id');
+      } finally {
+        await workerRuntime.start();
+      }
+    }, 60000);
+
+    it('failed 事件缺失 job 时应落库 missing-job 降级语义', async () => {
+      const timestamp = Date.now();
+      const reasonKeyword = `manual-email-missing-job-${timestamp}`;
+
+      await emailSendHandler.onFailed({
+        job: undefined,
+        error: new Error(reasonKeyword),
+      });
+
+      const record = await waitFailedAsyncTaskRecordByReason({
+        dataSource,
+        queueName: BULLMQ_QUEUES.EMAIL,
+        reasonKeyword,
+        timeoutMs: 10000,
+        pollMs: 120,
+      });
+      expect(record.jobName).toBe(EMAIL_SEND_JOB_NAME);
+      expect(record.jobId).toMatch(new RegExp(`^missing-job:${EMAIL_SEND_JOB_NAME}:\\d+$`));
+      expect(record.traceId).toBe(record.jobId);
+      expect(record.reason).toContain(`worker_event_job_missing:${reasonKeyword}`);
     }, 60000);
   });
 
