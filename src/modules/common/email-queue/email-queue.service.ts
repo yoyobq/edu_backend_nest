@@ -25,7 +25,6 @@ export class EmailQueueService {
         html: input.html,
         templateId: input.templateId,
         meta: input.meta,
-        traceId: input.traceId,
       },
       dedupKey: input.dedupKey,
       traceId: input.traceId,

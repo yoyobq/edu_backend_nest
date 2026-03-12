@@ -7,6 +7,10 @@ import type {
   QueueEmailInput,
   QueueEmailResult,
 } from '@src/modules/common/email-queue/email-queue.types';
+import {
+  resolveAsyncTaskBizKey,
+  resolveEnqueueFailureIdentifiers,
+} from '@src/usecases/queue/async-task-identifier.policy';
 
 @Injectable()
 export class QueueEmailUsecase {
@@ -25,7 +29,12 @@ export class QueueEmailUsecase {
         jobId: result.jobId,
         traceId: result.traceId,
         bizType: 'email',
-        bizKey: result.jobId,
+        bizKey: resolveAsyncTaskBizKey({
+          domain: 'email',
+          traceId: result.traceId,
+          jobId: result.jobId,
+          dedupKey: input.dedupKey,
+        }),
         source: this.resolveSource(),
         reason: 'enqueue_accepted',
         occurredAt,
@@ -43,19 +52,21 @@ export class QueueEmailUsecase {
       return await this.emailQueueService.enqueueSend(input.input);
     } catch (error: unknown) {
       const normalizedError = error instanceof Error ? error : new Error('email_enqueue_failed');
-      const traceId = this.resolveTraceId({
+      const identifiers = resolveEnqueueFailureIdentifiers({
+        domain: 'email',
         traceId: input.input.traceId,
         occurredAt: input.occurredAt,
+        dedupKey: input.input.dedupKey,
+        traceIdPrefix: 'email-enqueue:',
       });
-      const jobId = this.resolveFailedJobId({ dedupKey: input.input.dedupKey });
       await this.asyncTaskRecordService.recordEnqueueFailed({
         data: {
           queueName: 'email',
           jobName: 'send',
-          jobId,
-          traceId,
+          jobId: identifiers.failedJobId,
+          traceId: identifiers.traceId,
           bizType: 'email',
-          bizKey: this.resolveBizKey({ jobId, dedupKey: input.input.dedupKey, traceId }),
+          bizKey: identifiers.bizKey,
           source: this.resolveSource(),
           reason: normalizedError.message.slice(0, 128),
           occurredAt: input.occurredAt,
@@ -68,34 +79,5 @@ export class QueueEmailUsecase {
 
   private resolveSource(): AsyncTaskRecordSource {
     return 'user_action';
-  }
-
-  private resolveTraceId(input: { readonly traceId?: string; readonly occurredAt: Date }): string {
-    const normalized = input.traceId?.trim();
-    if (normalized) {
-      return normalized;
-    }
-    return `email-enqueue:${input.occurredAt.getTime()}`;
-  }
-
-  private resolveFailedJobId(input: { readonly dedupKey?: string }): string | undefined {
-    const normalized = input.dedupKey?.trim();
-    return normalized || undefined;
-  }
-
-  private resolveBizKey(input: {
-    readonly jobId?: string;
-    readonly dedupKey?: string;
-    readonly traceId: string;
-  }): string {
-    const normalizedJobId = input.jobId?.trim();
-    if (normalizedJobId) {
-      return normalizedJobId;
-    }
-    const normalizedDedupKey = input.dedupKey?.trim();
-    if (normalizedDedupKey) {
-      return normalizedDedupKey;
-    }
-    return input.traceId;
   }
 }

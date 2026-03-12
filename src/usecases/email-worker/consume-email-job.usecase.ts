@@ -3,6 +3,7 @@ import { Injectable } from '@nestjs/common';
 import { AsyncTaskRecordService } from '@src/modules/async-task-record/async-task-record.service';
 import type { AsyncTaskRecordSource } from '@src/modules/async-task-record/async-task-record.types';
 import { EmailDeliveryService } from '@src/modules/common/email-worker/email-delivery.service';
+import { resolveAsyncTaskBizKey } from '@src/usecases/queue/async-task-identifier.policy';
 import type {
   SendEmailInput,
   SendEmailResult,
@@ -52,7 +53,11 @@ export class ConsumeEmailJobUsecase {
         jobId: input.jobId,
         traceId: input.traceId,
         bizType: 'email',
-        bizKey: input.jobId,
+        bizKey: resolveAsyncTaskBizKey({
+          domain: 'email',
+          traceId: input.traceId,
+          jobId: input.jobId,
+        }),
         source: this.resolveSource(),
         reason: 'worker_processing',
         attemptCount: this.resolveProcessingAttemptCount({ attemptsMade: input.attemptsMade }),
@@ -73,7 +78,11 @@ export class ConsumeEmailJobUsecase {
         jobId: input.jobId,
         traceId: input.traceId,
         bizType: 'email',
-        bizKey: input.jobId,
+        bizKey: resolveAsyncTaskBizKey({
+          domain: 'email',
+          traceId: input.traceId,
+          jobId: input.jobId,
+        }),
         source: this.resolveSource(),
         status: 'succeeded',
         reason: 'worker_completed',
@@ -95,7 +104,11 @@ export class ConsumeEmailJobUsecase {
         jobId: input.jobId,
         traceId: input.traceId,
         bizType: 'email',
-        bizKey: input.jobId,
+        bizKey: resolveAsyncTaskBizKey({
+          domain: 'email',
+          traceId: input.traceId,
+          jobId: input.jobId,
+        }),
         source: this.resolveSource(),
         status: 'failed',
         reason: input.reason,

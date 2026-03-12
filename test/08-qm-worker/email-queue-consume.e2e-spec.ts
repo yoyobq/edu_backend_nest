@@ -819,7 +819,7 @@ describe('邮件队列与 Worker（e2e）', () => {
       }
     }, 60000);
 
-    it('未传 dedupKey 时应返回入队失败错误', async () => {
+    it('未传 dedupKey 时应自动生成 jobId 并正常入队', async () => {
       const timestamp = Date.now();
       const traceId = `e2e-email-no-dedup-trace-${timestamp}`;
 
@@ -841,21 +841,24 @@ describe('邮件队列与 Worker（e2e）', () => {
         })
         .expect(200);
 
-      expect(response.body.data).toBeNull();
-      expect(response.body.errors).toBeDefined();
-      expect(response.body.errors[0].message).toContain('Custom Id cannot contain :');
+      expect(response.body.errors).toBeUndefined();
+      expect(response.body.data?.queueEmail?.queued).toBe(true);
+      expect(response.body.data?.queueEmail?.traceId).toBe(traceId);
+      expect(typeof response.body.data?.queueEmail?.jobId).toBe('string');
+      expect(response.body.data?.queueEmail?.jobId.length).toBeGreaterThan(0);
+      expect(response.body.data?.queueEmail?.jobId).not.toBe(traceId);
 
-      const failedRecord = await waitAsyncTaskRecordByTrace({
+      const record = await waitAsyncTaskRecordByTrace({
         dataSource,
         queueName: BULLMQ_QUEUES.EMAIL,
         traceId,
-        statuses: ['failed'],
-        timeoutMs: 5000,
-        pollMs: 100,
+        statuses: ['succeeded'],
+        timeoutMs: 20000,
+        pollMs: 150,
       });
-      expect(failedRecord.jobName).toBe('send');
-      expect(failedRecord.source).toBe('user_action');
-      expect(failedRecord.reason).toContain('Custom Id cannot contain :');
+      expect(record.jobName).toBe('send');
+      expect(record.source).toBe('user_action');
+      expect(record.traceId).toBe(traceId);
     }, 60000);
   });
 
@@ -896,6 +899,46 @@ describe('邮件队列与 Worker（e2e）', () => {
         pollMs: 150,
       });
       expect(record.traceId).toBe(traceId);
+      expect(record.jobId).toBe(enqueueResult.jobId);
+      expect(record.status).toBe('succeeded');
+    }, 60000);
+
+    it('traceId 缺省时应自动生成并在 worker 消费侧保持一致', async () => {
+      const timestamp = Date.now();
+      const dedupKey = `e2e-email-generated-trace-job-${timestamp}`;
+
+      const enqueueResult = await queueEmail({
+        apiApp,
+        to: 'queue.trace-id-generated@example.com',
+        subject: 'E2E email queue generated trace test',
+        text: 'queue-generated-trace',
+        dedupKey,
+        source: 'e2e-trace-generated',
+      });
+
+      expect(enqueueResult.queued).toBe(true);
+      expect(enqueueResult.jobId).toBe(dedupKey);
+      expect(typeof enqueueResult.traceId).toBe('string');
+      expect(enqueueResult.traceId.length).toBeGreaterThan(0);
+      expect(enqueueResult.traceId).not.toBe(dedupKey);
+
+      const finalState = await waitJobFinalState({
+        queue: emailQueue,
+        jobId: enqueueResult.jobId,
+        timeoutMs: 20000,
+        pollMs: 150,
+      });
+      expect(finalState.state).toBe('completed');
+
+      const record = await waitAsyncTaskRecord({
+        dataSource,
+        queueName: BULLMQ_QUEUES.EMAIL,
+        jobId: enqueueResult.jobId,
+        statuses: ['succeeded'],
+        timeoutMs: 20000,
+        pollMs: 150,
+      });
+      expect(record.traceId).toBe(enqueueResult.traceId);
       expect(record.jobId).toBe(enqueueResult.jobId);
       expect(record.status).toBe('succeeded');
     }, 60000);

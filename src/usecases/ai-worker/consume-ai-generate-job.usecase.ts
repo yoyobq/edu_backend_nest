@@ -9,6 +9,7 @@ import type {
   GenerateAiContentInput,
   GenerateAiContentResult,
 } from '@src/modules/common/ai-worker/ai-worker.types';
+import { resolveAsyncTaskBizKey } from '@src/usecases/queue/async-task-identifier.policy';
 
 export interface ConsumeAiGenerateJobProcessInput {
   readonly queueName: string;
@@ -84,7 +85,11 @@ export class ConsumeAiGenerateJobUsecase {
         jobId: input.jobId,
         traceId: input.traceId,
         bizType: 'ai_generation',
-        bizKey: input.jobId,
+        bizKey: resolveAsyncTaskBizKey({
+          domain: 'ai_generation',
+          traceId: input.traceId,
+          jobId: input.jobId,
+        }),
         source: this.resolveSource(),
         reason: 'worker_processing',
         attemptCount: this.resolveProcessingAttemptCount({ attemptsMade: input.attemptsMade }),
@@ -105,7 +110,11 @@ export class ConsumeAiGenerateJobUsecase {
         jobId: input.jobId,
         traceId: input.traceId,
         bizType: 'ai_generation',
-        bizKey: input.jobId,
+        bizKey: resolveAsyncTaskBizKey({
+          domain: 'ai_generation',
+          traceId: input.traceId,
+          jobId: input.jobId,
+        }),
         source: this.resolveSource(),
         status: 'succeeded',
         reason: 'worker_completed',
@@ -127,7 +136,11 @@ export class ConsumeAiGenerateJobUsecase {
         jobId: input.jobId,
         traceId: input.traceId,
         bizType: input.bizType ?? 'ai_generation',
-        bizKey: input.jobId,
+        bizKey: resolveAsyncTaskBizKey({
+          domain: 'ai_generation',
+          traceId: input.traceId,
+          jobId: input.jobId,
+        }),
         source: this.resolveSource(),
         status: 'failed',
         reason: input.reason,
@@ -169,7 +182,11 @@ export class ConsumeAiEmbedJobUsecase {
         jobId: input.jobId,
         traceId: input.traceId,
         bizType: 'ai_embedding',
-        bizKey: input.jobId,
+        bizKey: resolveAsyncTaskBizKey({
+          domain: 'ai_embedding',
+          traceId: input.traceId,
+          jobId: input.jobId,
+        }),
         source: this.resolveSource(),
         reason: 'worker_processing',
         attemptCount: this.resolveProcessingAttemptCount({ attemptsMade: input.attemptsMade }),
@@ -190,7 +207,11 @@ export class ConsumeAiEmbedJobUsecase {
         jobId: input.jobId,
         traceId: input.traceId,
         bizType: 'ai_embedding',
-        bizKey: input.jobId,
+        bizKey: resolveAsyncTaskBizKey({
+          domain: 'ai_embedding',
+          traceId: input.traceId,
+          jobId: input.jobId,
+        }),
         source: this.resolveSource(),
         status: 'succeeded',
         reason: 'worker_completed',
@@ -212,7 +233,11 @@ export class ConsumeAiEmbedJobUsecase {
         jobId: input.jobId,
         traceId: input.traceId,
         bizType: 'ai_embedding',
-        bizKey: input.jobId,
+        bizKey: resolveAsyncTaskBizKey({
+          domain: 'ai_embedding',
+          traceId: input.traceId,
+          jobId: input.jobId,
+        }),
         source: this.resolveSource(),
         status: 'failed',
         reason: input.reason,

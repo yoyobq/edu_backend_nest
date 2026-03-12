@@ -50,7 +50,10 @@ export function mapAiGenerateJobToProcessInput(input: {
   readonly job: AiGenerateJob;
 }): ConsumeAiGenerateJobProcessInput {
   const jobId = resolveJobId({ job: input.job });
-  const traceId = resolveTraceId({ job: input.job });
+  const traceId = resolveTraceId({
+    job: input.job,
+    mode: 'strict',
+  });
   return {
     queueName: AI_QUEUE_NAME,
     jobName: AI_GENERATE_JOB_NAME,
@@ -68,7 +71,10 @@ export function mapAiGenerateJobToCompleteInput(input: {
   readonly job: AiGenerateJob;
 }): ConsumeAiGenerateJobCompleteInput {
   const jobId = resolveJobId({ job: input.job });
-  const traceId = resolveTraceId({ job: input.job });
+  const traceId = resolveTraceId({
+    job: input.job,
+    mode: 'strict',
+  });
   return {
     queueName: AI_QUEUE_NAME,
     jobName: AI_GENERATE_JOB_NAME,
@@ -88,7 +94,10 @@ export function mapAiGenerateJobToFailInput(input: {
 }): ConsumeAiGenerateJobFailInput {
   const occurredAt = resolveDate({ timestamp: input.job.finishedOn });
   const jobId = resolveJobId({ job: input.job });
-  const traceId = resolveTraceId({ job: input.job });
+  const traceId = resolveTraceId({
+    job: input.job,
+    mode: 'degraded',
+  });
   return {
     queueName: AI_QUEUE_NAME,
     jobName: AI_GENERATE_JOB_NAME,
@@ -129,7 +138,10 @@ export function mapAiEmbedJobToProcessInput(input: {
   readonly job: AiEmbedJob;
 }): ConsumeAiEmbedJobProcessInput {
   const jobId = resolveJobId({ job: input.job });
-  const traceId = resolveTraceId({ job: input.job });
+  const traceId = resolveTraceId({
+    job: input.job,
+    mode: 'strict',
+  });
   return {
     queueName: AI_QUEUE_NAME,
     jobName: AI_EMBED_JOB_NAME,
@@ -147,7 +159,10 @@ export function mapAiEmbedJobToCompleteInput(input: {
   readonly job: AiEmbedJob;
 }): ConsumeAiEmbedJobCompleteInput {
   const jobId = resolveJobId({ job: input.job });
-  const traceId = resolveTraceId({ job: input.job });
+  const traceId = resolveTraceId({
+    job: input.job,
+    mode: 'strict',
+  });
   return {
     queueName: AI_QUEUE_NAME,
     jobName: AI_EMBED_JOB_NAME,
@@ -167,7 +182,10 @@ export function mapAiEmbedJobToFailInput(input: {
 }): ConsumeAiEmbedJobFailInput {
   const occurredAt = resolveDate({ timestamp: input.job.finishedOn });
   const jobId = resolveJobId({ job: input.job });
-  const traceId = resolveTraceId({ job: input.job });
+  const traceId = resolveTraceId({
+    job: input.job,
+    mode: 'degraded',
+  });
   return {
     queueName: AI_QUEUE_NAME,
     jobName: AI_EMBED_JOB_NAME,
@@ -205,19 +223,19 @@ function resolveJobId(input: { readonly job: AiJob }): string {
   return input.job.id ?? `${input.job.name}:${input.job.timestamp}`;
 }
 
-function resolveTraceId(input: { readonly job: AiJob }): string {
+function resolveTraceId(input: {
+  readonly job: AiJob;
+  readonly mode: 'strict' | 'degraded';
+}): string {
   const payloadTraceId = input.job.data.traceId?.trim();
   if (payloadTraceId) {
     return payloadTraceId;
   }
-  const jobId = resolveJobId({ job: input.job });
-  const prefixes: ReadonlyArray<string> = [`${AI_GENERATE_JOB_NAME}:`, `${AI_EMBED_JOB_NAME}:`];
-  for (const prefix of prefixes) {
-    if (jobId.startsWith(prefix)) {
-      return jobId.slice(prefix.length);
-    }
+  if (input.mode === 'strict') {
+    throw new Error(`missing_payload_trace_id:${input.job.name}`);
   }
-  return jobId;
+  const jobId = resolveJobId({ job: input.job });
+  return `degraded-trace:${input.job.name}:${jobId}`;
 }
 
 function resolveMissingJobId(input: {

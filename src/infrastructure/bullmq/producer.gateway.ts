@@ -68,23 +68,42 @@ export class BullMqProducerGateway {
     input: EnqueueJobInput<Q, J>,
   ): Promise<EnqueueJobResult<Q, J>> {
     this.assertQueueJobPair({ queueName: input.queueName, jobName: input.jobName });
+    const traceId = input.traceId?.trim() || randomUUID();
+    const payload = this.attachResolvedTraceIdToPayload({
+      queueName: input.queueName,
+      payload: input.payload,
+      traceId,
+    });
     assertBullMqJobPayload({
       queueName: input.queueName,
       jobName: input.jobName,
-      payload: input.payload,
+      payload,
     });
     const queue = this.getQueue({ queueName: input.queueName });
-    const traceId = input.traceId?.trim() || randomUUID();
     const dedupKey = input.dedupKey?.trim() || undefined;
     if (dedupKey) {
       const existingJob = await queue.getJob(dedupKey);
       if (existingJob) {
-        let existingTraceId: string | undefined;
-        const existingData = existingJob.data as Record<string, unknown> | null;
-        if (existingData && typeof existingData === 'object') {
-          const candidate = existingData.traceId;
-          if (typeof candidate === 'string' && candidate.trim()) {
-            existingTraceId = candidate.trim();
+        let existingTraceId = this.readTraceIdFromPayload(existingJob.data);
+        if (!existingTraceId) {
+          const patchedPayload = this.attachResolvedTraceIdToPayload({
+            queueName: input.queueName,
+            payload: existingJob.data as BullMqJobPayload<Q, J>,
+            traceId,
+          });
+          try {
+            await existingJob.updateData(patchedPayload);
+            existingTraceId = this.readTraceIdFromPayload(patchedPayload);
+          } catch (error: unknown) {
+            this.logger.warn(
+              {
+                queueName: input.queueName,
+                jobName: input.jobName,
+                dedupKey,
+                error: error instanceof Error ? error.message : String(error),
+              },
+              'BullMQ existing job traceId patch failed',
+            );
           }
         }
         const resolvedTraceId = existingTraceId ?? traceId;
@@ -108,7 +127,7 @@ export class BullMqProducerGateway {
       ...input.options,
       jobId,
     };
-    await queue.add(input.jobName, input.payload, options);
+    await queue.add(input.jobName, payload, options);
     this.logger.info(
       {
         queueName: input.queueName,
@@ -145,5 +164,41 @@ export class BullMqProducerGateway {
     if (!allowedJobs.includes(input.jobName)) {
       throw new Error(`BullMQ job is not registered in queue: ${input.queueName}/${input.jobName}`);
     }
+  }
+
+  private attachResolvedTraceIdToPayload<
+    Q extends BullMqQueueName,
+    J extends BullMqJobName<Q>,
+  >(input: {
+    readonly queueName: Q;
+    readonly payload: BullMqJobPayload<Q, J>;
+    readonly traceId: string;
+  }): BullMqJobPayload<Q, J> {
+    if (input.queueName !== 'ai' && input.queueName !== 'email') {
+      return input.payload;
+    }
+    if (!this.isObjectRecord(input.payload)) {
+      return input.payload;
+    }
+    return {
+      ...(input.payload as Record<string, unknown>),
+      traceId: input.traceId,
+    } as BullMqJobPayload<Q, J>;
+  }
+
+  private readTraceIdFromPayload(payload: unknown): string | undefined {
+    if (!payload || typeof payload !== 'object') {
+      return undefined;
+    }
+    const traceId = (payload as Record<string, unknown>).traceId;
+    if (typeof traceId !== 'string') {
+      return undefined;
+    }
+    const normalized = traceId.trim();
+    return normalized || undefined;
+  }
+
+  private isObjectRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === 'object' && value !== null;
   }
 }

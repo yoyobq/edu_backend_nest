@@ -8,8 +8,11 @@ import type {
   QueueAiGenerateInput,
   QueueAiResult,
 } from '@src/modules/common/ai-queue/ai-queue.types';
+import {
+  resolveAsyncTaskBizKey,
+  resolveEnqueueFailureIdentifiers,
+} from '@src/usecases/queue/async-task-identifier.policy';
 
-type QueueAiJobName = 'generate' | 'embed';
 @Injectable()
 export class QueueAiUsecase {
   constructor(
@@ -30,7 +33,12 @@ export class QueueAiUsecase {
         jobId: result.jobId,
         traceId: result.traceId,
         bizType: 'ai_generation',
-        bizKey: result.jobId,
+        bizKey: resolveAsyncTaskBizKey({
+          domain: 'ai_generation',
+          traceId: result.traceId,
+          jobId: result.jobId,
+          dedupKey: input.dedupKey,
+        }),
         source: this.resolveSource(),
         reason: 'enqueue_accepted',
         occurredAt,
@@ -53,7 +61,12 @@ export class QueueAiUsecase {
         jobId: result.jobId,
         traceId: result.traceId,
         bizType: 'ai_embedding',
-        bizKey: result.jobId,
+        bizKey: resolveAsyncTaskBizKey({
+          domain: 'ai_embedding',
+          traceId: result.traceId,
+          jobId: result.jobId,
+          dedupKey: input.dedupKey,
+        }),
         source: this.resolveSource(),
         reason: 'enqueue_accepted',
         occurredAt,
@@ -71,20 +84,21 @@ export class QueueAiUsecase {
       return await this.aiQueueService.enqueueGenerate(input.input);
     } catch (error: unknown) {
       const normalizedError = error instanceof Error ? error : new Error('ai_enqueue_failed');
-      const traceId = this.resolveTraceId({
+      const identifiers = resolveEnqueueFailureIdentifiers({
+        domain: 'ai_generation',
         traceId: input.input.traceId,
         occurredAt: input.occurredAt,
-        jobName: 'generate',
+        dedupKey: input.input.dedupKey,
+        traceIdPrefix: 'ai-generate-enqueue:',
       });
-      const jobId = this.resolveFailedJobId({ dedupKey: input.input.dedupKey });
       await this.asyncTaskRecordService.recordEnqueueFailed({
         data: {
           queueName: 'ai',
           jobName: 'generate',
-          jobId,
-          traceId,
+          jobId: identifiers.failedJobId,
+          traceId: identifiers.traceId,
           bizType: 'ai_generation',
-          bizKey: this.resolveBizKey({ jobId, dedupKey: input.input.dedupKey, traceId }),
+          bizKey: identifiers.bizKey,
           source: this.resolveSource(),
           reason: normalizedError.message.slice(0, 128),
           occurredAt: input.occurredAt,
@@ -103,20 +117,21 @@ export class QueueAiUsecase {
       return await this.aiQueueService.enqueueEmbed(input.input);
     } catch (error: unknown) {
       const normalizedError = error instanceof Error ? error : new Error('ai_enqueue_failed');
-      const traceId = this.resolveTraceId({
+      const identifiers = resolveEnqueueFailureIdentifiers({
+        domain: 'ai_embedding',
         traceId: input.input.traceId,
         occurredAt: input.occurredAt,
-        jobName: 'embed',
+        dedupKey: input.input.dedupKey,
+        traceIdPrefix: 'ai-embed-enqueue:',
       });
-      const jobId = this.resolveFailedJobId({ dedupKey: input.input.dedupKey });
       await this.asyncTaskRecordService.recordEnqueueFailed({
         data: {
           queueName: 'ai',
           jobName: 'embed',
-          jobId,
-          traceId,
+          jobId: identifiers.failedJobId,
+          traceId: identifiers.traceId,
           bizType: 'ai_embedding',
-          bizKey: this.resolveBizKey({ jobId, dedupKey: input.input.dedupKey, traceId }),
+          bizKey: identifiers.bizKey,
           source: this.resolveSource(),
           reason: normalizedError.message.slice(0, 128),
           occurredAt: input.occurredAt,
@@ -129,38 +144,5 @@ export class QueueAiUsecase {
 
   private resolveSource(): AsyncTaskRecordSource {
     return 'user_action';
-  }
-
-  private resolveTraceId(input: {
-    readonly traceId?: string;
-    readonly occurredAt: Date;
-    readonly jobName: QueueAiJobName;
-  }): string {
-    const normalized = input.traceId?.trim();
-    if (normalized) {
-      return normalized;
-    }
-    return `ai-${input.jobName}-enqueue:${input.occurredAt.getTime()}`;
-  }
-
-  private resolveFailedJobId(input: { readonly dedupKey?: string }): string | undefined {
-    const normalized = input.dedupKey?.trim();
-    return normalized || undefined;
-  }
-
-  private resolveBizKey(input: {
-    readonly jobId?: string;
-    readonly dedupKey?: string;
-    readonly traceId: string;
-  }): string {
-    const normalizedJobId = input.jobId?.trim();
-    if (normalizedJobId) {
-      return normalizedJobId;
-    }
-    const normalizedDedupKey = input.dedupKey?.trim();
-    if (normalizedDedupKey) {
-      return normalizedDedupKey;
-    }
-    return input.traceId;
   }
 }

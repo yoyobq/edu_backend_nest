@@ -30,7 +30,10 @@ export function mapEmailSendJobToProcessInput(input: {
   readonly job: EmailSendJob;
 }): ConsumeEmailJobProcessInput {
   const jobId = resolveJobId({ job: input.job });
-  const traceId = resolveTraceId({ job: input.job });
+  const traceId = resolveTraceId({
+    job: input.job,
+    mode: 'strict',
+  });
   return {
     queueName: EMAIL_QUEUE_NAME,
     jobName: EMAIL_SEND_JOB_NAME,
@@ -48,7 +51,10 @@ export function mapEmailSendJobToCompleteInput(input: {
   readonly job: EmailSendJob;
 }): ConsumeEmailJobCompleteInput {
   const jobId = resolveJobId({ job: input.job });
-  const traceId = resolveTraceId({ job: input.job });
+  const traceId = resolveTraceId({
+    job: input.job,
+    mode: 'strict',
+  });
   return {
     queueName: EMAIL_QUEUE_NAME,
     jobName: EMAIL_SEND_JOB_NAME,
@@ -68,7 +74,10 @@ export function mapEmailSendJobToFailInput(input: {
 }): ConsumeEmailJobFailInput {
   const occurredAt = resolveDate({ timestamp: input.job.finishedOn });
   const jobId = resolveJobId({ job: input.job });
-  const traceId = resolveTraceId({ job: input.job });
+  const traceId = resolveTraceId({
+    job: input.job,
+    mode: 'degraded',
+  });
   return {
     queueName: EMAIL_QUEUE_NAME,
     jobName: EMAIL_SEND_JOB_NAME,
@@ -125,17 +134,19 @@ function resolveJobId(input: { readonly job: EmailSendJob }): string {
   return input.job.id ?? `${EMAIL_SEND_JOB_NAME}:${input.job.timestamp}`;
 }
 
-function resolveTraceId(input: { readonly job: EmailSendJob }): string {
+function resolveTraceId(input: {
+  readonly job: EmailSendJob;
+  readonly mode: 'strict' | 'degraded';
+}): string {
   const payloadTraceId = input.job.data.traceId?.trim();
   if (payloadTraceId) {
     return payloadTraceId;
   }
-  const jobId = resolveJobId({ job: input.job });
-  const prefix = `${EMAIL_SEND_JOB_NAME}:`;
-  if (jobId.startsWith(prefix)) {
-    return jobId.slice(prefix.length);
+  if (input.mode === 'strict') {
+    throw new Error(`missing_payload_trace_id:${input.job.name}`);
   }
-  return jobId;
+  const jobId = resolveJobId({ job: input.job });
+  return `degraded-trace:${input.job.name}:${jobId}`;
 }
 
 function resolveMissingJobId(input: { readonly occurredAt: Date }): string {

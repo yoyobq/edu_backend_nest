@@ -94,7 +94,7 @@ const enqueueAiGenerate = async (input: {
   readonly traceId?: string;
   readonly attempts?: number;
 }): Promise<void> => {
-  const traceId = input.traceId ?? input.jobId;
+  const traceId = input.traceId ?? `ai-generate-e2e-trace:${input.jobId}`;
   await input.queue.add(
     BULLMQ_JOBS.AI.GENERATE,
     {
@@ -122,7 +122,7 @@ const enqueueAiEmbed = async (input: {
   readonly traceId?: string;
   readonly attempts?: number;
 }): Promise<void> => {
-  const traceId = input.traceId ?? input.jobId;
+  const traceId = input.traceId ?? `ai-embed-e2e-trace:${input.jobId}`;
   await input.queue.add(
     BULLMQ_JOBS.AI.EMBED,
     {
@@ -264,7 +264,7 @@ const recordAiEnqueued = async (input: {
       jobId: input.jobId,
       traceId: input.traceId,
       bizType,
-      bizKey: input.jobId,
+      bizKey: input.traceId,
       source: 'system',
       reason: 'enqueue_accepted',
       maxAttempts: input.maxAttempts,
@@ -321,10 +321,10 @@ describe('AI Worker（e2e）', () => {
     expect(() => apiApp.get(BullMqWorkerRuntime)).toThrow();
   });
 
-  it('generate 成功时应落库为 succeeded，traceId 应与 jobId 对齐', async () => {
+  it('generate 成功时应落库为 succeeded，traceId 应保持 payload 显式值', async () => {
     const timestamp = Date.now();
     const jobId = `${BULLMQ_JOBS.AI.GENERATE}-ai-gen-trace-${timestamp}`;
-    const traceId = jobId;
+    const traceId = `ai-generate-trace-${timestamp}`;
 
     try {
       await workerRuntime.stop();
@@ -341,6 +341,7 @@ describe('AI Worker（e2e）', () => {
         queue: aiQueue,
         jobId,
         prompt: 'generate success case __SLOW_MS_400__',
+        traceId,
         attempts: 1,
       });
 
@@ -394,12 +395,12 @@ describe('AI Worker（e2e）', () => {
         pollMs: 150,
       });
       expect(record.jobName).toBe(BULLMQ_JOBS.AI.GENERATE);
-      expect(record.traceId).toBe(jobId);
+      expect(record.traceId).toBe(traceId);
       expect(record.status).toBe('succeeded');
       expect(record.source).toBe('system');
       expect(record.reason).toBe('worker_completed');
       expect(record.bizType).toBe('ai_generation');
-      expect(record.bizKey).toBe(jobId);
+      expect(record.bizKey).toBe(traceId);
       expect(record.attemptCount).toBe(attemptsMade);
       expect(record.maxAttempts).toBe(1);
       expect(record.startedAt).toBeInstanceOf(Date);
@@ -413,6 +414,7 @@ describe('AI Worker（e2e）', () => {
   it('embed 成功时应落库为 succeeded 且记录 ai_embedding 语义', async () => {
     const timestamp = Date.now();
     const jobId = `${BULLMQ_JOBS.AI.EMBED}-ai-embed-trace-${timestamp}`;
+    const traceId = `ai-embed-trace-${timestamp}`;
 
     try {
       await workerRuntime.stop();
@@ -422,6 +424,7 @@ describe('AI Worker（e2e）', () => {
         queue: aiQueue,
         jobId,
         text: 'embed success case',
+        traceId,
         attempts: 1,
       });
 
@@ -447,8 +450,9 @@ describe('AI Worker（e2e）', () => {
         pollMs: 150,
       });
       expect(record.jobName).toBe(BULLMQ_JOBS.AI.EMBED);
-      expect(record.traceId).toBe(jobId);
+      expect(record.traceId).toBe(traceId);
       expect(record.bizType).toBe('ai_embedding');
+      expect(record.bizKey).toBe(traceId);
       expect(record.reason).toBe('worker_completed');
       expect(aiWorkerMock.embedCalls.length - callsBefore).toBe(1);
     } finally {
@@ -459,7 +463,7 @@ describe('AI Worker（e2e）', () => {
   it('generate 失败时应落库为 failed 并写入失败原因', async () => {
     const timestamp = Date.now();
     const jobId = `${BULLMQ_JOBS.AI.GENERATE}-ai-gen-fail-${timestamp}`;
-    const traceId = jobId;
+    const traceId = `ai-generate-fail-trace-${timestamp}`;
 
     try {
       await workerRuntime.stop();
@@ -475,6 +479,7 @@ describe('AI Worker（e2e）', () => {
         queue: aiQueue,
         jobId,
         prompt: '__FAIL_GENERATE__ __SLOW_MS_400__',
+        traceId,
         attempts: 1,
       });
 
@@ -511,6 +516,8 @@ describe('AI Worker（e2e）', () => {
       });
       expect(record.jobName).toBe(BULLMQ_JOBS.AI.GENERATE);
       expect(record.bizType).toBe('ai_generation');
+      expect(record.traceId).toBe(traceId);
+      expect(record.bizKey).toBe(traceId);
       expect(record.status).toBe('failed');
       expect(record.reason).toContain('Mock AI generate failure');
     } finally {
@@ -648,6 +655,8 @@ describe('AI Worker（e2e）', () => {
   it('重复入队同一 jobId 时应保持单条任务记录并仅消费一次', async () => {
     const timestamp = Date.now();
     const jobId = `${BULLMQ_JOBS.AI.GENERATE}-ai-gen-dedup-${timestamp}`;
+    const firstTraceId = `ai-dedup-trace-first-${timestamp}`;
+    const secondTraceId = `ai-dedup-trace-second-${timestamp}`;
 
     try {
       await workerRuntime.stop();
@@ -657,12 +666,14 @@ describe('AI Worker（e2e）', () => {
         queue: aiQueue,
         jobId,
         prompt: 'dedup first payload',
+        traceId: firstTraceId,
         attempts: 1,
       });
       await enqueueAiGenerate({
         queue: aiQueue,
         jobId,
         prompt: 'dedup second payload',
+        traceId: secondTraceId,
         attempts: 1,
       });
 
@@ -689,8 +700,59 @@ describe('AI Worker（e2e）', () => {
         jobId,
       });
       expect(record.status).toBe('succeeded');
+      expect(record.traceId).toBe(firstTraceId);
+      expect(record.bizKey).toBe(firstTraceId);
       expect(recordCount).toBe(1);
       expect(aiWorkerMock.generateCalls.length - callsBefore).toBe(1);
+    } finally {
+      await workerRuntime.start();
+    }
+  }, 60000);
+
+  it('payload 缺失 traceId 时应走降级失败语义且不回流 jobId', async () => {
+    const timestamp = Date.now();
+    const jobId = `${BULLMQ_JOBS.AI.GENERATE}-ai-gen-missing-trace-${timestamp}`;
+
+    try {
+      await workerRuntime.stop();
+      await aiQueue.add(
+        BULLMQ_JOBS.AI.GENERATE,
+        {
+          provider: 'openai',
+          model: 'gpt-4o-mini',
+          prompt: 'missing trace id payload',
+          metadata: {
+            source: 'e2e-ai-missing-trace',
+          },
+        },
+        {
+          jobId,
+          attempts: 1,
+          removeOnComplete: false,
+          removeOnFail: false,
+        },
+      );
+
+      await workerRuntime.start();
+      const finalState = await waitJobFinalState({
+        queue: aiQueue,
+        jobId,
+        timeoutMs: 20000,
+        pollMs: 150,
+      });
+      expect(finalState.state).toBe('failed');
+
+      const record = await waitAsyncTaskRecord({
+        dataSource,
+        queueName: BULLMQ_QUEUES.AI,
+        jobId,
+        statuses: ['failed'],
+        timeoutMs: 20000,
+        pollMs: 150,
+      });
+      expect(record.traceId).toBe(`degraded-trace:${BULLMQ_JOBS.AI.GENERATE}:${jobId}`);
+      expect(record.bizKey).toBe(record.traceId);
+      expect(record.reason).toContain('missing_payload_trace_id');
     } finally {
       await workerRuntime.start();
     }
