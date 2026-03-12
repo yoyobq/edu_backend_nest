@@ -533,6 +533,98 @@ describe('AI GraphQL 队列入口与 Worker 联动（e2e）', () => {
     }
   }, 60000);
 
+  it('enqueue 失败且旧任务记录已占用同 jobId 时应回退 failed 记录 jobId', async () => {
+    const timestamp = Date.now();
+    const dedupKey = `e2e-ai-graphql-existing-record-conflict-${timestamp}`;
+    const existingTraceId = `e2e-ai-graphql-existing-record-trace-${timestamp}`;
+    const failedTraceId = `e2e-ai-graphql-existing-record-failed-${timestamp}`;
+    const existingOccurredAt = new Date();
+
+    try {
+      await workerRuntime.stop();
+      await aiQueue.add(
+        BULLMQ_JOBS.AI.EMBED,
+        {
+          provider: 'openai',
+          model: 'text-embedding-3-small',
+          text: 'existing job in bullmq',
+          traceId: existingTraceId,
+        },
+        {
+          jobId: dedupKey,
+          attempts: 1,
+          removeOnComplete: false,
+          removeOnFail: false,
+        },
+      );
+      await dataSource.getRepository(AsyncTaskRecordEntity).save(
+        dataSource.getRepository(AsyncTaskRecordEntity).create({
+          queueName: BULLMQ_QUEUES.AI,
+          jobName: BULLMQ_JOBS.AI.EMBED,
+          jobId: dedupKey,
+          traceId: existingTraceId,
+          bizType: 'ai_embedding',
+          bizKey: existingTraceId,
+          source: 'user_action',
+          reason: 'enqueue_accepted',
+          status: 'queued',
+          attemptCount: 0,
+          occurredAt: existingOccurredAt,
+          enqueuedAt: existingOccurredAt,
+          dedupKey,
+        }),
+      );
+
+      const response = await queueAiGenerate({
+        app: apiApp,
+        token: managerToken,
+        provider: 'openai',
+        model: 'gpt-4o-mini',
+        prompt: 'should hit dedup conflict with existing record',
+        dedupKey,
+        traceId: failedTraceId,
+      });
+
+      const errors = (response.body as { errors?: Array<{ message?: string }> }).errors ?? [];
+      expect(errors.length).toBeGreaterThan(0);
+      expect(errors[0]?.message ?? '').toContain('dedup_job_name_conflict');
+
+      const failedRecord = await waitAsyncTaskRecordByTrace({
+        dataSource,
+        queueName: BULLMQ_QUEUES.AI,
+        traceId: failedTraceId,
+        statuses: ['failed'],
+        timeoutMs: 8000,
+        pollMs: 120,
+      });
+      expect(failedRecord.jobId).not.toBe(dedupKey);
+      expect(failedRecord.jobId.startsWith(`enqueue-failed:${failedTraceId}:`)).toBe(true);
+      const failedReason = failedRecord.reason ?? '';
+      expect(failedReason.startsWith('enqueue_failed:')).toBe(true);
+      expect(failedReason).toContain('dedup_job_name_conflict');
+
+      const existingRecord = await waitAsyncTaskRecord({
+        dataSource,
+        queueName: BULLMQ_QUEUES.AI,
+        jobId: dedupKey,
+        statuses: ['queued'],
+        timeoutMs: 3000,
+        pollMs: 100,
+      });
+      expect(existingRecord.traceId).toBe(existingTraceId);
+      expect(existingRecord.status).toBe('queued');
+
+      const count = await countAsyncTaskRecords({
+        dataSource,
+        queueName: BULLMQ_QUEUES.AI,
+        jobId: dedupKey,
+      });
+      expect(count).toBe(1);
+    } finally {
+      await workerRuntime.start();
+    }
+  }, 60000);
+
   it('QueueAiUsecase 语义应保持 embed 入队字段映射一致', async () => {
     const timestamp = Date.now();
     const dedupKey = `e2e-ai-graphql-embed-${timestamp}`;
@@ -570,6 +662,99 @@ describe('AI GraphQL 队列入口与 Worker 联动（e2e）', () => {
       expect(record.source).toBe('user_action');
       expect(record.reason).toBe('enqueue_accepted');
       expect(record.dedupKey).toBe(dedupKey);
+    } finally {
+      await workerRuntime.start();
+    }
+  }, 60000);
+
+  it('queueAiEmbed 未传 dedupKey 与 traceId 时应自动生成标识', async () => {
+    const response = await queueAiEmbed({
+      app: apiApp,
+      token: managerToken,
+      provider: 'openai',
+      model: 'text-embedding-3-small',
+      text: 'embed auto identifiers',
+      metadata: { scene: 'embed-auto-identifiers' },
+    });
+
+    expect(response.body.errors).toBeUndefined();
+    const data = parseQueueAiEmbedData(response);
+    expect(data.queued).toBe(true);
+    expect(typeof data.jobId).toBe('string');
+    expect(typeof data.traceId).toBe('string');
+    expect(data.jobId.length).toBeGreaterThan(0);
+    expect(data.traceId.length).toBeGreaterThan(0);
+    expect(data.jobId).not.toBe(data.traceId);
+
+    const record = await waitAsyncTaskRecord({
+      dataSource,
+      queueName: BULLMQ_QUEUES.AI,
+      jobId: data.jobId,
+      statuses: ['queued', 'processing', 'succeeded'],
+      timeoutMs: 15000,
+      pollMs: 150,
+    });
+    expect(record.traceId).toBe(data.traceId);
+    expect(record.jobId).toBe(data.jobId);
+    expect(record.bizKey).toBe(data.traceId);
+    expect(record.bizType).toBe('ai_embedding');
+  }, 60000);
+
+  it('queueAiEmbed enqueue 失败时应写 failed 记录并使用 enqueue_failed 前缀', async () => {
+    const timestamp = Date.now();
+    const dedupKey = `e2e-ai-graphql-embed-conflict-${timestamp}`;
+    const conflictTraceId = `e2e-ai-graphql-embed-conflict-existing-${timestamp}`;
+    const failedTraceId = `e2e-ai-graphql-embed-conflict-failed-${timestamp}`;
+
+    try {
+      await workerRuntime.stop();
+      await aiQueue.add(
+        BULLMQ_JOBS.AI.GENERATE,
+        {
+          provider: 'openai',
+          model: 'gpt-4o-mini',
+          prompt: 'conflict-existing-job',
+          traceId: conflictTraceId,
+        },
+        {
+          jobId: dedupKey,
+          attempts: 1,
+          removeOnComplete: false,
+          removeOnFail: false,
+        },
+      );
+
+      const response = await queueAiEmbed({
+        app: apiApp,
+        token: managerToken,
+        provider: 'openai',
+        model: 'text-embedding-3-small',
+        text: 'should hit embed dedup job conflict',
+        dedupKey,
+        traceId: failedTraceId,
+      });
+
+      const errors = (response.body as { errors?: Array<{ message?: string }> }).errors ?? [];
+      expect(errors.length).toBeGreaterThan(0);
+      expect(errors[0]?.message ?? '').toContain('dedup_job_name_conflict');
+
+      const record = await waitAsyncTaskRecordByTrace({
+        dataSource,
+        queueName: BULLMQ_QUEUES.AI,
+        traceId: failedTraceId,
+        statuses: ['failed'],
+        timeoutMs: 8000,
+        pollMs: 120,
+      });
+      expect(record.status).toBe('failed');
+      expect(record.jobName).toBe(BULLMQ_JOBS.AI.EMBED);
+      expect(record.jobId).toBe(dedupKey);
+      expect(record.bizType).toBe('ai_embedding');
+      expect(record.bizKey).toBe(failedTraceId);
+      expect(record.source).toBe('user_action');
+      const failedReason = record.reason ?? '';
+      expect(failedReason.startsWith('enqueue_failed:')).toBe(true);
+      expect(failedReason).toContain('dedup_job_name_conflict');
     } finally {
       await workerRuntime.start();
     }
@@ -614,6 +799,8 @@ describe('AI GraphQL 队列入口与 Worker 联动（e2e）', () => {
         /模型名称不能为空|Validation failed|校验|validation/i,
       );
     });
+
+
   });
 
   it('GraphQL 入队到 Worker 完整联动应消费成功并落库为 succeeded', async () => {

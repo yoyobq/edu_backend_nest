@@ -184,33 +184,53 @@ export class AsyncTaskRecordService {
     readonly manager?: EntityManager;
   }): Promise<AsyncTaskRecordView> {
     const occurredAt = input.data.occurredAt ?? new Date();
-    return await this.createRecord({
-      data: {
-        queueName: input.data.queueName,
-        jobName: input.data.jobName,
-        jobId: this.resolveJobId({
-          jobId: input.data.jobId,
-          traceId: input.data.traceId,
-          occurredAt,
-        }),
-        traceId: input.data.traceId,
-        actorAccountId: input.data.actorAccountId,
-        actorActiveRole: input.data.actorActiveRole,
-        bizType: input.data.bizType,
-        bizKey: input.data.bizKey,
-        bizSubKey: input.data.bizSubKey,
-        source: input.data.source,
-        reason: input.data.reason ?? 'enqueue_failed',
-        occurredAt,
-        dedupKey: input.data.dedupKey,
-        status: 'failed',
-        attemptCount: 0,
-        maxAttempts: input.data.maxAttempts,
-        enqueuedAt: occurredAt,
-        finishedAt: occurredAt,
-      },
-      manager: input.manager,
+    const resolvedJobId = this.resolveJobId({
+      jobId: input.data.jobId,
+      traceId: input.data.traceId,
+      occurredAt,
     });
+    const buildCreateData = (jobId: string): CreateAsyncTaskRecordInput => ({
+      queueName: input.data.queueName,
+      jobName: input.data.jobName,
+      jobId,
+      traceId: input.data.traceId,
+      actorAccountId: input.data.actorAccountId,
+      actorActiveRole: input.data.actorActiveRole,
+      bizType: input.data.bizType,
+      bizKey: input.data.bizKey,
+      bizSubKey: input.data.bizSubKey,
+      source: input.data.source,
+      reason: input.data.reason ?? 'enqueue_failed',
+      occurredAt,
+      dedupKey: input.data.dedupKey,
+      status: 'failed',
+      attemptCount: 0,
+      maxAttempts: input.data.maxAttempts,
+      enqueuedAt: occurredAt,
+      finishedAt: occurredAt,
+    });
+    try {
+      return await this.createRecord({
+        data: buildCreateData(resolvedJobId),
+        manager: input.manager,
+      });
+    } catch (error: unknown) {
+      if (!this.isUniqueConstraintViolation(error)) {
+        throw error;
+      }
+      if (!input.data.jobId || resolvedJobId !== input.data.jobId.trim()) {
+        throw error;
+      }
+      const fallbackJobId = this.resolveJobId({
+        jobId: undefined,
+        traceId: input.data.traceId,
+        occurredAt,
+      });
+      return await this.createRecord({
+        data: buildCreateData(fallbackJobId),
+        manager: input.manager,
+      });
+    }
   }
 
   async recordStarted(input: {
