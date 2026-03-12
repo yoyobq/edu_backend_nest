@@ -1,4 +1,4 @@
-<!-- /var/www/backend/docs/worker-usecase.rules.md -->
+<!-- /var/www/worker-backend/docs/worker/worker-usecase.rules.md -->
 
 # Worker Usecase 说明
 

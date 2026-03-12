@@ -1,4 +1,4 @@
-<!-- /var/www/backend/docs/core.rules.md -->
+<!-- /var/www/worker-backend/docs/common/core.rules.md -->
 
 # Core 说明
 

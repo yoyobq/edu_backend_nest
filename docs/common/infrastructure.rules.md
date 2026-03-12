@@ -1,4 +1,4 @@
-<!-- /var/www/backend/docs/infrastructure.rules.md -->
+<!-- /var/www/worker-backend/docs/common/infrastructure.rules.md -->
 
 # Infrastructure 说明
 

@@ -1,6 +1,6 @@
 # Usecase 说明
 
-- Worker 场景下的专项约束另见 `docs/worker-usecase.rules.md`。
+- Worker 场景下的专项约束另见 `docs/worker/worker-usecase.rules.md`。
 
 ## 目标与定位
 

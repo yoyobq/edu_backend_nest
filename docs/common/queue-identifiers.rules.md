@@ -1,4 +1,4 @@
-<!-- /var/www/aigc-friendly-backend/docs/queue-identifiers.rules.md -->
+<!-- /var/www/worker-backend/docs/common/queue-identifiers.rules.md -->
 
 # Queue Identifiers 说明
 

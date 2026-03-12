@@ -82,12 +82,12 @@ src/
 
 更多细节请参考 `docs/` 下的规则文档：
 
-- [Core Rules](docs/core.rules.md)
-- [Adapters Rules](docs/adapters.rules.md)
-- [Usecase Rules](docs/usecase.rules.md)
-- [Modules Rules](docs/modules.rules.md)
-- [Query Service Rules](docs/queryservice.rules.md)
-- [Infrastructure Rules](docs/infrastructure.rules.md)
+- [Core Rules](docs/common/core.rules.md)
+- [Adapters Rules](docs/api/adapters.rules.md)
+- [Usecase Rules](docs/common/usecase.rules.md)
+- [Modules Rules](docs/common/modules.rules.md)
+- [Query Service Rules](docs/common/queryservice.rules.md)
+- [Infrastructure Rules](docs/common/infrastructure.rules.md)
 
 ## 功能概览
 

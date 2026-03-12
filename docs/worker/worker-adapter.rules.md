@@ -1,4 +1,4 @@
-<!-- /var/www/backend/docs/worker-adapter.rules.md -->
+<!-- /var/www/worker-backend/docs/worker/worker-adapter.rules.md -->
 
 # Worker Adapter 说明
 
@@ -74,7 +74,7 @@
 
 ## 与 Usecase 协作约定
 
-- Worker Usecase 的专项约束见 `docs/worker-usecase.rules.md`，本节仅定义 Adapter 与 Usecase 的协作边界。
+- Worker Usecase 的专项约束见 `docs/worker/worker-usecase.rules.md`，本节仅定义 Adapter 与 Usecase 的协作边界。
 - process：只调用一个与“处理该任务”直接对应的主用例入口（如 `consumeXxxJobUsecase.process`）。
 - completed / failed / stalled：只调用该生命周期对应职责的单个 Usecase 入口，不在 Adapter 内分叉业务流程。
 - 每个运行时钩子只允许调用一个对应职责入口；不得在同一钩子内串联多个业务阶段 Usecase。

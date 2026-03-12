@@ -1,4 +1,4 @@
-<!-- /var/www/worker-backend/docs/email-worker-delivery.rules.md -->
+<!-- /var/www/worker-backend/docs/worker/email-worker-delivery.rules.md -->
 # Email Worker Delivery 说明
 
 ## 分层落位

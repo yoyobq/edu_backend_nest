@@ -1,4 +1,4 @@
-<!-- /var/www/backend/docs/modules.rules.md -->
+<!-- /var/www/worker-backend/docs/common/modules.rules.md -->
 
 # Modules(service) 说明
 

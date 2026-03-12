@@ -1,4 +1,4 @@
-<!-- 文件位置： /var/www/backend/docs/skills.rules.md -->
+<!-- 文件位置： /var/www/worker-backend/docs/common/skills.rules.md -->
 
 # Skills 生成与使用建议
 
