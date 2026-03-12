@@ -269,7 +269,11 @@ function resolveTraceId(input: {
 }
 
 function resolvePayloadTraceId(input: { readonly job: AiJob | AiFailedJob }): string | undefined {
-  const traceId = input.job.data.traceId;
+  const payload = input.job.data;
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+    return undefined;
+  }
+  const traceId = payload.traceId;
   if (typeof traceId !== 'string') {
     return undefined;
   }

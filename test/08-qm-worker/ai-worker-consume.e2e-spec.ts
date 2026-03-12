@@ -21,7 +21,7 @@ import {
   type GenerateAiContentInput,
   type GenerateAiContentResult,
 } from '@src/modules/common/ai-worker/ai-worker.types';
-import { type Job, Queue } from 'bullmq';
+import { Queue } from 'bullmq';
 import { DataSource } from 'typeorm';
 import { initGraphQLSchema } from '../../src/adapters/api/graphql/schema/schema.init';
 
@@ -927,43 +927,143 @@ describe('AI Worker（e2e）', () => {
     expect(record.reason).toContain(`worker_event_job_missing:${reasonKeyword}`);
   }, 30000);
 
-  it('failed 事件遇到未知 jobName 时应落库 ai_worker 降级语义', async () => {
+  it('未知 jobName 走真实 worker 链路时应落库 ai_worker 降级语义', async () => {
     const timestamp = Date.now();
-    const reasonKeyword = `unknown-job-${timestamp}`;
-    const jobId = `ai-unsupported-job-${timestamp}`;
+    const jobId = `ai-unsupported-job-runtime-${timestamp}`;
     const unknownJobName = 'summarize';
-    const unsupportedJob = {
-      id: jobId,
-      name: unknownJobName,
-      data: {
-        payload: 'invalid',
-      },
-      attemptsMade: 0,
-      opts: {},
-      timestamp,
-      processedOn: timestamp,
-      finishedOn: timestamp,
-    } as unknown as Job<Record<string, unknown>, unknown, string>;
 
-    await aiJobHandler.onFailed({
-      job: unsupportedJob,
-      error: new Error(reasonKeyword),
-    });
+    try {
+      await workerRuntime.stop();
+      await aiQueue.add(
+        unknownJobName,
+        {
+          payload: 'invalid',
+        },
+        {
+          jobId,
+          attempts: 1,
+          removeOnComplete: false,
+          removeOnFail: false,
+        },
+      );
 
-    const record = await waitLatestMissingRecord({
-      dataSource,
-      reasonKeyword,
-      jobName: unknownJobName,
-      timeoutMs: 10000,
-      pollMs: 100,
-    });
-    expect(record.queueName).toBe(BULLMQ_QUEUES.AI);
-    expect(record.jobName).toBe(unknownJobName);
-    expect(record.jobId).toBe(jobId);
-    expect(record.status).toBe('failed');
-    expect(record.bizType).toBe('ai_worker');
-    expect(record.traceId).toBe(`degraded-trace:${unknownJobName}:${jobId}`);
-    expect(record.bizKey).toBe(record.traceId);
-    expect(record.reason).toContain(`unsupported_ai_job:${unknownJobName}:${reasonKeyword}`);
-  }, 30000);
+      await workerRuntime.start();
+      const finalState = await waitJobFinalState({
+        queue: aiQueue,
+        jobId,
+        timeoutMs: 20000,
+        pollMs: 150,
+      });
+      expect(finalState.state).toBe('failed');
+
+      const record = await waitAsyncTaskRecord({
+        dataSource,
+        queueName: BULLMQ_QUEUES.AI,
+        jobId,
+        statuses: ['failed'],
+        timeoutMs: 20000,
+        pollMs: 150,
+      });
+      expect(record.queueName).toBe(BULLMQ_QUEUES.AI);
+      expect(record.jobName).toBe(unknownJobName);
+      expect(record.jobId).toBe(jobId);
+      expect(record.status).toBe('failed');
+      expect(record.bizType).toBe('ai_worker');
+      expect(record.traceId).toBe(`degraded-trace:${unknownJobName}:${jobId}`);
+      expect(record.bizKey).toBe(record.traceId);
+      expect(record.reason).toContain(`unsupported_ai_job:${unknownJobName}:Unsupported AI job`);
+    } finally {
+      await workerRuntime.start();
+    }
+  }, 60000);
+
+  it('未知 jobName 且 payload 显式 traceId 时应保留该 traceId', async () => {
+    const timestamp = Date.now();
+    const jobId = `ai-unsupported-job-trace-${timestamp}`;
+    const unknownJobName = 'summarize-with-trace';
+    const traceId = `ai-unsupported-trace-${timestamp}`;
+
+    try {
+      await workerRuntime.stop();
+      await aiQueue.add(
+        unknownJobName,
+        {
+          traceId,
+          payload: 'invalid',
+        },
+        {
+          jobId,
+          attempts: 1,
+          removeOnComplete: false,
+          removeOnFail: false,
+        },
+      );
+
+      await workerRuntime.start();
+      const finalState = await waitJobFinalState({
+        queue: aiQueue,
+        jobId,
+        timeoutMs: 20000,
+        pollMs: 150,
+      });
+      expect(finalState.state).toBe('failed');
+
+      const record = await waitAsyncTaskRecord({
+        dataSource,
+        queueName: BULLMQ_QUEUES.AI,
+        jobId,
+        statuses: ['failed'],
+        timeoutMs: 20000,
+        pollMs: 150,
+      });
+      expect(record.jobName).toBe(unknownJobName);
+      expect(record.bizType).toBe('ai_worker');
+      expect(record.traceId).toBe(traceId);
+      expect(record.bizKey).toBe(traceId);
+      expect(record.reason).toContain(`unsupported_ai_job:${unknownJobName}:Unsupported AI job`);
+    } finally {
+      await workerRuntime.start();
+    }
+  }, 60000);
+
+  it('未知 jobName 且 payload 为 null 时仍应落库 degraded 记录', async () => {
+    const timestamp = Date.now();
+    const jobId = `ai-unsupported-job-null-payload-${timestamp}`;
+    const unknownJobName = 'summarize-null-payload';
+
+    try {
+      await workerRuntime.stop();
+      await aiQueue.add(unknownJobName, null, {
+        jobId,
+        attempts: 1,
+        removeOnComplete: false,
+        removeOnFail: false,
+      });
+
+      await workerRuntime.start();
+      const finalState = await waitJobFinalState({
+        queue: aiQueue,
+        jobId,
+        timeoutMs: 20000,
+        pollMs: 150,
+      });
+      expect(finalState.state).toBe('failed');
+
+      const record = await waitAsyncTaskRecord({
+        dataSource,
+        queueName: BULLMQ_QUEUES.AI,
+        jobId,
+        statuses: ['failed'],
+        timeoutMs: 20000,
+        pollMs: 150,
+      });
+      expect(record.jobName).toBe(unknownJobName);
+      expect(record.bizType).toBe('ai_worker');
+      expect(record.traceId).toBe(`degraded-trace:${unknownJobName}:${jobId}`);
+      expect(record.bizKey).toBe(record.traceId);
+      expect(record.reason).toContain(`unsupported_ai_job:${unknownJobName}:Unsupported AI job`);
+    } finally {
+      await workerRuntime.start();
+    }
+  }, 60000);
 });
