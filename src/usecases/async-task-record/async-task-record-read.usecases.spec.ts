@@ -111,6 +111,18 @@ describe('AsyncTaskRecord read usecases', () => {
         message: 'queueName 不能为空',
       });
     });
+
+    it('jobId 为空白时抛出 DomainError', async () => {
+      await expect(
+        getByQueueJobUsecase.execute({
+          queueName: 'ai',
+          jobId: '   ',
+        }),
+      ).rejects.toMatchObject<Partial<DomainError>>({
+        code: ASYNC_TASK_RECORD_ERROR.INVALID_PARAMS,
+        message: 'jobId 不能为空',
+      });
+    });
   });
 
   describe('ListAsyncTaskRecordsByTraceIdUsecase', () => {
@@ -133,6 +145,22 @@ describe('AsyncTaskRecord read usecases', () => {
         },
       });
       expect(result.items).toEqual([record]);
+    });
+
+    it('显式传 limit 时应原样透传', async () => {
+      queryService.listByTraceId.mockResolvedValue([]);
+
+      await listByTraceIdUsecase.execute({
+        traceId: 'trace-2',
+        limit: 12,
+      });
+
+      expect(queryService.listByTraceId).toHaveBeenCalledWith({
+        where: {
+          traceId: 'trace-2',
+          limit: 12,
+        },
+      });
     });
 
     it('traceId 为空白时抛出 DomainError', async () => {
@@ -177,6 +205,26 @@ describe('AsyncTaskRecord read usecases', () => {
       expect(result.items).toEqual([record]);
     });
 
+    it('显式传 limit 时应原样透传', async () => {
+      queryService.listByBizTarget.mockResolvedValue([]);
+
+      await listByBizTargetUsecase.execute({
+        bizType: 'ai_worker',
+        bizKey: 'trace-3',
+        limit: 7,
+      });
+
+      expect(queryService.listByBizTarget).toHaveBeenCalledWith({
+        where: {
+          bizType: 'ai_worker',
+          bizKey: 'trace-3',
+          bizSubKey: undefined,
+          statuses: undefined,
+          limit: 7,
+        },
+      });
+    });
+
     it('bizSubKey 为空白字符串时应标准化为 null', async () => {
       queryService.listByBizTarget.mockResolvedValue([]);
 
@@ -206,6 +254,18 @@ describe('AsyncTaskRecord read usecases', () => {
       ).rejects.toMatchObject<Partial<DomainError>>({
         code: ASYNC_TASK_RECORD_ERROR.INVALID_PARAMS,
         message: 'bizKey 不能为空',
+      });
+    });
+
+    it('bizType 为空白时抛出 DomainError', async () => {
+      await expect(
+        listByBizTargetUsecase.execute({
+          bizType: '   ',
+          bizKey: 'trace-3',
+        }),
+      ).rejects.toMatchObject<Partial<DomainError>>({
+        code: ASYNC_TASK_RECORD_ERROR.INVALID_PARAMS,
+        message: 'bizType 不能为空',
       });
     });
   });
