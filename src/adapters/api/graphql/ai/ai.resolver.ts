@@ -39,6 +39,7 @@ const normalizeOptionalString = (value: unknown): string | null | undefined => {
 };
 
 const AI_DEBUG_BIZ_TYPES = ['ai_generation', 'ai_embedding', 'ai_worker'] as const;
+const AI_DEBUG_QUEUE_NAME = BULLMQ_QUEUES.AI;
 
 @ObjectType()
 class AsyncTaskRecordDebugType {
@@ -228,12 +229,12 @@ export class AiResolver {
   ): Promise<AsyncTaskRecordDebugListResult> {
     const result = await this.listAsyncTaskRecordsByTraceIdUsecase.execute({
       traceId: input.traceId,
+      queueName: AI_DEBUG_QUEUE_NAME,
+      bizTypes: [...AI_DEBUG_BIZ_TYPES],
       limit: input.limit,
     });
     return {
-      items: result.items
-        .filter((item) => this.isAiTaskRecord(item))
-        .map((item) => this.toDebugType(item)),
+      items: result.items.map((item) => this.toDebugType(item)),
     };
   }
 
@@ -247,15 +248,14 @@ export class AiResolver {
     @Args('input') input: DebugAsyncTaskRecordsByBizTargetInput,
   ): Promise<AsyncTaskRecordDebugListResult> {
     const result = await this.listAsyncTaskRecordsByBizTargetUsecase.execute({
+      queueName: AI_DEBUG_QUEUE_NAME,
       bizType: input.bizType,
       bizKey: input.bizKey,
       bizSubKey: input.bizSubKey,
       limit: input.limit,
     });
     return {
-      items: result.items
-        .filter((item) => this.isAiTaskRecord(item))
-        .map((item) => this.toDebugType(item)),
+      items: result.items.map((item) => this.toDebugType(item)),
     };
   }
 
@@ -276,14 +276,7 @@ export class AiResolver {
     if (!record) {
       return null;
     }
-    if (!this.isAiTaskRecord(record)) {
-      return null;
-    }
     return this.toDebugType(record);
-  }
-
-  private isAiTaskRecord(input: AsyncTaskRecordView): boolean {
-    return input.queueName === BULLMQ_QUEUES.AI;
   }
 
   private toDebugType(input: AsyncTaskRecordView): AsyncTaskRecordDebugType {

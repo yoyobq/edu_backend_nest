@@ -49,8 +49,17 @@ export class AsyncTaskRecordService {
   }): Promise<AsyncTaskRecordView[]> {
     const repository = this.getRepository(input.manager);
     const limit = this.normalizeLimit(input.where.limit);
+    const where: FindOptionsWhere<AsyncTaskRecordEntity> = {
+      traceId: input.where.traceId,
+    };
+    if (input.where.queueName !== undefined) {
+      where.queueName = input.where.queueName;
+    }
+    if (input.where.bizTypes && input.where.bizTypes.length > 0) {
+      where.bizType = In([...input.where.bizTypes]);
+    }
     const entities = await repository.find({
-      where: { traceId: input.where.traceId },
+      where,
       order: { id: 'DESC' },
       take: limit,
     });
@@ -67,6 +76,9 @@ export class AsyncTaskRecordService {
       bizType: input.where.bizType,
       bizKey: input.where.bizKey,
     };
+    if (input.where.queueName !== undefined) {
+      where.queueName = input.where.queueName;
+    }
 
     if (input.where.bizSubKey !== undefined) {
       where.bizSubKey = input.where.bizSubKey === null ? IsNull() : input.where.bizSubKey;

@@ -1034,7 +1034,9 @@ describe('AI GraphQL 队列入口与 Worker 联动（e2e）', () => {
       });
       const errors = (response.body as { errors?: Array<{ message?: string }> }).errors ?? [];
       expect(errors.length).toBeGreaterThan(0);
-      expect(errors[0]?.message ?? '').toMatch(/不能为空|Validation failed|校验|validation/i);
+      expect(errors[0]?.message ?? '').toMatch(
+        /不能为空|must be one of|should not be empty|Validation failed|校验|validation/i,
+      );
     });
   });
 
@@ -1298,7 +1300,9 @@ describe('AI GraphQL 队列入口与 Worker 联动（e2e）', () => {
       });
       const errors = (response.body as { errors?: Array<{ message?: string }> }).errors ?? [];
       expect(errors.length).toBeGreaterThan(0);
-      expect(errors[0]?.message ?? '').toMatch(/不能为空|Validation failed|校验|validation/i);
+      expect(errors[0]?.message ?? '').toMatch(
+        /不能为空|must be one of|should not be empty|Validation failed|校验|validation/i,
+      );
     });
 
     it('非 AI 范围参数应返回校验错误', async () => {

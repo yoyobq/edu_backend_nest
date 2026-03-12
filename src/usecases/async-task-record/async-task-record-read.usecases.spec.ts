@@ -141,6 +141,8 @@ describe('AsyncTaskRecord read usecases', () => {
       expect(queryService.listByTraceId).toHaveBeenCalledWith({
         where: {
           traceId: 'trace-2',
+          queueName: undefined,
+          bizTypes: undefined,
           limit: 50,
         },
       });
@@ -158,7 +160,28 @@ describe('AsyncTaskRecord read usecases', () => {
       expect(queryService.listByTraceId).toHaveBeenCalledWith({
         where: {
           traceId: 'trace-2',
+          queueName: undefined,
+          bizTypes: undefined,
           limit: 12,
+        },
+      });
+    });
+
+    it('应透传标准化后的可选筛选条件', async () => {
+      queryService.listByTraceId.mockResolvedValue([]);
+
+      await listByTraceIdUsecase.execute({
+        traceId: 'trace-2',
+        queueName: '  ai ',
+        bizTypes: [' ai_generation ', '  ', 'ai_worker'],
+      });
+
+      expect(queryService.listByTraceId).toHaveBeenCalledWith({
+        where: {
+          traceId: 'trace-2',
+          queueName: 'ai',
+          bizTypes: ['ai_generation', 'ai_worker'],
+          limit: 50,
         },
       });
     });
@@ -195,6 +218,7 @@ describe('AsyncTaskRecord read usecases', () => {
 
       expect(queryService.listByBizTarget).toHaveBeenCalledWith({
         where: {
+          queueName: undefined,
           bizType: 'ai_worker',
           bizKey: 'trace-3',
           bizSubKey: 'task-sub-key',
@@ -216,6 +240,7 @@ describe('AsyncTaskRecord read usecases', () => {
 
       expect(queryService.listByBizTarget).toHaveBeenCalledWith({
         where: {
+          queueName: undefined,
           bizType: 'ai_worker',
           bizKey: 'trace-3',
           bizSubKey: undefined,
@@ -236,6 +261,7 @@ describe('AsyncTaskRecord read usecases', () => {
 
       expect(queryService.listByBizTarget).toHaveBeenCalledWith({
         where: {
+          queueName: undefined,
           bizType: 'ai_worker',
           bizKey: 'trace-3',
           bizSubKey: null,
@@ -266,6 +292,27 @@ describe('AsyncTaskRecord read usecases', () => {
       ).rejects.toMatchObject<Partial<DomainError>>({
         code: ASYNC_TASK_RECORD_ERROR.INVALID_PARAMS,
         message: 'bizType 不能为空',
+      });
+    });
+
+    it('应透传标准化后的 queueName 过滤条件', async () => {
+      queryService.listByBizTarget.mockResolvedValue([]);
+
+      await listByBizTargetUsecase.execute({
+        queueName: ' ai ',
+        bizType: 'ai_worker',
+        bizKey: 'trace-3',
+      });
+
+      expect(queryService.listByBizTarget).toHaveBeenCalledWith({
+        where: {
+          queueName: 'ai',
+          bizType: 'ai_worker',
+          bizKey: 'trace-3',
+          bizSubKey: undefined,
+          statuses: undefined,
+          limit: 50,
+        },
       });
     });
   });

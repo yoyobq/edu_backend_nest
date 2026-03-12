@@ -7,6 +7,7 @@ import type {
 import { Injectable } from '@nestjs/common';
 
 export interface ListAsyncTaskRecordsByBizTargetInput {
+  readonly queueName?: string;
   readonly bizType: string;
   readonly bizKey: string;
   readonly bizSubKey?: string | null;
@@ -35,6 +36,7 @@ export class ListAsyncTaskRecordsByBizTargetUsecase {
     });
     const items = await this.asyncTaskRecordQueryService.listByBizTarget({
       where: {
+        queueName: this.normalizeOptionalQueueName({ value: input.queueName }),
         bizType,
         bizKey,
         bizSubKey: this.normalizeOptionalField({ value: input.bizSubKey }),
@@ -67,5 +69,16 @@ export class ListAsyncTaskRecordsByBizTargetUsecase {
     }
     const normalized = input.value.trim();
     return normalized.length > 0 ? normalized : null;
+  }
+
+  private normalizeOptionalQueueName(input: { readonly value?: string }): string | undefined {
+    if (input.value === undefined) {
+      return undefined;
+    }
+    const normalized = input.value.trim();
+    if (normalized.length > 0) {
+      return normalized;
+    }
+    throw new DomainError(ASYNC_TASK_RECORD_ERROR.INVALID_PARAMS, 'queueName 不能为空');
   }
 }

@@ -35,10 +35,13 @@ export interface FindAsyncTaskRecordByQueueJobInput {
 
 export interface ListAsyncTaskRecordsByTraceInput {
   readonly traceId: string;
+  readonly queueName?: string;
+  readonly bizTypes?: ReadonlyArray<string>;
   readonly limit?: number;
 }
 
 export interface ListAsyncTaskRecordsByBizTargetInput {
+  readonly queueName?: string;
   readonly bizType: string;
   readonly bizKey: string;
   readonly bizSubKey?: string | null;
