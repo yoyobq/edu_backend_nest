@@ -1,5 +1,6 @@
 // src/modules/common/integration-events/outbox.dispatcher.ts
 import type { IntegrationEventEnvelope } from '@core/common/integration-events/events.types';
+import { parseBooleanInput } from '@core/common/normalize/normalize.helper';
 import type {
   IOutboxDispatcherPort,
   IOutboxStorePort,
@@ -56,18 +57,8 @@ export class OutboxDispatcher implements OnModuleInit, OnModuleDestroy, IOutboxD
      * @param d 默认值
      */
     const toBool = (v: unknown, d: boolean): boolean => {
-      if (v == null) return d;
-      if (typeof v === 'boolean') return v;
-      if (typeof v === 'number') return v !== 0;
-      if (typeof v === 'string') {
-        const s = v.trim().toLowerCase();
-        if (s === 'false' || s === '0' || s === 'off' || s === 'no' || s === 'disabled')
-          return false;
-        if (s === 'true' || s === '1' || s === 'on' || s === 'yes' || s === 'enabled') return true;
-        return d;
-      }
-      // 其它类型（object、symbol、bigint、function）一律回退默认值，避免不安全字符串化
-      return d;
+      const parsed = parseBooleanInput(v);
+      return typeof parsed === 'boolean' ? parsed : d;
     };
 
     // 显式声明泛型，避免 `any`

@@ -1,6 +1,7 @@
 // src/infrastructure/config/config.module.ts
 import { Module } from '@nestjs/common';
 import { ConfigFactory, ConfigModule, registerAs } from '@nestjs/config';
+import { parseBooleanInput } from '@core/common/normalize/normalize.helper';
 import { IncomingMessage, ServerResponse } from 'http';
 
 const getRequiredEnv = (key: string): string => {
@@ -227,10 +228,10 @@ const bullmqConfig: ConfigFactory = () => ({
 const qmWorkerEntryConfig: ConfigFactory = () => ({
   qmWorkerEntry: {
     ai: {
-      enabled: process.env.AI_QUEUE_DEBUG_ENABLED === 'true',
+      enabled: parseBooleanInput(process.env.AI_QUEUE_DEBUG_ENABLED) ?? false,
     },
     email: {
-      enabled: process.env.EMAIL_QUEUE_DEBUG_ENABLED === 'true',
+      enabled: parseBooleanInput(process.env.EMAIL_QUEUE_DEBUG_ENABLED) ?? false,
     },
   },
 });

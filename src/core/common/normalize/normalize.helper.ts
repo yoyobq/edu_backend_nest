@@ -41,3 +41,44 @@ export function normalize(value: string, type: 'email' | 'phone'): string {
     }
   }
 }
+
+/**
+ * 布尔解析：支持 'false' | '0' | 'off' | 'no' | 'disabled' → false；
+ * 支持 'true' | '1' | 'on' | 'yes' | 'enabled' → true
+ * @param value 待解析值（可能为 string / number / boolean / undefined）
+ * @returns 解析后的 boolean，无法识别返回 undefined
+ */
+export function parseBooleanInput(value: unknown): boolean | undefined {
+  if (value == null) {
+    return undefined;
+  }
+  if (typeof value === 'boolean') {
+    return value;
+  }
+  if (typeof value === 'number') {
+    return value !== 0;
+  }
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    if (
+      normalized === 'false' ||
+      normalized === '0' ||
+      normalized === 'off' ||
+      normalized === 'no' ||
+      normalized === 'disabled'
+    ) {
+      return false;
+    }
+    if (
+      normalized === 'true' ||
+      normalized === '1' ||
+      normalized === 'on' ||
+      normalized === 'yes' ||
+      normalized === 'enabled'
+    ) {
+      return true;
+    }
+    return undefined;
+  }
+  return undefined;
+}

@@ -31,41 +31,7 @@ export class QmWorkerEntryGuard implements CanActivate {
   }
 
   private isEnabled(policy: QmWorkerEntryPolicy): boolean {
-    const configValue = this.configService.get<boolean | string | undefined>(
-      policy.enabledConfigKey,
-    );
-    const fromConfig = this.parseBoolean(configValue);
-    if (typeof fromConfig === 'boolean') {
-      return fromConfig;
-    }
-
-    const envValue = this.readStringValue(policy.enabledEnvKey);
-    const fromEnv = this.parseBoolean(envValue);
-    return fromEnv ?? false;
-  }
-
-  private readStringValue(key: string): string | undefined {
-    const value = this.configService.get<string | undefined>(key);
-    if (typeof value === 'string') {
-      return value.trim();
-    }
-    return undefined;
-  }
-
-  private parseBoolean(value: boolean | string | undefined): boolean | undefined {
-    if (typeof value === 'boolean') {
-      return value;
-    }
-    if (typeof value !== 'string') {
-      return undefined;
-    }
-    const normalized = value.trim().toLowerCase();
-    if (normalized === 'true') {
-      return true;
-    }
-    if (normalized === 'false') {
-      return false;
-    }
-    return undefined;
+    const configValue = this.configService.get<boolean | undefined>(policy.enabledConfigKey);
+    return configValue === true;
   }
 }
