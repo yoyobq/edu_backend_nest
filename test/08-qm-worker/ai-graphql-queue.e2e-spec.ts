@@ -64,6 +64,8 @@ const DEBUG_QUERY_BY_TRACE_ID = `
         bizType
         bizKey
         bizSubKey
+        occurredAt
+        dedupKey
         status
       }
     }
@@ -82,6 +84,8 @@ const DEBUG_QUERY_BY_BIZ_TARGET = `
         bizType
         bizKey
         bizSubKey
+        occurredAt
+        dedupKey
         status
       }
     }
@@ -99,6 +103,8 @@ const DEBUG_QUERY_BY_QUEUE_JOB = `
       bizType
       bizKey
       bizSubKey
+      occurredAt
+      dedupKey
       status
     }
   }
@@ -1037,6 +1043,8 @@ describe('AI GraphQL 队列入口与 Worker 联动（e2e）', () => {
       const suffix = `${Date.now()}-trace`;
       const traceId = `e2e-debug-trace-${suffix}`;
       const bizKey = `e2e-debug-biz-key-${suffix}`;
+      const occurredAt = new Date('2026-01-01T10:00:00.000Z');
+      const dedupKey = `e2e-debug-trace-dedup-${suffix}`;
 
       const first = await dataSource.getRepository(AsyncTaskRecordEntity).save(
         dataSource.getRepository(AsyncTaskRecordEntity).create({
@@ -1049,9 +1057,10 @@ describe('AI GraphQL 队列入口与 Worker 联动（e2e）', () => {
           bizSubKey: 'node-a',
           source: 'system',
           reason: 'seed_1',
+          occurredAt,
+          dedupKey,
           status: 'queued',
           attemptCount: 0,
-          occurredAt: new Date(),
           enqueuedAt: new Date(),
         }),
       );
@@ -1066,9 +1075,10 @@ describe('AI GraphQL 队列入口与 Worker 联动（e2e）', () => {
           bizSubKey: 'node-b',
           source: 'system',
           reason: 'seed_2',
+          occurredAt,
+          dedupKey,
           status: 'processing',
           attemptCount: 1,
-          occurredAt: new Date(),
           enqueuedAt: new Date(),
         }),
       );
@@ -1083,9 +1093,10 @@ describe('AI GraphQL 队列入口与 Worker 联动（e2e）', () => {
           bizSubKey: 'node-c',
           source: 'system',
           reason: 'seed_3',
+          occurredAt,
+          dedupKey,
           status: 'succeeded',
           attemptCount: 1,
-          occurredAt: new Date(),
           enqueuedAt: new Date(),
         }),
       );
@@ -1101,7 +1112,14 @@ describe('AI GraphQL 队列入口与 Worker 联动（e2e）', () => {
       const items = (
         response.body as {
           data?: {
-            debugAsyncTaskRecordsByTraceId?: { items?: Array<{ id: number; traceId: string }> };
+            debugAsyncTaskRecordsByTraceId?: {
+              items?: Array<{
+                id: number;
+                traceId: string;
+                occurredAt: string | null;
+                dedupKey: string | null;
+              }>;
+            };
           };
         }
       ).data?.debugAsyncTaskRecordsByTraceId?.items;
@@ -1111,6 +1129,8 @@ describe('AI GraphQL 队列入口与 Worker 联动（e2e）', () => {
       expect(filtered[0]?.id).toBe(third.id);
       expect(filtered[1]?.id).toBe(second.id);
       expect(filtered[2]?.id).toBe(first.id);
+      expect(filtered[0]?.occurredAt).toBe(occurredAt.toISOString());
+      expect(filtered[0]?.dedupKey).toBe(dedupKey);
     });
 
     it('按 bizType + bizKey 可查到同业务对象多条记录', async () => {
@@ -1119,6 +1139,8 @@ describe('AI GraphQL 队列入口与 Worker 联动（e2e）', () => {
       const bizKey = `e2e-debug-biz-key-${suffix}`;
       const traceIdA = `e2e-debug-biz-trace-a-${suffix}`;
       const traceIdB = `e2e-debug-biz-trace-b-${suffix}`;
+      const occurredAt = new Date('2026-01-02T10:00:00.000Z');
+      const dedupKey = `e2e-debug-biz-dedup-${suffix}`;
 
       await dataSource.getRepository(AsyncTaskRecordEntity).save(
         dataSource.getRepository(AsyncTaskRecordEntity).create({
@@ -1131,9 +1153,10 @@ describe('AI GraphQL 队列入口与 Worker 联动（e2e）', () => {
           bizSubKey: 'biz-sub',
           source: 'system',
           reason: 'seed_biz_1',
+          occurredAt,
+          dedupKey,
           status: 'queued',
           attemptCount: 0,
-          occurredAt: new Date(),
           enqueuedAt: new Date(),
         }),
       );
@@ -1148,9 +1171,10 @@ describe('AI GraphQL 队列入口与 Worker 联动（e2e）', () => {
           bizSubKey: 'biz-sub',
           source: 'system',
           reason: 'seed_biz_2',
+          occurredAt,
+          dedupKey,
           status: 'failed',
           attemptCount: 1,
-          occurredAt: new Date(),
           enqueuedAt: new Date(),
         }),
       );
@@ -1166,19 +1190,33 @@ describe('AI GraphQL 队列入口与 Worker 联动（e2e）', () => {
       }
       const items = (
         response.body as {
-          data?: { debugAsyncTaskRecordsByBizTarget?: { items?: Array<{ traceId: string }> } };
+          data?: {
+            debugAsyncTaskRecordsByBizTarget?: {
+              items?: Array<{
+                traceId: string;
+                occurredAt: string | null;
+                dedupKey: string | null;
+              }>;
+            };
+          };
         }
       ).data?.debugAsyncTaskRecordsByBizTarget?.items;
       expect(items).toBeDefined();
       const traceIdSet = new Set((items ?? []).map((item) => item.traceId));
       expect(traceIdSet.has(traceIdA)).toBe(true);
       expect(traceIdSet.has(traceIdB)).toBe(true);
+      for (const item of items ?? []) {
+        expect(item.occurredAt).toBe(occurredAt.toISOString());
+        expect(item.dedupKey).toBe(dedupKey);
+      }
     });
 
     it('按 queueName + jobId 可精确命中单任务且 admin 可访问', async () => {
       const suffix = `${Date.now()}-queue-job`;
       const jobId = `e2e-debug-queue-job-${suffix}`;
       const traceId = `e2e-debug-queue-trace-${suffix}`;
+      const occurredAt = new Date('2026-01-03T10:00:00.000Z');
+      const dedupKey = `e2e-debug-queue-dedup-${suffix}`;
 
       await dataSource.getRepository(AsyncTaskRecordEntity).save(
         dataSource.getRepository(AsyncTaskRecordEntity).create({
@@ -1190,9 +1228,10 @@ describe('AI GraphQL 队列入口与 Worker 联动（e2e）', () => {
           bizKey: traceId,
           source: 'system',
           reason: 'seed_queue_job',
+          occurredAt,
+          dedupKey,
           status: 'queued',
           attemptCount: 0,
-          occurredAt: new Date(),
           enqueuedAt: new Date(),
         }),
       );
@@ -1209,7 +1248,13 @@ describe('AI GraphQL 队列入口与 Worker 联动（e2e）', () => {
       const record = (
         response.body as {
           data?: {
-            debugAsyncTaskRecordByQueueJob?: { queueName: string; jobId: string; traceId: string };
+            debugAsyncTaskRecordByQueueJob?: {
+              queueName: string;
+              jobId: string;
+              traceId: string;
+              occurredAt: string | null;
+              dedupKey: string | null;
+            };
           };
         }
       ).data?.debugAsyncTaskRecordByQueueJob;
@@ -1217,6 +1262,8 @@ describe('AI GraphQL 队列入口与 Worker 联动（e2e）', () => {
       expect(record?.queueName).toBe(BULLMQ_QUEUES.AI);
       expect(record?.jobId).toBe(jobId);
       expect(record?.traceId).toBe(traceId);
+      expect(record?.occurredAt).toBe(occurredAt.toISOString());
+      expect(record?.dedupKey).toBe(dedupKey);
     });
 
     it('未登录访问调试查询应返回未认证错误', async () => {
@@ -1252,6 +1299,34 @@ describe('AI GraphQL 队列入口与 Worker 联动（e2e）', () => {
       const errors = (response.body as { errors?: Array<{ message?: string }> }).errors ?? [];
       expect(errors.length).toBeGreaterThan(0);
       expect(errors[0]?.message ?? '').toMatch(/不能为空|Validation failed|校验|validation/i);
+    });
+
+    it('非 AI 范围参数应返回校验错误', async () => {
+      const responseByBiz = await queryDebugByBizTarget({
+        app: apiApp,
+        token: managerToken,
+        bizType: 'email',
+        bizKey: 'email-key',
+      });
+      const bizErrors =
+        (responseByBiz.body as { errors?: Array<{ message?: string }> }).errors ?? [];
+      expect(bizErrors.length).toBeGreaterThan(0);
+      expect(bizErrors[0]?.message ?? '').toMatch(
+        /must be one of|必须是以下值之一|Validation failed|校验/i,
+      );
+
+      const responseByQueue = await queryDebugByQueueJob({
+        app: apiApp,
+        token: managerToken,
+        queueName: BULLMQ_QUEUES.EMAIL,
+        jobId: 'email-job',
+      });
+      const queueErrors =
+        (responseByQueue.body as { errors?: Array<{ message?: string }> }).errors ?? [];
+      expect(queueErrors.length).toBeGreaterThan(0);
+      expect(queueErrors[0]?.message ?? '').toMatch(
+        /must be one of|必须是以下值之一|Validation failed|校验/i,
+      );
     });
   });
 

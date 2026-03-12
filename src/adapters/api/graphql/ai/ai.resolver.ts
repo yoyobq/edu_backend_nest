@@ -16,13 +16,14 @@ import { Roles } from '@src/adapters/api/graphql/decorators/roles.decorator';
 import { JwtAuthGuard } from '@src/adapters/api/graphql/guards/jwt-auth.guard';
 import { RolesGuard } from '@src/adapters/api/graphql/guards/roles.guard';
 import { trimText } from '@src/core/common/text/text.helper';
+import { BULLMQ_QUEUES } from '@src/infrastructure/bullmq/bullmq.constants';
 import type { AsyncTaskRecordView } from '@src/modules/async-task-record/async-task-record.types';
 import { QueueAiUsecase } from '@src/usecases/ai-queue/queue-ai.usecase';
 import { GetAsyncTaskRecordByQueueJobUsecase } from '@src/usecases/async-task-record/get-async-task-record-by-queue-job.usecase';
 import { ListAsyncTaskRecordsByBizTargetUsecase } from '@src/usecases/async-task-record/list-async-task-records-by-biz-target.usecase';
 import { ListAsyncTaskRecordsByTraceIdUsecase } from '@src/usecases/async-task-record/list-async-task-records-by-trace-id.usecase';
 import { Transform, TransformFnParams } from 'class-transformer';
-import { IsInt, IsNotEmpty, IsOptional, IsString, Max, Min } from 'class-validator';
+import { IsIn, IsInt, IsNotEmpty, IsOptional, IsString, Max, Min } from 'class-validator';
 import { QueueAiEmbedInput } from './dto/queue-ai-embed.input';
 import { QueueAiGenerateInput } from './dto/queue-ai-generate.input';
 import { QueueAiResult } from './dto/queue-ai.result';
@@ -36,6 +37,8 @@ const normalizeOptionalString = (value: unknown): string | null | undefined => {
   }
   return undefined;
 };
+
+const AI_DEBUG_BIZ_TYPES = ['ai_generation', 'ai_embedding', 'ai_worker'] as const;
 
 @ObjectType()
 class AsyncTaskRecordDebugType {
@@ -68,6 +71,12 @@ class AsyncTaskRecordDebugType {
 
   @Field(() => String, { nullable: true })
   reason!: string | null;
+
+  @Field(() => Date, { nullable: true })
+  occurredAt!: Date | null;
+
+  @Field(() => String, { nullable: true })
+  dedupKey!: string | null;
 
   @Field(() => String)
   status!: string;
@@ -122,6 +131,7 @@ class DebugAsyncTaskRecordsByBizTargetInput {
   @Transform(({ value }: TransformFnParams) => trimText(value))
   @IsString()
   @IsNotEmpty()
+  @IsIn([...AI_DEBUG_BIZ_TYPES])
   bizType!: string;
 
   @Field(() => String)
@@ -150,6 +160,7 @@ class DebugAsyncTaskRecordByQueueJobInput {
   @Transform(({ value }: TransformFnParams) => trimText(value))
   @IsString()
   @IsNotEmpty()
+  @IsIn([BULLMQ_QUEUES.AI])
   queueName!: string;
 
   @Field(() => String)
@@ -220,7 +231,9 @@ export class AiResolver {
       limit: input.limit,
     });
     return {
-      items: result.items.map((item) => this.toDebugType(item)),
+      items: result.items
+        .filter((item) => this.isAiTaskRecord(item))
+        .map((item) => this.toDebugType(item)),
     };
   }
 
@@ -240,7 +253,9 @@ export class AiResolver {
       limit: input.limit,
     });
     return {
-      items: result.items.map((item) => this.toDebugType(item)),
+      items: result.items
+        .filter((item) => this.isAiTaskRecord(item))
+        .map((item) => this.toDebugType(item)),
     };
   }
 
@@ -261,7 +276,14 @@ export class AiResolver {
     if (!record) {
       return null;
     }
+    if (!this.isAiTaskRecord(record)) {
+      return null;
+    }
     return this.toDebugType(record);
+  }
+
+  private isAiTaskRecord(input: AsyncTaskRecordView): boolean {
+    return input.queueName === BULLMQ_QUEUES.AI;
   }
 
   private toDebugType(input: AsyncTaskRecordView): AsyncTaskRecordDebugType {
@@ -276,6 +298,8 @@ export class AiResolver {
       bizSubKey: input.bizSubKey,
       source: input.source,
       reason: input.reason,
+      occurredAt: input.occurredAt,
+      dedupKey: input.dedupKey,
       status: input.status,
       attemptCount: input.attemptCount,
       maxAttempts: input.maxAttempts,
