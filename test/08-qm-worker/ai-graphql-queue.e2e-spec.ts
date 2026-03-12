@@ -800,7 +800,42 @@ describe('AI GraphQL 队列入口与 Worker 联动（e2e）', () => {
       );
     });
 
+    it('未登录调用 queueAiEmbed 应返回未认证错误', async () => {
+      const response = await queueAiEmbed({
+        app: apiApp,
+        model: 'text-embedding-3-small',
+        text: 'unauthorized embed call',
+      });
+      const errors = (response.body as { errors?: Array<{ message?: string }> }).errors ?? [];
+      expect(errors.length).toBeGreaterThan(0);
+      expect(errors[0]?.message ?? '').toMatch(/Unauthorized|未认证|认证/);
+    });
 
+    it('非 manager 角色调用 queueAiEmbed 应返回权限错误', async () => {
+      const response = await queueAiEmbed({
+        app: apiApp,
+        token: coachToken,
+        model: 'text-embedding-3-small',
+        text: 'forbidden role embed call',
+      });
+      const errors = (response.body as { errors?: Array<{ message?: string }> }).errors ?? [];
+      expect(errors.length).toBeGreaterThan(0);
+      expect(errors[0]?.message ?? '').toMatch(
+        /无权限|拒绝|Forbidden|forbidden|access denied|缺少所需角色/i,
+      );
+    });
+
+    it('非法输入调用 queueAiEmbed 应返回校验错误', async () => {
+      const response = await queueAiEmbed({
+        app: apiApp,
+        token: managerToken,
+        model: 'text-embedding-3-small',
+        text: ' ',
+      });
+      const errors = (response.body as { errors?: Array<{ message?: string }> }).errors ?? [];
+      expect(errors.length).toBeGreaterThan(0);
+      expect(errors[0]?.message ?? '').toMatch(/不能为空|Validation failed|校验|validation/i);
+    });
   });
 
   it('GraphQL 入队到 Worker 完整联动应消费成功并落库为 succeeded', async () => {
