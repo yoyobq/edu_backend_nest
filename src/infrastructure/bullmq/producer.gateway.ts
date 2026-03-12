@@ -74,8 +74,34 @@ export class BullMqProducerGateway {
       payload: input.payload,
     });
     const queue = this.getQueue({ queueName: input.queueName });
-    const traceId = input.traceId ?? randomUUID();
-    const jobId = input.dedupKey ?? `${String(input.jobName)}:${traceId}`;
+    const traceId = input.traceId?.trim() || randomUUID();
+    const dedupKey = input.dedupKey?.trim() || undefined;
+    if (dedupKey) {
+      const existingJob = await queue.getJob(dedupKey);
+      if (existingJob) {
+        let existingTraceId: string | undefined;
+        const existingData = existingJob.data as Record<string, unknown> | null;
+        if (existingData && typeof existingData === 'object') {
+          const candidate = existingData.traceId;
+          if (typeof candidate === 'string' && candidate.trim()) {
+            existingTraceId = candidate.trim();
+          }
+        }
+        const resolvedTraceId = existingTraceId ?? traceId;
+        const existingJobId =
+          typeof existingJob.id === 'number'
+            ? String(existingJob.id)
+            : (existingJob.id ?? dedupKey);
+        return {
+          queueName: input.queueName,
+          jobName: input.jobName,
+          jobId: existingJobId,
+          traceId: resolvedTraceId,
+          auditMeta: input.auditMeta,
+        };
+      }
+    }
+    const jobId = dedupKey ?? randomUUID();
     const policy = BULLMQ_QUEUE_REGISTRY[input.queueName];
     const options: JobsOptions = {
       ...policy.defaultJobOptions,

@@ -18,6 +18,7 @@ export interface AiGeneratePayload {
   readonly model: string;
   readonly prompt: string;
   readonly metadata?: Readonly<Record<string, string>>;
+  readonly traceId?: string;
 }
 
 export interface AiGenerateResult {
@@ -31,6 +32,7 @@ export interface AiEmbedPayload {
   readonly model: string;
   readonly text: string;
   readonly metadata?: Readonly<Record<string, string>>;
+  readonly traceId?: string;
 }
 
 export interface AiEmbedResult {
@@ -48,11 +50,12 @@ export function mapAiGenerateJobToProcessInput(input: {
   readonly job: AiGenerateJob;
 }): ConsumeAiGenerateJobProcessInput {
   const jobId = resolveJobId({ job: input.job });
+  const traceId = resolveTraceId({ job: input.job });
   return {
     queueName: AI_QUEUE_NAME,
     jobName: AI_GENERATE_JOB_NAME,
     jobId,
-    traceId: resolveTraceId({ jobId }),
+    traceId,
     payload: input.job.data,
     attemptsMade: input.job.attemptsMade,
     maxAttempts: resolveMaxAttempts({ job: input.job }),
@@ -65,11 +68,12 @@ export function mapAiGenerateJobToCompleteInput(input: {
   readonly job: AiGenerateJob;
 }): ConsumeAiGenerateJobCompleteInput {
   const jobId = resolveJobId({ job: input.job });
+  const traceId = resolveTraceId({ job: input.job });
   return {
     queueName: AI_QUEUE_NAME,
     jobName: AI_GENERATE_JOB_NAME,
     jobId,
-    traceId: resolveTraceId({ jobId }),
+    traceId,
     attemptsMade: input.job.attemptsMade,
     maxAttempts: resolveMaxAttempts({ job: input.job }),
     enqueuedAt: resolveDate({ timestamp: input.job.timestamp }),
@@ -84,11 +88,12 @@ export function mapAiGenerateJobToFailInput(input: {
 }): ConsumeAiGenerateJobFailInput {
   const occurredAt = resolveDate({ timestamp: input.job.finishedOn });
   const jobId = resolveJobId({ job: input.job });
+  const traceId = resolveTraceId({ job: input.job });
   return {
     queueName: AI_QUEUE_NAME,
     jobName: AI_GENERATE_JOB_NAME,
     jobId,
-    traceId: resolveTraceId({ jobId }),
+    traceId,
     attemptsMade: input.job.attemptsMade,
     maxAttempts: resolveMaxAttempts({ job: input.job }),
     enqueuedAt: resolveDate({ timestamp: input.job.timestamp }),
@@ -124,11 +129,12 @@ export function mapAiEmbedJobToProcessInput(input: {
   readonly job: AiEmbedJob;
 }): ConsumeAiEmbedJobProcessInput {
   const jobId = resolveJobId({ job: input.job });
+  const traceId = resolveTraceId({ job: input.job });
   return {
     queueName: AI_QUEUE_NAME,
     jobName: AI_EMBED_JOB_NAME,
     jobId,
-    traceId: resolveTraceId({ jobId }),
+    traceId,
     payload: input.job.data,
     attemptsMade: input.job.attemptsMade,
     maxAttempts: resolveMaxAttempts({ job: input.job }),
@@ -141,11 +147,12 @@ export function mapAiEmbedJobToCompleteInput(input: {
   readonly job: AiEmbedJob;
 }): ConsumeAiEmbedJobCompleteInput {
   const jobId = resolveJobId({ job: input.job });
+  const traceId = resolveTraceId({ job: input.job });
   return {
     queueName: AI_QUEUE_NAME,
     jobName: AI_EMBED_JOB_NAME,
     jobId,
-    traceId: resolveTraceId({ jobId }),
+    traceId,
     attemptsMade: input.job.attemptsMade,
     maxAttempts: resolveMaxAttempts({ job: input.job }),
     enqueuedAt: resolveDate({ timestamp: input.job.timestamp }),
@@ -160,11 +167,12 @@ export function mapAiEmbedJobToFailInput(input: {
 }): ConsumeAiEmbedJobFailInput {
   const occurredAt = resolveDate({ timestamp: input.job.finishedOn });
   const jobId = resolveJobId({ job: input.job });
+  const traceId = resolveTraceId({ job: input.job });
   return {
     queueName: AI_QUEUE_NAME,
     jobName: AI_EMBED_JOB_NAME,
     jobId,
-    traceId: resolveTraceId({ jobId }),
+    traceId,
     attemptsMade: input.job.attemptsMade,
     maxAttempts: resolveMaxAttempts({ job: input.job }),
     enqueuedAt: resolveDate({ timestamp: input.job.timestamp }),
@@ -197,14 +205,19 @@ function resolveJobId(input: { readonly job: AiJob }): string {
   return input.job.id ?? `${input.job.name}:${input.job.timestamp}`;
 }
 
-function resolveTraceId(input: { readonly jobId: string }): string {
+function resolveTraceId(input: { readonly job: AiJob }): string {
+  const payloadTraceId = input.job.data.traceId?.trim();
+  if (payloadTraceId) {
+    return payloadTraceId;
+  }
+  const jobId = resolveJobId({ job: input.job });
   const prefixes: ReadonlyArray<string> = [`${AI_GENERATE_JOB_NAME}:`, `${AI_EMBED_JOB_NAME}:`];
   for (const prefix of prefixes) {
-    if (input.jobId.startsWith(prefix)) {
-      return input.jobId.slice(prefix.length);
+    if (jobId.startsWith(prefix)) {
+      return jobId.slice(prefix.length);
     }
   }
-  return input.jobId;
+  return jobId;
 }
 
 function resolveMissingJobId(input: {

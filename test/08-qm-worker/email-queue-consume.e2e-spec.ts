@@ -743,7 +743,8 @@ describe('邮件队列与 Worker（e2e）', () => {
     it('相同 dedupKey 重复入队应只消费一次并只保留一条记录', async () => {
       const timestamp = Date.now();
       const dedupKey = `e2e-email-dedup-job-${timestamp}`;
-      const traceId = `e2e-email-dedup-trace-${timestamp}`;
+      const firstTraceId = `e2e-email-dedup-trace-first-${timestamp}`;
+      const secondTraceId = `e2e-email-dedup-trace-second-${timestamp}`;
 
       try {
         await workerRuntime.stop();
@@ -754,7 +755,7 @@ describe('邮件队列与 Worker（e2e）', () => {
           subject: 'E2E email queue dedup test',
           text: 'queue-dedup',
           dedupKey,
-          traceId,
+          traceId: firstTraceId,
           source: 'e2e-dedup',
         });
         const secondEnqueue = await queueEmail({
@@ -763,7 +764,7 @@ describe('邮件队列与 Worker（e2e）', () => {
           subject: 'E2E email queue dedup test',
           text: 'queue-dedup',
           dedupKey,
-          traceId,
+          traceId: secondTraceId,
           source: 'e2e-dedup-repeat',
         });
 
@@ -771,6 +772,8 @@ describe('邮件队列与 Worker（e2e）', () => {
         expect(secondEnqueue.queued).toBe(true);
         expect(firstEnqueue.jobId).toBe(dedupKey);
         expect(secondEnqueue.jobId).toBe(dedupKey);
+        expect(firstEnqueue.traceId).toBe(firstTraceId);
+        expect(secondEnqueue.traceId).toBe(firstTraceId);
 
         const recordBeforeStart = await waitAsyncTaskRecord({
           dataSource,
@@ -782,7 +785,7 @@ describe('邮件队列与 Worker（e2e）', () => {
         });
         expect(recordBeforeStart.status).toBe('queued');
         expect(recordBeforeStart.source).toBe('user_action');
-        expect(recordBeforeStart.traceId).toBe(traceId);
+        expect(recordBeforeStart.traceId).toBe(firstTraceId);
         expect(recordBeforeStart.reason).toBe('enqueue_accepted');
 
         await workerRuntime.start();

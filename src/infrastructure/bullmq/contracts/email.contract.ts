@@ -15,6 +15,7 @@ export interface EmailSendPayload {
   readonly html?: string;
   readonly templateId?: string;
   readonly meta?: Readonly<Record<string, string>>;
+  readonly traceId?: string;
 }
 
 export interface EmailSendResult {
@@ -35,7 +36,8 @@ const isEmailSendPayload = (payload: unknown): payload is EmailSendPayload => {
     isOptionalString(payload.html) &&
     isOptionalNonEmptyString(payload.templateId) &&
     hasEmailBody &&
-    isOptionalRecordOfString(payload.meta)
+    isOptionalRecordOfString(payload.meta) &&
+    isOptionalNonEmptyString(payload.traceId)
   );
 };
 

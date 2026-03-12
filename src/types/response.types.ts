@@ -33,7 +33,7 @@ export interface ApiResponse<T = unknown> {
   /** 显示类型 */
   showType?: ShowType;
   /** 便于后端故障排查的唯一请求 ID */
-  traceId?: string;
+  requestId?: string;
   /** 服务器主机名 */
   host?: string;
 }
@@ -64,7 +64,7 @@ export interface PaginationResponse<T = unknown> {
  *     pageSize: 20,
  *     total: 180
  *   },
- *   traceId: "...",
+ *   requestId: "...",
  *   host: "..."
  * }
  */

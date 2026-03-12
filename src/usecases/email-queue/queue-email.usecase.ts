@@ -47,13 +47,15 @@ export class QueueEmailUsecase {
         traceId: input.input.traceId,
         occurredAt: input.occurredAt,
       });
+      const jobId = this.resolveFailedJobId({ dedupKey: input.input.dedupKey });
       await this.asyncTaskRecordService.recordEnqueueFailed({
         data: {
           queueName: 'email',
           jobName: 'send',
+          jobId,
           traceId,
           bizType: 'email',
-          bizKey: traceId,
+          bizKey: this.resolveBizKey({ jobId, dedupKey: input.input.dedupKey, traceId }),
           source: this.resolveSource(),
           reason: normalizedError.message.slice(0, 128),
           occurredAt: input.occurredAt,
@@ -74,5 +76,26 @@ export class QueueEmailUsecase {
       return normalized;
     }
     return `email-enqueue:${input.occurredAt.getTime()}`;
+  }
+
+  private resolveFailedJobId(input: { readonly dedupKey?: string }): string | undefined {
+    const normalized = input.dedupKey?.trim();
+    return normalized || undefined;
+  }
+
+  private resolveBizKey(input: {
+    readonly jobId?: string;
+    readonly dedupKey?: string;
+    readonly traceId: string;
+  }): string {
+    const normalizedJobId = input.jobId?.trim();
+    if (normalizedJobId) {
+      return normalizedJobId;
+    }
+    const normalizedDedupKey = input.dedupKey?.trim();
+    if (normalizedDedupKey) {
+      return normalizedDedupKey;
+    }
+    return input.traceId;
   }
 }

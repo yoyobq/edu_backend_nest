@@ -56,19 +56,19 @@ export class FormatResponseMiddleware implements NestMiddleware {
    * 格式化响应为 Ant Design Pro 格式
    */
   private formatToAntdProResponse(req: Request, body: unknown): ApiResponse {
-    const traceId = this.generateTraceId();
+    const requestId = this.generateRequestId();
     const host = req.headers.host || 'unknown';
 
     // 检查是否是错误响应
     if (this.isGraphQLErrorResponse(body)) {
-      return this.wrapError(body.errors[0], traceId, host);
+      return this.wrapError(body.errors[0], requestId, host);
     }
 
     // 格式化成功响应
     return {
       success: true,
       data: body,
-      traceId,
+      requestId,
       host,
     };
   }
@@ -87,7 +87,7 @@ export class FormatResponseMiddleware implements NestMiddleware {
   /**
    * 按照 ApiResponse<T> 和 ShowType 生成 error envelope
    */
-  private wrapError(error: GraphQLError, traceId: string, host: string): ApiResponse {
+  private wrapError(error: GraphQLError, requestId: string, host: string): ApiResponse {
     const { errorCode, errorMessage, showType } = this.parseErrorMessage(error.message);
     return {
       success: false,
@@ -95,7 +95,7 @@ export class FormatResponseMiddleware implements NestMiddleware {
       errorCode,
       errorMessage,
       showType,
-      traceId,
+      requestId,
       host,
     };
   }
@@ -132,7 +132,7 @@ export class FormatResponseMiddleware implements NestMiddleware {
   /**
    * 生成追踪 ID
    */
-  private generateTraceId(): string {
+  private generateRequestId(): string {
     return `${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
   }
 }

@@ -76,13 +76,15 @@ export class QueueAiUsecase {
         occurredAt: input.occurredAt,
         jobName: 'generate',
       });
+      const jobId = this.resolveFailedJobId({ dedupKey: input.input.dedupKey });
       await this.asyncTaskRecordService.recordEnqueueFailed({
         data: {
           queueName: 'ai',
           jobName: 'generate',
+          jobId,
           traceId,
           bizType: 'ai_generation',
-          bizKey: traceId,
+          bizKey: this.resolveBizKey({ jobId, dedupKey: input.input.dedupKey, traceId }),
           source: this.resolveSource(),
           reason: normalizedError.message.slice(0, 128),
           occurredAt: input.occurredAt,
@@ -106,13 +108,15 @@ export class QueueAiUsecase {
         occurredAt: input.occurredAt,
         jobName: 'embed',
       });
+      const jobId = this.resolveFailedJobId({ dedupKey: input.input.dedupKey });
       await this.asyncTaskRecordService.recordEnqueueFailed({
         data: {
           queueName: 'ai',
           jobName: 'embed',
+          jobId,
           traceId,
           bizType: 'ai_embedding',
-          bizKey: traceId,
+          bizKey: this.resolveBizKey({ jobId, dedupKey: input.input.dedupKey, traceId }),
           source: this.resolveSource(),
           reason: normalizedError.message.slice(0, 128),
           occurredAt: input.occurredAt,
@@ -137,5 +141,26 @@ export class QueueAiUsecase {
       return normalized;
     }
     return `ai-${input.jobName}-enqueue:${input.occurredAt.getTime()}`;
+  }
+
+  private resolveFailedJobId(input: { readonly dedupKey?: string }): string | undefined {
+    const normalized = input.dedupKey?.trim();
+    return normalized || undefined;
+  }
+
+  private resolveBizKey(input: {
+    readonly jobId?: string;
+    readonly dedupKey?: string;
+    readonly traceId: string;
+  }): string {
+    const normalizedJobId = input.jobId?.trim();
+    if (normalizedJobId) {
+      return normalizedJobId;
+    }
+    const normalizedDedupKey = input.dedupKey?.trim();
+    if (normalizedDedupKey) {
+      return normalizedDedupKey;
+    }
+    return input.traceId;
   }
 }

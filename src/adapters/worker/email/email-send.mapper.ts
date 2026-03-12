@@ -16,6 +16,7 @@ export interface EmailSendPayload {
   readonly html?: string;
   readonly templateId?: string;
   readonly meta?: Readonly<Record<string, string>>;
+  readonly traceId?: string;
 }
 
 export interface EmailSendResult {
@@ -29,11 +30,12 @@ export function mapEmailSendJobToProcessInput(input: {
   readonly job: EmailSendJob;
 }): ConsumeEmailJobProcessInput {
   const jobId = resolveJobId({ job: input.job });
+  const traceId = resolveTraceId({ job: input.job });
   return {
     queueName: EMAIL_QUEUE_NAME,
     jobName: EMAIL_SEND_JOB_NAME,
     jobId,
-    traceId: resolveTraceId({ jobId }),
+    traceId,
     payload: input.job.data,
     attemptsMade: input.job.attemptsMade,
     maxAttempts: resolveMaxAttempts({ job: input.job }),
@@ -46,11 +48,12 @@ export function mapEmailSendJobToCompleteInput(input: {
   readonly job: EmailSendJob;
 }): ConsumeEmailJobCompleteInput {
   const jobId = resolveJobId({ job: input.job });
+  const traceId = resolveTraceId({ job: input.job });
   return {
     queueName: EMAIL_QUEUE_NAME,
     jobName: EMAIL_SEND_JOB_NAME,
     jobId,
-    traceId: resolveTraceId({ jobId }),
+    traceId,
     attemptsMade: input.job.attemptsMade,
     maxAttempts: resolveMaxAttempts({ job: input.job }),
     enqueuedAt: resolveDate({ timestamp: input.job.timestamp }),
@@ -65,11 +68,12 @@ export function mapEmailSendJobToFailInput(input: {
 }): ConsumeEmailJobFailInput {
   const occurredAt = resolveDate({ timestamp: input.job.finishedOn });
   const jobId = resolveJobId({ job: input.job });
+  const traceId = resolveTraceId({ job: input.job });
   return {
     queueName: EMAIL_QUEUE_NAME,
     jobName: EMAIL_SEND_JOB_NAME,
     jobId,
-    traceId: resolveTraceId({ jobId }),
+    traceId,
     attemptsMade: input.job.attemptsMade,
     maxAttempts: resolveMaxAttempts({ job: input.job }),
     enqueuedAt: resolveDate({ timestamp: input.job.timestamp }),
@@ -121,12 +125,17 @@ function resolveJobId(input: { readonly job: EmailSendJob }): string {
   return input.job.id ?? `${EMAIL_SEND_JOB_NAME}:${input.job.timestamp}`;
 }
 
-function resolveTraceId(input: { readonly jobId: string }): string {
-  const prefix = `${EMAIL_SEND_JOB_NAME}:`;
-  if (input.jobId.startsWith(prefix)) {
-    return input.jobId.slice(prefix.length);
+function resolveTraceId(input: { readonly job: EmailSendJob }): string {
+  const payloadTraceId = input.job.data.traceId?.trim();
+  if (payloadTraceId) {
+    return payloadTraceId;
   }
-  return input.jobId;
+  const jobId = resolveJobId({ job: input.job });
+  const prefix = `${EMAIL_SEND_JOB_NAME}:`;
+  if (jobId.startsWith(prefix)) {
+    return jobId.slice(prefix.length);
+  }
+  return jobId;
 }
 
 function resolveMissingJobId(input: { readonly occurredAt: Date }): string {

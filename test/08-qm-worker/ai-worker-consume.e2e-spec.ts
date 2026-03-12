@@ -91,14 +91,17 @@ const enqueueAiGenerate = async (input: {
   readonly queue: Queue;
   readonly jobId: string;
   readonly prompt: string;
+  readonly traceId?: string;
   readonly attempts?: number;
 }): Promise<void> => {
+  const traceId = input.traceId ?? input.jobId;
   await input.queue.add(
     BULLMQ_JOBS.AI.GENERATE,
     {
       provider: 'openai',
       model: 'gpt-4o-mini',
       prompt: input.prompt,
+      traceId,
       metadata: {
         source: 'e2e-ai-generate',
       },
@@ -116,14 +119,17 @@ const enqueueAiEmbed = async (input: {
   readonly queue: Queue;
   readonly jobId: string;
   readonly text: string;
+  readonly traceId?: string;
   readonly attempts?: number;
 }): Promise<void> => {
+  const traceId = input.traceId ?? input.jobId;
   await input.queue.add(
     BULLMQ_JOBS.AI.EMBED,
     {
       provider: 'openai',
       model: 'text-embedding-3-small',
       text: input.text,
+      traceId,
       metadata: {
         source: 'e2e-ai-embed',
       },

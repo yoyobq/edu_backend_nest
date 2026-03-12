@@ -14,6 +14,7 @@ export interface AiGeneratePayload {
   readonly model: string;
   readonly prompt: string;
   readonly metadata?: Readonly<Record<string, string>>;
+  readonly traceId?: string;
 }
 
 export interface AiGenerateResult {
@@ -27,6 +28,7 @@ export interface AiEmbedPayload {
   readonly model: string;
   readonly text: string;
   readonly metadata?: Readonly<Record<string, string>>;
+  readonly traceId?: string;
 }
 
 export interface AiEmbedResult {
@@ -57,7 +59,8 @@ const isAiGeneratePayload = (payload: unknown): payload is AiGeneratePayload => 
     isOptionalAiProvider(payload.provider) &&
     isNonEmptyString(payload.model) &&
     isNonEmptyString(payload.prompt) &&
-    isOptionalRecordOfString(payload.metadata)
+    isOptionalRecordOfString(payload.metadata) &&
+    isOptionalNonEmptyString(payload.traceId)
   );
 };
 
@@ -67,7 +70,8 @@ const isAiEmbedPayload = (payload: unknown): payload is AiEmbedPayload => {
     isOptionalAiProvider(payload.provider) &&
     isNonEmptyString(payload.model) &&
     isNonEmptyString(payload.text) &&
-    isOptionalRecordOfString(payload.metadata)
+    isOptionalRecordOfString(payload.metadata) &&
+    isOptionalNonEmptyString(payload.traceId)
   );
 };
 
