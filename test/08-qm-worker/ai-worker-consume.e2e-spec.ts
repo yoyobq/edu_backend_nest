@@ -21,7 +21,10 @@ import {
   type GenerateAiContentInput,
   type GenerateAiContentResult,
 } from '@src/modules/common/ai-worker/ai-worker.types';
-import { ConsumeAiGenerateJobUsecase } from '@src/usecases/ai-worker/consume-ai-generate-job.usecase';
+import {
+  ConsumeAiEmbedJobUsecase,
+  ConsumeAiGenerateJobUsecase,
+} from '@src/usecases/ai-worker/consume-ai-generate-job.usecase';
 import { Queue } from 'bullmq';
 import { DataSource } from 'typeorm';
 import { initGraphQLSchema } from '../../src/adapters/api/graphql/schema/schema.init';
@@ -291,6 +294,7 @@ describe('AI Worker（e2e）', () => {
   let asyncTaskRecordService: AsyncTaskRecordService;
   let producerGateway: BullMqProducerGateway;
   let consumeAiGenerateJobUsecase: ConsumeAiGenerateJobUsecase;
+  let consumeAiEmbedJobUsecase: ConsumeAiEmbedJobUsecase;
 
   beforeAll(async () => {
     initGraphQLSchema();
@@ -318,6 +322,7 @@ describe('AI Worker（e2e）', () => {
     asyncTaskRecordService = apiApp.get(AsyncTaskRecordService);
     producerGateway = apiApp.get(BullMqProducerGateway);
     consumeAiGenerateJobUsecase = workerApp.get(ConsumeAiGenerateJobUsecase);
+    consumeAiEmbedJobUsecase = workerApp.get(ConsumeAiEmbedJobUsecase);
   }, 60000);
 
   afterAll(async () => {
@@ -997,6 +1002,73 @@ describe('AI Worker（e2e）', () => {
       pollMs: 120,
     });
     expect(record.bizType).toBe('ai_generation');
+    expect(record.bizKey).toBe(traceId);
+    expect(record.reason).toBe(`worker_failed:${reason}`);
+  }, 30000);
+
+  it('embed usecase 降级 fail 未传 bizKey 时应保持 ai_worker 语义', async () => {
+    const timestamp = Date.now();
+    const jobId = `ai-embed-worker-fallback-bizkey-${timestamp}`;
+    const traceId = `ai-embed-worker-fallback-trace-${timestamp}`;
+
+    await consumeAiEmbedJobUsecase.fail({
+      queueName: BULLMQ_QUEUES.AI,
+      jobName: 'unknown',
+      jobId,
+      traceId,
+      bizType: 'ai_worker',
+      attemptsMade: 1,
+      maxAttempts: 1,
+      reason: 'unsupported_ai_job:unknown:manual-embed-fallback-check',
+      enqueuedAt: new Date(),
+      startedAt: new Date(),
+      finishedAt: new Date(),
+      occurredAt: new Date(),
+    });
+
+    const record = await waitAsyncTaskRecord({
+      dataSource,
+      queueName: BULLMQ_QUEUES.AI,
+      jobId,
+      statuses: ['failed'],
+      timeoutMs: 10000,
+      pollMs: 120,
+    });
+    expect(record.bizType).toBe('ai_worker');
+    expect(record.traceId).toBe(traceId);
+    expect(record.bizKey).toBe(traceId);
+    expect(record.reason).toBe('unsupported_ai_job:unknown:manual-embed-fallback-check');
+  }, 30000);
+
+  it('embed usecase 普通 fail 非前缀 reason 应规范为 worker_failed 前缀', async () => {
+    const timestamp = Date.now();
+    const jobId = `ai-embed-usecase-fail-reason-${timestamp}`;
+    const traceId = `ai-embed-usecase-fail-trace-${timestamp}`;
+    const reason = `manual-embed-failure-${timestamp}`;
+
+    await consumeAiEmbedJobUsecase.fail({
+      queueName: BULLMQ_QUEUES.AI,
+      jobName: BULLMQ_JOBS.AI.EMBED,
+      jobId,
+      traceId,
+      attemptsMade: 1,
+      maxAttempts: 1,
+      reason,
+      enqueuedAt: new Date(),
+      startedAt: new Date(),
+      finishedAt: new Date(),
+      occurredAt: new Date(),
+    });
+
+    const record = await waitAsyncTaskRecord({
+      dataSource,
+      queueName: BULLMQ_QUEUES.AI,
+      jobId,
+      statuses: ['failed'],
+      timeoutMs: 10000,
+      pollMs: 120,
+    });
+    expect(record.bizType).toBe('ai_embedding');
     expect(record.bizKey).toBe(traceId);
     expect(record.reason).toBe(`worker_failed:${reason}`);
   }, 30000);

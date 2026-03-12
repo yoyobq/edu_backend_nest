@@ -1,5 +1,6 @@
 // src/usecases/ai-worker/consume-ai-generate-job.usecase.ts
 import { Injectable } from '@nestjs/common';
+import { resolveAsyncTaskBizKey } from '@src/core/common/async-task/async-task-identifier.policy';
 import { AsyncTaskRecordService } from '@src/modules/async-task-record/async-task-record.service';
 import type { AsyncTaskRecordSource } from '@src/modules/async-task-record/async-task-record.types';
 import { AiWorkerService } from '@src/modules/common/ai-worker/ai-worker.service';
@@ -9,7 +10,6 @@ import type {
   GenerateAiContentInput,
   GenerateAiContentResult,
 } from '@src/modules/common/ai-worker/ai-worker.types';
-import { resolveAsyncTaskBizKey } from '@src/core/common/async-task/async-task-identifier.policy';
 
 export interface ConsumeAiGenerateJobProcessInput {
   readonly queueName: string;
@@ -67,6 +67,8 @@ export interface ConsumeAiEmbedJobCompleteInput {
 }
 
 export interface ConsumeAiEmbedJobFailInput extends ConsumeAiEmbedJobCompleteInput {
+  readonly bizType?: 'ai_embedding' | 'ai_worker';
+  readonly bizKey?: string;
   readonly reason?: string;
   readonly occurredAt?: Date;
 }
@@ -268,21 +270,27 @@ export class ConsumeAiEmbedJobUsecase {
   }
 
   async fail(input: ConsumeAiEmbedJobFailInput): Promise<void> {
+    const bizType = input.bizType ?? 'ai_embedding';
     await this.asyncTaskRecordService.recordFinished({
       data: {
         queueName: input.queueName,
         jobName: input.jobName,
         jobId: input.jobId,
         traceId: input.traceId,
-        bizType: 'ai_embedding',
-        bizKey: resolveAsyncTaskBizKey({
-          domain: 'ai_embedding',
-          traceId: input.traceId,
-          jobId: input.jobId,
-        }),
+        bizType,
+        bizKey:
+          input.bizKey ??
+          this.resolveEmbedFailBizKey({
+            bizType,
+            traceId: input.traceId,
+            jobId: input.jobId,
+          }),
         source: this.resolveSource(),
         status: 'failed',
-        reason: input.reason,
+        reason: this.resolveEmbedFailReason({
+          bizType,
+          reason: input.reason,
+        }),
         attemptCount: this.resolveFinalAttemptCount({ attemptsMade: input.attemptsMade }),
         maxAttempts: input.maxAttempts,
         enqueuedAt: input.enqueuedAt,
@@ -299,6 +307,41 @@ export class ConsumeAiEmbedJobUsecase {
 
   private resolveFinalAttemptCount(input: { readonly attemptsMade: number }): number {
     return Math.max(input.attemptsMade, 1);
+  }
+
+  private resolveEmbedFailBizKey(input: {
+    readonly bizType: 'ai_embedding' | 'ai_worker';
+    readonly traceId: string;
+    readonly jobId: string;
+  }): string {
+    if (input.bizType === 'ai_worker') {
+      return input.traceId;
+    }
+    return resolveAsyncTaskBizKey({
+      domain: 'ai_embedding',
+      traceId: input.traceId,
+      jobId: input.jobId,
+    });
+  }
+
+  private resolveEmbedFailReason(input: {
+    readonly bizType: 'ai_embedding' | 'ai_worker';
+    readonly reason?: string;
+  }): string {
+    const normalizedReason = input.reason?.trim() || 'worker_unknown_error';
+    if (input.bizType === 'ai_worker') {
+      return normalizedReason;
+    }
+    if (
+      normalizedReason.startsWith('worker_failed:') ||
+      normalizedReason.startsWith('missing_payload_trace_id')
+    ) {
+      return normalizedReason.slice(0, 128);
+    }
+    const prefix = 'worker_failed:';
+    const availableSummaryLength = Math.max(128 - prefix.length, 1);
+    const summary = normalizedReason.slice(0, availableSummaryLength);
+    return `${prefix}${summary}`;
   }
 
   private resolveSource(): AsyncTaskRecordSource {
