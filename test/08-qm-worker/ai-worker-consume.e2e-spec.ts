@@ -21,7 +21,7 @@ import {
   type GenerateAiContentInput,
   type GenerateAiContentResult,
 } from '@src/modules/common/ai-worker/ai-worker.types';
-import { Queue } from 'bullmq';
+import { type Job, Queue } from 'bullmq';
 import { DataSource } from 'typeorm';
 import { initGraphQLSchema } from '../../src/adapters/api/graphql/schema/schema.init';
 
@@ -231,15 +231,21 @@ const waitLatestMissingRecord = async (input: {
   readonly timeoutMs: number;
   readonly pollMs: number;
   readonly reasonKeyword: string;
+  readonly jobName?: string;
 }): Promise<AsyncTaskRecordEntity> => {
   const deadline = Date.now() + input.timeoutMs;
   while (Date.now() < deadline) {
+    const where: {
+      readonly queueName: string;
+      readonly status: AsyncTaskRecordStatus;
+      readonly jobName?: string;
+    } = {
+      queueName: BULLMQ_QUEUES.AI,
+      status: 'failed',
+      jobName: input.jobName,
+    };
     const record = await input.dataSource.getRepository(AsyncTaskRecordEntity).findOne({
-      where: {
-        queueName: BULLMQ_QUEUES.AI,
-        jobName: 'unknown',
-        status: 'failed',
-      },
+      where,
       order: { id: 'DESC' },
     });
     if (record && record.reason?.includes(input.reasonKeyword)) {
@@ -908,6 +914,7 @@ describe('AI Worker（e2e）', () => {
     const record = await waitLatestMissingRecord({
       dataSource,
       reasonKeyword,
+      jobName: 'unknown',
       timeoutMs: 10000,
       pollMs: 100,
     });
@@ -916,6 +923,47 @@ describe('AI Worker（e2e）', () => {
     expect(record.status).toBe('failed');
     expect(record.bizType).toBe('ai_worker');
     expect(record.traceId.startsWith('missing-job:unknown:')).toBe(true);
+    expect(record.bizKey).toBe(record.traceId);
     expect(record.reason).toContain(`worker_event_job_missing:${reasonKeyword}`);
+  }, 30000);
+
+  it('failed 事件遇到未知 jobName 时应落库 ai_worker 降级语义', async () => {
+    const timestamp = Date.now();
+    const reasonKeyword = `unknown-job-${timestamp}`;
+    const jobId = `ai-unsupported-job-${timestamp}`;
+    const unknownJobName = 'summarize';
+    const unsupportedJob = {
+      id: jobId,
+      name: unknownJobName,
+      data: {
+        payload: 'invalid',
+      },
+      attemptsMade: 0,
+      opts: {},
+      timestamp,
+      processedOn: timestamp,
+      finishedOn: timestamp,
+    } as unknown as Job<Record<string, unknown>, unknown, string>;
+
+    await aiJobHandler.onFailed({
+      job: unsupportedJob,
+      error: new Error(reasonKeyword),
+    });
+
+    const record = await waitLatestMissingRecord({
+      dataSource,
+      reasonKeyword,
+      jobName: unknownJobName,
+      timeoutMs: 10000,
+      pollMs: 100,
+    });
+    expect(record.queueName).toBe(BULLMQ_QUEUES.AI);
+    expect(record.jobName).toBe(unknownJobName);
+    expect(record.jobId).toBe(jobId);
+    expect(record.status).toBe('failed');
+    expect(record.bizType).toBe('ai_worker');
+    expect(record.traceId).toBe(`degraded-trace:${unknownJobName}:${jobId}`);
+    expect(record.bizKey).toBe(record.traceId);
+    expect(record.reason).toContain(`unsupported_ai_job:${unknownJobName}:${reasonKeyword}`);
   }, 30000);
 });

@@ -45,6 +45,7 @@ export type AiGenerateJob = Job<AiGeneratePayload, AiGenerateResult, typeof AI_G
 export type AiEmbedJob = Job<AiEmbedPayload, AiEmbedResult, typeof AI_EMBED_JOB_NAME>;
 export type AiJob = AiGenerateJob | AiEmbedJob;
 export type AiJobResult = AiGenerateResult | AiEmbedResult;
+export type AiFailedJob = Job<Record<string, unknown>, unknown, string>;
 
 export function mapAiGenerateJobToProcessInput(input: {
   readonly job: AiGenerateJob;
@@ -126,11 +127,40 @@ export function mapMissingAiJobToFailInput(input: {
     jobId,
     traceId: jobId,
     bizType: 'ai_worker',
+    bizKey: jobId,
     attemptsMade: 0,
     enqueuedAt: occurredAt,
     finishedAt: occurredAt,
     occurredAt,
     reason: `worker_event_job_missing:${input.error.message.slice(0, 96)}`,
+  };
+}
+
+export function mapUnknownAiJobToFailInput(input: {
+  readonly job: AiFailedJob;
+  readonly error: Error;
+}): ConsumeAiGenerateJobFailInput {
+  const occurredAt = resolveDate({ timestamp: input.job.finishedOn }) ?? new Date();
+  const jobName = resolveFailedJobName({ job: input.job });
+  const jobId = resolveJobId({ job: input.job });
+  const traceId = resolveTraceId({
+    job: input.job,
+    mode: 'degraded',
+  });
+  return {
+    queueName: AI_QUEUE_NAME,
+    jobName,
+    jobId,
+    traceId,
+    bizType: 'ai_worker',
+    bizKey: traceId,
+    attemptsMade: input.job.attemptsMade,
+    maxAttempts: resolveMaxAttempts({ job: input.job }),
+    enqueuedAt: resolveDate({ timestamp: input.job.timestamp }),
+    startedAt: resolveDate({ timestamp: input.job.processedOn }),
+    finishedAt: occurredAt,
+    occurredAt,
+    reason: `unsupported_ai_job:${jobName}:${input.error.message.slice(0, 96)}`,
   };
 }
 
@@ -208,7 +238,7 @@ function resolveDate(input: { readonly timestamp?: number }): Date | undefined {
   return new Date(input.timestamp);
 }
 
-function resolveMaxAttempts(input: { readonly job: AiJob }): number | undefined {
+function resolveMaxAttempts(input: { readonly job: AiJob | AiFailedJob }): number | undefined {
   const attempts = input.job.opts.attempts;
   if (typeof attempts !== 'number' || Number.isNaN(attempts)) {
     return undefined;
@@ -216,7 +246,7 @@ function resolveMaxAttempts(input: { readonly job: AiJob }): number | undefined 
   return attempts;
 }
 
-function resolveJobId(input: { readonly job: AiJob }): string {
+function resolveJobId(input: { readonly job: AiJob | AiFailedJob }): string {
   if (typeof input.job.id === 'number') {
     return String(input.job.id);
   }
@@ -224,10 +254,10 @@ function resolveJobId(input: { readonly job: AiJob }): string {
 }
 
 function resolveTraceId(input: {
-  readonly job: AiJob;
+  readonly job: AiJob | AiFailedJob;
   readonly mode: 'strict' | 'degraded';
 }): string {
-  const payloadTraceId = input.job.data.traceId?.trim();
+  const payloadTraceId = resolvePayloadTraceId({ job: input.job });
   if (payloadTraceId) {
     return payloadTraceId;
   }
@@ -236,6 +266,20 @@ function resolveTraceId(input: {
   }
   const jobId = resolveJobId({ job: input.job });
   return `degraded-trace:${input.job.name}:${jobId}`;
+}
+
+function resolvePayloadTraceId(input: { readonly job: AiJob | AiFailedJob }): string | undefined {
+  const traceId = input.job.data.traceId;
+  if (typeof traceId !== 'string') {
+    return undefined;
+  }
+  const normalizedTraceId = traceId.trim();
+  return normalizedTraceId || undefined;
+}
+
+function resolveFailedJobName(input: { readonly job: AiFailedJob }): string {
+  const normalizedName = input.job.name.trim();
+  return normalizedName || 'unknown';
 }
 
 function resolveMissingJobId(input: {

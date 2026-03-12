@@ -9,9 +9,9 @@ import {
   AI_GENERATE_JOB_NAME,
   type AiEmbedJob,
   type AiEmbedResult,
+  type AiFailedJob,
   type AiGenerateJob,
   type AiGenerateResult,
-  type AiJob,
   mapAiEmbedJobToCompleteInput,
   mapAiEmbedJobToFailInput,
   mapAiEmbedJobToProcessInput,
@@ -19,6 +19,7 @@ import {
   mapAiGenerateJobToFailInput,
   mapAiGenerateJobToProcessInput,
   mapMissingAiJobToFailInput,
+  mapUnknownAiJobToFailInput,
 } from './ai-generate.mapper';
 
 @Injectable()
@@ -65,7 +66,10 @@ export class AiJobHandler {
     );
   }
 
-  async onFailed(input: { readonly job: AiJob | undefined; readonly error: Error }): Promise<void> {
+  async onFailed(input: {
+    readonly job: AiFailedJob | undefined;
+    readonly error: Error;
+  }): Promise<void> {
     if (!input.job) {
       await this.consumeAiGenerateJobUsecase.fail(
         mapMissingAiJobToFailInput({ error: input.error }),
@@ -73,13 +77,21 @@ export class AiJobHandler {
       return;
     }
     if (input.job.name === AI_GENERATE_JOB_NAME) {
-      await this.onGenerateFailed({ job: input.job, error: input.error });
+      await this.onGenerateFailed({
+        job: input.job as unknown as AiGenerateJob,
+        error: input.error,
+      });
       return;
     }
     if (input.job.name === AI_EMBED_JOB_NAME) {
-      await this.onEmbedFailed({ job: input.job, error: input.error });
+      await this.onEmbedFailed({
+        job: input.job as unknown as AiEmbedJob,
+        error: input.error,
+      });
       return;
     }
-    throw new Error('Unsupported AI job');
+    await this.consumeAiGenerateJobUsecase.fail(
+      mapUnknownAiJobToFailInput({ job: input.job, error: input.error }),
+    );
   }
 }

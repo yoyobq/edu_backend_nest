@@ -4,6 +4,7 @@ import { Injectable } from '@nestjs/common';
 import { AiJobHandler } from './ai-generate.handler';
 import {
   AI_EMBED_JOB_NAME,
+  type AiFailedJob,
   AI_GENERATE_JOB_NAME,
   AI_QUEUE_NAME,
   type AiJob,
@@ -41,7 +42,7 @@ export class AiGenerateProcessor extends WorkerHost {
   }
 
   @OnWorkerEvent('failed')
-  async onFailed(job: AiJob | undefined, error: Error): Promise<void> {
+  async onFailed(job: AiFailedJob | undefined, error: Error): Promise<void> {
     await this.handler.onFailed({ job, error });
   }
 }
