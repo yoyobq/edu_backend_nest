@@ -1,4 +1,4 @@
-import { ACCOUNT_ERROR, DomainError } from '@src/core/common/errors/domain-error';
+import { ASYNC_TASK_RECORD_ERROR, DomainError } from '@src/core/common/errors/domain-error';
 import { AsyncTaskRecordQueryService } from '@src/modules/async-task-record/queries/async-task-record.query.service';
 import type { AsyncTaskRecordView } from '@src/modules/async-task-record/async-task-record.types';
 import { Injectable } from '@nestjs/common';
@@ -40,6 +40,6 @@ export class ListAsyncTaskRecordsByTraceIdUsecase {
     if (normalized.length > 0) {
       return normalized;
     }
-    throw new DomainError(ACCOUNT_ERROR.OPERATION_NOT_SUPPORTED, `${input.fieldName} 不能为空`);
+    throw new DomainError(ASYNC_TASK_RECORD_ERROR.INVALID_PARAMS, `${input.fieldName} 不能为空`);
   }
 }

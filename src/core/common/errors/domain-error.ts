@@ -125,6 +125,12 @@ export const VERIFICATION_RECORD_ERROR = {
 } as const;
 Object.freeze(VERIFICATION_RECORD_ERROR);
 
+// 异步任务记录相关错误码
+export const ASYNC_TASK_RECORD_ERROR = {
+  INVALID_PARAMS: 'ASYNC_TASK_RECORD_INVALID_PARAMS',
+} as const;
+Object.freeze(ASYNC_TASK_RECORD_ERROR);
+
 // 学员管理相关错误码
 export const LEARNER_ERROR = {
   LEARNER_NOT_FOUND: 'LEARNER_NOT_FOUND',
@@ -147,6 +153,8 @@ export type JwtErrorCode = (typeof JWT_ERROR)[keyof typeof JWT_ERROR];
 export type PermissionErrorCode = (typeof PERMISSION_ERROR)[keyof typeof PERMISSION_ERROR];
 export type VerificationRecordErrorCode =
   (typeof VERIFICATION_RECORD_ERROR)[keyof typeof VERIFICATION_RECORD_ERROR];
+export type AsyncTaskRecordErrorCode =
+  (typeof ASYNC_TASK_RECORD_ERROR)[keyof typeof ASYNC_TASK_RECORD_ERROR];
 export type LearnerErrorCode = (typeof LEARNER_ERROR)[keyof typeof LEARNER_ERROR];
 
 // 分页相关错误码
@@ -166,6 +174,7 @@ export type DomainErrorCode =
   | JwtErrorCode
   | PermissionErrorCode
   | VerificationRecordErrorCode
+  | AsyncTaskRecordErrorCode
   | LearnerErrorCode
   | PaginationErrorCode;
 

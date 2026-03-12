@@ -1,4 +1,4 @@
-import { ACCOUNT_ERROR, DomainError } from '@src/core/common/errors/domain-error';
+import { ASYNC_TASK_RECORD_ERROR, DomainError } from '@src/core/common/errors/domain-error';
 import { AsyncTaskRecordQueryService } from '@src/modules/async-task-record/queries/async-task-record.query.service';
 import type {
   AsyncTaskRecordStatus,
@@ -37,7 +37,7 @@ export class ListAsyncTaskRecordsByBizTargetUsecase {
       where: {
         bizType,
         bizKey,
-        bizSubKey: input.bizSubKey,
+        bizSubKey: this.normalizeOptionalField({ value: input.bizSubKey }),
         statuses: input.statuses,
         limit: input.limit ?? 50,
       },
@@ -53,6 +53,19 @@ export class ListAsyncTaskRecordsByBizTargetUsecase {
     if (normalized.length > 0) {
       return normalized;
     }
-    throw new DomainError(ACCOUNT_ERROR.OPERATION_NOT_SUPPORTED, `${input.fieldName} 不能为空`);
+    throw new DomainError(ASYNC_TASK_RECORD_ERROR.INVALID_PARAMS, `${input.fieldName} 不能为空`);
+  }
+
+  private normalizeOptionalField(input: {
+    readonly value?: string | null;
+  }): string | null | undefined {
+    if (input.value === undefined) {
+      return undefined;
+    }
+    if (input.value === null) {
+      return null;
+    }
+    const normalized = input.value.trim();
+    return normalized.length > 0 ? normalized : null;
   }
 }

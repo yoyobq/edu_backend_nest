@@ -1,4 +1,4 @@
-import { ACCOUNT_ERROR, DomainError } from '@src/core/common/errors/domain-error';
+import { ASYNC_TASK_RECORD_ERROR, DomainError } from '@src/core/common/errors/domain-error';
 import type { AsyncTaskRecordView } from '@src/modules/async-task-record/async-task-record.types';
 import { AsyncTaskRecordQueryService } from '@src/modules/async-task-record/queries/async-task-record.query.service';
 import { Test, TestingModule } from '@nestjs/testing';
@@ -107,7 +107,7 @@ describe('AsyncTaskRecord read usecases', () => {
           jobId: 'job-1',
         }),
       ).rejects.toMatchObject<Partial<DomainError>>({
-        code: ACCOUNT_ERROR.OPERATION_NOT_SUPPORTED,
+        code: ASYNC_TASK_RECORD_ERROR.INVALID_PARAMS,
         message: 'queueName 不能为空',
       });
     });
@@ -141,14 +141,14 @@ describe('AsyncTaskRecord read usecases', () => {
           traceId: ' ',
         }),
       ).rejects.toMatchObject<Partial<DomainError>>({
-        code: ACCOUNT_ERROR.OPERATION_NOT_SUPPORTED,
+        code: ASYNC_TASK_RECORD_ERROR.INVALID_PARAMS,
         message: 'traceId 不能为空',
       });
     });
   });
 
   describe('ListAsyncTaskRecordsByBizTargetUsecase', () => {
-    it('应透传 bizSubKey 与 statuses 并使用默认 limit 50', async () => {
+    it('应标准化 bizSubKey 后透传 statuses 并使用默认 limit 50', async () => {
       const record = createAsyncTaskRecord({
         id: 3,
         jobId: 'job-3',
@@ -161,7 +161,7 @@ describe('AsyncTaskRecord read usecases', () => {
       const result = await listByBizTargetUsecase.execute({
         bizType: '  ai_worker ',
         bizKey: '  trace-3 ',
-        bizSubKey: null,
+        bizSubKey: '  task-sub-key  ',
         statuses: ['failed'],
       });
 
@@ -169,12 +169,32 @@ describe('AsyncTaskRecord read usecases', () => {
         where: {
           bizType: 'ai_worker',
           bizKey: 'trace-3',
-          bizSubKey: null,
+          bizSubKey: 'task-sub-key',
           statuses: ['failed'],
           limit: 50,
         },
       });
       expect(result.items).toEqual([record]);
+    });
+
+    it('bizSubKey 为空白字符串时应标准化为 null', async () => {
+      queryService.listByBizTarget.mockResolvedValue([]);
+
+      await listByBizTargetUsecase.execute({
+        bizType: 'ai_worker',
+        bizKey: 'trace-3',
+        bizSubKey: '   ',
+      });
+
+      expect(queryService.listByBizTarget).toHaveBeenCalledWith({
+        where: {
+          bizType: 'ai_worker',
+          bizKey: 'trace-3',
+          bizSubKey: null,
+          statuses: undefined,
+          limit: 50,
+        },
+      });
     });
 
     it('bizKey 为空白时抛出 DomainError', async () => {
@@ -184,7 +204,7 @@ describe('AsyncTaskRecord read usecases', () => {
           bizKey: '   ',
         }),
       ).rejects.toMatchObject<Partial<DomainError>>({
-        code: ACCOUNT_ERROR.OPERATION_NOT_SUPPORTED,
+        code: ASYNC_TASK_RECORD_ERROR.INVALID_PARAMS,
         message: 'bizKey 不能为空',
       });
     });
