@@ -52,6 +52,58 @@ const QUEUE_AI_EMBED_MUTATION = `
   }
 `;
 
+const DEBUG_QUERY_BY_TRACE_ID = `
+  query DebugAsyncTaskRecordsByTraceId($input: DebugAsyncTaskRecordsByTraceIdInput!) {
+    debugAsyncTaskRecordsByTraceId(input: $input) {
+      items {
+        id
+        queueName
+        jobName
+        jobId
+        traceId
+        bizType
+        bizKey
+        bizSubKey
+        status
+      }
+    }
+  }
+`;
+
+const DEBUG_QUERY_BY_BIZ_TARGET = `
+  query DebugAsyncTaskRecordsByBizTarget($input: DebugAsyncTaskRecordsByBizTargetInput!) {
+    debugAsyncTaskRecordsByBizTarget(input: $input) {
+      items {
+        id
+        queueName
+        jobName
+        jobId
+        traceId
+        bizType
+        bizKey
+        bizSubKey
+        status
+      }
+    }
+  }
+`;
+
+const DEBUG_QUERY_BY_QUEUE_JOB = `
+  query DebugAsyncTaskRecordByQueueJob($input: DebugAsyncTaskRecordByQueueJobInput!) {
+    debugAsyncTaskRecordByQueueJob(input: $input) {
+      id
+      queueName
+      jobName
+      jobId
+      traceId
+      bizType
+      bizKey
+      bizSubKey
+      status
+    }
+  }
+`;
+
 const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
 class MockAiWorkerService {
@@ -175,6 +227,79 @@ const parseQueueAiEmbedData = (response: request.Response): QueueAiResultData =>
     ?.queueAiEmbed as QueueAiResultData;
 };
 
+const queryDebugByTraceId = async (input: {
+  readonly app: INestApplication;
+  readonly token?: string;
+  readonly traceId: string;
+  readonly limit?: number;
+}): Promise<request.Response> => {
+  const req = request(input.app.getHttpServer())
+    .post('/graphql')
+    .send({
+      query: DEBUG_QUERY_BY_TRACE_ID,
+      variables: {
+        input: {
+          traceId: input.traceId,
+          limit: input.limit,
+        },
+      },
+    });
+  if (input.token) {
+    req.set('Authorization', `Bearer ${input.token}`);
+  }
+  return await req.expect(200);
+};
+
+const queryDebugByBizTarget = async (input: {
+  readonly app: INestApplication;
+  readonly token?: string;
+  readonly bizType: string;
+  readonly bizKey: string;
+  readonly bizSubKey?: string | null;
+  readonly limit?: number;
+}): Promise<request.Response> => {
+  const req = request(input.app.getHttpServer())
+    .post('/graphql')
+    .send({
+      query: DEBUG_QUERY_BY_BIZ_TARGET,
+      variables: {
+        input: {
+          bizType: input.bizType,
+          bizKey: input.bizKey,
+          bizSubKey: input.bizSubKey,
+          limit: input.limit,
+        },
+      },
+    });
+  if (input.token) {
+    req.set('Authorization', `Bearer ${input.token}`);
+  }
+  return await req.expect(200);
+};
+
+const queryDebugByQueueJob = async (input: {
+  readonly app: INestApplication;
+  readonly token?: string;
+  readonly queueName: string;
+  readonly jobId: string;
+}): Promise<request.Response> => {
+  const req = request(input.app.getHttpServer())
+    .post('/graphql')
+    .send({
+      query: DEBUG_QUERY_BY_QUEUE_JOB,
+      variables: {
+        input: {
+          queueName: input.queueName,
+          jobId: input.jobId,
+        },
+      },
+    });
+  if (input.token) {
+    req.set('Authorization', `Bearer ${input.token}`);
+  }
+  return await req.expect(200);
+};
+
 const waitJobFinalState = async (input: {
   readonly queue: Queue;
   readonly jobId: string;
@@ -283,6 +408,7 @@ describe('AI GraphQL 队列入口与 Worker 联动（e2e）', () => {
   let workerRuntime: BullMqWorkerRuntime;
   let dataSource: DataSource;
   let managerToken: string;
+  let adminToken: string;
   let coachToken: string;
   let aiWorkerMock: MockAiWorkerService;
 
@@ -310,11 +436,17 @@ describe('AI GraphQL 队列入口与 Worker 联动（e2e）', () => {
     aiWorkerMock = workerApp.get(AiWorkerService);
 
     await cleanupTestAccounts(dataSource);
-    await seedTestAccounts({ dataSource, includeKeys: ['manager', 'coach'] });
+    await seedTestAccounts({ dataSource, includeKeys: ['manager', 'admin', 'coach'] });
     managerToken = await login({
       app: apiApp,
       loginName: testAccountsConfig.manager.loginName,
       loginPassword: testAccountsConfig.manager.loginPassword,
+      type: LoginTypeEnum.PASSWORD,
+    });
+    adminToken = await login({
+      app: apiApp,
+      loginName: testAccountsConfig.admin.loginName,
+      loginPassword: testAccountsConfig.admin.loginPassword,
       type: LoginTypeEnum.PASSWORD,
     });
     coachToken = await login({
@@ -893,6 +1025,229 @@ describe('AI GraphQL 队列入口与 Worker 联动（e2e）', () => {
         token: managerToken,
         model: 'text-embedding-3-small',
         text: ' ',
+      });
+      const errors = (response.body as { errors?: Array<{ message?: string }> }).errors ?? [];
+      expect(errors.length).toBeGreaterThan(0);
+      expect(errors[0]?.message ?? '').toMatch(/不能为空|Validation failed|校验|validation/i);
+    });
+  });
+
+  describe('异步任务内部调试查询入口', () => {
+    it('按 traceId 可查到 AI 链路且按 id 倒序返回', async () => {
+      const suffix = `${Date.now()}-trace`;
+      const traceId = `e2e-debug-trace-${suffix}`;
+      const bizKey = `e2e-debug-biz-key-${suffix}`;
+
+      const first = await dataSource.getRepository(AsyncTaskRecordEntity).save(
+        dataSource.getRepository(AsyncTaskRecordEntity).create({
+          queueName: BULLMQ_QUEUES.AI,
+          jobName: BULLMQ_JOBS.AI.GENERATE,
+          jobId: `e2e-debug-trace-job-1-${suffix}`,
+          traceId,
+          bizType: 'ai_worker',
+          bizKey,
+          bizSubKey: 'node-a',
+          source: 'system',
+          reason: 'seed_1',
+          status: 'queued',
+          attemptCount: 0,
+          occurredAt: new Date(),
+          enqueuedAt: new Date(),
+        }),
+      );
+      const second = await dataSource.getRepository(AsyncTaskRecordEntity).save(
+        dataSource.getRepository(AsyncTaskRecordEntity).create({
+          queueName: BULLMQ_QUEUES.AI,
+          jobName: BULLMQ_JOBS.AI.GENERATE,
+          jobId: `e2e-debug-trace-job-2-${suffix}`,
+          traceId,
+          bizType: 'ai_worker',
+          bizKey,
+          bizSubKey: 'node-b',
+          source: 'system',
+          reason: 'seed_2',
+          status: 'processing',
+          attemptCount: 1,
+          occurredAt: new Date(),
+          enqueuedAt: new Date(),
+        }),
+      );
+      const third = await dataSource.getRepository(AsyncTaskRecordEntity).save(
+        dataSource.getRepository(AsyncTaskRecordEntity).create({
+          queueName: BULLMQ_QUEUES.AI,
+          jobName: BULLMQ_JOBS.AI.GENERATE,
+          jobId: `e2e-debug-trace-job-3-${suffix}`,
+          traceId,
+          bizType: 'ai_worker',
+          bizKey,
+          bizSubKey: 'node-c',
+          source: 'system',
+          reason: 'seed_3',
+          status: 'succeeded',
+          attemptCount: 1,
+          occurredAt: new Date(),
+          enqueuedAt: new Date(),
+        }),
+      );
+
+      const response = await queryDebugByTraceId({
+        app: apiApp,
+        token: managerToken,
+        traceId,
+      });
+      if (response.body.errors) {
+        throw new Error(`GraphQL 错误: ${JSON.stringify(response.body.errors)}`);
+      }
+      const items = (
+        response.body as {
+          data?: {
+            debugAsyncTaskRecordsByTraceId?: { items?: Array<{ id: number; traceId: string }> };
+          };
+        }
+      ).data?.debugAsyncTaskRecordsByTraceId?.items;
+      expect(items).toBeDefined();
+      const filtered = (items ?? []).filter((item) => item.traceId === traceId);
+      expect(filtered.length).toBeGreaterThanOrEqual(3);
+      expect(filtered[0]?.id).toBe(third.id);
+      expect(filtered[1]?.id).toBe(second.id);
+      expect(filtered[2]?.id).toBe(first.id);
+    });
+
+    it('按 bizType + bizKey 可查到同业务对象多条记录', async () => {
+      const suffix = `${Date.now()}-biz`;
+      const bizType = 'ai_worker';
+      const bizKey = `e2e-debug-biz-key-${suffix}`;
+      const traceIdA = `e2e-debug-biz-trace-a-${suffix}`;
+      const traceIdB = `e2e-debug-biz-trace-b-${suffix}`;
+
+      await dataSource.getRepository(AsyncTaskRecordEntity).save(
+        dataSource.getRepository(AsyncTaskRecordEntity).create({
+          queueName: BULLMQ_QUEUES.AI,
+          jobName: BULLMQ_JOBS.AI.GENERATE,
+          jobId: `e2e-debug-biz-job-1-${suffix}`,
+          traceId: traceIdA,
+          bizType,
+          bizKey,
+          bizSubKey: 'biz-sub',
+          source: 'system',
+          reason: 'seed_biz_1',
+          status: 'queued',
+          attemptCount: 0,
+          occurredAt: new Date(),
+          enqueuedAt: new Date(),
+        }),
+      );
+      await dataSource.getRepository(AsyncTaskRecordEntity).save(
+        dataSource.getRepository(AsyncTaskRecordEntity).create({
+          queueName: BULLMQ_QUEUES.AI,
+          jobName: BULLMQ_JOBS.AI.EMBED,
+          jobId: `e2e-debug-biz-job-2-${suffix}`,
+          traceId: traceIdB,
+          bizType,
+          bizKey,
+          bizSubKey: 'biz-sub',
+          source: 'system',
+          reason: 'seed_biz_2',
+          status: 'failed',
+          attemptCount: 1,
+          occurredAt: new Date(),
+          enqueuedAt: new Date(),
+        }),
+      );
+
+      const response = await queryDebugByBizTarget({
+        app: apiApp,
+        token: managerToken,
+        bizType,
+        bizKey,
+      });
+      if (response.body.errors) {
+        throw new Error(`GraphQL 错误: ${JSON.stringify(response.body.errors)}`);
+      }
+      const items = (
+        response.body as {
+          data?: { debugAsyncTaskRecordsByBizTarget?: { items?: Array<{ traceId: string }> } };
+        }
+      ).data?.debugAsyncTaskRecordsByBizTarget?.items;
+      expect(items).toBeDefined();
+      const traceIdSet = new Set((items ?? []).map((item) => item.traceId));
+      expect(traceIdSet.has(traceIdA)).toBe(true);
+      expect(traceIdSet.has(traceIdB)).toBe(true);
+    });
+
+    it('按 queueName + jobId 可精确命中单任务且 admin 可访问', async () => {
+      const suffix = `${Date.now()}-queue-job`;
+      const jobId = `e2e-debug-queue-job-${suffix}`;
+      const traceId = `e2e-debug-queue-trace-${suffix}`;
+
+      await dataSource.getRepository(AsyncTaskRecordEntity).save(
+        dataSource.getRepository(AsyncTaskRecordEntity).create({
+          queueName: BULLMQ_QUEUES.AI,
+          jobName: BULLMQ_JOBS.AI.GENERATE,
+          jobId,
+          traceId,
+          bizType: 'ai_worker',
+          bizKey: traceId,
+          source: 'system',
+          reason: 'seed_queue_job',
+          status: 'queued',
+          attemptCount: 0,
+          occurredAt: new Date(),
+          enqueuedAt: new Date(),
+        }),
+      );
+
+      const response = await queryDebugByQueueJob({
+        app: apiApp,
+        token: adminToken,
+        queueName: BULLMQ_QUEUES.AI,
+        jobId,
+      });
+      if (response.body.errors) {
+        throw new Error(`GraphQL 错误: ${JSON.stringify(response.body.errors)}`);
+      }
+      const record = (
+        response.body as {
+          data?: {
+            debugAsyncTaskRecordByQueueJob?: { queueName: string; jobId: string; traceId: string };
+          };
+        }
+      ).data?.debugAsyncTaskRecordByQueueJob;
+      expect(record).toBeDefined();
+      expect(record?.queueName).toBe(BULLMQ_QUEUES.AI);
+      expect(record?.jobId).toBe(jobId);
+      expect(record?.traceId).toBe(traceId);
+    });
+
+    it('未登录访问调试查询应返回未认证错误', async () => {
+      const response = await queryDebugByTraceId({
+        app: apiApp,
+        traceId: 'unauthorized-trace',
+      });
+      const errors = (response.body as { errors?: Array<{ message?: string }> }).errors ?? [];
+      expect(errors.length).toBeGreaterThan(0);
+      expect(errors[0]?.message ?? '').toMatch(/Unauthorized|未认证|认证/);
+    });
+
+    it('越权访问调试查询应返回权限错误', async () => {
+      const response = await queryDebugByTraceId({
+        app: apiApp,
+        token: coachToken,
+        traceId: 'forbidden-trace',
+      });
+      const errors = (response.body as { errors?: Array<{ message?: string }> }).errors ?? [];
+      expect(errors.length).toBeGreaterThan(0);
+      expect(errors[0]?.message ?? '').toMatch(
+        /无权限|拒绝|Forbidden|forbidden|access denied|缺少所需角色/i,
+      );
+    });
+
+    it('非法参数访问调试查询应返回校验错误', async () => {
+      const response = await queryDebugByBizTarget({
+        app: apiApp,
+        token: managerToken,
+        bizType: '   ',
+        bizKey: '   ',
       });
       const errors = (response.body as { errors?: Array<{ message?: string }> }).errors ?? [];
       expect(errors.length).toBeGreaterThan(0);
