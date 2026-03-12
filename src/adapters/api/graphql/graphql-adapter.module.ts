@@ -30,6 +30,7 @@ import { VerificationRecordResolver } from './verification-record/verification-r
 // Guards
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RolesGuard } from './guards/roles.guard';
+import { QmWorkerEntryGuard } from './guards/qm-worker-entry.guard';
 
 /**
  * GraphQL 适配器模块
@@ -64,6 +65,7 @@ import { RolesGuard } from './guards/roles.guard';
     ManagerResolver, // 注册经理管理 resolver
     UserInfoResolver,
     // Guards
+    QmWorkerEntryGuard,
     JwtAuthGuard,
     RolesGuard,
   ],
@@ -82,6 +84,7 @@ import { RolesGuard } from './guards/roles.guard';
     CoachResolver, // 导出教练管理 resolver
     ManagerResolver, // 导出经理管理 resolver
     UserInfoResolver,
+    QmWorkerEntryGuard,
     JwtAuthGuard,
     RolesGuard,
   ],

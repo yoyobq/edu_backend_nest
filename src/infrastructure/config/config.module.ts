@@ -224,6 +224,17 @@ const bullmqConfig: ConfigFactory = () => ({
   },
 });
 
+const qmWorkerEntryConfig: ConfigFactory = () => ({
+  qmWorkerEntry: {
+    ai: {
+      enabled: process.env.AI_QUEUE_DEBUG_ENABLED === 'true',
+    },
+    email: {
+      enabled: process.env.EMAIL_QUEUE_DEBUG_ENABLED === 'true',
+    },
+  },
+});
+
 /**
  * 生成 JWT 配置
  */
@@ -272,6 +283,7 @@ const paginationConfig = () => ({
         databaseConfig,
         redisConfig,
         bullmqConfig,
+        qmWorkerEntryConfig,
         jwtConfig,
         paginationConfig,
       ],
