@@ -1,3 +1,4 @@
+// test/08-qm-worker/email-queue-consume.e2e-spec.ts
 import { VerificationRecordType } from '@app-types/models/verification-record.types';
 import { TokenHelper } from '@modules/auth/token.helper';
 import { getQueueToken } from '@nestjs/bullmq';

@@ -1,3 +1,4 @@
+// src/infrastructure/bullmq/queue-registry.ts
 import type { JobsOptions } from 'bullmq';
 import { BULLMQ_QUEUES, type BullMqQueueName } from './bullmq.constants';
 

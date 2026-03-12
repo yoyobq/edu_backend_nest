@@ -1,3 +1,4 @@
+// src/usecases/verification/magic-link/magic-link-login.usecase.ts
 // src/usecases/verification/magic-link-login.usecase.ts
 
 import { DomainError, VERIFICATION_RECORD_ERROR } from '@core/common/errors/domain-error';

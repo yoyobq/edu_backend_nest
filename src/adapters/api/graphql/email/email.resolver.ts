@@ -1,3 +1,4 @@
+// src/adapters/api/graphql/email/email.resolver.ts
 import { ValidateInput } from '@adapters/api/graphql/common/validate-input.decorator';
 import { DomainError, PERMISSION_ERROR } from '@core/common/errors/domain-error';
 import { Args, Mutation, Resolver } from '@nestjs/graphql';

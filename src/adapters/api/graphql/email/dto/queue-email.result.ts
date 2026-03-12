@@ -1,3 +1,4 @@
+// src/adapters/api/graphql/email/dto/queue-email.result.ts
 import { Field, ObjectType } from '@nestjs/graphql';
 
 @ObjectType()

@@ -1,3 +1,4 @@
+// src/adapters/api/graphql/common/password-validation.decorator.ts
 import {
   registerDecorator,
   ValidationOptions,

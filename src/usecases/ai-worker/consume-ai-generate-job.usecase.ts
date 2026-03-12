@@ -1,3 +1,4 @@
+// src/usecases/ai-worker/consume-ai-generate-job.usecase.ts
 import { Injectable } from '@nestjs/common';
 import { AsyncTaskRecordService } from '@src/modules/async-task-record/async-task-record.service';
 import type { AsyncTaskRecordSource } from '@src/modules/async-task-record/async-task-record.types';

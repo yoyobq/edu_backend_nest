@@ -1,3 +1,4 @@
+// src/modules/account/identities/training/customer/account-customer.entity.ts
 // src/modules/account/identities/training/customer/customer.entity.ts
 import {
   Column,

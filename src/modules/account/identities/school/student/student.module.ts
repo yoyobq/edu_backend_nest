@@ -1,3 +1,4 @@
+// src/modules/account/identities/school/student/student.module.ts
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { PROFILE_PROVIDER_TOKEN } from '../../../base/constants/provider-tokens';

@@ -1,3 +1,4 @@
+// src/modules/account/base/entities/user-info.entity.ts
 // src/modules/account/entities/user-info.entity.ts
 
 import { IdentityTypeEnum } from '@app-types/models/account.types';

@@ -1,3 +1,4 @@
+// src/usecases/account/account-usecases.module.ts
 import { Module } from '@nestjs/common';
 import { AccountInstallerModule } from '@src/modules/account/account-installer.module';
 import { PasswordModule } from '@src/modules/common/password/password.module';

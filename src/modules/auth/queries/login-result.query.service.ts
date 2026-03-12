@@ -1,3 +1,4 @@
+// src/modules/auth/queries/login-result.query.service.ts
 import { BasicLoginResult, EnrichedLoginResult } from '@app-types/auth/login-flow.types';
 import { AccountStatus, IdentityTypeEnum } from '@app-types/models/account.types';
 import { Injectable } from '@nestjs/common';

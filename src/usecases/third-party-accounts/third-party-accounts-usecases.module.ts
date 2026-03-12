@@ -1,3 +1,4 @@
+// src/usecases/third-party-accounts/third-party-accounts-usecases.module.ts
 import { ThirdPartyAuthModule } from '@modules/third-party-auth/third-party-auth.module';
 import { Module } from '@nestjs/common';
 import { BindThirdPartyAccountUsecase } from '@src/usecases/third-party-accounts/bind-third-party-account.usecase';

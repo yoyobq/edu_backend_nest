@@ -1,3 +1,4 @@
+// src/types/models/account.types.ts
 export interface LoginHistoryItemModel {
   ip: string; // 登录 IP 地址
   timestamp: string; // 登录时间（ISO 格式）

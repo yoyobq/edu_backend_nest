@@ -1,3 +1,4 @@
+// src/modules/account/queries/customer.query.service.ts
 import { UserState } from '@app-types/models/user-info.types';
 import { Injectable } from '@nestjs/common';
 import { AccountService } from '../base/services/account.service';

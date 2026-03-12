@@ -1,3 +1,4 @@
+// src/usecases/verification/third-party/bind-weapp.usecase.ts
 // src/usecases/verification/bind-weapp.usecase.ts
 
 import { DomainError, VERIFICATION_RECORD_ERROR } from '@core/common/errors/domain-error';

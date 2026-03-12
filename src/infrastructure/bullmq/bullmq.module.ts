@@ -1,3 +1,4 @@
+// src/infrastructure/bullmq/bullmq.module.ts
 import { BullModule } from '@nestjs/bullmq';
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';

@@ -1,3 +1,4 @@
+// src/modules/async-task-record/async-task-record.module.ts
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AsyncTaskRecordEntity } from './async-task-record.entity';

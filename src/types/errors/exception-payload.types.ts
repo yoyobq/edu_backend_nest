@@ -1,3 +1,4 @@
+// src/types/errors/exception-payload.types.ts
 import type { DomainErrorCode } from '@core/common/errors';
 
 export interface ExceptionPayload {

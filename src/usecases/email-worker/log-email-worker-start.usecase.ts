@@ -1,3 +1,4 @@
+// src/usecases/email-worker/log-email-worker-start.usecase.ts
 import { Injectable, OnModuleInit } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 

@@ -1,3 +1,4 @@
+// src/usecases/integration-events/integration-events-usecases.module.ts
 import { Module } from '@nestjs/common';
 import { INTEGRATION_EVENTS_TOKENS } from '@src/modules/common/integration-events/events.tokens';
 import { EnrollmentCreatedHandler } from '@src/modules/common/integration-events/handlers/enrollment-created.handler';

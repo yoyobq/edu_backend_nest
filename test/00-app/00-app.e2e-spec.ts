@@ -1,3 +1,4 @@
+// test/00-app/00-app.e2e-spec.ts
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import Redis, { type RedisOptions } from 'ioredis';

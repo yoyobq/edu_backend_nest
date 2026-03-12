@@ -1,3 +1,4 @@
+// src/adapters/api/graphql/ai/dto/queue-ai-generate.input.ts
 import { trimText } from '@core/common/text/text.helper';
 import { Field, InputType } from '@nestjs/graphql';
 import { Transform, TransformFnParams } from 'class-transformer';

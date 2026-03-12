@@ -1,3 +1,4 @@
+// src/adapters/api/graphql/common/validation.formatter.ts
 import { ValidationError } from 'class-validator';
 
 export function formatValidationErrors(errors: ValidationError[]): string {

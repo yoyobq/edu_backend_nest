@@ -1,3 +1,4 @@
+// src/modules/common/ai-queue/ai-queue.types.ts
 import type { AiProvider } from '@src/infrastructure/bullmq/contracts/ai.contract';
 
 export interface QueueAiGenerateInput {

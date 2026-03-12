@@ -1,3 +1,4 @@
+// src/types/models/user-info.types.ts
 export enum Gender {
   MALE = 'MALE',
   FEMALE = 'FEMALE',

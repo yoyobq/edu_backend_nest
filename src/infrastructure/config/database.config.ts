@@ -1,3 +1,4 @@
+// src/infrastructure/config/database.config.ts
 import { ConfigFactory } from '@nestjs/config';
 
 /**

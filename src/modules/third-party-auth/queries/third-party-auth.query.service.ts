@@ -1,3 +1,4 @@
+// src/modules/third-party-auth/queries/third-party-auth.query.service.ts
 import { ThirdPartyAuthView } from '@app-types/models/third-party-auth.types';
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';

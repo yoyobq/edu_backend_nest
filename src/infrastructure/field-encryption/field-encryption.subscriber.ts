@@ -1,3 +1,4 @@
+// src/infrastructure/field-encryption/field-encryption.subscriber.ts
 import { Injectable } from '@nestjs/common';
 import { EntitySubscriberInterface, EventSubscriber, InsertEvent, UpdateEvent } from 'typeorm';
 import { FieldEncryptionService } from './field-encryption.service';

@@ -1,3 +1,4 @@
+// src/infrastructure/redis/redis.module.ts
 import { Inject, Injectable, Module, OnModuleDestroy, type Provider } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import Redis, { type RedisOptions } from 'ioredis';

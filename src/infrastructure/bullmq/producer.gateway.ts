@@ -1,3 +1,4 @@
+// src/infrastructure/bullmq/producer.gateway.ts
 import { getQueueToken } from '@nestjs/bullmq';
 import { Injectable } from '@nestjs/common';
 import { ModuleRef } from '@nestjs/core';

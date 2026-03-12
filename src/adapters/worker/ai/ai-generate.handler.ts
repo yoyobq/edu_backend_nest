@@ -1,3 +1,4 @@
+// src/adapters/worker/ai/ai-generate.handler.ts
 import { Injectable } from '@nestjs/common';
 import {
   ConsumeAiEmbedJobUsecase,

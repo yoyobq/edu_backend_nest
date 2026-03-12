@@ -1,3 +1,4 @@
+// test/helloWorld.e2e-spec.skip.ts
 // test/app.e2e-spec.ts
 
 import { INestApplication } from '@nestjs/common';

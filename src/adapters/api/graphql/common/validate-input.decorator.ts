@@ -1,3 +1,4 @@
+// src/adapters/api/graphql/common/validate-input.decorator.ts
 import { BadRequestException, UsePipes, ValidationPipe } from '@nestjs/common';
 import { ValidationError } from 'class-validator';
 import { formatValidationErrors } from './validation.formatter';

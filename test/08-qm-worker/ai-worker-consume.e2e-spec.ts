@@ -1,3 +1,4 @@
+// test/08-qm-worker/ai-worker-consume.e2e-spec.ts
 import { getQueueToken } from '@nestjs/bullmq';
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';

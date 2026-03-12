@@ -1,3 +1,4 @@
+// src/modules/auth/queries/login-bootstrap.query.service.ts
 import { AccountStatus, IdentityTypeEnum } from '@app-types/models/account.types';
 import { Injectable } from '@nestjs/common';
 

@@ -1,3 +1,4 @@
+// src/infrastructure/bullmq/bullmq.constants.ts
 export const BULLMQ_QUEUES = {
   INTEGRATION_EVENTS: 'integration-events',
   EMAIL: 'email',

@@ -1,3 +1,4 @@
+// src/types/models/student.types.ts
 export enum StudentStatus {
   ENROLLED = 'ENROLLED', // 在读
   SUSPENDED = 'SUSPENDED', // 暂离（休学、参军等）

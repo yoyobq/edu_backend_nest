@@ -1,3 +1,4 @@
+// src/modules/common/ai-worker/ai-worker.service.ts
 import { Injectable } from '@nestjs/common';
 import { createHash } from 'node:crypto';
 import type {

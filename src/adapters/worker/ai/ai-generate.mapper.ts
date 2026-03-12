@@ -1,3 +1,4 @@
+// src/adapters/worker/ai/ai-generate.mapper.ts
 import type {
   ConsumeAiEmbedJobCompleteInput,
   ConsumeAiEmbedJobFailInput,

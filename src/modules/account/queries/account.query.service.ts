@@ -1,3 +1,4 @@
+// src/modules/account/queries/account.query.service.ts
 import { IdentityTypeEnum, UserAccountView } from '@app-types/models/account.types';
 import { UserInfoView } from '@app-types/models/auth.types';
 import { Gender, UserState } from '@app-types/models/user-info.types';

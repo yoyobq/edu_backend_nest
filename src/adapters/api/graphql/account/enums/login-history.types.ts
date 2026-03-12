@@ -1,4 +1,5 @@
-// src/adapters/api/graphql/account/graphql/types/login-history.types.ts
+// src/adapters/api/graphql/account/enums/login-history.types.ts
+
 import { Field, ObjectType } from '@nestjs/graphql';
 
 /**

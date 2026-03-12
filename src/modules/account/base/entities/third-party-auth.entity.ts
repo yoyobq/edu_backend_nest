@@ -1,3 +1,4 @@
+// src/modules/account/base/entities/third-party-auth.entity.ts
 // src/modules/account/entities/third-party-auth.entity.ts
 import { ThirdPartyProviderEnum } from '@app-types/models/account.types';
 import {

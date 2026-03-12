@@ -1,3 +1,4 @@
+// src/modules/common/email-worker/email-worker.types.ts
 export interface SendEmailInput {
   readonly to: string;
   readonly subject: string;

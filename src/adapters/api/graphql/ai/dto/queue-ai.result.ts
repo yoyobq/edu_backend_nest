@@ -1,3 +1,4 @@
+// src/adapters/api/graphql/ai/dto/queue-ai.result.ts
 import { Field, ObjectType } from '@nestjs/graphql';
 
 @ObjectType()

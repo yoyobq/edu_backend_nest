@@ -1,3 +1,4 @@
+// src/modules/auth/token.helper.ts
 import {
   GenerateAccessTokenParams,
   GenerateRefreshTokenParams,

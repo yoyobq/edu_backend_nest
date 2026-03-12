@@ -1,3 +1,4 @@
+// src/adapters/worker/email/email-send.handler.ts
 import { Injectable } from '@nestjs/common';
 import { ConsumeEmailJobUsecase } from '@src/usecases/email-worker/consume-email-job.usecase';
 import {

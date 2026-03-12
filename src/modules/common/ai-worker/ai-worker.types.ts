@@ -1,3 +1,4 @@
+// src/modules/common/ai-worker/ai-worker.types.ts
 export interface GenerateAiContentInput {
   readonly provider?: string;
   readonly model: string;

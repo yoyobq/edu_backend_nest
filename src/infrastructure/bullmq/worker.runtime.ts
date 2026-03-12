@@ -1,3 +1,4 @@
+// src/infrastructure/bullmq/worker.runtime.ts
 import { getQueueToken } from '@nestjs/bullmq';
 import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { ModuleRef } from '@nestjs/core';

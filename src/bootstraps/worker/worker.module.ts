@@ -1,3 +1,4 @@
+// src/bootstraps/worker/worker.module.ts
 import { Module } from '@nestjs/common';
 import { AiWorkerAdapterModule } from '@src/adapters/worker/ai/ai-worker-adapter.module';
 import { EmailWorkerAdapterModule } from '@src/adapters/worker/email/email-worker-adapter.module';

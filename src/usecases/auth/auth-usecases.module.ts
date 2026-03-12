@@ -1,3 +1,4 @@
+// src/usecases/auth/auth-usecases.module.ts
 import { AuthModule } from '@modules/auth/auth.module';
 import { ThirdPartyAuthModule } from '@modules/third-party-auth/third-party-auth.module';
 import { Module } from '@nestjs/common';

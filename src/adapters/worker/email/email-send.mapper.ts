@@ -1,3 +1,4 @@
+// src/adapters/worker/email/email-send.mapper.ts
 import type {
   ConsumeEmailJobCompleteInput,
   ConsumeEmailJobFailInput,

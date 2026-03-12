@@ -1,3 +1,4 @@
+// src/usecases/email-worker/email-worker-usecases.module.ts
 import { Module } from '@nestjs/common';
 import { AsyncTaskRecordModule } from '@src/modules/async-task-record/async-task-record.module';
 import { EmailWorkerModule } from '@src/modules/common/email-worker/email-worker.module';

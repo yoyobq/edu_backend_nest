@@ -1,3 +1,4 @@
+// src/usecases/verification-record/verification-record-usecases.module.ts
 import { Module } from '@nestjs/common';
 import { VerificationRecordModule } from '@src/modules/verification-record/verification-record.module';
 import { ConsumeVerificationRecordUsecase } from './consume-verification-record.usecase';

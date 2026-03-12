@@ -1,3 +1,4 @@
+// src/modules/account/base/entities/account.entity.ts
 import { AccountStatus, LoginHistoryItemModel } from '@app-types/models/account.types';
 import {
   Column,

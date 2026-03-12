@@ -1,3 +1,4 @@
+// src/bootstraps/worker/main.ts
 // 文件位置：/var/www/backend/src/bootstraps/worker/main.js
 import 'reflect-metadata';
 

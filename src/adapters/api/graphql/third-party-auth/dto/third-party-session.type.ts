@@ -1,3 +1,4 @@
+// src/adapters/api/graphql/third-party-auth/dto/third-party-session.type.ts
 // src/adapters/api/graphql/third-party-auth/graphql/types/third-party-session.type.ts
 import { Field, ObjectType } from '@nestjs/graphql';
 

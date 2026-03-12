@@ -1,3 +1,4 @@
+// src/modules/verification-record/queries/verification-record.query.service.ts
 import { Injectable } from '@nestjs/common';
 import {
   VerificationReadService,

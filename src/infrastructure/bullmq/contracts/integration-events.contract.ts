@@ -1,3 +1,4 @@
+// src/infrastructure/bullmq/contracts/integration-events.contract.ts
 import { BULLMQ_JOBS, BULLMQ_QUEUES } from '../bullmq.constants';
 import { isOptionalBoolean, isOptionalString, isRecord } from './shared-payload-validators';
 

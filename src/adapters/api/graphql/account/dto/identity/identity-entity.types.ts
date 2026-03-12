@@ -1,3 +1,4 @@
+// src/adapters/api/graphql/account/dto/identity/identity-entity.types.ts
 import { EmploymentStatus } from '@app-types/models/account.types';
 import { Gender } from '@app-types/models/user-info.types';
 

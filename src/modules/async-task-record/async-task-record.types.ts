@@ -1,3 +1,4 @@
+// src/modules/async-task-record/async-task-record.types.ts
 import type { AsyncTaskRecordSource, AsyncTaskRecordStatus } from './async-task-record.entity';
 
 export type { AsyncTaskRecordSource, AsyncTaskRecordStatus };

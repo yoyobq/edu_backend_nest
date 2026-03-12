@@ -1,3 +1,4 @@
+// src/modules/common/email-queue/email-queue.service.ts
 import { Injectable } from '@nestjs/common';
 import { BULLMQ_JOBS, BULLMQ_QUEUES } from '@src/infrastructure/bullmq/bullmq.constants';
 import { BullMqProducerGateway } from '@src/infrastructure/bullmq/producer.gateway';

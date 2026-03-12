@@ -1,3 +1,4 @@
+// src/infrastructure/field-encryption/field-encryption.decorator.ts
 import 'reflect-metadata';
 
 export const ENCRYPTED_FIELDS_METADATA_KEY = 'core:encrypted_fields';

@@ -1,3 +1,4 @@
+// test/09-email-delivery-real/email-delivery-real.e2e-spec.ts
 import { getQueueToken } from '@nestjs/bullmq';
 import { INestApplication, INestApplicationContext } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';

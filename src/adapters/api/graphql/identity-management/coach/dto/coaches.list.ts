@@ -1,3 +1,4 @@
+// src/adapters/api/graphql/identity-management/coach/dto/coaches.list.ts
 // src/adapters/api/graphql/dto/coach/coaches.list.ts
 import { Field, ObjectType } from '@nestjs/graphql';
 import { CoachType } from '@src/adapters/api/graphql/account/dto/identity/coach.dto';

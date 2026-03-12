@@ -1,3 +1,4 @@
+// src/bootstraps/api/api.module.ts
 import { GraphQLAdapterModule } from '@src/adapters/api/graphql/graphql-adapter.module';
 import { IntegrationEventsAdapterModule } from '@src/adapters/api/integration-events/integration-events-adapter.module';
 import { AppConfigModule } from '@src/infrastructure/config/config.module';

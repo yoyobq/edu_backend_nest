@@ -1,3 +1,4 @@
+// src/adapters/worker/email/email-send.processor.ts
 import { OnWorkerEvent, Processor, WorkerHost } from '@nestjs/bullmq';
 import { Injectable } from '@nestjs/common';
 import { EmailSendHandler } from './email-send.handler';

@@ -1,3 +1,4 @@
+// src/modules/account/identities/school/staff/account-staff.entity.ts
 // src/modules/account/entities/account-staff.entity.ts
 // import { Field, ID, ObjectType, Int } from '@nestjs/graphql';
 import { EmploymentStatus } from '@app-types/models/account.types';

@@ -1,3 +1,4 @@
+// src/usecases/registration/registration-usecases.module.ts
 import { AccountInstallerModule } from '@modules/account/account-installer.module';
 import { PasswordModule } from '@modules/common/password/password.module';
 import { RegisterModule } from '@modules/register/register.module';

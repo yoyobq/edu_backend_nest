@@ -1,3 +1,4 @@
+// src/adapters/worker/ai/ai-generate.processor.ts
 import { OnWorkerEvent, Processor, WorkerHost } from '@nestjs/bullmq';
 import { Injectable } from '@nestjs/common';
 import { AiJobHandler } from './ai-generate.handler';

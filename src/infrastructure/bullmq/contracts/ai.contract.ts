@@ -1,3 +1,4 @@
+// src/infrastructure/bullmq/contracts/ai.contract.ts
 import { BULLMQ_JOBS, BULLMQ_QUEUES } from '../bullmq.constants';
 import {
   isNonEmptyString,
