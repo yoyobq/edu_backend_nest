@@ -7,6 +7,7 @@ import type { AiGenerateJob } from '@src/adapters/worker/ai/ai-generate.mapper';
 import { ApiModule } from '@src/bootstraps/api/api.module';
 import { WorkerModule } from '@src/bootstraps/worker/worker.module';
 import { BULLMQ_JOBS, BULLMQ_QUEUES } from '@src/infrastructure/bullmq/bullmq.constants';
+import { BullMqProducerGateway } from '@src/infrastructure/bullmq/producer.gateway';
 import { BullMqWorkerRuntime } from '@src/infrastructure/bullmq/worker.runtime';
 import {
   AsyncTaskRecordEntity,
@@ -281,6 +282,7 @@ describe('AI Worker（e2e）', () => {
   let aiWorkerMock: MockAiWorkerService;
   let aiJobHandler: AiJobHandler;
   let asyncTaskRecordService: AsyncTaskRecordService;
+  let producerGateway: BullMqProducerGateway;
 
   beforeAll(async () => {
     initGraphQLSchema();
@@ -306,6 +308,7 @@ describe('AI Worker（e2e）', () => {
     aiWorkerMock = workerApp.get(AiWorkerService);
     aiJobHandler = workerApp.get(AiJobHandler);
     asyncTaskRecordService = apiApp.get(AsyncTaskRecordService);
+    producerGateway = apiApp.get(BullMqProducerGateway);
   }, 60000);
 
   afterAll(async () => {
@@ -707,6 +710,43 @@ describe('AI Worker（e2e）', () => {
     } finally {
       await workerRuntime.start();
     }
+  }, 60000);
+
+  it('同队列不同 jobName 复用 dedupKey 时应抛出冲突错误', async () => {
+    const timestamp = Date.now();
+    const dedupKey = `ai-dedup-cross-job-${timestamp}`;
+
+    await producerGateway.enqueue({
+      queueName: BULLMQ_QUEUES.AI,
+      jobName: BULLMQ_JOBS.AI.GENERATE,
+      dedupKey,
+      traceId: `ai-cross-job-generate-trace-${timestamp}`,
+      payload: {
+        provider: 'openai',
+        model: 'gpt-4o-mini',
+        prompt: 'cross job dedup generate',
+        metadata: {
+          source: 'e2e-ai-cross-job-generate',
+        },
+      },
+    });
+
+    await expect(
+      producerGateway.enqueue({
+        queueName: BULLMQ_QUEUES.AI,
+        jobName: BULLMQ_JOBS.AI.EMBED,
+        dedupKey,
+        traceId: `ai-cross-job-embed-trace-${timestamp}`,
+        payload: {
+          provider: 'openai',
+          model: 'text-embedding-3-small',
+          text: 'cross job dedup embed',
+          metadata: {
+            source: 'e2e-ai-cross-job-embed',
+          },
+        },
+      }),
+    ).rejects.toThrow(`dedup_job_name_conflict:${BULLMQ_QUEUES.AI}:${dedupKey}`);
   }, 60000);
 
   it('payload 缺失 traceId 时应走降级失败语义且不回流 jobId', async () => {

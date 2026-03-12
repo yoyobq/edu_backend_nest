@@ -84,6 +84,11 @@ export class BullMqProducerGateway {
     if (dedupKey) {
       const existingJob = await queue.getJob(dedupKey);
       if (existingJob) {
+        if (existingJob.name !== input.jobName) {
+          throw new Error(
+            `dedup_job_name_conflict:${input.queueName}:${dedupKey}:${existingJob.name}->${input.jobName}`,
+          );
+        }
         const existingTraceId = this.readTraceIdFromPayload(existingJob.data);
         if (!existingTraceId) {
           throw new Error(
