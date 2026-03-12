@@ -528,6 +528,7 @@ describe('AI Worker（e2e）', () => {
       expect(record.traceId).toBe(traceId);
       expect(record.bizKey).toBe(traceId);
       expect(record.status).toBe('failed');
+      expect(record.reason).toContain('worker_failed:');
       expect(record.reason).toContain('Mock AI generate failure');
     } finally {
       await workerRuntime.start();
@@ -613,6 +614,7 @@ describe('AI Worker（e2e）', () => {
       });
       expect(record.status).toBe('failed');
       expect(record.maxAttempts).toBe(3);
+      expect(record.reason).toContain('worker_failed:');
       expect(record.reason).toContain('Mock AI exhausted failure 3');
       expect(record.reason).not.toContain('Mock AI exhausted failure 1');
     } finally {
@@ -655,6 +657,7 @@ describe('AI Worker（e2e）', () => {
       expect(record.jobName).toBe(BULLMQ_JOBS.AI.EMBED);
       expect(record.bizType).toBe('ai_embedding');
       expect(record.status).toBe('failed');
+      expect(record.reason).toContain('worker_failed:');
       expect(record.reason).toContain('Mock AI embed failure');
     } finally {
       await workerRuntime.start();
@@ -896,6 +899,7 @@ describe('AI Worker（e2e）', () => {
         jobId,
       });
       expect(record.status).toBe('failed');
+      expect(record.reason).toContain('worker_failed:');
       expect(record.reason).toContain('Manual idempotent failed event');
       expect(recordCount).toBe(1);
     } finally {

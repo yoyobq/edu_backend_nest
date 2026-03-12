@@ -110,7 +110,7 @@ export function mapAiGenerateJobToFailInput(input: {
     startedAt: resolveDate({ timestamp: input.job.processedOn }),
     finishedAt: occurredAt,
     occurredAt,
-    reason: input.error.message.slice(0, 128),
+    reason: resolveWorkerFailedReason({ message: input.error.message }),
   };
 }
 
@@ -227,7 +227,7 @@ export function mapAiEmbedJobToFailInput(input: {
     startedAt: resolveDate({ timestamp: input.job.processedOn }),
     finishedAt: occurredAt,
     occurredAt,
-    reason: input.error.message.slice(0, 128),
+    reason: resolveWorkerFailedReason({ message: input.error.message }),
   };
 }
 
@@ -291,4 +291,18 @@ function resolveMissingJobId(input: {
   readonly jobName: string;
 }): string {
   return `missing-job:${input.jobName}:${input.occurredAt.getTime()}`;
+}
+
+function resolveWorkerFailedReason(input: { readonly message: string }): string {
+  const normalizedMessage = input.message.trim() || 'worker_unknown_error';
+  if (normalizedMessage.startsWith('worker_failed:')) {
+    return normalizedMessage.slice(0, 128);
+  }
+  if (normalizedMessage.startsWith('missing_payload_trace_id')) {
+    return normalizedMessage.slice(0, 128);
+  }
+  const prefix = 'worker_failed:';
+  const availableSummaryLength = Math.max(128 - prefix.length, 1);
+  const summary = normalizedMessage.slice(0, availableSummaryLength);
+  return `${prefix}${summary}`;
 }

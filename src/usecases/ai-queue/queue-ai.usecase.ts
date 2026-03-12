@@ -100,7 +100,7 @@ export class QueueAiUsecase {
           bizType: 'ai_generation',
           bizKey: identifiers.bizKey,
           source: this.resolveSource(),
-          reason: normalizedError.message.slice(0, 128),
+          reason: this.resolveEnqueueFailedReason({ message: normalizedError.message }),
           occurredAt: input.occurredAt,
           dedupKey: input.input.dedupKey,
         },
@@ -133,7 +133,7 @@ export class QueueAiUsecase {
           bizType: 'ai_embedding',
           bizKey: identifiers.bizKey,
           source: this.resolveSource(),
-          reason: normalizedError.message.slice(0, 128),
+          reason: this.resolveEnqueueFailedReason({ message: normalizedError.message }),
           occurredAt: input.occurredAt,
           dedupKey: input.input.dedupKey,
         },
@@ -144,5 +144,16 @@ export class QueueAiUsecase {
 
   private resolveSource(): AsyncTaskRecordSource {
     return 'user_action';
+  }
+
+  private resolveEnqueueFailedReason(input: { readonly message: string }): string {
+    const normalizedMessage = input.message.trim() || 'enqueue_unknown_error';
+    if (normalizedMessage.startsWith('enqueue_failed:')) {
+      return normalizedMessage.slice(0, 128);
+    }
+    const prefix = 'enqueue_failed:';
+    const availableSummaryLength = Math.max(128 - prefix.length, 1);
+    const summary = normalizedMessage.slice(0, availableSummaryLength);
+    return `${prefix}${summary}`;
   }
 }
