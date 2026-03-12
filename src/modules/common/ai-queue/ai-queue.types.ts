@@ -1,0 +1,24 @@
+import type { AiProvider } from '@src/infrastructure/bullmq/contracts/ai.contract';
+
+export interface QueueAiGenerateInput {
+  readonly provider?: AiProvider;
+  readonly model: string;
+  readonly prompt: string;
+  readonly metadata?: Readonly<Record<string, string>>;
+  readonly dedupKey?: string;
+  readonly traceId?: string;
+}
+
+export interface QueueAiEmbedInput {
+  readonly provider?: AiProvider;
+  readonly model: string;
+  readonly text: string;
+  readonly metadata?: Readonly<Record<string, string>>;
+  readonly dedupKey?: string;
+  readonly traceId?: string;
+}
+
+export interface QueueAiResult {
+  readonly jobId: string;
+  readonly traceId: string;
+}

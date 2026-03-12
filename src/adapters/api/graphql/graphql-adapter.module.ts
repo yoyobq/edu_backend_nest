@@ -1,6 +1,7 @@
 // src/adapters/api/graphql/graphql-adapter.module.ts
 
 import { AccountUsecasesModule } from '@src/usecases/account/account-usecases.module';
+import { AiQueueUsecasesModule } from '@src/usecases/ai-queue/ai-queue-usecases.module';
 import { AuthUsecasesModule } from '@src/usecases/auth/auth-usecases.module';
 import { EmailQueueUsecasesModule } from '@src/usecases/email-queue/email-queue-usecases.module';
 import { IdentityManagementUsecasesModule } from '@src/usecases/identity-management/identity-management-usecases.module';
@@ -13,6 +14,7 @@ import { Module } from '@nestjs/common';
 
 // Resolvers
 import { AccountResolver } from './account/account.resolver';
+import { AiResolver } from './ai/ai.resolver';
 import { UserInfoResolver } from './account/user-info.resolver';
 import { AuthResolver } from './auth/auth.resolver';
 import { EmailResolver } from './email/email.resolver';
@@ -37,6 +39,7 @@ import { RolesGuard } from './guards/roles.guard';
   imports: [
     // 导入业务模块以获取服务
     AccountUsecasesModule,
+    AiQueueUsecasesModule,
     AuthUsecasesModule,
     EmailQueueUsecasesModule,
     RegistrationUsecasesModule,
@@ -48,6 +51,7 @@ import { RolesGuard } from './guards/roles.guard';
   providers: [
     // Resolvers
     AccountResolver,
+    AiResolver,
     AuthResolver,
     ThirdPartyAuthResolver,
     EmailResolver,
@@ -66,6 +70,7 @@ import { RolesGuard } from './guards/roles.guard';
   exports: [
     // Resolvers
     AccountResolver,
+    AiResolver,
     AuthResolver,
     ThirdPartyAuthResolver,
     EmailResolver,
