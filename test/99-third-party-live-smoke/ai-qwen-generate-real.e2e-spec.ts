@@ -1,0 +1,483 @@
+import { LoginTypeEnum } from '@app-types/models/account.types';
+import { getQueueToken } from '@nestjs/bullmq';
+import { INestApplication, INestApplicationContext } from '@nestjs/common';
+import { NestFactory } from '@nestjs/core';
+import { Test, TestingModule } from '@nestjs/testing';
+import { ApiModule } from '@src/bootstraps/api/api.module';
+import { WorkerModule } from '@src/bootstraps/worker/worker.module';
+import { BULLMQ_QUEUES } from '@src/infrastructure/bullmq/bullmq.constants';
+import { BullMqWorkerRuntime } from '@src/infrastructure/bullmq/worker.runtime';
+import {
+  AsyncTaskRecordEntity,
+  type AsyncTaskRecordStatus,
+} from '@src/modules/async-task-record/async-task-record.entity';
+import { TokenHelper } from '@src/modules/auth/token.helper';
+import { Queue } from 'bullmq';
+import request from 'supertest';
+import { DataSource } from 'typeorm';
+import { initGraphQLSchema } from '../../src/adapters/api/graphql/schema/schema.init';
+import { login } from '../utils/e2e-graphql-utils';
+import { cleanupTestAccounts, seedTestAccounts, testAccountsConfig } from '../utils/test-accounts';
+
+type FinalJobState = 'completed' | 'failed';
+
+const SHOULD_RUN_REAL_AI = process.env.RUN_REAL_AI_E2E === 'true';
+const HAS_QWEN_BASE_URL = (process.env.QWEN_BASE_URL ?? '').trim().length > 0;
+const HAS_QWEN_API_KEY = (process.env.QWEN_API_KEY ?? '').trim().length > 0;
+const HAS_REQUIRED_QWEN_CONFIG = HAS_QWEN_BASE_URL && HAS_QWEN_API_KEY;
+const REAL_AI_DESCRIBE = SHOULD_RUN_REAL_AI && HAS_REQUIRED_QWEN_CONFIG ? describe : describe.skip;
+const SHOULD_RUN_REAL_AI_AUTH_FAIL = process.env.RUN_REAL_AI_AUTH_FAIL_E2E === 'true';
+const HAS_QWEN_AUTH_FAIL_API_KEY = (process.env.QWEN_AUTH_FAIL_API_KEY ?? '').trim().length > 0;
+const REAL_AI_AUTH_FAIL_DESCRIBE =
+  SHOULD_RUN_REAL_AI_AUTH_FAIL && HAS_REQUIRED_QWEN_CONFIG && HAS_QWEN_AUTH_FAIL_API_KEY
+    ? describe
+    : describe.skip;
+
+const QUEUE_AI_GENERATE_MUTATION = `
+  mutation QueueAiGenerate($input: QueueAiGenerateInput!) {
+    queueAiGenerate(input: $input) {
+      queued
+      jobId
+      traceId
+    }
+  }
+`;
+
+const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
+
+const waitJobFinalState = async (input: {
+  readonly queue: Queue;
+  readonly jobId: string;
+  readonly timeoutMs: number;
+  readonly pollMs: number;
+}): Promise<{
+  readonly state: FinalJobState;
+  readonly returnvalue: unknown;
+  readonly failedReason: string | undefined;
+}> => {
+  const deadline = Date.now() + input.timeoutMs;
+  while (Date.now() < deadline) {
+    const job = await input.queue.getJob(input.jobId);
+    if (job) {
+      const state = await job.getState();
+      if (state === 'completed' || state === 'failed') {
+        return {
+          state,
+          returnvalue: job.returnvalue,
+          failedReason: job.failedReason,
+        };
+      }
+    }
+    await sleep(input.pollMs);
+  }
+  throw new Error(`AI job did not reach final state in time: ${input.jobId}`);
+};
+
+const waitAsyncTaskRecord = async (input: {
+  readonly dataSource: DataSource;
+  readonly queueName: string;
+  readonly jobId: string;
+  readonly timeoutMs: number;
+  readonly pollMs: number;
+  readonly statuses?: ReadonlyArray<AsyncTaskRecordStatus>;
+}): Promise<AsyncTaskRecordEntity> => {
+  const deadline = Date.now() + input.timeoutMs;
+  while (Date.now() < deadline) {
+    const record = await input.dataSource.getRepository(AsyncTaskRecordEntity).findOne({
+      where: { queueName: input.queueName, jobId: input.jobId },
+    });
+    if (record && (!input.statuses || input.statuses.includes(record.status))) {
+      return record;
+    }
+    await sleep(input.pollMs);
+  }
+  throw new Error(`AI async task record did not reach expected state in time: ${input.jobId}`);
+};
+
+const countAsyncTaskRecords = async (input: {
+  readonly dataSource: DataSource;
+  readonly queueName: string;
+  readonly jobId: string;
+}): Promise<number> => {
+  return await input.dataSource.getRepository(AsyncTaskRecordEntity).count({
+    where: {
+      queueName: input.queueName,
+      jobId: input.jobId,
+    },
+  });
+};
+
+const queueAiGenerate = async (input: {
+  readonly app: INestApplication;
+  readonly token: string;
+  readonly provider: 'qwen';
+  readonly model: string;
+  readonly prompt: string;
+  readonly dedupKey: string;
+  readonly traceId: string;
+  readonly metadata?: Readonly<Record<string, string>>;
+}): Promise<{
+  readonly queued: boolean;
+  readonly jobId: string;
+  readonly traceId: string;
+}> => {
+  const response = await request(input.app.getHttpServer())
+    .post('/graphql')
+    .set('Authorization', `Bearer ${input.token}`)
+    .send({
+      query: QUEUE_AI_GENERATE_MUTATION,
+      variables: {
+        input: {
+          provider: input.provider,
+          model: input.model,
+          prompt: input.prompt,
+          dedupKey: input.dedupKey,
+          traceId: input.traceId,
+          metadata: input.metadata,
+        },
+      },
+    })
+    .expect(200);
+
+  expect(response.body.errors).toBeUndefined();
+  return response.body.data.queueAiGenerate as {
+    readonly queued: boolean;
+    readonly jobId: string;
+    readonly traceId: string;
+  };
+};
+
+const isUpstreamFailure = (message: string): boolean => {
+  return /ai_provider_(config_missing|auth_failed|timeout|upstream_5xx|request_failed|unknown_error)/.test(
+    message,
+  );
+};
+
+const assertFailureCategory = (input: {
+  readonly failedReason?: string;
+  readonly taskReason?: string | null;
+}): never => {
+  const merged = [input.failedReason ?? '', input.taskReason ?? ''].join('|');
+  if (isUpstreamFailure(merged)) {
+    throw new Error(`上游不可用或鉴权失败: ${merged}`);
+  }
+  throw new Error(`业务链路异常: ${merged}`);
+};
+
+REAL_AI_DESCRIBE('真实 Qwen generate 闭环（受控 e2e）', () => {
+  let apiApp: INestApplication;
+  let workerApp: INestApplicationContext;
+  let workerRuntime: BullMqWorkerRuntime;
+  let aiQueue: Queue;
+  let dataSource: DataSource;
+  let managerToken: string;
+  let managerAccountId: number;
+  let managerActiveRole: string;
+
+  beforeAll(async () => {
+    if ((process.env.AI_PROVIDER_MODE ?? '').trim().toLowerCase() !== 'remote') {
+      throw new Error('RUN_REAL_AI_E2E=true 时必须设置 AI_PROVIDER_MODE=remote');
+    }
+    initGraphQLSchema();
+    const apiModuleFixture: TestingModule = await Test.createTestingModule({
+      imports: [ApiModule],
+    }).compile();
+    apiApp = apiModuleFixture.createNestApplication();
+    await apiApp.init();
+
+    workerApp = await NestFactory.createApplicationContext(WorkerModule);
+    aiQueue = apiApp.get<Queue>(getQueueToken(BULLMQ_QUEUES.AI));
+    workerRuntime = workerApp.get(BullMqWorkerRuntime);
+    dataSource = apiApp.get(DataSource);
+    await workerRuntime.start();
+
+    await cleanupTestAccounts(dataSource);
+    await seedTestAccounts({ dataSource, includeKeys: ['manager'] });
+    managerToken = await login({
+      app: apiApp,
+      loginName: testAccountsConfig.manager.loginName,
+      loginPassword: testAccountsConfig.manager.loginPassword,
+      type: LoginTypeEnum.PASSWORD,
+    });
+    const tokenHelper = apiApp.get(TokenHelper);
+    const managerPayload = tokenHelper.decodeToken({ token: managerToken });
+    if (!managerPayload?.sub) {
+      throw new Error('无法从 manager token 获取 sub');
+    }
+    managerAccountId = managerPayload.sub;
+    managerActiveRole = String(managerPayload.activeRole ?? '');
+    if (!managerActiveRole) {
+      throw new Error('无法从 manager token 获取 activeRole');
+    }
+  }, 120000);
+
+  afterAll(async () => {
+    if (workerApp) {
+      await workerApp.close();
+    }
+    if (apiApp) {
+      await apiApp.close();
+    }
+  });
+
+  it('应完成 queueAiGenerate 到 worker_completed 的真实 qwen 闭环', async () => {
+    const now = Date.now();
+    const dedupKey = `e2e-real-qwen-generate-${now}`;
+    const traceId = `e2e-real-qwen-generate-trace-${now}`;
+    const model = (process.env.QWEN_GENERATE_MODEL ?? 'qwen-plus').trim();
+    const prompt = `请仅回复 REAL_QWEN_E2E_${now}`;
+
+    const enqueue = await queueAiGenerate({
+      app: apiApp,
+      token: managerToken,
+      provider: 'qwen',
+      model,
+      prompt,
+      dedupKey,
+      traceId,
+      metadata: {
+        source: 'e2e-real-ai-generate',
+        purpose: 'smoke',
+      },
+    });
+
+    expect(enqueue.queued).toBe(true);
+    expect(enqueue.jobId).toBe(dedupKey);
+
+    const finalState = await waitJobFinalState({
+      queue: aiQueue,
+      jobId: enqueue.jobId,
+      timeoutMs: 120000,
+      pollMs: 300,
+    });
+
+    const finalRecord = await waitAsyncTaskRecord({
+      dataSource,
+      queueName: BULLMQ_QUEUES.AI,
+      jobId: enqueue.jobId,
+      timeoutMs: 30000,
+      pollMs: 300,
+      statuses: ['succeeded', 'failed'],
+    });
+
+    if (finalState.state === 'failed' || finalRecord.status === 'failed') {
+      assertFailureCategory({
+        failedReason: finalState.failedReason,
+        taskReason: finalRecord.reason,
+      });
+    }
+
+    expect(finalState.state).toBe('completed');
+    expect(finalRecord.status).toBe('succeeded');
+    expect(finalRecord.bizType).toBe('ai_generation');
+    expect(finalRecord.reason).toBe('worker_completed');
+    expect(finalRecord.actorAccountId).toBe(managerAccountId);
+    expect(finalRecord.actorActiveRole).toBe(managerActiveRole);
+    expect(finalRecord.jobId).toBe(dedupKey);
+    expect(finalRecord.traceId).toBe(traceId);
+
+    const returnvalue = finalState.returnvalue as {
+      readonly accepted?: boolean;
+      readonly providerJobId?: string;
+      readonly outputText?: string;
+    };
+    expect(returnvalue.accepted).toBe(true);
+    expect(typeof returnvalue.providerJobId).toBe('string');
+    expect((returnvalue.providerJobId ?? '').trim().length).toBeGreaterThan(0);
+    expect(typeof returnvalue.outputText).toBe('string');
+    expect((returnvalue.outputText ?? '').trim().length).toBeGreaterThan(0);
+  }, 180000);
+
+  it('相同 dedupKey 重复命中应复用原 jobId 与 actor 且不新增记录', async () => {
+    const now = Date.now();
+    const dedupKey = `e2e-real-qwen-generate-dedup-${now}`;
+    const firstTraceId = `e2e-real-qwen-generate-dedup-first-${now}`;
+    const secondTraceId = `e2e-real-qwen-generate-dedup-second-${now}`;
+    const model = (process.env.QWEN_GENERATE_MODEL ?? 'qwen-plus').trim();
+
+    const firstEnqueue = await queueAiGenerate({
+      app: apiApp,
+      token: managerToken,
+      provider: 'qwen',
+      model,
+      prompt: `请仅回复 REAL_QWEN_E2E_DEDUP_FIRST_${now}`,
+      dedupKey,
+      traceId: firstTraceId,
+      metadata: {
+        source: 'e2e-real-ai-generate',
+        purpose: 'smoke-dedup-first',
+      },
+    });
+    const secondEnqueue = await queueAiGenerate({
+      app: apiApp,
+      token: managerToken,
+      provider: 'qwen',
+      model,
+      prompt: `请仅回复 REAL_QWEN_E2E_DEDUP_SECOND_${now}`,
+      dedupKey,
+      traceId: secondTraceId,
+      metadata: {
+        source: 'e2e-real-ai-generate',
+        purpose: 'smoke-dedup-second',
+      },
+    });
+
+    expect(firstEnqueue.queued).toBe(true);
+    expect(secondEnqueue.queued).toBe(true);
+    expect(firstEnqueue.jobId).toBe(dedupKey);
+    expect(secondEnqueue.jobId).toBe(dedupKey);
+    expect(firstEnqueue.traceId).toBe(firstTraceId);
+    expect(secondEnqueue.traceId).toBe(firstTraceId);
+
+    const finalState = await waitJobFinalState({
+      queue: aiQueue,
+      jobId: dedupKey,
+      timeoutMs: 120000,
+      pollMs: 300,
+    });
+    const finalRecord = await waitAsyncTaskRecord({
+      dataSource,
+      queueName: BULLMQ_QUEUES.AI,
+      jobId: dedupKey,
+      timeoutMs: 30000,
+      pollMs: 300,
+      statuses: ['succeeded', 'failed'],
+    });
+    if (finalState.state === 'failed' || finalRecord.status === 'failed') {
+      assertFailureCategory({
+        failedReason: finalState.failedReason,
+        taskReason: finalRecord.reason,
+      });
+    }
+
+    expect(finalState.state).toBe('completed');
+    expect(finalRecord.status).toBe('succeeded');
+    expect(finalRecord.reason).toBe('worker_completed');
+    expect(finalRecord.bizType).toBe('ai_generation');
+    expect(finalRecord.traceId).toBe(firstTraceId);
+    expect(finalRecord.actorAccountId).toBe(managerAccountId);
+    expect(finalRecord.actorActiveRole).toBe(managerActiveRole);
+
+    const recordCount = await countAsyncTaskRecords({
+      dataSource,
+      queueName: BULLMQ_QUEUES.AI,
+      jobId: dedupKey,
+    });
+    expect(recordCount).toBe(1);
+  }, 180000);
+});
+
+REAL_AI_AUTH_FAIL_DESCRIBE('真实 Qwen generate 鉴权失败分类（受控 e2e）', () => {
+  let apiApp: INestApplication;
+  let workerApp: INestApplicationContext;
+  let workerRuntime: BullMqWorkerRuntime;
+  let aiQueue: Queue;
+  let dataSource: DataSource;
+  let managerToken: string;
+  let managerAccountId: number;
+  let managerActiveRole: string;
+  let originalQwenApiKey: string | undefined;
+
+  beforeAll(async () => {
+    if ((process.env.AI_PROVIDER_MODE ?? '').trim().toLowerCase() !== 'remote') {
+      throw new Error('RUN_REAL_AI_AUTH_FAIL_E2E=true 时必须设置 AI_PROVIDER_MODE=remote');
+    }
+    const authFailApiKey = (process.env.QWEN_AUTH_FAIL_API_KEY ?? '').trim();
+    if (!authFailApiKey) {
+      throw new Error('RUN_REAL_AI_AUTH_FAIL_E2E=true 时必须设置 QWEN_AUTH_FAIL_API_KEY');
+    }
+
+    originalQwenApiKey = process.env.QWEN_API_KEY;
+    process.env.QWEN_API_KEY = authFailApiKey;
+
+    initGraphQLSchema();
+    const apiModuleFixture: TestingModule = await Test.createTestingModule({
+      imports: [ApiModule],
+    }).compile();
+    apiApp = apiModuleFixture.createNestApplication();
+    await apiApp.init();
+
+    workerApp = await NestFactory.createApplicationContext(WorkerModule);
+    aiQueue = apiApp.get<Queue>(getQueueToken(BULLMQ_QUEUES.AI));
+    workerRuntime = workerApp.get(BullMqWorkerRuntime);
+    dataSource = apiApp.get(DataSource);
+    await workerRuntime.start();
+
+    await cleanupTestAccounts(dataSource);
+    await seedTestAccounts({ dataSource, includeKeys: ['manager'] });
+    managerToken = await login({
+      app: apiApp,
+      loginName: testAccountsConfig.manager.loginName,
+      loginPassword: testAccountsConfig.manager.loginPassword,
+      type: LoginTypeEnum.PASSWORD,
+    });
+    const tokenHelper = apiApp.get(TokenHelper);
+    const managerPayload = tokenHelper.decodeToken({ token: managerToken });
+    if (!managerPayload?.sub) {
+      throw new Error('无法从 manager token 获取 sub');
+    }
+    managerAccountId = managerPayload.sub;
+    managerActiveRole = String(managerPayload.activeRole ?? '');
+    if (!managerActiveRole) {
+      throw new Error('无法从 manager token 获取 activeRole');
+    }
+  }, 120000);
+
+  afterAll(async () => {
+    process.env.QWEN_API_KEY = originalQwenApiKey;
+    if (workerApp) {
+      await workerApp.close();
+    }
+    if (apiApp) {
+      await apiApp.close();
+    }
+  });
+
+  it('应落 failed 且归类为 ai_provider_auth_failed', async () => {
+    const now = Date.now();
+    const dedupKey = `e2e-real-qwen-auth-fail-${now}`;
+    const traceId = `e2e-real-qwen-auth-fail-trace-${now}`;
+    const model = (process.env.QWEN_GENERATE_MODEL ?? 'qwen-plus').trim();
+
+    const enqueue = await queueAiGenerate({
+      app: apiApp,
+      token: managerToken,
+      provider: 'qwen',
+      model,
+      prompt: `请仅回复 REAL_QWEN_E2E_AUTH_FAIL_${now}`,
+      dedupKey,
+      traceId,
+      metadata: {
+        source: 'e2e-real-ai-generate',
+        purpose: 'smoke-auth-fail',
+      },
+    });
+
+    expect(enqueue.queued).toBe(true);
+    expect(enqueue.jobId).toBe(dedupKey);
+
+    const finalState = await waitJobFinalState({
+      queue: aiQueue,
+      jobId: enqueue.jobId,
+      timeoutMs: 120000,
+      pollMs: 300,
+    });
+    const finalRecord = await waitAsyncTaskRecord({
+      dataSource,
+      queueName: BULLMQ_QUEUES.AI,
+      jobId: enqueue.jobId,
+      timeoutMs: 30000,
+      pollMs: 300,
+      statuses: ['failed', 'succeeded'],
+    });
+
+    expect(finalState.state).toBe('failed');
+    expect(finalRecord.status).toBe('failed');
+    expect(finalRecord.bizType).toBe('ai_generation');
+    expect(finalRecord.actorAccountId).toBe(managerAccountId);
+    expect(finalRecord.actorActiveRole).toBe(managerActiveRole);
+    expect(finalRecord.traceId).toBe(traceId);
+    expect(finalRecord.reason ?? '').toContain('ai_provider_auth_failed');
+    expect(finalState.failedReason ?? '').toContain('ai_provider_auth_failed');
+  }, 180000);
+});
