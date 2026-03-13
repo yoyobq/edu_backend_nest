@@ -1,21 +1,12 @@
 // src/modules/common/ai-worker/ai-worker.module.ts
-import { HttpModule } from '@nestjs/axios';
 import { Module } from '@nestjs/common';
+import { AiInfrastructureModule } from '@src/infrastructure/ai/ai-infrastructure.module';
 import { AiWorkerService } from './ai-worker.service';
 import { AiProviderRegistry } from './providers/ai-provider-registry';
-import { LocalMockAiProvider } from './providers/local/local-mock-ai.provider';
-import { OpenAiGenerateProvider } from './providers/openai/openai-generate.provider';
-import { QwenGenerateProvider } from './providers/qwen/qwen-generate.provider';
 
 @Module({
-  imports: [HttpModule],
-  providers: [
-    AiWorkerService,
-    AiProviderRegistry,
-    LocalMockAiProvider,
-    OpenAiGenerateProvider,
-    QwenGenerateProvider,
-  ],
+  imports: [AiInfrastructureModule],
+  providers: [AiWorkerService, AiProviderRegistry],
   exports: [AiWorkerService],
 })
 export class AiWorkerModule {}

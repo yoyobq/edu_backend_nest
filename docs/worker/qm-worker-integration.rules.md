@@ -65,9 +65,10 @@
   - 目录：`src/adapters/worker/<domain>/`
   - 参考：`src/adapters/worker/ai/ai-job.processor.ts`
 - Provider Registry / Third-party Client
-  - 目录：`src/modules/common/<worker-domain>/providers/`
+  - Registry 目录：`src/modules/common/<worker-domain>/providers/`
+  - Third-party Client 目录：`src/infrastructure/ai/providers/`
   - 参考：`src/modules/common/ai-worker/providers/ai-provider-registry.ts`
-  - 参考：`src/modules/common/ai-worker/providers/qwen/qwen-generate.provider.ts`
+  - 参考：`src/infrastructure/ai/providers/qwen/qwen-generate.provider.ts`
 - BullMQ 注册与 Contract
   - 目录：基础设施注册层
   - 参考：`src/infrastructure/bullmq/bullmq.constants.ts`

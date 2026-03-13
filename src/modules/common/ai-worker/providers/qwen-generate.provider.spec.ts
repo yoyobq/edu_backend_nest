@@ -2,10 +2,10 @@
 import { DomainError, THIRDPARTY_ERROR } from '@core/common/errors/domain-error';
 import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
+import { QwenGenerateProvider } from '@src/infrastructure/ai/providers/qwen/qwen-generate.provider';
 import axios from 'axios';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { AddressInfo } from 'node:net';
-import { QwenGenerateProvider } from './qwen/qwen-generate.provider';
 
 const createJsonServer = (
   handler: (req: IncomingMessage, res: ServerResponse) => void,

@@ -1,10 +1,10 @@
 // src/modules/common/ai-worker/providers/ai-provider-registry.spec.ts
 import { DomainError, THIRDPARTY_ERROR } from '@core/common/errors/domain-error';
 import { ConfigService } from '@nestjs/config';
+import { LocalMockAiProvider } from '@src/infrastructure/ai/providers/local/local-mock-ai.provider';
+import { OpenAiGenerateProvider } from '@src/infrastructure/ai/providers/openai/openai-generate.provider';
+import { QwenGenerateProvider } from '@src/infrastructure/ai/providers/qwen/qwen-generate.provider';
 import { AiProviderRegistry } from './ai-provider-registry';
-import { LocalMockAiProvider } from './local/local-mock-ai.provider';
-import { OpenAiGenerateProvider } from './openai/openai-generate.provider';
-import { QwenGenerateProvider } from './qwen/qwen-generate.provider';
 
 describe('AiProviderRegistry', () => {
   const buildRegistry = (input: { mode: string }) => {

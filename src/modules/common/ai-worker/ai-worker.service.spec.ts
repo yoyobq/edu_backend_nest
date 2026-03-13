@@ -1,8 +1,8 @@
 // src/modules/common/ai-worker/ai-worker.service.spec.ts
 import { DomainError, THIRDPARTY_ERROR } from '@core/common/errors/domain-error';
+import type { AiProviderClient } from '@core/ai/ai-provider.interface';
 import { AiWorkerService } from './ai-worker.service';
 import type { AiProviderRegistry } from './providers/ai-provider-registry';
-import type { AiProviderClient } from './providers/ai-provider-client';
 
 describe('AiWorkerService', () => {
   it('embed 应使用固定能力路由调用 registry', async () => {

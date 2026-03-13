@@ -2,10 +2,10 @@
 import { DomainError, THIRDPARTY_ERROR } from '@core/common/errors/domain-error';
 import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
+import { OpenAiGenerateProvider } from '@src/infrastructure/ai/providers/openai/openai-generate.provider';
 import axios from 'axios';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { AddressInfo } from 'node:net';
-import { OpenAiGenerateProvider } from './openai/openai-generate.provider';
 
 const createJsonServer = (
   handler: (req: IncomingMessage, res: ServerResponse) => void,
