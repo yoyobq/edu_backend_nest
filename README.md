@@ -30,7 +30,7 @@
 
 ## 项目简介
 
-项目面向账号体系、身份管理与验证流程等业务场景，提供统一鉴权、分页 / 排序 / 搜索与错误映射能力。它是一个脚手架，更是一套经过实践验证的领域驱动设计（DDD）轻量级落地实现。
+项目面向账号体系、身份管理与验证流程等业务场景，提供统一鉴权、分页 / 排序 / 搜索与错误映射能力，并内置基于 QM Worker 的 AI / Email 异步队列、任务审计与调试查询能力。它既是脚手架，也是一套经过实践验证的 DDD 轻量级落地实现。
 
 ## 技术栈
 
@@ -51,15 +51,33 @@
 ```text
 src/
 ├── adapters/                    # 入口适配层（GraphQL / HTTP）
+├── bootstraps/                  # 多入口启动层
+│   ├── api/
+│   │   ├── api.module.ts
+│   │   └── main.ts
+│   └── worker/
+│       ├── worker.module.ts
+│       └── main.ts
 ├── core/                        # 领域模型、纯规则、端口接口
 ├── infrastructure/              # 外部依赖实现（DB、配置、安全等）
 ├── modules/                     # 同域可复用服务（读写能力承载）
 ├── usecases/                    # 用例编排层（流程、事务、权限组合）
 ├── types/                       # 跨层共享类型
-├── app.module.ts
-├── main.ts
-└── schema.graphql
+└── schema.graphql               # GraphQL schema 生成目标（按配置）
 ```
+
+### 启动入口
+
+- API 入口：`src/bootstraps/api/main.ts` + `src/bootstraps/api/api.module.ts`
+- Worker 入口：`src/bootstraps/worker/main.ts` + `src/bootstraps/worker/worker.module.ts`
+
+### 双启动的设计理念
+
+- **职责隔离**：API 进程只处理请求接入与同步响应；Worker 进程只处理异步消费与重试。
+- **运行时策略隔离**：并发、退避、重试、队列监听等 Worker 策略不污染 API 请求链路。
+- **部署弹性**：可按流量独立扩缩容 API 与 Worker，避免互相抢占资源。
+- **故障隔离**：队列堆积或第三方抖动主要影响 Worker，不直接拖垮 API 对外可用性。
+- **边界清晰**：配合分层规则，形成“API 入队 -> Usecase 编排 -> Worker 消费”的稳定协作模型。
 
 ### 架构分层与依赖方向
 
@@ -88,6 +106,9 @@ src/
 - [Modules Rules](docs/common/modules.rules.md)
 - [Query Service Rules](docs/common/queryservice.rules.md)
 - [Infrastructure Rules](docs/common/infrastructure.rules.md)
+- [Queue Identifiers Rules](docs/common/queue-identifiers.rules.md)
+- [AI Task Lifecycle Audit Rules](docs/common/ai-task-lifecycle-audit.rules.md)
+- [QM Worker Integration Rules](docs/worker/qm-worker-integration.rules.md)
 
 ## 功能概览
 
@@ -97,6 +118,7 @@ src/
 - ✅ **Auth & Security**: JWT 鉴权、角色访问控制 (RBAC)、字段加密、安全签名
 - ✅ **Data Access**: 分页 / 排序 / 搜索通用能力、数据库事务支持
 - ✅ **Observability**: 结构化日志 (Pino)、配置管理
+- ✅ **QM Worker Base**: 统一 AI / Email 队列接入、消费链路与模块装配模式
 
 ### 业务域能力
 
@@ -104,6 +126,8 @@ src/
 - ✅ **Registration**: 邮箱注册流程 / 第三方快捷注册
 - ✅ **Identity Management**: 多角色管理 (Coach / Manager / Learner)
 - ✅ **Verification**: 验证码生成与验证流程（邀请、重置密码、绑定）
+- ✅ **AI Queue & Worker**: 支持 `queueAiGenerate` / `queueAiEmbed` 入队与 provider 路由消费
+- ✅ **Async Task Audit**: 支持按 `traceId` / 业务锚点 / 队列任务标识进行调试查询
 
 ## 快速开始
 
@@ -165,6 +189,8 @@ npm run test:e2e
 # 测试覆盖率
 npm run test:cov
 ```
+
+- 真实第三方受控 Smoke 单独放在 `test/99-third-party-live-smoke/`
 
 ### 开发约定
 
