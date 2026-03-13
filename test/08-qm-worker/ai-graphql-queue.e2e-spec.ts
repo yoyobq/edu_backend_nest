@@ -1445,6 +1445,59 @@ describe('AI GraphQL 队列入口与 Worker 联动（e2e）', () => {
     expect(generateCallsByPromptAfter - generateCallsByPromptBefore).toBe(1);
   }, 60000);
 
+  it('queueAiEmbed 入队到 Worker 完整联动应消费成功并保持 enqueue actor', async () => {
+    const timestamp = Date.now();
+    const dedupKey = `e2e-ai-graphql-embed-link-${timestamp}`;
+    const traceId = `e2e-ai-graphql-embed-link-trace-${timestamp}`;
+    const linkageText = 'ai graphql embed worker linkage __SLOW_MS_200__';
+    const embedCallsByTextBefore = aiWorkerMock.embedCalls.filter(
+      (call) => call.text === linkageText,
+    ).length;
+
+    const response = await queueAiEmbed({
+      app: apiApp,
+      token: managerToken,
+      provider: 'openai',
+      model: 'text-embedding-3-small',
+      text: linkageText,
+      dedupKey,
+      traceId,
+    });
+
+    expect(response.body.errors).toBeUndefined();
+    const data = parseQueueAiEmbedData(response);
+    expect(data.queued).toBe(true);
+    expect(data.jobId).toBe(dedupKey);
+    expect(data.traceId).toBe(traceId);
+
+    const finalState = await waitJobFinalState({
+      queue: aiQueue,
+      jobId: dedupKey,
+      timeoutMs: 20000,
+      pollMs: 150,
+    });
+    expect(finalState.state).toBe('completed');
+
+    const record = await waitAsyncTaskRecord({
+      dataSource,
+      queueName: BULLMQ_QUEUES.AI,
+      jobId: dedupKey,
+      statuses: ['succeeded'],
+      timeoutMs: 20000,
+      pollMs: 150,
+    });
+    expect(record.status).toBe('succeeded');
+    expect(record.reason).toBe('worker_completed');
+    expect(record.bizType).toBe('ai_embedding');
+    expect(record.bizKey).toBe(traceId);
+    expect(record.actorAccountId).toBe(managerAccountId);
+    expect(record.actorActiveRole).toBe(managerActiveRole);
+    const embedCallsByTextAfter = aiWorkerMock.embedCalls.filter(
+      (call) => call.text === linkageText,
+    ).length;
+    expect(embedCallsByTextAfter - embedCallsByTextBefore).toBe(1);
+  }, 60000);
+
   it('AI 调试开关关闭时访问调试查询应返回入口未启用错误', async () => {
     const previousAiDebugEnabled = process.env.AI_QUEUE_DEBUG_ENABLED;
     process.env.AI_QUEUE_DEBUG_ENABLED = 'false';
