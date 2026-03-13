@@ -1,6 +1,6 @@
 // src/adapters/api/graphql/ai/ai.resolver.ts
-import { JwtPayload } from '@app-types/jwt.types';
 import { ValidateInput } from '@adapters/api/graphql/common/validate-input.decorator';
+import { JwtPayload } from '@app-types/jwt.types';
 import {
   Args,
   Field,
@@ -11,13 +11,14 @@ import {
   Query,
   Resolver,
 } from '@nestjs/graphql';
-import { qmWorkerEntry } from '@src/adapters/api/graphql/decorators/qm-worker-entry.decorator';
 import { currentUser } from '@src/adapters/api/graphql/decorators/current-user.decorator';
+import { qmWorkerEntry } from '@src/adapters/api/graphql/decorators/qm-worker-entry.decorator';
 import { trimText } from '@src/core/common/text/text.helper';
-import { BULLMQ_QUEUES } from '@src/infrastructure/bullmq/bullmq.constants';
-import type { AsyncTaskRecordView } from '@src/modules/async-task-record/async-task-record.types';
 import { QueueAiUsecase } from '@src/usecases/ai-queue/queue-ai.usecase';
-import { GetAsyncTaskRecordByQueueJobUsecase } from '@src/usecases/async-task-record/get-async-task-record-by-queue-job.usecase';
+import {
+  GetAsyncTaskRecordByQueueJobUsecase,
+  type GetAsyncTaskRecordByQueueJobResult,
+} from '@src/usecases/async-task-record/get-async-task-record-by-queue-job.usecase';
 import { ListAsyncTaskRecordsByBizTargetUsecase } from '@src/usecases/async-task-record/list-async-task-records-by-biz-target.usecase';
 import { ListAsyncTaskRecordsByTraceIdUsecase } from '@src/usecases/async-task-record/list-async-task-records-by-trace-id.usecase';
 import { Transform, TransformFnParams } from 'class-transformer';
@@ -37,7 +38,7 @@ const normalizeOptionalString = (value: unknown): string | null | undefined => {
 };
 
 const AI_DEBUG_BIZ_TYPES = ['ai_generation', 'ai_embedding', 'ai_worker'] as const;
-const AI_DEBUG_QUEUE_NAME = BULLMQ_QUEUES.AI;
+const AI_DEBUG_QUEUE_NAME = 'ai';
 
 @ObjectType()
 class AsyncTaskRecordDebugType {
@@ -165,7 +166,7 @@ class DebugAsyncTaskRecordByQueueJobInput {
   @Transform(({ value }: TransformFnParams) => trimText(value))
   @IsString()
   @IsNotEmpty()
-  @IsIn([BULLMQ_QUEUES.AI])
+  @IsIn([AI_DEBUG_QUEUE_NAME])
   queueName!: string;
 
   @Field(() => String)
@@ -289,7 +290,9 @@ export class AiResolver {
     return this.toDebugType(record);
   }
 
-  private toDebugType(input: AsyncTaskRecordView): AsyncTaskRecordDebugType {
+  private toDebugType(
+    input: NonNullable<GetAsyncTaskRecordByQueueJobResult>,
+  ): AsyncTaskRecordDebugType {
     return {
       id: input.id,
       queueName: input.queueName,
