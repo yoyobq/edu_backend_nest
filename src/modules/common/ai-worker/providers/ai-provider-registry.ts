@@ -17,10 +17,27 @@ export class AiProviderRegistry {
   ) {}
 
   getGenerateProvider(name?: string): AiProviderClient {
+    return this.resolveProvider(name);
+  }
+
+  getEmbedProvider(name?: string): AiProviderClient {
+    return this.resolveProvider(name);
+  }
+
+  private isMockMode(): boolean {
+    const mode = this.configService.get<string>('aiWorker.providerMode', 'mock');
+    return mode.trim().toLowerCase() === 'mock';
+  }
+
+  private resolveProviderName(inputProvider?: string): string {
+    return inputProvider?.trim().toLowerCase() ?? '';
+  }
+
+  private resolveProvider(inputProvider?: string): AiProviderClient {
     if (this.isMockMode()) {
       return this.localMockProvider;
     }
-    const providerName = this.resolveProviderName(name);
+    const providerName = this.resolveProviderName(inputProvider);
     if (!providerName) {
       return this.localMockProvider;
     }
@@ -37,18 +54,5 @@ export class AiProviderRegistry {
       THIRDPARTY_ERROR.PROVIDER_NOT_SUPPORTED,
       `unsupported_ai_provider:${providerName}`,
     );
-  }
-
-  getEmbedProvider(): AiProviderClient {
-    return this.localMockProvider;
-  }
-
-  private isMockMode(): boolean {
-    const mode = this.configService.get<string>('aiWorker.providerMode', 'mock');
-    return mode.trim().toLowerCase() === 'mock';
-  }
-
-  private resolveProviderName(inputProvider?: string): string {
-    return inputProvider?.trim().toLowerCase() ?? '';
   }
 }

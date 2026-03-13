@@ -7,7 +7,7 @@ import {
   isRecord,
 } from './shared-payload-validators';
 
-export type AiProvider = 'openai' | 'qwen' | 'deepseek' | 'kimi';
+export type AiProvider = 'openai' | 'qwen';
 
 export interface AiGeneratePayload {
   readonly provider?: AiProvider;
@@ -37,7 +37,7 @@ export interface AiEmbedResult {
   readonly providerJobId: string;
 }
 
-const AI_PROVIDERS: ReadonlyArray<AiProvider> = ['openai', 'qwen', 'deepseek', 'kimi'];
+const AI_PROVIDERS: ReadonlyArray<AiProvider> = ['openai', 'qwen'];
 
 const isAiProvider = (value: string): value is AiProvider => {
   return AI_PROVIDERS.some((provider) => provider === value);

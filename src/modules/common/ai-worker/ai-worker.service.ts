@@ -25,7 +25,7 @@ export class AiWorkerService {
   }
 
   async embed(input: EmbedAiContentInput): Promise<EmbedAiContentResult> {
-    const provider = this.registry.getEmbedProvider();
+    const provider = this.registry.getEmbedProvider(input.provider);
     if (!provider.embed) {
       throw new DomainError(
         THIRDPARTY_ERROR.PROVIDER_NOT_SUPPORTED,

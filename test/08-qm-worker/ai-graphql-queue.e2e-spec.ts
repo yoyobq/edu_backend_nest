@@ -171,7 +171,7 @@ const queueAiGenerate = async (input: {
   readonly token?: string;
   readonly model: string;
   readonly prompt: string;
-  readonly provider?: 'openai' | 'qwen' | 'deepseek' | 'kimi';
+  readonly provider?: 'openai' | 'qwen';
   readonly metadata?: Record<string, string>;
   readonly dedupKey?: string;
   readonly traceId?: string;
@@ -202,7 +202,7 @@ const queueAiEmbed = async (input: {
   readonly token?: string;
   readonly model: string;
   readonly text: string;
-  readonly provider?: 'openai' | 'qwen' | 'deepseek' | 'kimi';
+  readonly provider?: 'openai' | 'qwen';
   readonly metadata?: Record<string, string>;
   readonly dedupKey?: string;
   readonly traceId?: string;

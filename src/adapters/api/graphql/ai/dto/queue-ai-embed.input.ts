@@ -13,8 +13,8 @@ import {
 } from 'class-validator';
 import GraphQLJSON from 'graphql-type-json';
 
-type AiProviderInput = 'openai' | 'qwen' | 'deepseek' | 'kimi';
-const AI_PROVIDERS: ReadonlyArray<AiProviderInput> = ['openai', 'qwen', 'deepseek', 'kimi'];
+type AiProviderInput = 'openai' | 'qwen';
+const AI_PROVIDERS: ReadonlyArray<AiProviderInput> = ['openai', 'qwen'];
 
 @InputType()
 export class QueueAiEmbedInput {
