@@ -222,10 +222,11 @@ REAL_AI_DESCRIBE('真实 Qwen generate 闭环（受控 e2e）', () => {
 
   it('应完成 queueAiGenerate 到 worker_completed 的真实 qwen 闭环', async () => {
     const now = Date.now();
+    const marker = `REAL_QWEN_E2E_${now}`;
     const dedupKey = `e2e-real-qwen-generate-${now}`;
     const traceId = `e2e-real-qwen-generate-trace-${now}`;
     const model = (process.env.QWEN_GENERATE_MODEL ?? 'qwen-plus').trim();
-    const prompt = `请仅回复 REAL_QWEN_E2E_${now}`;
+    const prompt = `请仅回复 ${marker}`;
 
     const enqueue = await queueAiGenerate({
       app: apiApp,
@@ -281,11 +282,13 @@ REAL_AI_DESCRIBE('真实 Qwen generate 闭环（受控 e2e）', () => {
       readonly providerJobId?: string;
       readonly outputText?: string;
     };
+    const providerJobId = (returnvalue.providerJobId ?? '').trim();
+    const outputText = (returnvalue.outputText ?? '').trim();
     expect(returnvalue.accepted).toBe(true);
-    expect(typeof returnvalue.providerJobId).toBe('string');
-    expect((returnvalue.providerJobId ?? '').trim().length).toBeGreaterThan(0);
-    expect(typeof returnvalue.outputText).toBe('string');
-    expect((returnvalue.outputText ?? '').trim().length).toBeGreaterThan(0);
+    expect(providerJobId.startsWith('qwen:')).toBe(true);
+    expect(outputText.length).toBeGreaterThan(0);
+    expect(outputText).not.toBe('[empty_output]');
+    expect(outputText).toContain(marker);
   }, 180000);
 
   it('相同 dedupKey 重复命中应复用原 jobId 与 actor 且不新增记录', async () => {
