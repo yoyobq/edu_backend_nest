@@ -25,6 +25,7 @@
 ## 本轮审计字段
 
 - 标识字段：queueName、jobName、jobId、traceId、dedupKey
+- actor 字段：actorAccountId、actorActiveRole
 - 业务锚点：bizType、bizKey
 - 生命周期字段：status、attemptCount、maxAttempts
 - 时间字段：occurredAt、enqueuedAt、startedAt、finishedAt
@@ -40,6 +41,10 @@
 - AI 正常链路 source：
   - API 入队写 user_action
   - Worker 生命周期写 system
+- actor 边界语义：
+  - actor 只在 API 入队侧写入（含入队成功与入队失败路径）。
+  - Worker 生命周期事件不覆盖 actor。
+  - 重复命中已有任务时不重写 actor，沿用已有记录。
 - reason 必须是可检索、可读的稳定语义，不依赖日志上下文。
 
 ## AI 任务类型
@@ -65,7 +70,7 @@
 
 - 重复命中不是新的写库事件。
 - 仅返回已有任务真实 jobId / traceId。
-- 记录字段全部沿用已有记录，不新增记录，不重写已有 status / reason / source / occurredAt / enqueuedAt / startedAt / finishedAt。
+- 记录字段全部沿用已有记录，不新增记录，不重写已有 status / reason / source / actorAccountId / actorActiveRole / occurredAt / enqueuedAt / startedAt / finishedAt。
 
 ## 时间字段规则
 
