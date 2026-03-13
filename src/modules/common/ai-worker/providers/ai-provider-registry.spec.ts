@@ -2,9 +2,9 @@
 import { DomainError, THIRDPARTY_ERROR } from '@core/common/errors/domain-error';
 import { ConfigService } from '@nestjs/config';
 import { AiProviderRegistry } from './ai-provider-registry';
-import { LocalMockAiProvider } from './local-mock-ai.provider';
-import { OpenAiGenerateProvider } from './openai-generate.provider';
-import { QwenGenerateProvider } from './qwen-generate.provider';
+import { LocalMockAiProvider } from './local/local-mock-ai.provider';
+import { OpenAiGenerateProvider } from './openai/openai-generate.provider';
+import { QwenGenerateProvider } from './qwen/qwen-generate.provider';
 
 describe('AiProviderRegistry', () => {
   const buildRegistry = (input: { mode: string }) => {

@@ -1,12 +1,12 @@
-// src/modules/common/ai-worker/providers/openai-generate.provider.ts
+// src/modules/common/ai-worker/providers/openai/openai-generate.provider.ts
 import { DomainError, THIRDPARTY_ERROR } from '@core/common/errors/domain-error';
 import { HttpService } from '@nestjs/axios';
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createHash } from 'node:crypto';
 import axios from 'axios';
-import type { AiProviderClient } from './ai-provider-client';
-import type { GenerateAiContentInput, GenerateAiContentResult } from '../ai-worker.types';
+import type { AiProviderClient } from '../ai-provider-client';
+import type { GenerateAiContentInput, GenerateAiContentResult } from '../../ai-worker.types';
 
 interface OpenAiChatCompletionResponse {
   readonly id?: string;

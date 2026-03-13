@@ -5,7 +5,7 @@ import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { AddressInfo } from 'node:net';
-import { OpenAiGenerateProvider } from './openai-generate.provider';
+import { OpenAiGenerateProvider } from './openai/openai-generate.provider';
 
 const createJsonServer = (
   handler: (req: IncomingMessage, res: ServerResponse) => void,

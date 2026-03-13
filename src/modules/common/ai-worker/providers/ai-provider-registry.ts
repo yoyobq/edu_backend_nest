@@ -3,9 +3,9 @@ import { DomainError, THIRDPARTY_ERROR } from '@core/common/errors/domain-error'
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { AiProviderClient } from './ai-provider-client';
-import { LocalMockAiProvider } from './local-mock-ai.provider';
-import { OpenAiGenerateProvider } from './openai-generate.provider';
-import { QwenGenerateProvider } from './qwen-generate.provider';
+import { LocalMockAiProvider } from './local/local-mock-ai.provider';
+import { OpenAiGenerateProvider } from './openai/openai-generate.provider';
+import { QwenGenerateProvider } from './qwen/qwen-generate.provider';
 
 @Injectable()
 export class AiProviderRegistry {

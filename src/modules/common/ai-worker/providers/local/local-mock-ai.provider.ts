@@ -1,13 +1,13 @@
-// src/modules/common/ai-worker/providers/local-mock-ai.provider.ts
+// src/modules/common/ai-worker/providers/local/local-mock-ai.provider.ts
 import { Injectable } from '@nestjs/common';
 import { createHash } from 'node:crypto';
-import type { AiProviderClient } from './ai-provider-client';
+import type { AiProviderClient } from '../ai-provider-client';
 import type {
   EmbedAiContentInput,
   EmbedAiContentResult,
   GenerateAiContentInput,
   GenerateAiContentResult,
-} from '../ai-worker.types';
+} from '../../ai-worker.types';
 
 @Injectable()
 export class LocalMockAiProvider implements AiProviderClient {

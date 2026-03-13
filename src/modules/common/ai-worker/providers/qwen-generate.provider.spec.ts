@@ -5,7 +5,7 @@ import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { AddressInfo } from 'node:net';
-import { QwenGenerateProvider } from './qwen-generate.provider';
+import { QwenGenerateProvider } from './qwen/qwen-generate.provider';
 
 const createJsonServer = (
   handler: (req: IncomingMessage, res: ServerResponse) => void,

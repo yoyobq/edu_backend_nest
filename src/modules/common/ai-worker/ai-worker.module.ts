@@ -3,9 +3,9 @@ import { HttpModule } from '@nestjs/axios';
 import { Module } from '@nestjs/common';
 import { AiWorkerService } from './ai-worker.service';
 import { AiProviderRegistry } from './providers/ai-provider-registry';
-import { LocalMockAiProvider } from './providers/local-mock-ai.provider';
-import { OpenAiGenerateProvider } from './providers/openai-generate.provider';
-import { QwenGenerateProvider } from './providers/qwen-generate.provider';
+import { LocalMockAiProvider } from './providers/local/local-mock-ai.provider';
+import { OpenAiGenerateProvider } from './providers/openai/openai-generate.provider';
+import { QwenGenerateProvider } from './providers/qwen/qwen-generate.provider';
 
 @Module({
   imports: [HttpModule],
