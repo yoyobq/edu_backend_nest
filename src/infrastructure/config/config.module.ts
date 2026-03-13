@@ -236,6 +236,22 @@ const qmWorkerEntryConfig: ConfigFactory = () => ({
   },
 });
 
+const aiWorkerConfig: ConfigFactory = () => ({
+  aiWorker: {
+    providerMode: process.env.AI_PROVIDER_MODE || 'mock',
+    qwen: {
+      baseUrl: process.env.QWEN_BASE_URL || '',
+      apiKey: process.env.QWEN_API_KEY || '',
+      generateTimeoutMs: parseInt(process.env.QWEN_GENERATE_TIMEOUT_MS || '30000', 10),
+    },
+    openai: {
+      baseUrl: process.env.OPENAI_BASE_URL || '',
+      apiKey: process.env.OPENAI_API_KEY || '',
+      generateTimeoutMs: parseInt(process.env.OPENAI_GENERATE_TIMEOUT_MS || '30000', 10),
+    },
+  },
+});
+
 /**
  * 生成 JWT 配置
  */
@@ -285,6 +301,7 @@ const paginationConfig = () => ({
         redisConfig,
         bullmqConfig,
         qmWorkerEntryConfig,
+        aiWorkerConfig,
         jwtConfig,
         paginationConfig,
       ],
