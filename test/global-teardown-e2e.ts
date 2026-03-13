@@ -77,6 +77,10 @@ const flushRedisE2EDb = async (): Promise<void> => {
     console.log('📝 未找到 E2E env 文件，跳过 Redis FLUSHDB');
     return;
   }
+  if (path.basename(loadedEnvFile) !== '.env.e2e') {
+    console.log(`🛡️ env 文件名不是 .env.e2e（当前: ${loadedEnvFile}），跳过 Redis FLUSHDB`);
+    return;
+  }
   const redisOptions = buildRedisOptions();
   const client = new Redis(redisOptions);
   try {
@@ -109,6 +113,6 @@ export default async (): Promise<void> => {
     // ⚠️ 不要强制 process.exit(0)，否则可能掩盖资源泄漏
   } catch (error) {
     console.error('❌ E2E 测试环境清理失败:', error);
-    // 不向外抛，让测试正常结束
+    throw error;
   }
 };

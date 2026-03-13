@@ -1,4 +1,5 @@
 import { LoginTypeEnum } from '@app-types/models/account.types';
+import { DomainError, THIRDPARTY_ERROR } from '@core/common/errors/domain-error';
 import { getQueueToken } from '@nestjs/bullmq';
 import { INestApplication, INestApplicationContext } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
@@ -31,6 +32,14 @@ const HAS_QWEN_AUTH_FAIL_API_KEY = (process.env.QWEN_AUTH_FAIL_API_KEY ?? '').tr
 const HAS_REQUIRED_QWEN_AUTH_FAIL_CONFIG = HAS_QWEN_BASE_URL && HAS_QWEN_AUTH_FAIL_API_KEY;
 const REAL_AI_AUTH_FAIL_DESCRIBE =
   SHOULD_RUN_REAL_AI_AUTH_FAIL && HAS_REQUIRED_QWEN_AUTH_FAIL_CONFIG ? describe : describe.skip;
+
+const resolveRequiredEnv = (key: string): string => {
+  const value = (process.env[key] ?? '').trim();
+  if (!value) {
+    throw new DomainError(THIRDPARTY_ERROR.INVALID_PARAMS, `${key} is required`);
+  }
+  return value;
+};
 
 const QUEUE_AI_GENERATE_MUTATION = `
   mutation QueueAiGenerate($input: QueueAiGenerateInput!) {
@@ -224,7 +233,7 @@ REAL_AI_DESCRIBE('真实 Qwen generate 闭环（受控 e2e）', () => {
     const marker = `REAL_QWEN_E2E_${now}`;
     const dedupKey = `e2e-real-qwen-generate-${now}`;
     const traceId = `e2e-real-qwen-generate-trace-${now}`;
-    const model = (process.env.QWEN_GENERATE_MODEL ?? 'qwen-plus').trim();
+    const model = resolveRequiredEnv('QWEN_GENERATE_MODEL');
     const prompt = `请仅回复 ${marker}`;
 
     const enqueue = await queueAiGenerate({
@@ -295,7 +304,7 @@ REAL_AI_DESCRIBE('真实 Qwen generate 闭环（受控 e2e）', () => {
     const dedupKey = `e2e-real-qwen-generate-dedup-${now}`;
     const firstTraceId = `e2e-real-qwen-generate-dedup-first-${now}`;
     const secondTraceId = `e2e-real-qwen-generate-dedup-second-${now}`;
-    const model = (process.env.QWEN_GENERATE_MODEL ?? 'qwen-plus').trim();
+    const model = resolveRequiredEnv('QWEN_GENERATE_MODEL');
 
     const firstEnqueue = await queueAiGenerate({
       app: apiApp,
@@ -439,7 +448,7 @@ REAL_AI_AUTH_FAIL_DESCRIBE('真实 Qwen generate 鉴权失败分类（受控 e2e
     const now = Date.now();
     const dedupKey = `e2e-real-qwen-auth-fail-${now}`;
     const traceId = `e2e-real-qwen-auth-fail-trace-${now}`;
-    const model = (process.env.QWEN_GENERATE_MODEL ?? 'qwen-plus').trim();
+    const model = resolveRequiredEnv('QWEN_GENERATE_MODEL');
 
     const enqueue = await queueAiGenerate({
       app: apiApp,
