@@ -62,6 +62,8 @@ const DEBUG_QUERY_BY_TRACE_ID = `
         jobName
         jobId
         traceId
+        actorAccountId
+        actorActiveRole
         bizType
         bizKey
         bizSubKey
@@ -101,6 +103,8 @@ const DEBUG_QUERY_BY_QUEUE_JOB = `
       jobName
       jobId
       traceId
+      actorAccountId
+      actorActiveRole
       bizType
       bizKey
       bizSubKey
@@ -418,6 +422,8 @@ describe('AI GraphQL 队列入口与 Worker 联动（e2e）', () => {
   let managerAccountId: number;
   let managerActiveRole: string;
   let adminToken: string;
+  let adminAccountId: number;
+  let adminActiveRole: string;
   let coachToken: string;
   let aiWorkerMock: MockAiWorkerService;
 
@@ -468,6 +474,15 @@ describe('AI GraphQL 队列入口与 Worker 联动（e2e）', () => {
       loginPassword: testAccountsConfig.admin.loginPassword,
       type: LoginTypeEnum.PASSWORD,
     });
+    const adminPayload = tokenHelper.decodeToken({ token: adminToken });
+    if (!adminPayload?.sub) {
+      throw new Error('无法从 admin token 获取 sub');
+    }
+    adminAccountId = adminPayload.sub;
+    adminActiveRole = String(adminPayload.activeRole ?? '');
+    if (!adminActiveRole) {
+      throw new Error('无法从 admin token 获取 activeRole');
+    }
     coachToken = await login({
       app: apiApp,
       loginName: testAccountsConfig.coach.loginName,
@@ -553,7 +568,7 @@ describe('AI GraphQL 队列入口与 Worker 联动（e2e）', () => {
       });
       const secondResponse = await queueAiGenerate({
         app: apiApp,
-        token: managerToken,
+        token: adminToken,
         provider: 'openai',
         model: 'gpt-4o-mini',
         prompt: 'ai graphql dedup second',
@@ -584,6 +599,8 @@ describe('AI GraphQL 队列入口与 Worker 联动（e2e）', () => {
       expect(record.reason).toBe('enqueue_accepted');
       expect(record.actorAccountId).toBe(managerAccountId);
       expect(record.actorActiveRole).toBe(managerActiveRole);
+      expect(record.actorAccountId).not.toBe(adminAccountId);
+      expect(record.actorActiveRole).not.toBe(adminActiveRole);
 
       const count = await countAsyncTaskRecords({
         dataSource,
@@ -845,7 +862,7 @@ describe('AI GraphQL 队列入口与 Worker 联动（e2e）', () => {
       });
       const secondResponse = await queueAiEmbed({
         app: apiApp,
-        token: managerToken,
+        token: adminToken,
         provider: 'openai',
         model: 'text-embedding-3-small',
         text: 'ai graphql embed dedup second',
@@ -876,6 +893,10 @@ describe('AI GraphQL 队列入口与 Worker 联动（e2e）', () => {
       expect(record.reason).toBe('enqueue_accepted');
       expect(record.jobName).toBe(BULLMQ_JOBS.AI.EMBED);
       expect(record.bizType).toBe('ai_embedding');
+      expect(record.actorAccountId).toBe(managerAccountId);
+      expect(record.actorActiveRole).toBe(managerActiveRole);
+      expect(record.actorAccountId).not.toBe(adminAccountId);
+      expect(record.actorActiveRole).not.toBe(adminActiveRole);
 
       const count = await countAsyncTaskRecords({
         dataSource,
@@ -973,6 +994,8 @@ describe('AI GraphQL 队列入口与 Worker 联动（e2e）', () => {
       expect(record.bizType).toBe('ai_embedding');
       expect(record.bizKey).toBe(failedTraceId);
       expect(record.source).toBe('user_action');
+      expect(record.actorAccountId).toBe(managerAccountId);
+      expect(record.actorActiveRole).toBe(managerActiveRole);
       const failedReason = record.reason ?? '';
       expect(failedReason.startsWith('enqueue_failed:')).toBe(true);
       expect(failedReason).toContain('dedup_job_name_conflict');
@@ -1075,6 +1098,8 @@ describe('AI GraphQL 队列入口与 Worker 联动（e2e）', () => {
           jobName: BULLMQ_JOBS.AI.GENERATE,
           jobId: `e2e-debug-trace-job-1-${suffix}`,
           traceId,
+          actorAccountId: managerAccountId,
+          actorActiveRole: managerActiveRole,
           bizType: 'ai_worker',
           bizKey,
           bizSubKey: 'node-a',
@@ -1093,6 +1118,8 @@ describe('AI GraphQL 队列入口与 Worker 联动（e2e）', () => {
           jobName: BULLMQ_JOBS.AI.GENERATE,
           jobId: `e2e-debug-trace-job-2-${suffix}`,
           traceId,
+          actorAccountId: managerAccountId,
+          actorActiveRole: managerActiveRole,
           bizType: 'ai_worker',
           bizKey,
           bizSubKey: 'node-b',
@@ -1111,6 +1138,8 @@ describe('AI GraphQL 队列入口与 Worker 联动（e2e）', () => {
           jobName: BULLMQ_JOBS.AI.GENERATE,
           jobId: `e2e-debug-trace-job-3-${suffix}`,
           traceId,
+          actorAccountId: managerAccountId,
+          actorActiveRole: managerActiveRole,
           bizType: 'ai_worker',
           bizKey,
           bizSubKey: 'node-c',
@@ -1139,6 +1168,8 @@ describe('AI GraphQL 队列入口与 Worker 联动（e2e）', () => {
               items?: Array<{
                 id: number;
                 traceId: string;
+                actorAccountId: number | null;
+                actorActiveRole: string | null;
                 occurredAt: string | null;
                 dedupKey: string | null;
               }>;
@@ -1154,6 +1185,8 @@ describe('AI GraphQL 队列入口与 Worker 联动（e2e）', () => {
       expect(filtered[2]?.id).toBe(first.id);
       expect(filtered[0]?.occurredAt).toBe(occurredAt.toISOString());
       expect(filtered[0]?.dedupKey).toBe(dedupKey);
+      expect(filtered[0]?.actorAccountId).toBe(managerAccountId);
+      expect(filtered[0]?.actorActiveRole).toBe(managerActiveRole);
     });
 
     it('按 bizType + bizKey 可查到同业务对象多条记录', async () => {
@@ -1247,6 +1280,8 @@ describe('AI GraphQL 队列入口与 Worker 联动（e2e）', () => {
           jobName: BULLMQ_JOBS.AI.GENERATE,
           jobId,
           traceId,
+          actorAccountId: managerAccountId,
+          actorActiveRole: managerActiveRole,
           bizType: 'ai_worker',
           bizKey: traceId,
           source: 'system',
@@ -1275,6 +1310,8 @@ describe('AI GraphQL 队列入口与 Worker 联动（e2e）', () => {
               queueName: string;
               jobId: string;
               traceId: string;
+              actorAccountId: number | null;
+              actorActiveRole: string | null;
               occurredAt: string | null;
               dedupKey: string | null;
             };
@@ -1285,6 +1322,8 @@ describe('AI GraphQL 队列入口与 Worker 联动（e2e）', () => {
       expect(record?.queueName).toBe(BULLMQ_QUEUES.AI);
       expect(record?.jobId).toBe(jobId);
       expect(record?.traceId).toBe(traceId);
+      expect(record?.actorAccountId).toBe(managerAccountId);
+      expect(record?.actorActiveRole).toBe(managerActiveRole);
       expect(record?.occurredAt).toBe(occurredAt.toISOString());
       expect(record?.dedupKey).toBe(dedupKey);
     });

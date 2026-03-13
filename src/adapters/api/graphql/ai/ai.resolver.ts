@@ -56,6 +56,12 @@ class AsyncTaskRecordDebugType {
   @Field(() => String)
   traceId!: string;
 
+  @Field(() => Int, { nullable: true })
+  actorAccountId!: number | null;
+
+  @Field(() => String, { nullable: true })
+  actorActiveRole!: string | null;
+
   @Field(() => String)
   bizType!: string;
 
@@ -291,6 +297,8 @@ export class AiResolver {
       jobName: input.jobName,
       jobId: input.jobId,
       traceId: input.traceId,
+      actorAccountId: input.actorAccountId,
+      actorActiveRole: input.actorActiveRole,
       bizType: input.bizType,
       bizKey: input.bizKey,
       bizSubKey: input.bizSubKey,
