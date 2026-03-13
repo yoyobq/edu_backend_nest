@@ -9,7 +9,7 @@ import {
   DecideLoginRoleOutput,
   IDecideLoginRoleUsecase,
   LoginRoleDecisionAudit,
-} from '../../types/auth/login-flow.types';
+} from '@app-types/auth/login-flow.types';
 
 /**
  * 登录角色决策用例

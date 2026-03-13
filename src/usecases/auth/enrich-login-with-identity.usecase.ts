@@ -1,6 +1,11 @@
 // src/usecases/auth/enrich-login-with-identity.usecase.ts
 
-import { LoginWarningType } from '@app-types/auth/login-flow.types';
+import {
+  EnrichedLoginResult,
+  EnrichLoginWithIdentityInput,
+  IEnrichLoginWithIdentityUsecase,
+  LoginWarningType,
+} from '@app-types/auth/login-flow.types';
 import { EmploymentStatus, IdentityTypeEnum } from '@app-types/models/account.types';
 import { Gender } from '@app-types/models/user-info.types';
 import { parseStaffId } from '@core/account/identity/parse-staff-id';
@@ -8,12 +13,6 @@ import { LoginResultQueryService } from '@modules/auth/queries/login-result.quer
 import { Injectable } from '@nestjs/common';
 import { AccountService } from '@src/modules/account/base/services/account.service';
 import { PinoLogger } from 'nestjs-pino';
-import {
-  EnrichedLoginResult,
-  EnrichLoginWithIdentityInput,
-  IEnrichLoginWithIdentityUsecase,
-} from '../../types/auth/login-flow.types';
-
 type StaffIdentity = {
   id: number;
   accountId: number;
