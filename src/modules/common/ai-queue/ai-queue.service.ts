@@ -47,7 +47,6 @@ export class AiQueueService {
       queueName: BULLMQ_QUEUES.AI,
       jobName: BULLMQ_JOBS.AI.EMBED,
       payload: {
-        provider: input.provider,
         model: input.model,
         text: input.text,
         metadata: input.metadata,
@@ -58,7 +57,6 @@ export class AiQueueService {
     this.logger.info(
       {
         model: input.model,
-        provider: input.provider,
         jobId: job.jobId,
         traceId: job.traceId,
       },

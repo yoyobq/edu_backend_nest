@@ -202,7 +202,6 @@ const queueAiEmbed = async (input: {
   readonly token?: string;
   readonly model: string;
   readonly text: string;
-  readonly provider?: 'openai' | 'qwen';
   readonly metadata?: Record<string, string>;
   readonly dedupKey?: string;
   readonly traceId?: string;
@@ -213,7 +212,6 @@ const queueAiEmbed = async (input: {
       query: QUEUE_AI_EMBED_MUTATION,
       variables: {
         input: {
-          provider: input.provider,
           model: input.model,
           text: input.text,
           metadata: input.metadata,
@@ -809,7 +807,6 @@ describe('AI GraphQL 队列入口与 Worker 联动（e2e）', () => {
       const response = await queueAiEmbed({
         app: apiApp,
         token: managerToken,
-        provider: 'openai',
         model: 'text-embedding-3-small',
         text: 'ai graphql embed semantic assert',
         dedupKey,
@@ -854,7 +851,6 @@ describe('AI GraphQL 队列入口与 Worker 联动（e2e）', () => {
       const firstResponse = await queueAiEmbed({
         app: apiApp,
         token: managerToken,
-        provider: 'openai',
         model: 'text-embedding-3-small',
         text: 'ai graphql embed dedup first',
         dedupKey,
@@ -863,7 +859,6 @@ describe('AI GraphQL 队列入口与 Worker 联动（e2e）', () => {
       const secondResponse = await queueAiEmbed({
         app: apiApp,
         token: adminToken,
-        provider: 'openai',
         model: 'text-embedding-3-small',
         text: 'ai graphql embed dedup second',
         dedupKey,
@@ -913,7 +908,6 @@ describe('AI GraphQL 队列入口与 Worker 联动（e2e）', () => {
     const response = await queueAiEmbed({
       app: apiApp,
       token: managerToken,
-      provider: 'openai',
       model: 'text-embedding-3-small',
       text: 'embed auto identifiers',
       metadata: { scene: 'embed-auto-identifiers' },
@@ -969,7 +963,6 @@ describe('AI GraphQL 队列入口与 Worker 联动（e2e）', () => {
       const response = await queueAiEmbed({
         app: apiApp,
         token: managerToken,
-        provider: 'openai',
         model: 'text-embedding-3-small',
         text: 'should hit embed dedup job conflict',
         dedupKey,
@@ -1081,6 +1074,26 @@ describe('AI GraphQL 队列入口与 Worker 联动（e2e）', () => {
       expect(errors[0]?.message ?? '').toMatch(
         /不能为空|must be one of|should not be empty|Validation failed|校验|validation/i,
       );
+    });
+
+    it('queueAiEmbed 显式传 provider 字段应在入口被拒绝', async () => {
+      const response = await request(apiApp.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', `Bearer ${managerToken}`)
+        .send({
+          query: QUEUE_AI_EMBED_MUTATION,
+          variables: {
+            input: {
+              provider: 'openai',
+              model: 'text-embedding-3-small',
+              text: 'explicit provider should be rejected',
+            },
+          },
+        })
+        .expect(400);
+      const errors = (response.body as { errors?: Array<{ message?: string }> }).errors ?? [];
+      expect(errors.length).toBeGreaterThan(0);
+      expect(errors[0]?.message ?? '').toContain('Field "provider" is not defined by type');
     });
   });
 
@@ -1457,7 +1470,6 @@ describe('AI GraphQL 队列入口与 Worker 联动（e2e）', () => {
     const response = await queueAiEmbed({
       app: apiApp,
       token: managerToken,
-      provider: 'openai',
       model: 'text-embedding-3-small',
       text: linkageText,
       dedupKey,

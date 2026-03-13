@@ -216,7 +216,6 @@ export class AiResolver {
     @currentUser() user: JwtPayload,
   ): Promise<QueueAiResult> {
     const result = await this.queueAiUsecase.executeEmbed({
-      provider: input.provider,
       model: input.model,
       text: input.text,
       metadata: input.metadata,

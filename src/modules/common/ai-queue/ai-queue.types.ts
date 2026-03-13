@@ -11,7 +11,6 @@ export interface QueueAiGenerateInput {
 }
 
 export interface QueueAiEmbedInput {
-  readonly provider?: AiProvider;
   readonly model: string;
   readonly text: string;
   readonly metadata?: Readonly<Record<string, string>>;

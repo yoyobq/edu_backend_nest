@@ -2,30 +2,11 @@
 import { trimText } from '@core/common/text/text.helper';
 import { Field, InputType } from '@nestjs/graphql';
 import { Transform, TransformFnParams } from 'class-transformer';
-import {
-  IsIn,
-  IsNotEmpty,
-  IsObject,
-  IsOptional,
-  IsString,
-  MaxLength,
-  ValidateIf,
-} from 'class-validator';
+import { IsNotEmpty, IsObject, IsOptional, IsString, MaxLength, ValidateIf } from 'class-validator';
 import GraphQLJSON from 'graphql-type-json';
-
-type AiProviderInput = 'openai' | 'qwen';
-const AI_PROVIDERS: ReadonlyArray<AiProviderInput> = ['openai', 'qwen'];
 
 @InputType()
 export class QueueAiEmbedInput {
-  @Field(() => String, { nullable: true, description: 'AI 提供方' })
-  @IsOptional()
-  @Transform(({ value }: TransformFnParams) => trimText(value))
-  @IsString({ message: 'AI 提供方必须是字符串' })
-  @IsIn(AI_PROVIDERS, { message: 'AI 提供方不在允许范围内' })
-  @MaxLength(32, { message: 'AI 提供方长度不能超过 32 个字符' })
-  provider?: AiProviderInput;
-
   @Field(() => String, { description: '模型名称' })
   @Transform(({ value }: TransformFnParams) => trimText(value))
   @IsString({ message: '模型名称必须是字符串' })

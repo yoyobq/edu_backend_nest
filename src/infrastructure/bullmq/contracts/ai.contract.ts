@@ -24,7 +24,6 @@ export interface AiGenerateResult {
 }
 
 export interface AiEmbedPayload {
-  readonly provider?: AiProvider;
   readonly model: string;
   readonly text: string;
   readonly metadata?: Readonly<Record<string, string>>;
@@ -67,7 +66,7 @@ const isAiGeneratePayload = (payload: unknown): payload is AiGeneratePayload => 
 const isAiEmbedPayload = (payload: unknown): payload is AiEmbedPayload => {
   if (!isRecord(payload)) return false;
   return (
-    isOptionalAiProvider(payload.provider) &&
+    payload.provider === undefined &&
     isNonEmptyString(payload.model) &&
     isNonEmptyString(payload.text) &&
     isOptionalRecordOfString(payload.metadata) &&

@@ -28,7 +28,6 @@ export interface AiGenerateResult {
 }
 
 export interface AiEmbedPayload {
-  readonly provider?: string;
   readonly model: string;
   readonly text: string;
   readonly metadata?: Readonly<Record<string, string>>;

@@ -131,7 +131,6 @@ const enqueueAiEmbed = async (input: {
   await input.queue.add(
     BULLMQ_JOBS.AI.EMBED,
     {
-      provider: 'openai',
       model: 'text-embedding-3-small',
       text: input.text,
       traceId,
@@ -755,7 +754,6 @@ describe('AI Worker（e2e）', () => {
         dedupKey,
         traceId: `ai-cross-job-embed-trace-${timestamp}`,
         payload: {
-          provider: 'openai',
           model: 'text-embedding-3-small',
           text: 'cross job dedup embed',
           metadata: {
