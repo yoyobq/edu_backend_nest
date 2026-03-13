@@ -1,4 +1,5 @@
 // src/adapters/api/graphql/ai/ai.resolver.ts
+import { JwtPayload } from '@app-types/jwt.types';
 import { ValidateInput } from '@adapters/api/graphql/common/validate-input.decorator';
 import { UseGuards } from '@nestjs/common';
 import {
@@ -12,6 +13,7 @@ import {
   Resolver,
 } from '@nestjs/graphql';
 import { qmWorkerEntry } from '@src/adapters/api/graphql/decorators/qm-worker-entry.decorator';
+import { currentUser } from '@src/adapters/api/graphql/decorators/current-user.decorator';
 import { Roles } from '@src/adapters/api/graphql/decorators/roles.decorator';
 import { JwtAuthGuard } from '@src/adapters/api/graphql/guards/jwt-auth.guard';
 import { RolesGuard } from '@src/adapters/api/graphql/guards/roles.guard';
@@ -183,7 +185,10 @@ export class AiResolver {
   @qmWorkerEntry('AI_STRICT')
   @Mutation(() => QueueAiResult, { description: '将 AI 生成请求加入队列' })
   @ValidateInput()
-  async queueAiGenerate(@Args('input') input: QueueAiGenerateInput): Promise<QueueAiResult> {
+  async queueAiGenerate(
+    @Args('input') input: QueueAiGenerateInput,
+    @currentUser() user: JwtPayload,
+  ): Promise<QueueAiResult> {
     const result = await this.queueAiUsecase.executeGenerate({
       provider: input.provider,
       model: input.model,
@@ -191,6 +196,8 @@ export class AiResolver {
       metadata: input.metadata,
       dedupKey: input.dedupKey,
       traceId: input.traceId,
+      actorAccountId: user.sub,
+      actorActiveRole: this.resolveActorActiveRole(user),
     });
     return {
       queued: true,
@@ -202,7 +209,10 @@ export class AiResolver {
   @qmWorkerEntry('AI_STRICT')
   @Mutation(() => QueueAiResult, { description: '将 AI 向量化请求加入队列' })
   @ValidateInput()
-  async queueAiEmbed(@Args('input') input: QueueAiEmbedInput): Promise<QueueAiResult> {
+  async queueAiEmbed(
+    @Args('input') input: QueueAiEmbedInput,
+    @currentUser() user: JwtPayload,
+  ): Promise<QueueAiResult> {
     const result = await this.queueAiUsecase.executeEmbed({
       provider: input.provider,
       model: input.model,
@@ -210,6 +220,8 @@ export class AiResolver {
       metadata: input.metadata,
       dedupKey: input.dedupKey,
       traceId: input.traceId,
+      actorAccountId: user.sub,
+      actorActiveRole: this.resolveActorActiveRole(user),
     });
     return {
       queued: true,
@@ -302,5 +314,12 @@ export class AiResolver {
       createdAt: input.createdAt,
       updatedAt: input.updatedAt,
     };
+  }
+
+  private resolveActorActiveRole(user: JwtPayload): string | null {
+    if (!user.activeRole) {
+      return null;
+    }
+    return user.activeRole;
   }
 }

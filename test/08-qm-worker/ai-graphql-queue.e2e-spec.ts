@@ -6,6 +6,7 @@ import { ApiModule } from '@src/bootstraps/api/api.module';
 import { WorkerModule } from '@src/bootstraps/worker/worker.module';
 import { BULLMQ_JOBS, BULLMQ_QUEUES } from '@src/infrastructure/bullmq/bullmq.constants';
 import { BullMqWorkerRuntime } from '@src/infrastructure/bullmq/worker.runtime';
+import { TokenHelper } from '@src/modules/auth/token.helper';
 import {
   AsyncTaskRecordEntity,
   type AsyncTaskRecordStatus,
@@ -414,6 +415,8 @@ describe('AI GraphQL 队列入口与 Worker 联动（e2e）', () => {
   let workerRuntime: BullMqWorkerRuntime;
   let dataSource: DataSource;
   let managerToken: string;
+  let managerAccountId: number;
+  let managerActiveRole: string;
   let adminToken: string;
   let coachToken: string;
   let aiWorkerMock: MockAiWorkerService;
@@ -449,6 +452,16 @@ describe('AI GraphQL 队列入口与 Worker 联动（e2e）', () => {
       loginPassword: testAccountsConfig.manager.loginPassword,
       type: LoginTypeEnum.PASSWORD,
     });
+    const tokenHelper = apiApp.get(TokenHelper);
+    const managerPayload = tokenHelper.decodeToken({ token: managerToken });
+    if (!managerPayload?.sub) {
+      throw new Error('无法从 manager token 获取 sub');
+    }
+    managerAccountId = managerPayload.sub;
+    managerActiveRole = String(managerPayload.activeRole ?? '');
+    if (!managerActiveRole) {
+      throw new Error('无法从 manager token 获取 activeRole');
+    }
     adminToken = await login({
       app: apiApp,
       loginName: testAccountsConfig.admin.loginName,
@@ -514,6 +527,8 @@ describe('AI GraphQL 队列入口与 Worker 联动（e2e）', () => {
       expect(record.reason).toBe('enqueue_accepted');
       expect(record.traceId).toBe(traceId);
       expect(record.jobId).toBe(dedupKey);
+      expect(record.actorAccountId).toBe(managerAccountId);
+      expect(record.actorActiveRole).toBe(managerActiveRole);
     } finally {
       await workerRuntime.start();
     }
@@ -567,6 +582,8 @@ describe('AI GraphQL 队列入口与 Worker 联动（e2e）', () => {
       expect(record.traceId).toBe(firstTraceId);
       expect(record.status).toBe('queued');
       expect(record.reason).toBe('enqueue_accepted');
+      expect(record.actorAccountId).toBe(managerAccountId);
+      expect(record.actorActiveRole).toBe(managerActiveRole);
 
       const count = await countAsyncTaskRecords({
         dataSource,
@@ -663,6 +680,8 @@ describe('AI GraphQL 队列入口与 Worker 联动（e2e）', () => {
       expect(record.bizType).toBe('ai_generation');
       expect(record.bizKey).toBe(failedTraceId);
       expect(record.source).toBe('user_action');
+      expect(record.actorAccountId).toBe(managerAccountId);
+      expect(record.actorActiveRole).toBe(managerActiveRole);
       const failedReason = record.reason ?? '';
       expect(failedReason.startsWith('enqueue_failed:')).toBe(true);
       expect(failedReason).toContain('dedup_job_name_conflict');
@@ -800,6 +819,8 @@ describe('AI GraphQL 队列入口与 Worker 联动（e2e）', () => {
       expect(record.source).toBe('user_action');
       expect(record.reason).toBe('enqueue_accepted');
       expect(record.dedupKey).toBe(dedupKey);
+      expect(record.actorAccountId).toBe(managerAccountId);
+      expect(record.actorActiveRole).toBe(managerActiveRole);
     } finally {
       await workerRuntime.start();
     }

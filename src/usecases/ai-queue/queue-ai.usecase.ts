@@ -13,6 +13,14 @@ import type {
   QueueAiResult,
 } from '@src/modules/common/ai-queue/ai-queue.types';
 
+type QueueAiActorInput = {
+  readonly actorAccountId?: number | null;
+  readonly actorActiveRole?: string | null;
+};
+
+type QueueAiGenerateUsecaseInput = QueueAiGenerateInput & QueueAiActorInput;
+type QueueAiEmbedUsecaseInput = QueueAiEmbedInput & QueueAiActorInput;
+
 @Injectable()
 export class QueueAiUsecase {
   constructor(
@@ -20,7 +28,7 @@ export class QueueAiUsecase {
     private readonly asyncTaskRecordService: AsyncTaskRecordService,
   ) {}
 
-  async executeGenerate(input: QueueAiGenerateInput): Promise<QueueAiResult> {
+  async executeGenerate(input: QueueAiGenerateUsecaseInput): Promise<QueueAiResult> {
     const occurredAt = new Date();
     const result = await this.enqueueGenerateOrThrow({
       input,
@@ -32,6 +40,8 @@ export class QueueAiUsecase {
         jobName: 'generate',
         jobId: result.jobId,
         traceId: result.traceId,
+        actorAccountId: input.actorAccountId,
+        actorActiveRole: input.actorActiveRole,
         bizType: 'ai_generation',
         bizKey: resolveAsyncTaskBizKey({
           domain: 'ai_generation',
@@ -48,7 +58,7 @@ export class QueueAiUsecase {
     return result;
   }
 
-  async executeEmbed(input: QueueAiEmbedInput): Promise<QueueAiResult> {
+  async executeEmbed(input: QueueAiEmbedUsecaseInput): Promise<QueueAiResult> {
     const occurredAt = new Date();
     const result = await this.enqueueEmbedOrThrow({
       input,
@@ -60,6 +70,8 @@ export class QueueAiUsecase {
         jobName: 'embed',
         jobId: result.jobId,
         traceId: result.traceId,
+        actorAccountId: input.actorAccountId,
+        actorActiveRole: input.actorActiveRole,
         bizType: 'ai_embedding',
         bizKey: resolveAsyncTaskBizKey({
           domain: 'ai_embedding',
@@ -77,7 +89,7 @@ export class QueueAiUsecase {
   }
 
   private async enqueueGenerateOrThrow(input: {
-    readonly input: QueueAiGenerateInput;
+    readonly input: QueueAiGenerateUsecaseInput;
     readonly occurredAt: Date;
   }): Promise<QueueAiResult> {
     try {
@@ -97,6 +109,8 @@ export class QueueAiUsecase {
           jobName: 'generate',
           jobId: identifiers.failedJobId,
           traceId: identifiers.traceId,
+          actorAccountId: input.input.actorAccountId,
+          actorActiveRole: input.input.actorActiveRole,
           bizType: 'ai_generation',
           bizKey: identifiers.bizKey,
           source: this.resolveSource(),
@@ -110,7 +124,7 @@ export class QueueAiUsecase {
   }
 
   private async enqueueEmbedOrThrow(input: {
-    readonly input: QueueAiEmbedInput;
+    readonly input: QueueAiEmbedUsecaseInput;
     readonly occurredAt: Date;
   }): Promise<QueueAiResult> {
     try {
@@ -130,6 +144,8 @@ export class QueueAiUsecase {
           jobName: 'embed',
           jobId: identifiers.failedJobId,
           traceId: identifiers.traceId,
+          actorAccountId: input.input.actorAccountId,
+          actorActiveRole: input.input.actorActiveRole,
           bizType: 'ai_embedding',
           bizKey: identifiers.bizKey,
           source: this.resolveSource(),
