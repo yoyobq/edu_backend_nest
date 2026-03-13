@@ -1,8 +1,8 @@
-// src/modules/common/ai-worker/providers/openai-generate.provider.spec.ts
+// src/infrastructure/ai/providers/qwen/qwen-generate.provider.spec.ts
 import { DomainError, THIRDPARTY_ERROR } from '@core/common/errors/domain-error';
 import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
-import { OpenAiGenerateProvider } from '@src/infrastructure/ai/providers/openai/openai-generate.provider';
+import { QwenGenerateProvider } from '@src/infrastructure/ai/providers/qwen/qwen-generate.provider';
 import axios from 'axios';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { AddressInfo } from 'node:net';
@@ -34,39 +34,39 @@ const closeServer = (server: Server): Promise<void> => {
   });
 };
 
-describe('OpenAiGenerateProvider', () => {
+describe('QwenGenerateProvider', () => {
   const buildProvider = (input: {
     baseUrl: string;
     apiKey?: string;
     timeoutMs?: number;
-  }): OpenAiGenerateProvider => {
+  }): QwenGenerateProvider => {
     const configService = {
       get: jest.fn((key: string, defaultValue?: number | string) => {
-        if (key === 'aiWorker.openai.baseUrl') {
+        if (key === 'aiWorker.qwen.baseUrl') {
           return input.baseUrl;
         }
-        if (key === 'aiWorker.openai.apiKey') {
+        if (key === 'aiWorker.qwen.apiKey') {
           return input.apiKey ?? 'test-api-key';
         }
-        if (key === 'aiWorker.openai.generateTimeoutMs') {
+        if (key === 'aiWorker.qwen.generateTimeoutMs') {
           return input.timeoutMs ?? 30000;
         }
         return defaultValue;
       }),
     } as unknown as ConfigService;
     const httpService = new HttpService(axios.create());
-    return new OpenAiGenerateProvider(httpService, configService);
+    return new QwenGenerateProvider(httpService, configService);
   };
 
-  it('成功映射 OpenAI 响应到 GenerateAiContentResult', async () => {
+  it('成功映射 Qwen 响应到 GenerateAiContentResult', async () => {
     const { server, baseUrl } = await createJsonServer((req, res) => {
       if (req.url === '/chat/completions' && req.method === 'POST') {
         res.statusCode = 200;
         res.setHeader('Content-Type', 'application/json');
         res.end(
           JSON.stringify({
-            id: 'chatcmpl-test-id',
-            choices: [{ message: { content: 'hello from openai' } }],
+            id: 'chatcmpl-qwen-id',
+            choices: [{ message: { content: 'hello from qwen' } }],
           }),
         );
         return;
@@ -78,13 +78,13 @@ describe('OpenAiGenerateProvider', () => {
     try {
       const provider = buildProvider({ baseUrl });
       const result = await provider.generate({
-        model: 'gpt-4o-mini',
+        model: 'qwen-max',
         prompt: 'hello',
       });
 
       expect(result.accepted).toBe(true);
-      expect(result.outputText).toBe('hello from openai');
-      expect(result.providerJobId).toBe('openai:chatcmpl-test-id');
+      expect(result.outputText).toBe('hello from qwen');
+      expect(result.providerJobId).toBe('qwen:chatcmpl-qwen-id');
     } finally {
       await closeServer(server);
     }
@@ -97,7 +97,7 @@ describe('OpenAiGenerateProvider', () => {
         res.setHeader('Content-Type', 'application/json');
         res.end(
           JSON.stringify({
-            id: 'chatcmpl-timeout',
+            id: 'chatcmpl-qwen-timeout',
             choices: [{ message: { content: 'late reply' } }],
           }),
         );
@@ -108,7 +108,7 @@ describe('OpenAiGenerateProvider', () => {
       const provider = buildProvider({ baseUrl, timeoutMs: 30 });
       await expect(
         provider.generate({
-          model: 'gpt-4o-mini',
+          model: 'qwen-max',
           prompt: 'timeout case',
         }),
       ).rejects.toMatchObject({
@@ -137,7 +137,7 @@ describe('OpenAiGenerateProvider', () => {
       const provider = buildProvider({ baseUrl });
       try {
         await provider.generate({
-          model: 'gpt-4o-mini',
+          model: 'qwen-max',
           prompt: 'auth case',
         });
         throw new Error('should_throw');
