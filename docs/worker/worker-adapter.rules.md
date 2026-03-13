@@ -3,6 +3,7 @@
 # Worker Adapter 说明
 
 - 本规则试行阶段，允许提出修改意见
+- 新增队列时，先遵循 `docs/worker/qm-worker-integration.rules.md` 的接入总规则，再看本文 Adapter 细则
 
 ## 定位与职责
 
