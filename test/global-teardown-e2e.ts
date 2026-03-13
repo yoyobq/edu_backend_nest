@@ -3,9 +3,13 @@
 /**
  * E2E 测试全局清理：
  * - 只负责关闭全局 DataSource（如果存在）
- * - 不做数据清理（清库在各测试用例的 beforeEach 内完成）
+ * - 追加清理 e2e Redis DB（FLUSHDB）
  */
 
+import * as dotenv from 'dotenv';
+import * as fs from 'fs';
+import Redis, { type RedisOptions } from 'ioredis';
+import * as path from 'path';
 import 'reflect-metadata';
 import type { DataSource } from 'typeorm';
 
@@ -14,6 +18,76 @@ declare global {
   var testDataSource: DataSource | undefined;
 }
 export {}; // 确保这是一个模块
+
+const loadE2EEnv = (): string | undefined => {
+  const candidates: string[] = [];
+  if (process.env.E2E_DOTENV) {
+    candidates.push(path.resolve(process.cwd(), process.env.E2E_DOTENV));
+  }
+  const envName = process.env.NODE_ENV || 'e2e';
+  candidates.push(
+    path.resolve(__dirname, '../env/.env.e2e'),
+    path.resolve(__dirname, '../env/.ev.e2e'),
+    path.resolve(__dirname, `../env/.env.${envName}`),
+    path.resolve(__dirname, `../env/.ev.${envName}`),
+  );
+  const envFile = candidates.find((p) => fs.existsSync(p));
+  if (envFile) {
+    dotenv.config({ path: envFile });
+  }
+  return envFile;
+};
+
+const resolveEnvString = (key: string): string => {
+  const value = process.env[key];
+  if (!value || value.trim().length === 0) {
+    throw new Error(`${key} is required`);
+  }
+  return value;
+};
+
+const resolveEnvNumber = (key: string): number => {
+  const raw = resolveEnvString(key);
+  const value = Number(raw);
+  if (!Number.isInteger(value)) {
+    throw new Error(`${key} must be an integer`);
+  }
+  return value;
+};
+
+const buildRedisOptions = (): RedisOptions => {
+  const options: RedisOptions = {
+    host: resolveEnvString('REDIS_HOST'),
+    port: resolveEnvNumber('REDIS_PORT'),
+    db: resolveEnvNumber('REDIS_DB'),
+  };
+  const password = process.env.REDIS_PASSWORD;
+  if (password && password.trim().length > 0) {
+    options.password = password;
+  }
+  if (process.env.REDIS_TLS === 'true') {
+    options.tls = {};
+  }
+  return options;
+};
+
+const flushRedisE2EDb = async (): Promise<void> => {
+  const loadedEnvFile = loadE2EEnv();
+  if (!loadedEnvFile) {
+    console.log('📝 未找到 E2E env 文件，跳过 Redis FLUSHDB');
+    return;
+  }
+  const redisOptions = buildRedisOptions();
+  const client = new Redis(redisOptions);
+  try {
+    await client.flushdb();
+    console.log(`🧹 Redis FLUSHDB 完成（db=${String(redisOptions.db)}，env=${loadedEnvFile}）`);
+  } finally {
+    if (client.status !== 'end') {
+      await client.quit();
+    }
+  }
+};
 
 export default async (): Promise<void> => {
   try {
@@ -29,6 +103,8 @@ export default async (): Promise<void> => {
 
     // 清理全局引用
     global.testDataSource = undefined;
+
+    await flushRedisE2EDb();
 
     // ⚠️ 不要强制 process.exit(0)，否则可能掩盖资源泄漏
   } catch (error) {
