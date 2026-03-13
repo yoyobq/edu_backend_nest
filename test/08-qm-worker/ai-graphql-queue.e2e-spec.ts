@@ -1405,4 +1405,34 @@ describe('AI GraphQL 队列入口与 Worker 联动（e2e）', () => {
     ).length;
     expect(generateCallsByPromptAfter - generateCallsByPromptBefore).toBe(1);
   }, 60000);
+
+  it('AI 调试开关关闭时访问调试查询应返回入口未启用错误', async () => {
+    const previousAiDebugEnabled = process.env.AI_QUEUE_DEBUG_ENABLED;
+    process.env.AI_QUEUE_DEBUG_ENABLED = 'false';
+    let disabledFlagApp: INestApplication | null = null;
+    try {
+      const disabledFlagModule: TestingModule = await Test.createTestingModule({
+        imports: [ApiModule],
+      }).compile();
+      disabledFlagApp = disabledFlagModule.createNestApplication();
+      await disabledFlagApp.init();
+      const response = await queryDebugByTraceId({
+        app: disabledFlagApp,
+        token: managerToken,
+        traceId: `disabled-flag-trace-${Date.now()}`,
+      });
+      const errors = (response.body as { errors?: Array<{ message?: string }> }).errors ?? [];
+      expect(errors.length).toBeGreaterThan(0);
+      expect(errors[0]?.message ?? '').toContain('AI 队列入口未启用');
+    } finally {
+      if (disabledFlagApp) {
+        await disabledFlagApp.close();
+      }
+      if (previousAiDebugEnabled === undefined) {
+        delete process.env.AI_QUEUE_DEBUG_ENABLED;
+      } else {
+        process.env.AI_QUEUE_DEBUG_ENABLED = previousAiDebugEnabled;
+      }
+    }
+  });
 });

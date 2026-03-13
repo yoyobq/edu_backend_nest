@@ -1,7 +1,6 @@
 // src/adapters/api/graphql/ai/ai.resolver.ts
 import { JwtPayload } from '@app-types/jwt.types';
 import { ValidateInput } from '@adapters/api/graphql/common/validate-input.decorator';
-import { UseGuards } from '@nestjs/common';
 import {
   Args,
   Field,
@@ -14,9 +13,6 @@ import {
 } from '@nestjs/graphql';
 import { qmWorkerEntry } from '@src/adapters/api/graphql/decorators/qm-worker-entry.decorator';
 import { currentUser } from '@src/adapters/api/graphql/decorators/current-user.decorator';
-import { Roles } from '@src/adapters/api/graphql/decorators/roles.decorator';
-import { JwtAuthGuard } from '@src/adapters/api/graphql/guards/jwt-auth.guard';
-import { RolesGuard } from '@src/adapters/api/graphql/guards/roles.guard';
 import { trimText } from '@src/core/common/text/text.helper';
 import { BULLMQ_QUEUES } from '@src/infrastructure/bullmq/bullmq.constants';
 import type { AsyncTaskRecordView } from '@src/modules/async-task-record/async-task-record.types';
@@ -230,8 +226,7 @@ export class AiResolver {
     };
   }
 
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('MANAGER', 'ADMIN')
+  @qmWorkerEntry('AI_STRICT')
   @Query(() => AsyncTaskRecordDebugListResult, {
     description: '内部调试审计：按 traceId 查询异步任务链路',
   })
@@ -250,8 +245,7 @@ export class AiResolver {
     };
   }
 
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('MANAGER', 'ADMIN')
+  @qmWorkerEntry('AI_STRICT')
   @Query(() => AsyncTaskRecordDebugListResult, {
     description: '内部调试审计：按 bizType 与 bizKey 查询异步任务记录',
   })
@@ -271,8 +265,7 @@ export class AiResolver {
     };
   }
 
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('MANAGER', 'ADMIN')
+  @qmWorkerEntry('AI_STRICT')
   @Query(() => AsyncTaskRecordDebugType, {
     nullable: true,
     description: '内部调试审计：按 queueName 与 jobId 查询单任务记录',
