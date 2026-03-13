@@ -20,8 +20,8 @@ export class AiProviderRegistry {
     return this.resolveProvider(name);
   }
 
-  getEmbedProvider(name?: string): AiProviderClient {
-    return this.resolveProvider(name);
+  getEmbedProvider(): AiProviderClient {
+    return this.localMockProvider;
   }
 
   private isMockMode(): boolean {

@@ -2,10 +2,7 @@
 import { Module } from '@nestjs/common';
 import { AsyncTaskRecordModule } from '@src/modules/async-task-record/async-task-record.module';
 import { AiWorkerModule } from '@src/modules/common/ai-worker/ai-worker.module';
-import {
-  ConsumeAiEmbedJobUsecase,
-  ConsumeAiGenerateJobUsecase,
-} from './consume-ai-generate-job.usecase';
+import { ConsumeAiEmbedJobUsecase, ConsumeAiGenerateJobUsecase } from './consume-ai-job.usecase';
 
 @Module({
   imports: [AiWorkerModule, AsyncTaskRecordModule],

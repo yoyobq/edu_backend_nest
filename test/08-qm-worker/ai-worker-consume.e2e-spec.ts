@@ -2,8 +2,8 @@
 import { getQueueToken } from '@nestjs/bullmq';
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import { AiJobHandler } from '@src/adapters/worker/ai/ai-generate.handler';
-import type { AiGenerateJob } from '@src/adapters/worker/ai/ai-generate.mapper';
+import { AiJobHandler } from '@src/adapters/worker/ai/ai-job.handler';
+import type { AiGenerateJob } from '@src/adapters/worker/ai/ai-job.mapper';
 import { ApiModule } from '@src/bootstraps/api/api.module';
 import { WorkerModule } from '@src/bootstraps/worker/worker.module';
 import { BULLMQ_JOBS, BULLMQ_QUEUES } from '@src/infrastructure/bullmq/bullmq.constants';
@@ -24,7 +24,7 @@ import {
 import {
   ConsumeAiEmbedJobUsecase,
   ConsumeAiGenerateJobUsecase,
-} from '@src/usecases/ai-worker/consume-ai-generate-job.usecase';
+} from '@src/usecases/ai-worker/consume-ai-job.usecase';
 import { Queue } from 'bullmq';
 import { DataSource } from 'typeorm';
 import { initGraphQLSchema } from '../../src/adapters/api/graphql/schema/schema.init';

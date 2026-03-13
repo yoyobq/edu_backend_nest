@@ -12,10 +12,8 @@ export interface GenerateAiContentResult {
   readonly providerJobId: string;
 }
 
-// 当前公开链路中，embed 不暴露 provider 语义。
-// 这里保留 provider 字段，仅用于内部兼容与未来扩展。
+// 当前 embed 不支持 provider 选择，统一走固定能力路由。
 export interface EmbedAiContentInput {
-  readonly provider?: string;
   readonly model: string;
   readonly text: string;
   readonly metadata?: Readonly<Record<string, string>>;

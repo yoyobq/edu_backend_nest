@@ -1,9 +1,9 @@
-// src/adapters/worker/ai/ai-generate.handler.ts
+// src/adapters/worker/ai/ai-job.handler.ts
 import { Injectable } from '@nestjs/common';
 import {
   ConsumeAiEmbedJobUsecase,
   ConsumeAiGenerateJobUsecase,
-} from '@src/usecases/ai-worker/consume-ai-generate-job.usecase';
+} from '@src/usecases/ai-worker/consume-ai-job.usecase';
 import {
   AI_EMBED_JOB_NAME,
   AI_GENERATE_JOB_NAME,
@@ -20,7 +20,7 @@ import {
   mapAiGenerateJobToProcessInput,
   mapMissingAiJobToFailInput,
   mapUnknownAiJobToFailInput,
-} from './ai-generate.mapper';
+} from './ai-job.mapper';
 
 @Injectable()
 export class AiJobHandler {

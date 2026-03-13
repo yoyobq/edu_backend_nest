@@ -1,7 +1,7 @@
-// src/adapters/worker/ai/ai-generate.processor.ts
+// src/adapters/worker/ai/ai-job.processor.ts
 import { OnWorkerEvent, Processor, WorkerHost } from '@nestjs/bullmq';
 import { Injectable } from '@nestjs/common';
-import { AiJobHandler } from './ai-generate.handler';
+import { AiJobHandler } from './ai-job.handler';
 import {
   AI_EMBED_JOB_NAME,
   type AiFailedJob,
@@ -9,11 +9,11 @@ import {
   AI_QUEUE_NAME,
   type AiJob,
   type AiJobResult,
-} from './ai-generate.mapper';
+} from './ai-job.mapper';
 
 @Injectable()
 @Processor(AI_QUEUE_NAME)
-export class AiGenerateProcessor extends WorkerHost {
+export class AiJobProcessor extends WorkerHost {
   constructor(private readonly handler: AiJobHandler) {
     super();
   }

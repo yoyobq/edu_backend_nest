@@ -5,7 +5,7 @@ import type { AiProviderRegistry } from './providers/ai-provider-registry';
 import type { AiProviderClient } from './providers/ai-provider-client';
 
 describe('AiWorkerService', () => {
-  it('embed 应将 provider 透传给 registry', async () => {
+  it('embed 应使用固定能力路由调用 registry', async () => {
     const mockEmbed = jest.fn(() =>
       Promise.resolve({
         accepted: true,
@@ -25,12 +25,11 @@ describe('AiWorkerService', () => {
     const service = new AiWorkerService(registry);
 
     const result = await service.embed({
-      provider: 'qwen',
       model: 'text-embedding-v1',
       text: 'embed content',
     });
 
-    expect(getEmbedProvider).toHaveBeenCalledWith('qwen');
+    expect(getEmbedProvider).toHaveBeenCalledWith();
     expect(result.accepted).toBe(true);
     expect(result.providerJobId).toBe('mock:e2e');
   });
@@ -47,7 +46,6 @@ describe('AiWorkerService', () => {
 
     await expect(
       service.embed({
-        provider: 'openai',
         model: 'text-embedding-3-small',
         text: 'embed content',
       }),
@@ -58,7 +56,6 @@ describe('AiWorkerService', () => {
 
     try {
       await service.embed({
-        provider: 'openai',
         model: 'text-embedding-3-small',
         text: 'embed content',
       });

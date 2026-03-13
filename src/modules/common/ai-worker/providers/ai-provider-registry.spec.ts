@@ -63,10 +63,9 @@ describe('AiProviderRegistry', () => {
     expect(provider.name).toBe('mock');
   });
 
-  it('embed 在 remote 模式且显式传 provider 时按入参路由', () => {
+  it('embed 在 remote 模式下不参与 provider 选择', () => {
     const registry = buildRegistry({ mode: 'remote' });
-    expect(registry.getEmbedProvider('qwen').name).toBe('qwen');
-    expect(registry.getEmbedProvider('openai').name).toBe('openai');
+    expect(registry.getEmbedProvider().name).toBe('mock');
   });
 
   it('不支持的 provider 抛出明确错误', () => {

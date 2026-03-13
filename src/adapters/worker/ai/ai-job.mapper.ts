@@ -1,4 +1,4 @@
-// src/adapters/worker/ai/ai-generate.mapper.ts
+// src/adapters/worker/ai/ai-job.mapper.ts
 import type {
   ConsumeAiEmbedJobCompleteInput,
   ConsumeAiEmbedJobFailInput,
@@ -6,7 +6,7 @@ import type {
   ConsumeAiGenerateJobCompleteInput,
   ConsumeAiGenerateJobFailInput,
   ConsumeAiGenerateJobProcessInput,
-} from '@src/usecases/ai-worker/consume-ai-generate-job.usecase';
+} from '@src/usecases/ai-worker/consume-ai-job.usecase';
 import type { Job } from 'bullmq';
 
 export const AI_QUEUE_NAME = 'ai';

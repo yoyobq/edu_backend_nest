@@ -1,4 +1,4 @@
-// src/usecases/ai-worker/consume-ai-generate-job.usecase.ts
+// src/usecases/ai-worker/consume-ai-job.usecase.ts
 import { Injectable } from '@nestjs/common';
 import { resolveAsyncTaskBizKey } from '@src/core/common/async-task/async-task-identifier.policy';
 import { AsyncTaskRecordService } from '@src/modules/async-task-record/async-task-record.service';
