@@ -1,3 +1,4 @@
+// src/core/common/time/time-format.policy.ts
 import { DomainError, TIME_ERROR } from '@core/common/errors/domain-error';
 
 export function formatForTimestamp3(date: Date): string {

@@ -1,3 +1,4 @@
+// src/core/common/time/time.policy.spec.ts
 import { DomainError, TIME_ERROR } from '@core/common/errors/domain-error';
 import { formatForDateTime, formatForTimestamp3 } from './time-format.policy';
 import { validateTimeRangeOrder } from './time-guard.policy';
@@ -12,9 +13,10 @@ describe('time policies', () => {
       return;
     }
     expect(parsed.kind).toBe('datetime');
+    expect(parsed.source).toBe('string');
     expect(parsed.hasTimezone).toBe(true);
     expect(parsed.hasMilliseconds).toBe(true);
-    expect(parsed.value.toISOString()).toBe('2026-03-16T10:00:00.123Z');
+    expect(parsed.instant?.toISOString()).toBe('2026-03-16T10:00:00.123Z');
   });
 
   it('parses date-only string', () => {
@@ -24,7 +26,31 @@ describe('time policies', () => {
       return;
     }
     expect(parsed.kind).toBe('date');
+    expect(parsed.source).toBe('string');
     expect(parsed.hasTimezone).toBe(false);
+    expect(parsed.instant).toBeNull();
+    expect(parsed.parts).toEqual({ year: 2026, month: 3, day: 16 });
+  });
+
+  it('parses datetime string without timezone as neutral datetime parts', () => {
+    const parsed = parseTimeInput('2026-03-16 10:00:00.120');
+    expect(parsed).not.toBeInstanceOf(DomainError);
+    if (parsed instanceof DomainError) {
+      return;
+    }
+    expect(parsed.kind).toBe('datetime');
+    expect(parsed.hasTimezone).toBe(false);
+    expect(parsed.hasMilliseconds).toBe(true);
+    expect(parsed.instant).toBeNull();
+    expect(parsed.parts).toEqual({
+      year: 2026,
+      month: 3,
+      day: 16,
+      hour: 10,
+      minute: 0,
+      second: 0,
+      millisecond: 120,
+    });
   });
 
   it('returns error for unsupported raw input', () => {
@@ -32,6 +58,20 @@ describe('time policies', () => {
     expect(parsed).toBeInstanceOf(DomainError);
     if (parsed instanceof DomainError) {
       expect(parsed.code).toBe(TIME_ERROR.INVALID_TIME_INPUT);
+    }
+  });
+
+  it('returns error for invalid timezone offset', () => {
+    const parsedHourOverflow = parseTimeInput('2026-03-16T10:00:00+24:00');
+    expect(parsedHourOverflow).toBeInstanceOf(DomainError);
+    if (parsedHourOverflow instanceof DomainError) {
+      expect(parsedHourOverflow.code).toBe(TIME_ERROR.INVALID_TIME_INPUT);
+    }
+
+    const parsedMinuteOverflow = parseTimeInput('2026-03-16T10:00:00+08:60');
+    expect(parsedMinuteOverflow).toBeInstanceOf(DomainError);
+    if (parsedMinuteOverflow instanceof DomainError) {
+      expect(parsedMinuteOverflow.code).toBe(TIME_ERROR.INVALID_TIME_INPUT);
     }
   });
 
@@ -45,6 +85,59 @@ describe('time policies', () => {
     expect(normalized).toBeInstanceOf(Date);
     if (normalized instanceof Date) {
       expect(normalized.toISOString()).toBe('2026-03-16T10:00:00.000Z');
+    }
+  });
+
+  it('rejects timezone-less datetime string for system event normalize', () => {
+    const parsed = parseTimeInput('2026-03-16 10:00:00');
+    expect(parsed).not.toBeInstanceOf(DomainError);
+    if (parsed instanceof DomainError) {
+      return;
+    }
+    const normalized = normalizeSystemEventTime(parsed);
+    expect(normalized).toBeInstanceOf(DomainError);
+    if (normalized instanceof DomainError) {
+      expect(normalized.code).toBe(TIME_ERROR.INVALID_SYSTEM_EVENT_TIME);
+    }
+  });
+
+  it('normalizes business datetime from timezone-less string', () => {
+    const parsed = parseTimeInput('2026-03-16 10:00:00.004');
+    expect(parsed).not.toBeInstanceOf(DomainError);
+    if (parsed instanceof DomainError) {
+      return;
+    }
+    const normalized = normalizeBusinessDateTime(parsed);
+    expect(normalized).toBeInstanceOf(Date);
+    if (normalized instanceof Date) {
+      expect(normalized.toISOString()).toBe('2026-03-16T10:00:00.004Z');
+      expect(formatForDateTime(normalized)).toBe('2026-03-16 10:00:00.004');
+    }
+  });
+
+  it('rejects timezone-aware value for business datetime normalize', () => {
+    const parsed = parseTimeInput('2026-03-16T10:00:00+08:00');
+    expect(parsed).not.toBeInstanceOf(DomainError);
+    if (parsed instanceof DomainError) {
+      return;
+    }
+    const normalized = normalizeBusinessDateTime(parsed);
+    expect(normalized).toBeInstanceOf(DomainError);
+    if (normalized instanceof DomainError) {
+      expect(normalized.code).toBe(TIME_ERROR.INVALID_BUSINESS_DATETIME);
+    }
+  });
+
+  it('rejects absolute instant input for business datetime normalize', () => {
+    const parsed = parseTimeInput(new Date('2026-03-16T10:00:00Z'));
+    expect(parsed).not.toBeInstanceOf(DomainError);
+    if (parsed instanceof DomainError) {
+      return;
+    }
+    const normalized = normalizeBusinessDateTime(parsed);
+    expect(normalized).toBeInstanceOf(DomainError);
+    if (normalized instanceof DomainError) {
+      expect(normalized.code).toBe(TIME_ERROR.INVALID_BUSINESS_DATETIME);
     }
   });
 
@@ -64,11 +157,6 @@ describe('time policies', () => {
   it('formats timestamp3 output stably', () => {
     const value = new Date('2026-03-16T10:00:00.123Z');
     expect(formatForTimestamp3(value)).toBe('2026-03-16 10:00:00.123');
-  });
-
-  it('formats datetime output stably', () => {
-    const value = new Date('2026-03-16T10:00:00.004Z');
-    expect(formatForDateTime(value)).toBe('2026-03-16 10:00:00.004');
   });
 
   it('validates time range order only', () => {

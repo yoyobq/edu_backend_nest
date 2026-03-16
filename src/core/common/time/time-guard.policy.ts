@@ -1,3 +1,4 @@
+// src/core/common/time/time-guard.policy.ts
 import { DomainError, TIME_ERROR } from '@core/common/errors/domain-error';
 import type { TimeRangeOrderInput } from './time.types';
 

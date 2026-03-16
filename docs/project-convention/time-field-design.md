@@ -111,3 +111,11 @@
 * 结束时间不得晚于当前时间
 * 时间范围不得超过 N 天
 * 早于业务下限或晚于业务上限的判定
+
+---
+
+## 10. V1 草案旁注
+
+若需要讨论 `time normalize v1` 中各函数的职责边界，可同时参考：
+
+* `docs/project-convention/time-normalize-v1-boundaries.md`
