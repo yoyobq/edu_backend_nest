@@ -6,6 +6,8 @@
 - 在迁移阶段，time normalize 是语义防线，DTO 层不是唯一规则强制入口
 - 新旧链路可以共存：旧链路保持旧行为，新链路通过 normalize 获得新规则保障
 - format 层只接收 normalize 语义载体，不接收裸 `Date`，并支持跨拷贝传递
+- 语义载体是可序列化结构：`{ normalizedKind, semantic, epochMilliseconds }`
+- format 层校验目标是防误用，不承担不可信输入鉴权职责
 
 ## 1. `parseTimeInput(input: unknown)`
 
@@ -32,6 +34,7 @@
 - 调用方显式声明“这是系统事件时间”后，对输入进行收敛。
 - 保证输出可安全进入系统事件时间链路。
 - 为后续 `TIMESTAMP(3)` 格式化提供稳定输入。
+- 输出 `SystemEventTime` 语义载体：`normalizedKind='normalized_time'`、`semantic='system_event_time'`、`epochMilliseconds=number`。
 
 ### 禁止做的事
 
@@ -50,6 +53,7 @@
 - 保证输出可安全进入业务时间链路。
 - 为后续 `DATETIME` 格式化提供稳定输入。
 - 在 Core 层硬拒绝 `Date`、`epoch`、带时区字符串输入。
+- 输出 `BusinessDateTime` 语义载体：`normalizedKind='normalized_time'`、`semantic='business_datetime'`、`epochMilliseconds=number`。
 
 ### 禁止做的事
 
@@ -76,7 +80,7 @@
 - 禁止替调用方补空值。
 - 禁止承担 normalize 职责。
 
-## 5. `formatForTimestamp3(date: Date)`
+## 5. `formatForTimestamp3(input: SystemEventTime)`
 
 ### 建议职责
 
@@ -91,7 +95,7 @@
 - 禁止输出多种格式供调用方选择。
 - 禁止依赖本地时区默认行为。
 
-## 6. `formatForDateTime(date: Date)`
+## 6. `formatForDateTime(input: BusinessDateTime)`
 
 ### 建议职责
 

@@ -124,7 +124,7 @@
 
 ## 11. 接入与兼容策略
 
-时间规则的强制入口定义为 `time normalize`，而不是 `DTO` 层。
+对已接入新规范的链路，时间规则的强制入口定义为 `time normalize`，而不是 `DTO` 层。
 
 统一约束如下：
 
@@ -133,9 +133,14 @@
 * 旧链路未接入 `time normalize` 时，保持旧行为兼容
 * 新链路接入 `time normalize` 后，按新规则获得语义保障
 * 格式输出层只接收 normalize 产出的语义载体，拒绝直接传入 `Date`
+* 语义载体是可序列化对象，不是 `Date` 实例，允许跨拷贝传递
 
 对业务 `DATETIME` 的最低防线要求：
 
 * 只接受不带时区的 `datetime string`
 * 拒绝 `Date`、`epoch`、带时区字符串
 * 不允许通过“调用约定”替代 `normalize` 校验
+
+推荐调用路径：
+
+* `raw input` → `parseTimeInput` → `normalizeSystemEventTime | normalizeBusinessDateTime` → `formatForTimestamp3 | formatForDateTime`
