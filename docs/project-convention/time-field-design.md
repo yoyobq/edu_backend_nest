@@ -119,3 +119,22 @@
 若需要讨论 `time normalize v1` 中各函数的职责边界，可同时参考：
 
 * `docs/project-convention/time-normalize-v1-boundaries.md`
+
+---
+
+## 11. 接入与兼容策略
+
+时间规则的强制入口定义为 `time normalize`，而不是 `DTO` 层。
+
+统一约束如下：
+
+* `DTO` 层可做输入约束，但不是唯一规则入口
+* `time normalize` 是语义防线，负责在 `Core` 内执行防御式校验
+* 旧链路未接入 `time normalize` 时，保持旧行为兼容
+* 新链路接入 `time normalize` 后，按新规则获得语义保障
+
+对业务 `DATETIME` 的最低防线要求：
+
+* 只接受不带时区的 `datetime string`
+* 拒绝 `Date`、`epoch`、带时区字符串
+* 不允许通过“调用约定”替代 `normalize` 校验

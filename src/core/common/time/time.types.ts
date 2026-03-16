@@ -40,6 +40,38 @@ export interface ParsedDateTimeInput extends ParsedTimeInputBase {
 
 export type ParsedTimeInput = ParsedDateInput | ParsedDateTimeInput;
 
+export type SystemEventTime = Date & { readonly timeSemantic: 'system_event_time' };
+export type BusinessDateTime = Date & { readonly timeSemantic: 'business_datetime' };
+const SYSTEM_EVENT_TIME_SYMBOL = Symbol('system_event_time');
+const BUSINESS_DATETIME_SYMBOL = Symbol('business_datetime');
+
+type MarkedDate = Date & {
+  [SYSTEM_EVENT_TIME_SYMBOL]?: true;
+  [BUSINESS_DATETIME_SYMBOL]?: true;
+};
+
+export function markSystemEventTime(value: Date): SystemEventTime {
+  const marked = value as MarkedDate;
+  marked[SYSTEM_EVENT_TIME_SYMBOL] = true;
+  return marked as SystemEventTime;
+}
+
+export function markBusinessDateTime(value: Date): BusinessDateTime {
+  const marked = value as MarkedDate;
+  marked[BUSINESS_DATETIME_SYMBOL] = true;
+  return marked as BusinessDateTime;
+}
+
+export function isSystemEventTime(value: Date): value is SystemEventTime {
+  const marked = value as MarkedDate;
+  return marked[SYSTEM_EVENT_TIME_SYMBOL] === true;
+}
+
+export function isBusinessDateTime(value: Date): value is BusinessDateTime {
+  const marked = value as MarkedDate;
+  return marked[BUSINESS_DATETIME_SYMBOL] === true;
+}
+
 export interface TimeRangeOrderInput {
   readonly start?: Date;
   readonly end?: Date;

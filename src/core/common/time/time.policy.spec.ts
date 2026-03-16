@@ -4,6 +4,7 @@ import { formatForDateTime, formatForTimestamp3 } from './time-format.policy';
 import { validateTimeRangeOrder } from './time-guard.policy';
 import { normalizeBusinessDateTime, normalizeSystemEventTime } from './time-normalize.policy';
 import { parseTimeInput } from './time-parse.policy';
+import type { BusinessDateTime, SystemEventTime } from './time.types';
 
 describe('time policies', () => {
   it('parses datetime string with timezone', () => {
@@ -141,6 +142,19 @@ describe('time policies', () => {
     }
   });
 
+  it('rejects epoch input for business datetime normalize', () => {
+    const parsed = parseTimeInput(1710583200000);
+    expect(parsed).not.toBeInstanceOf(DomainError);
+    if (parsed instanceof DomainError) {
+      return;
+    }
+    const normalized = normalizeBusinessDateTime(parsed);
+    expect(normalized).toBeInstanceOf(DomainError);
+    if (normalized instanceof DomainError) {
+      expect(normalized.code).toBe(TIME_ERROR.INVALID_BUSINESS_DATETIME);
+    }
+  });
+
   it('rejects date-only value for business datetime normalize', () => {
     const parsed = parseTimeInput('2026-03-16');
     expect(parsed).not.toBeInstanceOf(DomainError);
@@ -155,8 +169,29 @@ describe('time policies', () => {
   });
 
   it('formats timestamp3 output stably', () => {
-    const value = new Date('2026-03-16T10:00:00.123Z');
-    expect(formatForTimestamp3(value)).toBe('2026-03-16 10:00:00.123');
+    const parsed = parseTimeInput('2026-03-16T10:00:00.123Z');
+    expect(parsed).not.toBeInstanceOf(DomainError);
+    if (parsed instanceof DomainError) {
+      return;
+    }
+    const normalized = normalizeSystemEventTime(parsed);
+    expect(normalized).toBeInstanceOf(Date);
+    if (normalized instanceof DomainError) {
+      return;
+    }
+    expect(formatForTimestamp3(normalized)).toBe('2026-03-16 10:00:00.123');
+  });
+
+  it('rejects direct date misuse for datetime format', () => {
+    expect(() => formatForDateTime(new Date('2026-03-16T10:00:00Z') as BusinessDateTime)).toThrow(
+      DomainError,
+    );
+  });
+
+  it('rejects direct date misuse for timestamp3 format', () => {
+    expect(() => formatForTimestamp3(new Date('2026-03-16T10:00:00Z') as SystemEventTime)).toThrow(
+      DomainError,
+    );
   });
 
   it('validates time range order only', () => {
