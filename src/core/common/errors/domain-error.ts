@@ -145,6 +145,14 @@ export const LEARNER_ERROR = {
 } as const;
 Object.freeze(LEARNER_ERROR);
 
+export const TIME_ERROR = {
+  INVALID_TIME_INPUT: 'TIME_INVALID_TIME_INPUT',
+  INVALID_SYSTEM_EVENT_TIME: 'TIME_INVALID_SYSTEM_EVENT_TIME',
+  INVALID_BUSINESS_DATETIME: 'TIME_INVALID_BUSINESS_DATETIME',
+  INVALID_TIME_RANGE_ORDER: 'TIME_INVALID_TIME_RANGE_ORDER',
+} as const;
+Object.freeze(TIME_ERROR);
+
 // 类型定义
 export type AuthErrorCode = (typeof AUTH_ERROR)[keyof typeof AUTH_ERROR];
 export type AccountErrorCode = (typeof ACCOUNT_ERROR)[keyof typeof ACCOUNT_ERROR];
@@ -156,6 +164,7 @@ export type VerificationRecordErrorCode =
 export type AsyncTaskRecordErrorCode =
   (typeof ASYNC_TASK_RECORD_ERROR)[keyof typeof ASYNC_TASK_RECORD_ERROR];
 export type LearnerErrorCode = (typeof LEARNER_ERROR)[keyof typeof LEARNER_ERROR];
+export type TimeErrorCode = (typeof TIME_ERROR)[keyof typeof TIME_ERROR];
 
 // 分页相关错误码
 export const PAGINATION_ERROR = {
@@ -176,6 +185,7 @@ export type DomainErrorCode =
   | VerificationRecordErrorCode
   | AsyncTaskRecordErrorCode
   | LearnerErrorCode
+  | TimeErrorCode
   | PaginationErrorCode;
 
 // 类型守卫：统一判断是否为领域错误（兼容多包/反序列化场景）

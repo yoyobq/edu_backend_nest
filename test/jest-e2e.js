@@ -23,10 +23,10 @@ const ENABLED_SPECS = [
   // '07-pagination-sort-search/sort.e2e-spec.ts',
   // '07-pagination-sort-search/search.e2e-spec.ts',
   // '08-qm-worker/email-queue-consume.e2e-spec.ts',
-  // '08-qm-worker/ai-graphql-queue.e2e-spec.ts',
+  '08-qm-worker/ai-graphql-queue.e2e-spec.ts',
   // '08-qm-worker/ai-worker-consume.e2e-spec.ts',
   // '99-third-party-live-smoke/email-delivery-real.e2e-spec.ts',
-  '99-third-party-live-smoke/ai-qwen-generate-real.e2e-spec.ts',
+  // '99-third-party-live-smoke/ai-qwen-generate-real.e2e-spec.ts',
 ];
 
 /** 可选：命令行临时指定（逗号分隔）
