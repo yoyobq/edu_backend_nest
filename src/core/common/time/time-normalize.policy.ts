@@ -1,12 +1,6 @@
 // src/core/common/time/time-normalize.policy.ts
 import { DomainError, TIME_ERROR } from '@core/common/errors/domain-error';
-import {
-  markBusinessDateTime,
-  markSystemEventTime,
-  type BusinessDateTime,
-  type ParsedTimeInput,
-  type SystemEventTime,
-} from './time.types';
+import type { BusinessDateTime, ParsedTimeInput, SystemEventTime } from './time.types';
 
 export function normalizeSystemEventTime(input: ParsedTimeInput): SystemEventTime | DomainError {
   if (input.kind !== 'datetime') {
@@ -18,7 +12,11 @@ export function normalizeSystemEventTime(input: ParsedTimeInput): SystemEventTim
       '系统事件时间必须提供可确定瞬时点的 datetime 输入',
     );
   }
-  return markSystemEventTime(new Date(input.instant.getTime()));
+  return {
+    normalizedKind: 'normalized_time',
+    semantic: 'system_event_time',
+    epochMilliseconds: input.instant.getTime(),
+  };
 }
 
 export function normalizeBusinessDateTime(input: ParsedTimeInput): BusinessDateTime | DomainError {
@@ -32,17 +30,17 @@ export function normalizeBusinessDateTime(input: ParsedTimeInput): BusinessDateT
     );
   }
   const parts = input.parts;
-  return markBusinessDateTime(
-    new Date(
-      Date.UTC(
-        parts.year,
-        parts.month - 1,
-        parts.day,
-        parts.hour,
-        parts.minute,
-        parts.second,
-        parts.millisecond,
-      ),
+  return {
+    normalizedKind: 'normalized_time',
+    semantic: 'business_datetime',
+    epochMilliseconds: Date.UTC(
+      parts.year,
+      parts.month - 1,
+      parts.day,
+      parts.hour,
+      parts.minute,
+      parts.second,
+      parts.millisecond,
     ),
-  );
+  };
 }

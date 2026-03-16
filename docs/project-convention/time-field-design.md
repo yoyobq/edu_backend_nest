@@ -132,6 +132,7 @@
 * `time normalize` 是语义防线，负责在 `Core` 内执行防御式校验
 * 旧链路未接入 `time normalize` 时，保持旧行为兼容
 * 新链路接入 `time normalize` 后，按新规则获得语义保障
+* 格式输出层只接收 normalize 产出的语义载体，拒绝直接传入 `Date`
 
 对业务 `DATETIME` 的最低防线要求：
 

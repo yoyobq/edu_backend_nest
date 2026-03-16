@@ -4,7 +4,6 @@ import { formatForDateTime, formatForTimestamp3 } from './time-format.policy';
 import { validateTimeRangeOrder } from './time-guard.policy';
 import { normalizeBusinessDateTime, normalizeSystemEventTime } from './time-normalize.policy';
 import { parseTimeInput } from './time-parse.policy';
-import type { BusinessDateTime, SystemEventTime } from './time.types';
 
 describe('time policies', () => {
   it('parses datetime string with timezone', () => {
@@ -83,9 +82,11 @@ describe('time policies', () => {
       return;
     }
     const normalized = normalizeSystemEventTime(parsed);
-    expect(normalized).toBeInstanceOf(Date);
-    if (normalized instanceof Date) {
-      expect(normalized.toISOString()).toBe('2026-03-16T10:00:00.000Z');
+    expect(normalized).not.toBeInstanceOf(DomainError);
+    if (!(normalized instanceof DomainError)) {
+      expect(normalized.normalizedKind).toBe('normalized_time');
+      expect(normalized.semantic).toBe('system_event_time');
+      expect(new Date(normalized.epochMilliseconds).toISOString()).toBe('2026-03-16T10:00:00.000Z');
     }
   });
 
@@ -109,9 +110,11 @@ describe('time policies', () => {
       return;
     }
     const normalized = normalizeBusinessDateTime(parsed);
-    expect(normalized).toBeInstanceOf(Date);
-    if (normalized instanceof Date) {
-      expect(normalized.toISOString()).toBe('2026-03-16T10:00:00.004Z');
+    expect(normalized).not.toBeInstanceOf(DomainError);
+    if (!(normalized instanceof DomainError)) {
+      expect(normalized.normalizedKind).toBe('normalized_time');
+      expect(normalized.semantic).toBe('business_datetime');
+      expect(new Date(normalized.epochMilliseconds).toISOString()).toBe('2026-03-16T10:00:00.004Z');
       expect(formatForDateTime(normalized)).toBe('2026-03-16 10:00:00.004');
     }
   });
@@ -175,21 +178,49 @@ describe('time policies', () => {
       return;
     }
     const normalized = normalizeSystemEventTime(parsed);
-    expect(normalized).toBeInstanceOf(Date);
+    expect(normalized).not.toBeInstanceOf(DomainError);
     if (normalized instanceof DomainError) {
       return;
     }
     expect(formatForTimestamp3(normalized)).toBe('2026-03-16 10:00:00.123');
   });
 
+  it('formats business datetime stably after structured clone', () => {
+    const parsed = parseTimeInput('2026-03-16 10:00:00.004');
+    expect(parsed).not.toBeInstanceOf(DomainError);
+    if (parsed instanceof DomainError) {
+      return;
+    }
+    const normalized = normalizeBusinessDateTime(parsed);
+    expect(normalized).not.toBeInstanceOf(DomainError);
+    if (normalized instanceof DomainError) {
+      return;
+    }
+    const copied = structuredClone(normalized);
+    expect(formatForDateTime(copied)).toBe('2026-03-16 10:00:00.004');
+  });
+
+  it('formats system event timestamp stably after json roundtrip', () => {
+    const parsed = parseTimeInput('2026-03-16T10:00:00.123Z');
+    expect(parsed).not.toBeInstanceOf(DomainError);
+    if (parsed instanceof DomainError) {
+      return;
+    }
+    const normalized = normalizeSystemEventTime(parsed);
+    expect(normalized).not.toBeInstanceOf(DomainError);
+    if (normalized instanceof DomainError) {
+      return;
+    }
+    const copied = JSON.parse(JSON.stringify(normalized));
+    expect(formatForTimestamp3(copied)).toBe('2026-03-16 10:00:00.123');
+  });
+
   it('rejects direct date misuse for datetime format', () => {
-    expect(() => formatForDateTime(new Date('2026-03-16T10:00:00Z') as BusinessDateTime)).toThrow(
-      DomainError,
-    );
+    expect(() => formatForDateTime(new Date('2026-03-16T10:00:00Z') as never)).toThrow(DomainError);
   });
 
   it('rejects direct date misuse for timestamp3 format', () => {
-    expect(() => formatForTimestamp3(new Date('2026-03-16T10:00:00Z') as SystemEventTime)).toThrow(
+    expect(() => formatForTimestamp3(new Date('2026-03-16T10:00:00Z') as never)).toThrow(
       DomainError,
     );
   });
