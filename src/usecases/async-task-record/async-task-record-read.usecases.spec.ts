@@ -1,4 +1,4 @@
-import { ASYNC_TASK_RECORD_ERROR, DomainError } from '@src/core/common/errors/domain-error';
+import { DomainError, INPUT_NORMALIZE_ERROR } from '@src/core/common/errors/domain-error';
 import type { AsyncTaskRecordView } from '@src/modules/async-task-record/async-task-record.types';
 import { AsyncTaskRecordQueryService } from '@src/modules/async-task-record/queries/async-task-record.query.service';
 import { Test, TestingModule } from '@nestjs/testing';
@@ -107,7 +107,7 @@ describe('AsyncTaskRecord read usecases', () => {
           jobId: 'job-1',
         }),
       ).rejects.toMatchObject<Partial<DomainError>>({
-        code: ASYNC_TASK_RECORD_ERROR.INVALID_PARAMS,
+        code: INPUT_NORMALIZE_ERROR.REQUIRED_TEXT_EMPTY,
         message: 'queueName 不能为空',
       });
     });
@@ -119,7 +119,7 @@ describe('AsyncTaskRecord read usecases', () => {
           jobId: '   ',
         }),
       ).rejects.toMatchObject<Partial<DomainError>>({
-        code: ASYNC_TASK_RECORD_ERROR.INVALID_PARAMS,
+        code: INPUT_NORMALIZE_ERROR.REQUIRED_TEXT_EMPTY,
         message: 'jobId 不能为空',
       });
     });
@@ -192,7 +192,7 @@ describe('AsyncTaskRecord read usecases', () => {
           traceId: ' ',
         }),
       ).rejects.toMatchObject<Partial<DomainError>>({
-        code: ASYNC_TASK_RECORD_ERROR.INVALID_PARAMS,
+        code: INPUT_NORMALIZE_ERROR.REQUIRED_TEXT_EMPTY,
         message: 'traceId 不能为空',
       });
     });
@@ -278,7 +278,7 @@ describe('AsyncTaskRecord read usecases', () => {
           bizKey: '   ',
         }),
       ).rejects.toMatchObject<Partial<DomainError>>({
-        code: ASYNC_TASK_RECORD_ERROR.INVALID_PARAMS,
+        code: INPUT_NORMALIZE_ERROR.REQUIRED_TEXT_EMPTY,
         message: 'bizKey 不能为空',
       });
     });
@@ -290,7 +290,7 @@ describe('AsyncTaskRecord read usecases', () => {
           bizKey: 'trace-3',
         }),
       ).rejects.toMatchObject<Partial<DomainError>>({
-        code: ASYNC_TASK_RECORD_ERROR.INVALID_PARAMS,
+        code: INPUT_NORMALIZE_ERROR.REQUIRED_TEXT_EMPTY,
         message: 'bizType 不能为空',
       });
     });

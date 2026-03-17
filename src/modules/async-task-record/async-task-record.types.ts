@@ -37,7 +37,7 @@ export interface ListAsyncTaskRecordsByTraceInput {
   readonly traceId: string;
   readonly queueName?: string;
   readonly bizTypes?: ReadonlyArray<string>;
-  readonly limit?: number;
+  readonly limit: number;
 }
 
 export interface ListAsyncTaskRecordsByBizTargetInput {
@@ -46,7 +46,7 @@ export interface ListAsyncTaskRecordsByBizTargetInput {
   readonly bizKey: string;
   readonly bizSubKey?: string | null;
   readonly statuses?: ReadonlyArray<AsyncTaskRecordStatus>;
-  readonly limit?: number;
+  readonly limit: number;
 }
 
 export interface RecordAsyncTaskEnqueuedInput {

@@ -1,7 +1,7 @@
 // src/adapters/api/graphql/registration/dto/third-party-register.input.ts
 
 import { AudienceTypeEnum, ThirdPartyProviderEnum } from '@app-types/models/account.types';
-import { toLowerCase, trimText } from '@core/common/text/text.helper';
+import { toLowerCase, trimTextPure } from '@core/common/text/text.helper';
 import { Field, InputType } from '@nestjs/graphql';
 import { Transform, TransformFnParams, Type } from 'class-transformer';
 import {
@@ -38,7 +38,7 @@ export class ThirdPartyRegisterInput {
   provider!: ThirdPartyProviderEnum;
 
   @Field({ description: '第三方平台返回的登录凭证，如授权码 code 或访问令牌 token' })
-  @Transform(({ value }: TransformFnParams) => trimText(value))
+  @Transform(({ value }: TransformFnParams) => trimTextPure(value))
   @IsString({ message: '授权凭证必须是字符串' })
   @IsNotEmpty({ message: '授权凭证不能为空' })
   @MaxLength(2048, { message: '授权凭证长度不能超过 2048 个字符' }) // 兼容 Google/Apple id_token
@@ -59,7 +59,7 @@ export class ThirdPartyRegisterInput {
 
   @Field({ nullable: true, description: '用户邮箱（可选）' })
   @IsOptional()
-  @Transform(({ value }: TransformFnParams) => toLowerCase(trimText(value)))
+  @Transform(({ value }: TransformFnParams) => toLowerCase(trimTextPure(value)))
   @MaxLength(254, { message: '邮箱长度不能超过 254 个字符' })
   @IsEmail({}, { message: '邮箱格式不正确' })
   email?: string;

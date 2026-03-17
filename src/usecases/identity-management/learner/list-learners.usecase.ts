@@ -2,6 +2,7 @@
 // src/usecases/learner/list-learners.usecase.ts
 
 import { IdentityTypeEnum } from '@app-types/models/account.types';
+import { normalizeLimit } from '@core/common/input-normalize/input-normalize.policy';
 import { Injectable } from '@nestjs/common';
 import { LearnerSortField, OrderDirection } from '@app-types/common/sort.types';
 import { DomainError, PERMISSION_ERROR } from '../../../core/common/errors/domain-error';
@@ -96,7 +97,11 @@ export class ListLearnersUsecase {
     sortOrder: 'ASC' | 'DESC';
   } {
     const page = input.page ?? 1;
-    const limit = Math.min(input.limit ?? 10, 100);
+    const limit = normalizeLimit(
+      input.limit,
+      { fallback: 10, min: 1, max: 100 },
+      { fieldName: 'limit' },
+    );
     const sortBy = this.mapSortFieldToDbField(input.sortBy ?? LearnerSortField.CREATED_AT);
     const sortOrder = (input.sortOrder ?? OrderDirection.DESC) as 'ASC' | 'DESC';
     return { page, limit, sortBy, sortOrder };

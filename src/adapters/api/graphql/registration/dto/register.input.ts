@@ -1,7 +1,7 @@
 // src/adapters/api/graphql/registration/dto/register.input.ts
 
 import { RegisterTypeEnum } from '@app-types/services/register.types';
-import { normalizeText, toLowerCase, trimText } from '@core/common/text/text.helper';
+import { normalizeText, toLowerCase, trimTextPure } from '@core/common/text/text.helper';
 import { Field, InputType } from '@nestjs/graphql';
 import { Transform, TransformFnParams } from 'class-transformer';
 import {
@@ -23,7 +23,7 @@ import { IsValidPassword } from '@adapters/api/graphql/common/password-validatio
 export class RegisterInput {
   @Field(() => String, { description: '登录名', nullable: true })
   @IsOptional()
-  @Transform(({ value }: TransformFnParams) => trimText(value))
+  @Transform(({ value }: TransformFnParams) => trimTextPure(value))
   @IsString({ message: '登录名必须是字符串' })
   @MinLength(4, { message: '登录名至少 4 个字符' })
   @Matches(/^[a-zA-Z0-9_-]+$/, {
@@ -32,7 +32,7 @@ export class RegisterInput {
   loginName?: string | null;
 
   @Field(() => String, { description: '登录邮箱' })
-  @Transform(({ value }: TransformFnParams) => toLowerCase(trimText(value)))
+  @Transform(({ value }: TransformFnParams) => toLowerCase(trimTextPure(value)))
   @IsNotEmpty({ message: '邮箱不能为空' })
   @MaxLength(254, { message: '邮箱长度不能超过 254 个字符' })
   @IsEmail({}, { message: '邮箱格式不正确' })

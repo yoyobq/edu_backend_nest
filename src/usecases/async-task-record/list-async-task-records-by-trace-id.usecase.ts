@@ -1,7 +1,13 @@
-import { ASYNC_TASK_RECORD_ERROR, DomainError } from '@src/core/common/errors/domain-error';
-import { AsyncTaskRecordQueryService } from '@src/modules/async-task-record/queries/async-task-record.query.service';
-import type { AsyncTaskRecordView } from '@src/modules/async-task-record/async-task-record.types';
 import { Injectable } from '@nestjs/common';
+import {
+  normalizeLimit,
+  normalizeOptionalText,
+  normalizeRequiredText,
+  normalizeTextList,
+} from '@src/core/common/input-normalize/input-normalize.policy';
+import type { ListPolicy } from '@src/core/common/input-normalize/input-normalize.types';
+import type { AsyncTaskRecordView } from '@src/modules/async-task-record/async-task-record.types';
+import { AsyncTaskRecordQueryService } from '@src/modules/async-task-record/queries/async-task-record.query.service';
 
 export interface ListAsyncTaskRecordsByTraceIdInput {
   readonly traceId: string;
@@ -16,58 +22,36 @@ export interface ListAsyncTaskRecordsByTraceIdResult {
 
 @Injectable()
 export class ListAsyncTaskRecordsByTraceIdUsecase {
+  private static readonly OPTIONAL_FILTER_LIST_POLICY: ListPolicy = {
+    filter_empty: true,
+    reject_invalid_item: true,
+    dedupe: false,
+    empty_result: 'reject',
+  };
+
   constructor(private readonly asyncTaskRecordQueryService: AsyncTaskRecordQueryService) {}
 
   async execute(
     input: ListAsyncTaskRecordsByTraceIdInput,
   ): Promise<ListAsyncTaskRecordsByTraceIdResult> {
-    const traceId = this.normalizeRequiredField({
-      value: input.traceId,
-      fieldName: 'traceId',
-    });
+    const traceId = normalizeRequiredText(input.traceId, { fieldName: 'traceId' });
+    const queueName = normalizeOptionalText(input.queueName, 'reject', { fieldName: 'queueName' });
+    const bizTypes =
+      input.bizTypes === undefined
+        ? undefined
+        : normalizeTextList(
+            input.bizTypes,
+            ListAsyncTaskRecordsByTraceIdUsecase.OPTIONAL_FILTER_LIST_POLICY,
+            { fieldName: 'bizTypes' },
+          );
     const items = await this.asyncTaskRecordQueryService.listByTraceId({
       where: {
         traceId,
-        queueName: this.normalizeOptionalField({ value: input.queueName }),
-        bizTypes: this.normalizeOptionalStringList({ values: input.bizTypes }),
-        limit: input.limit ?? 50,
+        queueName: queueName ?? undefined,
+        bizTypes: bizTypes ?? undefined,
+        limit: normalizeLimit(input.limit, { fallback: 50, min: 1, max: 500 }),
       },
     });
     return { items };
-  }
-
-  private normalizeRequiredField(input: {
-    readonly value: string;
-    readonly fieldName: string;
-  }): string {
-    const normalized = input.value.trim();
-    if (normalized.length > 0) {
-      return normalized;
-    }
-    throw new DomainError(ASYNC_TASK_RECORD_ERROR.INVALID_PARAMS, `${input.fieldName} 不能为空`);
-  }
-
-  private normalizeOptionalField(input: { readonly value?: string }): string | undefined {
-    if (input.value === undefined) {
-      return undefined;
-    }
-    const normalized = input.value.trim();
-    if (normalized.length > 0) {
-      return normalized;
-    }
-    throw new DomainError(ASYNC_TASK_RECORD_ERROR.INVALID_PARAMS, '可选筛选项不能为空白');
-  }
-
-  private normalizeOptionalStringList(input: {
-    readonly values?: ReadonlyArray<string>;
-  }): ReadonlyArray<string> | undefined {
-    if (input.values === undefined) {
-      return undefined;
-    }
-    const normalized = input.values.map((item) => item.trim()).filter((item) => item.length > 0);
-    if (normalized.length > 0) {
-      return normalized;
-    }
-    throw new DomainError(ASYNC_TASK_RECORD_ERROR.INVALID_PARAMS, '可选筛选项不能为空白');
   }
 }

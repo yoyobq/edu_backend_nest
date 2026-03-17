@@ -1,10 +1,14 @@
-import { ASYNC_TASK_RECORD_ERROR, DomainError } from '@src/core/common/errors/domain-error';
-import { AsyncTaskRecordQueryService } from '@src/modules/async-task-record/queries/async-task-record.query.service';
+import { Injectable } from '@nestjs/common';
+import {
+  normalizeLimit,
+  normalizeOptionalText,
+  normalizeRequiredText,
+} from '@src/core/common/input-normalize/input-normalize.policy';
 import type {
   AsyncTaskRecordStatus,
   AsyncTaskRecordView,
 } from '@src/modules/async-task-record/async-task-record.types';
-import { Injectable } from '@nestjs/common';
+import { AsyncTaskRecordQueryService } from '@src/modules/async-task-record/queries/async-task-record.query.service';
 
 export interface ListAsyncTaskRecordsByBizTargetInput {
   readonly queueName?: string;
@@ -26,59 +30,20 @@ export class ListAsyncTaskRecordsByBizTargetUsecase {
   async execute(
     input: ListAsyncTaskRecordsByBizTargetInput,
   ): Promise<ListAsyncTaskRecordsByBizTargetResult> {
-    const bizType = this.normalizeRequiredField({
-      value: input.bizType,
-      fieldName: 'bizType',
-    });
-    const bizKey = this.normalizeRequiredField({
-      value: input.bizKey,
-      fieldName: 'bizKey',
-    });
+    const bizType = normalizeRequiredText(input.bizType, { fieldName: 'bizType' });
+    const bizKey = normalizeRequiredText(input.bizKey, { fieldName: 'bizKey' });
+    const queueName = normalizeOptionalText(input.queueName, 'reject', { fieldName: 'queueName' });
+    const bizSubKey = normalizeOptionalText(input.bizSubKey, 'to_null', { fieldName: 'bizSubKey' });
     const items = await this.asyncTaskRecordQueryService.listByBizTarget({
       where: {
-        queueName: this.normalizeOptionalQueueName({ value: input.queueName }),
+        queueName: queueName ?? undefined,
         bizType,
         bizKey,
-        bizSubKey: this.normalizeOptionalField({ value: input.bizSubKey }),
+        bizSubKey: bizSubKey === undefined ? undefined : bizSubKey,
         statuses: input.statuses,
-        limit: input.limit ?? 50,
+        limit: normalizeLimit(input.limit, { fallback: 50, min: 1, max: 500 }),
       },
     });
     return { items };
-  }
-
-  private normalizeRequiredField(input: {
-    readonly value: string;
-    readonly fieldName: string;
-  }): string {
-    const normalized = input.value.trim();
-    if (normalized.length > 0) {
-      return normalized;
-    }
-    throw new DomainError(ASYNC_TASK_RECORD_ERROR.INVALID_PARAMS, `${input.fieldName} 不能为空`);
-  }
-
-  private normalizeOptionalField(input: {
-    readonly value?: string | null;
-  }): string | null | undefined {
-    if (input.value === undefined) {
-      return undefined;
-    }
-    if (input.value === null) {
-      return null;
-    }
-    const normalized = input.value.trim();
-    return normalized.length > 0 ? normalized : null;
-  }
-
-  private normalizeOptionalQueueName(input: { readonly value?: string }): string | undefined {
-    if (input.value === undefined) {
-      return undefined;
-    }
-    const normalized = input.value.trim();
-    if (normalized.length > 0) {
-      return normalized;
-    }
-    throw new DomainError(ASYNC_TASK_RECORD_ERROR.INVALID_PARAMS, 'queueName 不能为空');
   }
 }

@@ -18,6 +18,13 @@ export function trimText(value: unknown): string | undefined {
   return value as string | undefined;
 }
 
+export function trimTextPure(value: unknown): unknown {
+  if (typeof value === 'string') {
+    return value.trim();
+  }
+  return value;
+}
+
 /**
  * 文本转小写处理
  * @param value 待处理的值

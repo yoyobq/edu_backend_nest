@@ -153,6 +153,19 @@ export const TIME_ERROR = {
 } as const;
 Object.freeze(TIME_ERROR);
 
+export const INPUT_NORMALIZE_ERROR = {
+  INVALID_TEXT: 'INPUT_NORMALIZE_INVALID_TEXT',
+  REQUIRED_TEXT_EMPTY: 'INPUT_NORMALIZE_REQUIRED_TEXT_EMPTY',
+  OPTIONAL_TEXT_EMPTY_REJECTED: 'INPUT_NORMALIZE_OPTIONAL_TEXT_EMPTY_REJECTED',
+  INVALID_TEXT_LIST: 'INPUT_NORMALIZE_INVALID_TEXT_LIST',
+  INVALID_TEXT_LIST_ITEM: 'INPUT_NORMALIZE_INVALID_TEXT_LIST_ITEM',
+  EMPTY_LIST_REJECTED: 'INPUT_NORMALIZE_EMPTY_LIST_REJECTED',
+  INVALID_LIMIT_RANGE: 'INPUT_NORMALIZE_INVALID_LIMIT_RANGE',
+  INVALID_LIMIT_VALUE: 'INPUT_NORMALIZE_INVALID_LIMIT_VALUE',
+  INVALID_ENUM_VALUE: 'INPUT_NORMALIZE_INVALID_ENUM_VALUE',
+} as const;
+Object.freeze(INPUT_NORMALIZE_ERROR);
+
 // 类型定义
 export type AuthErrorCode = (typeof AUTH_ERROR)[keyof typeof AUTH_ERROR];
 export type AccountErrorCode = (typeof ACCOUNT_ERROR)[keyof typeof ACCOUNT_ERROR];
@@ -165,6 +178,8 @@ export type AsyncTaskRecordErrorCode =
   (typeof ASYNC_TASK_RECORD_ERROR)[keyof typeof ASYNC_TASK_RECORD_ERROR];
 export type LearnerErrorCode = (typeof LEARNER_ERROR)[keyof typeof LEARNER_ERROR];
 export type TimeErrorCode = (typeof TIME_ERROR)[keyof typeof TIME_ERROR];
+export type InputNormalizeErrorCode =
+  (typeof INPUT_NORMALIZE_ERROR)[keyof typeof INPUT_NORMALIZE_ERROR];
 
 // 分页相关错误码
 export const PAGINATION_ERROR = {
@@ -186,6 +201,7 @@ export type DomainErrorCode =
   | AsyncTaskRecordErrorCode
   | LearnerErrorCode
   | TimeErrorCode
+  | InputNormalizeErrorCode
   | PaginationErrorCode;
 
 // 类型守卫：统一判断是否为领域错误（兼容多包/反序列化场景）

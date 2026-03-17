@@ -48,7 +48,6 @@ export class AsyncTaskRecordService {
     readonly manager?: EntityManager;
   }): Promise<AsyncTaskRecordView[]> {
     const repository = this.getRepository(input.manager);
-    const limit = this.normalizeLimit(input.where.limit);
     const where: FindOptionsWhere<AsyncTaskRecordEntity> = {
       traceId: input.where.traceId,
     };
@@ -61,7 +60,7 @@ export class AsyncTaskRecordService {
     const entities = await repository.find({
       where,
       order: { id: 'DESC' },
-      take: limit,
+      take: input.where.limit,
     });
     return entities.map((entity) => this.toView(entity));
   }
@@ -71,7 +70,6 @@ export class AsyncTaskRecordService {
     readonly manager?: EntityManager;
   }): Promise<AsyncTaskRecordView[]> {
     const repository = this.getRepository(input.manager);
-    const limit = this.normalizeLimit(input.where.limit);
     const where: FindOptionsWhere<AsyncTaskRecordEntity> = {
       bizType: input.where.bizType,
       bizKey: input.where.bizKey,
@@ -91,7 +89,7 @@ export class AsyncTaskRecordService {
     const entities = await repository.find({
       where,
       order: { id: 'DESC' },
-      take: limit,
+      take: input.where.limit,
     });
     return entities.map((entity) => this.toView(entity));
   }
@@ -230,7 +228,7 @@ export class AsyncTaskRecordService {
       if (!this.isUniqueConstraintViolation(error)) {
         throw error;
       }
-      if (!input.data.jobId || resolvedJobId !== input.data.jobId.trim()) {
+      if (!input.data.jobId || resolvedJobId !== input.data.jobId) {
         throw error;
       }
       const fallbackJobId = this.resolveJobId({
@@ -394,21 +392,13 @@ export class AsyncTaskRecordService {
     return manager ? manager.getRepository(AsyncTaskRecordEntity) : this.asyncTaskRecordRepository;
   }
 
-  private normalizeLimit(limit?: number): number {
-    if (!limit || limit < 1) {
-      return 50;
-    }
-    return Math.min(limit, 500);
-  }
-
   private resolveJobId(input: {
     readonly jobId?: string;
     readonly traceId: string;
     readonly occurredAt: Date;
   }): string {
-    const normalized = input.jobId?.trim();
-    if (normalized) {
-      return normalized;
+    if (input.jobId) {
+      return input.jobId;
     }
     return `enqueue-failed:${input.traceId}:${input.occurredAt.getTime()}`;
   }

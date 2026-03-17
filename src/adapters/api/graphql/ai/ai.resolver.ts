@@ -27,16 +27,6 @@ import { QueueAiEmbedInput } from './dto/queue-ai-embed.input';
 import { QueueAiGenerateInput } from './dto/queue-ai-generate.input';
 import { QueueAiResult } from './dto/queue-ai.result';
 
-const normalizeOptionalString = (value: unknown): string | null | undefined => {
-  if (typeof value === 'string') {
-    return value.trim();
-  }
-  if (value === null || value === undefined) {
-    return value;
-  }
-  return undefined;
-};
-
 const AI_DEBUG_BIZ_TYPES = ['ai_generation', 'ai_embedding', 'ai_worker'] as const;
 const AI_DEBUG_QUEUE_NAME = 'ai';
 
@@ -147,7 +137,7 @@ class DebugAsyncTaskRecordsByBizTargetInput {
   bizKey!: string;
 
   @Field(() => String, { nullable: true })
-  @Transform(({ value }: TransformFnParams) => normalizeOptionalString(value))
+  @Transform(({ value }: TransformFnParams) => trimText(value))
   @IsOptional()
   @IsString()
   bizSubKey?: string | null;
