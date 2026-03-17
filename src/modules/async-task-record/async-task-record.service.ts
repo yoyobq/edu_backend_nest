@@ -194,6 +194,7 @@ export class AsyncTaskRecordService {
     readonly manager?: EntityManager;
   }): Promise<AsyncTaskRecordView> {
     const occurredAt = input.data.occurredAt ?? new Date();
+    const normalizedInputJobId = this.normalizeProvidedJobId(input.data.jobId);
     const resolvedJobId = this.resolveJobId({
       jobId: input.data.jobId,
       traceId: input.data.traceId,
@@ -228,7 +229,7 @@ export class AsyncTaskRecordService {
       if (!this.isUniqueConstraintViolation(error)) {
         throw error;
       }
-      if (!input.data.jobId || resolvedJobId !== input.data.jobId) {
+      if (!normalizedInputJobId || resolvedJobId !== normalizedInputJobId) {
         throw error;
       }
       const fallbackJobId = this.resolveJobId({
@@ -397,10 +398,22 @@ export class AsyncTaskRecordService {
     readonly traceId: string;
     readonly occurredAt: Date;
   }): string {
-    if (input.jobId) {
-      return input.jobId;
+    const normalized = this.normalizeProvidedJobId(input.jobId);
+    if (normalized) {
+      return normalized;
     }
     return `enqueue-failed:${input.traceId}:${input.occurredAt.getTime()}`;
+  }
+
+  private normalizeProvidedJobId(jobId?: string): string | undefined {
+    if (typeof jobId !== 'string') {
+      return undefined;
+    }
+    const normalized = jobId.trim();
+    if (normalized.length === 0) {
+      return undefined;
+    }
+    return normalized;
   }
 
   private isUniqueConstraintViolation(error: unknown): boolean {

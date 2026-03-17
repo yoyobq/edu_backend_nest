@@ -13,7 +13,7 @@ import {
 } from '@nestjs/graphql';
 import { currentUser } from '@src/adapters/api/graphql/decorators/current-user.decorator';
 import { qmWorkerEntry } from '@src/adapters/api/graphql/decorators/qm-worker-entry.decorator';
-import { trimText } from '@src/core/common/text/text.helper';
+import { trimTextPure } from '@src/core/common/text/text.helper';
 import { QueueAiUsecase } from '@src/usecases/ai-queue/queue-ai.usecase';
 import {
   GetAsyncTaskRecordByQueueJobUsecase,
@@ -108,7 +108,7 @@ class AsyncTaskRecordDebugListResult {
 @InputType()
 class DebugAsyncTaskRecordsByTraceIdInput {
   @Field(() => String)
-  @Transform(({ value }: TransformFnParams) => trimText(value))
+  @Transform(({ value }: TransformFnParams) => trimTextPure(value))
   @IsString()
   @IsNotEmpty()
   traceId!: string;
@@ -124,20 +124,20 @@ class DebugAsyncTaskRecordsByTraceIdInput {
 @InputType()
 class DebugAsyncTaskRecordsByBizTargetInput {
   @Field(() => String)
-  @Transform(({ value }: TransformFnParams) => trimText(value))
+  @Transform(({ value }: TransformFnParams) => trimTextPure(value))
   @IsString()
   @IsNotEmpty()
   @IsIn([...AI_DEBUG_BIZ_TYPES])
   bizType!: string;
 
   @Field(() => String)
-  @Transform(({ value }: TransformFnParams) => trimText(value))
+  @Transform(({ value }: TransformFnParams) => trimTextPure(value))
   @IsString()
   @IsNotEmpty()
   bizKey!: string;
 
   @Field(() => String, { nullable: true })
-  @Transform(({ value }: TransformFnParams) => trimText(value))
+  @Transform(({ value }: TransformFnParams) => trimTextPure(value))
   @IsOptional()
   @IsString()
   bizSubKey?: string | null;
@@ -153,14 +153,14 @@ class DebugAsyncTaskRecordsByBizTargetInput {
 @InputType()
 class DebugAsyncTaskRecordByQueueJobInput {
   @Field(() => String)
-  @Transform(({ value }: TransformFnParams) => trimText(value))
+  @Transform(({ value }: TransformFnParams) => trimTextPure(value))
   @IsString()
   @IsNotEmpty()
   @IsIn([AI_DEBUG_QUEUE_NAME])
   queueName!: string;
 
   @Field(() => String)
-  @Transform(({ value }: TransformFnParams) => trimText(value))
+  @Transform(({ value }: TransformFnParams) => trimTextPure(value))
   @IsString()
   @IsNotEmpty()
   jobId!: string;

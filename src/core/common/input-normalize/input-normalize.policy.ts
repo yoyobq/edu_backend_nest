@@ -26,7 +26,7 @@ export function normalizeOptionalText(
     return undefined;
   }
   if (input === null) {
-    return resolveEmptyPolicy(policy, fieldName);
+    return null;
   }
   if (typeof input !== 'string') {
     throw new DomainError(INPUT_NORMALIZE_ERROR.INVALID_TEXT, `${fieldName} 必须是字符串`);
