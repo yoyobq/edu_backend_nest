@@ -81,12 +81,14 @@
 
 ### 建议职责
 
-- Usecase 只补充业务上下文，不二次改写基础错误语义。
-- Usecase 不改写 normalize 抛出的通用 `error_code`。
+- Normalize 层统一抛通用 `DomainError`。
+- Usecase 层默认透传通用 `error_code`。
+- 若为了兼容既有外部契约或场景语义，Usecase 层允许显式映射为场景错误码。
 
 ### 禁止做的事
 
-- 禁止把 normalize 通用错误码映射为场景错误码。
+- 禁止在 adapter/service 散落错误映射逻辑。
+- 禁止隐式吞并或模糊化错误语义。
 - 禁止在 adapter 层做业务错误编排。
 
 ## 7. 整个模块统一边界
@@ -130,3 +132,17 @@
 
 - `normalize` 只负责“收敛成什么”，`usecase` 只负责“业务上怎么用”。
 - `parse` 仅在局部辅助场景下负责“先识别输入是什么”。
+
+## 10. 附录：文件归属建议
+
+- `core/common/input-normalize/*`：primitive normalize。
+- `usecases/<scene>/*.input.normalize.ts`：场景专用输入语义组合。
+- 单个 usecase 独占规则：可先保留在 usecase 内部。
+- 2 个以上 usecase 共享：抽到同目录 `*.input.normalize.ts`。
+- 跨场景复用稳定后：再提升到 `core/common`。
+
+## 11. 附录：历史兼容场景例外
+
+- 若某场景已有稳定对外行为，迁移时应优先保持行为兼容。
+- 可将原先位于 Adapter 的场景语义迁入该场景本地 normalize，而非直接提升到通用层。
+- 例如 registration 场景可保留历史昵称/邮箱行为，但不应直接并入 `core/common`。

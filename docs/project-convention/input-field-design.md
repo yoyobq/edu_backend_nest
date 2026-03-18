@@ -94,6 +94,16 @@
   - 补充业务上下文并透传基础 error_code
   - 做业务规则校验与流程编排
 
+  ### 场景层 normalize
+
+  规则：
+
+  - core/common 只放跨场景稳定复用的 primitive normalize
+  - 某个领域或场景专用的输入语义，允许放在对应 usecases/<scene>/ 目录下的本地 normalize 文件中
+  - 本地 normalize 文件用于组合 primitive normalize，不承担业务编排、权限判断、I/O
+  - 本地 normalize 文件不是强制每个目录都建；只有当同一场景下多个 usecase 共享输入语义时才抽取
+  - 若某规则只被单个 usecase 使用，可先保留为 usecase 内私有 helper，待复用明确后再抽取
+
   ———
 
   ## 4. 统一输入语义
@@ -192,16 +202,18 @@
 
   ## 7. 错误约定
 
-  Normalize 层错误必须统一。
+  Normalize 层错误必须统一，Usecase 层采用“默认透传，必要时场景映射”。
 
   - 全部抛 DomainError
-  - 仅允许使用通用 error_code，不直接绑定具体业务场景错误语义
+  - Normalize 层仅产出通用 error_code，不直接绑定具体业务场景语义
 
   项目当前已有统一 `DomainError + error_code` 约定，约束如下：
 
   - Normalize 层统一抛 DomainError，禁止返回错误对象
-  - Usecase 层只补充业务上下文，不二次改写基础错误语义
-  - Usecase 层不得改写 Normalize 层产出的通用 error_code
+  - Usecase 层默认透传 Normalize 层通用 error_code
+  - 若为了兼容既有外部契约或场景语义，Usecase 层允许显式映射为场景 error_code
+  - 错误映射必须集中在场景层函数或 usecase 私有函数中，不得散落在 adapter/service
+  - 允许映射，不允许隐式吞并或模糊化错误语义
   - Adapter 层不做业务错误编排
 
   禁止同一函数同时出现：
@@ -241,7 +253,19 @@
 
   ———
 
-  ## 10. 迁移策略
+  ## 10. 开发流程建议
+
+  - 允许先开发 usecase，再补 adapter，再对领域内重复输入规则做统一收敛
+  - 在领域尚未稳定时，允许在 usecase 内保留少量临时输入收敛逻辑
+  - 临时输入收敛逻辑只能存在于 usecase，不得下沉到 service
+  - 一个领域的 usecase 基本完成后，应执行一次 normalize 收敛：
+    - 场景专用规则下沉到本地 normalize 文件
+    - 跨场景规则提升到 core/common
+  - 收敛整理是交付的一部分，不是可选清理项
+
+  ———
+
+  ## 11. 迁移策略
 
   - 旧链路保持兼容，不强制回改
   - 新增 usecase 默认接入统一 normalize policy
@@ -253,7 +277,7 @@
 
   ———
 
-  ## 11. 最小执行标准
+  ## 12. 最小执行标准
 
   一个新输入字段接入时，必须回答 5 个问题：
 
@@ -261,13 +285,13 @@
   2. 空白字符串是报错、转 undefined、转 null，还是保留？
   3. 是否需要大小写统一或空白归一？
   4. 如果是列表，空项、重复项、空列表怎么处理？
-  5. 如果失败，需要补充哪些业务上下文（不改写通用 error_code）？
+  5. 如果失败，需要补充哪些业务上下文（默认透传，必要时显式映射 error_code）？
 
   答不清楚，就不要写进通用 normalize。
 
   ———
 
-  ## 12. 总结
+  ## 13. 总结
 
   - 固定 Adapter / Normalize / Usecase 三层边界
   - 把通用输入收敛收口到少量纯函数
