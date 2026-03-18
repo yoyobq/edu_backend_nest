@@ -1,7 +1,7 @@
 // src/adapters/api/graphql/registration/dto/register.input.ts
 
 import { RegisterTypeEnum } from '@app-types/services/register.types';
-import { normalizeText, toLowerCase, trimTextPure } from '@core/common/text/text.helper';
+import { trimTextPure } from '@core/common/text/text.helper';
 import { Field, InputType } from '@nestjs/graphql';
 import { Transform, TransformFnParams } from 'class-transformer';
 import {
@@ -32,7 +32,7 @@ export class RegisterInput {
   loginName?: string | null;
 
   @Field(() => String, { description: '登录邮箱' })
-  @Transform(({ value }: TransformFnParams) => toLowerCase(trimTextPure(value)))
+  @Transform(({ value }: TransformFnParams) => trimTextPure(value))
   @IsNotEmpty({ message: '邮箱不能为空' })
   @MaxLength(254, { message: '邮箱长度不能超过 254 个字符' })
   @IsEmail({}, { message: '邮箱格式不正确' })
@@ -47,7 +47,7 @@ export class RegisterInput {
 
   @Field(() => String, { description: '昵称', nullable: true })
   @IsOptional()
-  @Transform(({ value }: TransformFnParams) => normalizeText(value))
+  @Transform(({ value }: TransformFnParams) => trimTextPure(value))
   @IsString({ message: '昵称必须是字符串' })
   @MinLength(2, { message: '昵称至少 2 个字符' })
   @MaxLength(20, { message: '昵称最多 20 个字符' })

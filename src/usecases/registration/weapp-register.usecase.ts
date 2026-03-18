@@ -17,6 +17,7 @@ import {
   ThirdPartyRegisterParams,
   ThirdPartyRegisterResult,
 } from './register-with-third-party.usecase';
+import { normalizeWeappRegisterInput } from './registration-input.normalize';
 
 // 工具类型：用新类型覆盖原类型的指定字段
 type Overwrite<T, U> = Omit<T, keyof U> & U;
@@ -65,6 +66,7 @@ export class WeappRegisterUsecase {
     // 1. 参数验证
     const validatedParams = this.validateParams(params);
     const { authCredential, audience } = validatedParams;
+    const normalizedInput = normalizeWeappRegisterInput();
 
     try {
       // 2. 解析身份信息
@@ -79,6 +81,7 @@ export class WeappRegisterUsecase {
 
       // 4. 准备账户数据
       const { accountData, userInfoData } = await this.prepareAccountData({
+        defaultNickname: normalizedInput.defaultNickname,
         phoneCode: params.weAppData?.phoneCode,
         audience,
       });
@@ -153,12 +156,16 @@ export class WeappRegisterUsecase {
    * 准备账户数据
    * 使用 AccountService 的 pickAvailableNickname 方法生成唯一昵称
    */
-  private async prepareAccountData(params: { phoneCode?: string; audience: AudienceTypeEnum }) {
-    const { phoneCode, audience } = params;
+  private async prepareAccountData(params: {
+    defaultNickname: string;
+    phoneCode?: string;
+    audience: AudienceTypeEnum;
+  }) {
+    const { defaultNickname, phoneCode, audience } = params;
 
     // 使用 AccountService 生成唯一的"微信用户"昵称
     const nickname = await this.accountService.pickAvailableNickname({
-      providedNickname: '微信用户',
+      providedNickname: defaultNickname,
       fallbackOptions: [],
       provider: ThirdPartyProviderEnum.WEAPP,
     });

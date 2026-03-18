@@ -20,6 +20,7 @@ import {
   RegisterWithEmailResult,
 } from '@app-types/models/registration.types';
 import { PinoLogger } from 'nestjs-pino';
+import { normalizeRegisterWithEmailInput } from './registration-input.normalize';
 
 /**
  * 邮箱注册用例
@@ -52,6 +53,9 @@ export class RegisterWithEmailUsecase {
       clientIp,
       serverNetworkInterfaces,
     } = params;
+    const normalizedInput = normalizeRegisterWithEmailInput({ loginEmail, nickname });
+    const normalizedLoginEmail = normalizedInput.loginEmail;
+    const normalizedNickname = normalizedInput.nickname;
 
     try {
       const finalClientIp = clientIp ?? '';
@@ -66,14 +70,14 @@ export class RegisterWithEmailUsecase {
       }
 
       // 检查账户是否已存在
-      await this.checkAccountExists({ loginName, loginEmail });
+      await this.checkAccountExists({ loginName, loginEmail: normalizedLoginEmail });
 
       // 准备注册数据
       const preparedData = await this.prepareRegisterData({
         loginName,
-        loginEmail,
+        loginEmail: normalizedLoginEmail,
         loginPassword,
-        nickname,
+        nickname: normalizedNickname,
       });
 
       // 创建账户

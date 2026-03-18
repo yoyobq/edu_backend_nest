@@ -1,7 +1,7 @@
 // src/adapters/api/graphql/registration/dto/third-party-register.input.ts
 
 import { AudienceTypeEnum, ThirdPartyProviderEnum } from '@app-types/models/account.types';
-import { toLowerCase, trimTextPure } from '@core/common/text/text.helper';
+import { trimTextPure } from '@core/common/text/text.helper';
 import { Field, InputType } from '@nestjs/graphql';
 import { Transform, TransformFnParams, Type } from 'class-transformer';
 import {
@@ -59,7 +59,7 @@ export class ThirdPartyRegisterInput {
 
   @Field({ nullable: true, description: '用户邮箱（可选）' })
   @IsOptional()
-  @Transform(({ value }: TransformFnParams) => toLowerCase(trimTextPure(value)))
+  @Transform(({ value }: TransformFnParams) => trimTextPure(value))
   @MaxLength(254, { message: '邮箱长度不能超过 254 个字符' })
   @IsEmail({}, { message: '邮箱格式不正确' })
   email?: string;

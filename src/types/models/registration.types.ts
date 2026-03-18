@@ -7,7 +7,7 @@ export interface RegisterWithEmailParams {
   loginName?: string | null;
   loginEmail: string;
   loginPassword: string;
-  nickname?: string;
+  nickname?: string | null;
   inviteToken?: string;
   clientIp?: string;
   serverNetworkInterfaces?: Record<
