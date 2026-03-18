@@ -575,6 +575,24 @@ describe('Coach Management (e2e)', () => {
       expect(msg).toMatch(/教练姓名长度不能超过 64|MaxLength|长度/);
     });
 
+    it('教练输入空白 name 应报错，不应静默忽略', async () => {
+      const response = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', `Bearer ${coachAccessToken}`)
+        .send({
+          query: `
+            mutation UpdateCoach($input: UpdateCoachInput!) {
+              updateCoach(input: $input) { coach { id name } }
+            }
+          `,
+          variables: { input: { name: '   ' } },
+        })
+        .expect(200);
+      expect(response.body.errors).toBeDefined();
+      const msg = response.body.errors?.[0]?.message ?? '';
+      expect(msg).toMatch(/教练姓名\s*不能为空白|教练姓名不能为空/);
+    });
+
     it('DTO 长度校验：avatarUrl 超长应报错', async () => {
       const longUrl = 'https://example.com/'.padEnd(260, 'x');
       const response = await request(app.getHttpServer())

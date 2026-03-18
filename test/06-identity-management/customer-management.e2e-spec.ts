@@ -289,6 +289,27 @@ describe('Customer Management (e2e)', () => {
       expect(msg).toMatch(/客户姓名长度不能超过 64/);
     });
 
+    it('客户输入空白姓名应报错，不应静默忽略', async () => {
+      const response = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', `Bearer ${customerAccessToken}`)
+        .send({
+          query: `
+            mutation UpdateCustomer($input: UpdateCustomerInput!) {
+              updateCustomer(input: $input) {
+                customer { id name }
+              }
+            }
+          `,
+          variables: { input: { name: '   ' } },
+        })
+        .expect(200);
+
+      expect(response.body.errors).toBeDefined();
+      const msg = response.body.errors?.[0]?.message ?? '';
+      expect(msg).toMatch(/客户姓名\s*不能为空白|客户姓名不能为空/);
+    });
+
     it('管理员未提供 customerId 更新 remark 应该报错', async () => {
       const response = await request(app.getHttpServer())
         .post('/graphql')

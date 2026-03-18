@@ -444,6 +444,25 @@ describe('Manager Management (e2e)', () => {
       expect(['ACTIVE', 'LEFT']).toContain(mgr.employmentStatus);
     });
 
+    it('manager 输入空白 name 应报错，不应静默忽略', async () => {
+      const response = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', `Bearer ${managerAccessToken}`)
+        .send({
+          query: `
+            mutation UpdateManager($input: UpdateManagerInput!) {
+              updateManager(input: $input) { manager { id name } }
+            }
+          `,
+          variables: { input: { name: '   ' } },
+        })
+        .expect(200);
+
+      expect(response.body.errors).toBeDefined();
+      const msg = response.body.errors?.[0]?.message ?? '';
+      expect(msg).toMatch(/姓名\s*不能为空白|姓名不能为空/);
+    });
+
     it('非 manager 身份访问 updateManager 应返回权限错误（使用 customer token）', async () => {
       const response = await request(app.getHttpServer())
         .post('/graphql')

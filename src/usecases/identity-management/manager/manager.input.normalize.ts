@@ -30,7 +30,7 @@ export function normalizeUpdateManagerInput(
 }
 
 function normalizeManagerName(input: unknown): string | undefined {
-  const normalized = normalizeSceneOptionalText(input, 'to_undefined', '姓名');
+  const normalized = normalizeSceneOptionalText(input, 'reject', '姓名');
   if (normalized === null || typeof normalized === 'undefined') {
     return undefined;
   }
@@ -53,7 +53,7 @@ function normalizeManagerRemark(input: unknown): string | null | undefined {
 
 function normalizeSceneOptionalText(
   input: unknown,
-  policy: 'to_undefined' | 'to_null',
+  policy: 'to_undefined' | 'to_null' | 'reject',
   fieldName: string,
 ): string | null | undefined {
   try {

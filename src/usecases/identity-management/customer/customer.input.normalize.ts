@@ -44,7 +44,7 @@ export function normalizeUpdateCustomerInput(
 }
 
 function normalizeCustomerName(input: unknown): string | undefined {
-  const normalized = normalizeSceneOptionalText(input, 'to_undefined', '客户姓名');
+  const normalized = normalizeSceneOptionalText(input, 'reject', '客户姓名');
   if (normalized === null || typeof normalized === 'undefined') {
     return undefined;
   }
@@ -89,7 +89,7 @@ function normalizeCustomerRemark(input: unknown): string | null | undefined {
 
 function normalizeSceneOptionalText(
   input: unknown,
-  policy: 'to_undefined' | 'to_null',
+  policy: 'to_undefined' | 'to_null' | 'reject',
   fieldName: string,
 ): string | null | undefined {
   try {
