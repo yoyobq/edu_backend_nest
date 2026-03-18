@@ -12,9 +12,11 @@ import { AccountService } from '@src/modules/account/base/services/account.servi
 import { FetchUserInfoUsecase } from './fetch-user-info.usecase';
 import {
   normalizeVisibleBirthDateInput,
+  normalizeVisibleGenderInput,
   normalizeVisibleGeographicInput,
   normalizeVisibleNicknameInput,
-  normalizeVisibleNullableTextInput,
+  normalizeVisibleLimitedNullableTextInput,
+  normalizeVisibleNonNegativeIntInput,
   normalizeVisibleTagsInput,
   normalizeVisibleUserStateInput,
 } from './update-visible-user-info.input.normalize';
@@ -307,10 +309,10 @@ export class UpdateVisibleUserInfoUsecase {
     assignIfChanged: <K extends UserInfoUpdateField>(key: K, next: UserInfoUpdatePatch[K]) => void,
   ): void {
     if (typeof patch.gender !== 'undefined' && allow('gender')) {
-      assignIfChanged('gender', this.sanitizeGender(patch.gender));
+      assignIfChanged('gender', normalizeVisibleGenderInput(patch.gender));
     }
     if (typeof patch.birthDate !== 'undefined' && allow('birthDate')) {
-      assignIfChanged('birthDate', this.sanitizeBirthDate(patch.birthDate));
+      assignIfChanged('birthDate', normalizeVisibleBirthDateInput(patch.birthDate));
     }
   }
 
@@ -325,31 +327,51 @@ export class UpdateVisibleUserInfoUsecase {
     if (typeof patch.avatarUrl !== 'undefined' && allow('avatarUrl')) {
       assignIfChanged(
         'avatarUrl',
-        this.sanitizeNullableString(patch.avatarUrl, '头像 URL', 255, '头像 URL 长度不能超过 255'),
+        normalizeVisibleLimitedNullableTextInput(patch.avatarUrl, {
+          fieldName: '头像 URL',
+          maxLen: 255,
+          tooLongMessage: '头像 URL 长度不能超过 255',
+        }),
       );
     }
     if (typeof patch.email !== 'undefined' && allow('email')) {
       assignIfChanged(
         'email',
-        this.sanitizeNullableString(patch.email, '邮箱', 50, '邮箱长度不能超过 50'),
+        normalizeVisibleLimitedNullableTextInput(patch.email, {
+          fieldName: '邮箱',
+          maxLen: 50,
+          tooLongMessage: '邮箱长度不能超过 50',
+        }),
       );
     }
     if (typeof patch.signature !== 'undefined' && allow('signature')) {
       assignIfChanged(
         'signature',
-        this.sanitizeNullableString(patch.signature, '个性签名', 100, '个性签名长度不能超过 100'),
+        normalizeVisibleLimitedNullableTextInput(patch.signature, {
+          fieldName: '个性签名',
+          maxLen: 100,
+          tooLongMessage: '个性签名长度不能超过 100',
+        }),
       );
     }
     if (typeof patch.address !== 'undefined' && allow('address')) {
       assignIfChanged(
         'address',
-        this.sanitizeNullableString(patch.address, '地址', 255, '地址长度不能超过 255'),
+        normalizeVisibleLimitedNullableTextInput(patch.address, {
+          fieldName: '地址',
+          maxLen: 255,
+          tooLongMessage: '地址长度不能超过 255',
+        }),
       );
     }
     if (typeof patch.phone !== 'undefined' && allow('phone')) {
       assignIfChanged(
         'phone',
-        this.sanitizeNullableString(patch.phone, '电话', 20, '电话长度不能超过 20'),
+        normalizeVisibleLimitedNullableTextInput(patch.phone, {
+          fieldName: '电话',
+          maxLen: 20,
+          tooLongMessage: '电话长度不能超过 20',
+        }),
       );
     }
   }
@@ -361,12 +383,12 @@ export class UpdateVisibleUserInfoUsecase {
     assignIfChanged: <K extends UserInfoUpdateField>(key: K, next: UserInfoUpdatePatch[K]) => void,
   ): void {
     if (typeof patch.tags !== 'undefined' && allow('tags')) {
-      const v = this.sanitizeTags(patch.tags);
+      const v = normalizeVisibleTagsInput(patch.tags);
       const eq = JSON.stringify(v) === JSON.stringify(current.tags);
       if (!eq) assignIfChanged('tags', v as never);
     }
     if (typeof patch.geographic !== 'undefined' && allow('geographic')) {
-      const v = this.sanitizeGeographic(patch.geographic);
+      const v = normalizeVisibleGeographicInput(patch.geographic);
       const eq = JSON.stringify(v) === JSON.stringify(current.geographic);
       if (!eq) assignIfChanged('geographic', v as never);
     }
@@ -385,7 +407,7 @@ export class UpdateVisibleUserInfoUsecase {
           '仅在 manager 自改或 admin 时可修改用户状态',
         );
       }
-      assignIfChanged('userState', this.sanitizeUserState(patch.userState));
+      assignIfChanged('userState', normalizeVisibleUserStateInput(patch.userState));
     }
     if (typeof patch.notifyCount !== 'undefined') {
       if (!allow('notifyCount')) {
@@ -394,7 +416,7 @@ export class UpdateVisibleUserInfoUsecase {
           '仅在 manager 自改或 admin 时可修改通知计数',
         );
       }
-      assignIfChanged('notifyCount', this.sanitizeNonNegativeInt(patch.notifyCount));
+      assignIfChanged('notifyCount', normalizeVisibleNonNegativeIntInput(patch.notifyCount));
     }
     if (typeof patch.unreadCount !== 'undefined') {
       if (!allow('unreadCount')) {
@@ -403,7 +425,7 @@ export class UpdateVisibleUserInfoUsecase {
           '仅在 manager 自改或 admin 时可修改未读计数',
         );
       }
-      assignIfChanged('unreadCount', this.sanitizeNonNegativeInt(patch.unreadCount));
+      assignIfChanged('unreadCount', normalizeVisibleNonNegativeIntInput(patch.unreadCount));
     }
   }
 
@@ -415,70 +437,11 @@ export class UpdateVisibleUserInfoUsecase {
     current: UserInfoRecord,
   ): Promise<string> {
     const val = normalizeVisibleNicknameInput(value);
-    if (val.length > 50) {
-      throw new DomainError(ACCOUNT_ERROR.OPERATION_NOT_SUPPORTED, '昵称长度不能超过 50');
-    }
     if (val !== current.nickname) {
       const exists = await this.accountService.checkNicknameExists(val);
       if (exists) throw new DomainError(ACCOUNT_ERROR.NICKNAME_TAKEN, '昵称已被占用');
     }
     return val;
-  }
-
-  /**
-   * 清洗性别枚举：未提供时回退为 SECRET
-   */
-  private sanitizeGender(value: Gender | null | undefined): Gender {
-    return value ?? Gender.SECRET;
-  }
-
-  /**
-   * 清洗出生日期：YYYY-MM-DD 或 null
-   */
-  private sanitizeBirthDate(value: string | null | undefined): string | null {
-    return normalizeVisibleBirthDateInput(value);
-  }
-
-  /**
-   * 清洗可空字符串：长度限制
-   */
-  private sanitizeNullableString(
-    value: string | null | undefined,
-    fieldName: string,
-    maxLen: number,
-    tooLongMsg: string,
-  ): string | null {
-    const val = normalizeVisibleNullableTextInput(value, { fieldName });
-    if (val && val.length > maxLen) {
-      throw new DomainError(ACCOUNT_ERROR.OPERATION_NOT_SUPPORTED, tooLongMsg);
-    }
-    return val;
-  }
-
-  /**
-   * 清洗标签：必须为字符串数组或 null
-   */
-  private sanitizeTags(value: string[] | null | undefined): string[] | null {
-    return normalizeVisibleTagsInput(value);
-  }
-
-  /**
-   * 清洗地理信息：对象或 null 原样通过
-   */
-  private sanitizeGeographic(value: GeographicInfo | null | undefined): GeographicInfo | null {
-    return normalizeVisibleGeographicInput(value);
-  }
-
-  private sanitizeUserState(value: UserState | undefined): UserState {
-    return normalizeVisibleUserStateInput(value);
-  }
-
-  private sanitizeNonNegativeInt(value: number | undefined): number {
-    const v = typeof value === 'number' ? value : 0;
-    if (!Number.isInteger(v) || v < 0) {
-      throw new DomainError(ACCOUNT_ERROR.OPERATION_NOT_SUPPORTED, '计数必须为不小于 0 的整数');
-    }
-    return v;
   }
 
   /**

@@ -1,6 +1,6 @@
 // 文件位置：src/usecases/account/update-visible-user-info.input.normalize.ts
 
-import { UserState, type GeographicInfo } from '@app-types/models/user-info.types';
+import { Gender, UserState, type GeographicInfo } from '@app-types/models/user-info.types';
 import {
   ACCOUNT_ERROR,
   DomainError,
@@ -15,6 +15,9 @@ import {
 export function normalizeVisibleNicknameInput(input: unknown): string {
   try {
     const normalized = normalizeRequiredText(input, { fieldName: '昵称' });
+    if (normalized.length > 50) {
+      throw new DomainError(ACCOUNT_ERROR.OPERATION_NOT_SUPPORTED, '昵称长度不能超过 50');
+    }
     return normalized;
   } catch (error) {
     if (error instanceof DomainError) {
@@ -58,6 +61,17 @@ export function normalizeVisibleNullableTextInput(
   }
 }
 
+export function normalizeVisibleLimitedNullableTextInput(
+  input: unknown,
+  options: { fieldName: string; maxLen: number; tooLongMessage: string },
+): string | null {
+  const normalized = normalizeVisibleNullableTextInput(input, { fieldName: options.fieldName });
+  if (normalized && normalized.length > options.maxLen) {
+    throw new DomainError(ACCOUNT_ERROR.OPERATION_NOT_SUPPORTED, options.tooLongMessage);
+  }
+  return normalized;
+}
+
 export function normalizeVisibleTagsInput(input: unknown): string[] | null {
   try {
     const normalized = normalizeTextList(
@@ -97,9 +111,24 @@ export function normalizeVisibleGeographicInput(input: unknown): GeographicInfo 
   return input as GeographicInfo;
 }
 
+export function normalizeVisibleGenderInput(input: unknown): Gender {
+  if (input === null || typeof input === 'undefined') {
+    return Gender.SECRET;
+  }
+  return input as Gender;
+}
+
 export function normalizeVisibleUserStateInput(input: unknown): UserState {
   if (typeof input === 'undefined') {
     return UserState.PENDING;
   }
   return input as UserState;
+}
+
+export function normalizeVisibleNonNegativeIntInput(input: unknown): number {
+  const normalized = typeof input === 'number' ? input : 0;
+  if (!Number.isInteger(normalized) || normalized < 0) {
+    throw new DomainError(ACCOUNT_ERROR.OPERATION_NOT_SUPPORTED, '计数必须为不小于 0 的整数');
+  }
+  return normalized;
 }
