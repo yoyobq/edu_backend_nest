@@ -5,6 +5,7 @@ import {
   type ManagerProfile,
 } from '@modules/account/identities/training/manager/manager.service';
 import { Injectable } from '@nestjs/common';
+import { normalizeUpdateManagerInput } from './manager.input.normalize';
 
 export type ManagerView = ManagerProfile;
 
@@ -103,10 +104,10 @@ export class UpdateManagerUsecase {
 
   /** 准备更新数据 */
   private prepareUpdateData(params: UpdateManagerUsecaseParams): ManagerUpdatePatch {
-    const updateData: ManagerUpdatePatch = {};
-    this.applyName(updateData, params.name);
-    this.applyRemark(updateData, params.remark);
-    return updateData;
+    return normalizeUpdateManagerInput({
+      name: params.name,
+      remark: params.remark,
+    });
   }
 
   /** 幂等检查 */
@@ -116,25 +117,5 @@ export class UpdateManagerUsecase {
       if (typeof updateData[field] === 'undefined') return false;
       return updateData[field] !== current[field];
     });
-  }
-
-  /** 处理 name */
-  private applyName(updateData: ManagerUpdatePatch, name: string | undefined): void {
-    if (typeof name === 'undefined') return;
-    const val = (name ?? '').trim();
-    if (val.length > 64) {
-      throw new DomainError(ACCOUNT_ERROR.OPERATION_NOT_SUPPORTED, '姓名长度不能超过 64');
-    }
-    updateData.name = val;
-  }
-
-  /** 处理 remark */
-  private applyRemark(updateData: ManagerUpdatePatch, remark: string | null | undefined): void {
-    if (typeof remark === 'undefined') return;
-    const val = remark ?? null;
-    if (val && val.length > 255) {
-      throw new DomainError(ACCOUNT_ERROR.OPERATION_NOT_SUPPORTED, '备注长度不能超过 255');
-    }
-    updateData.remark = val;
   }
 }

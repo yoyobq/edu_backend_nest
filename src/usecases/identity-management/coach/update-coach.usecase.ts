@@ -6,6 +6,7 @@ import {
 } from '@modules/account/identities/training/coach/coach.service';
 import { ManagerService } from '@modules/account/identities/training/manager/manager.service';
 import { Injectable } from '@nestjs/common';
+import { normalizeUpdateCoachInput } from './coach.input.normalize';
 
 export type CoachView = CoachProfile;
 
@@ -129,13 +130,13 @@ export class UpdateCoachUsecase {
     params: UpdateCoachUsecaseParams,
     ctx: { isManager: boolean; targetCoachId: number },
   ): CoachUpdatePatch {
-    const updateData: CoachUpdatePatch = {};
-
-    this.applyName(updateData, params.name);
-    this.applyDescription(updateData, params.description);
-    this.applyAvatarUrl(updateData, params.avatarUrl);
-    this.applySpecialty(updateData, params.specialty);
-    this.applyRemark(updateData, params.remark);
+    const updateData: CoachUpdatePatch = normalizeUpdateCoachInput({
+      name: params.name,
+      description: params.description,
+      avatarUrl: params.avatarUrl,
+      specialty: params.specialty,
+      remark: params.remark,
+    });
     this.applyLevel(updateData, ctx.isManager, params.level);
 
     return updateData;
@@ -150,59 +151,6 @@ export class UpdateCoachUsecase {
       if (typeof updateData[field] === 'undefined') return false;
       return updateData[field] !== current[field];
     });
-  }
-
-  /** 处理 name */
-  private applyName(updateData: CoachUpdatePatch, name: string | undefined): void {
-    if (typeof name === 'undefined') return;
-    const val = (name ?? '').trim();
-    if (val.length > 64) {
-      throw new DomainError(ACCOUNT_ERROR.OPERATION_NOT_SUPPORTED, '教练姓名长度不能超过 64');
-    }
-    updateData.name = val;
-  }
-
-  /** 处理 description */
-  private applyDescription(
-    updateData: CoachUpdatePatch,
-    description: string | null | undefined,
-  ): void {
-    if (typeof description === 'undefined') return;
-    const val = description ?? null;
-    if (val && val.length > 2000) {
-      throw new DomainError(ACCOUNT_ERROR.OPERATION_NOT_SUPPORTED, '简介长度不能超过 2000');
-    }
-    updateData.description = val;
-  }
-
-  /** 处理 avatarUrl */
-  private applyAvatarUrl(updateData: CoachUpdatePatch, avatarUrl: string | null | undefined): void {
-    if (typeof avatarUrl === 'undefined') return;
-    const val = avatarUrl ?? null;
-    if (val && val.length > 255) {
-      throw new DomainError(ACCOUNT_ERROR.OPERATION_NOT_SUPPORTED, '头像 URL 长度不能超过 255');
-    }
-    updateData.avatarUrl = val;
-  }
-
-  /** 处理 specialty */
-  private applySpecialty(updateData: CoachUpdatePatch, specialty: string | null | undefined): void {
-    if (typeof specialty === 'undefined') return;
-    const val = specialty ?? null;
-    if (val && val.length > 100) {
-      throw new DomainError(ACCOUNT_ERROR.OPERATION_NOT_SUPPORTED, '专长长度不能超过 100');
-    }
-    updateData.specialty = val;
-  }
-
-  /** 处理 remark */
-  private applyRemark(updateData: CoachUpdatePatch, remark: string | null | undefined): void {
-    if (typeof remark === 'undefined') return;
-    const val = remark ?? null;
-    if (val && val.length > 255) {
-      throw new DomainError(ACCOUNT_ERROR.OPERATION_NOT_SUPPORTED, '备注长度不能超过 255');
-    }
-    updateData.remark = val;
   }
 
   /** 处理 level（仅 manager 可更新） */

@@ -7,6 +7,7 @@ import {
 } from '@modules/account/identities/training/customer/account-customer.service';
 import { ManagerService } from '@modules/account/identities/training/manager/manager.service';
 import { Injectable } from '@nestjs/common';
+import { normalizeUpdateCustomerInput } from './customer.input.normalize';
 
 type CustomerView = CustomerProfile;
 
@@ -144,14 +145,12 @@ export class UpdateCustomerUsecase {
    * @returns 部分更新数据
    */
   private prepareUpdateData(params: UpdateCustomerUsecaseParams): CustomerUpdatePatch {
-    const updateData: CustomerUpdatePatch = {};
-
-    this.applyName(updateData, params.name);
-    this.applyContactPhone(updateData, params.contactPhone);
-    this.applyPreferredContactTime(updateData, params.preferredContactTime);
-    this.applyRemark(updateData, params.remark);
-
-    return updateData;
+    return normalizeUpdateCustomerInput({
+      name: params.name,
+      contactPhone: params.contactPhone,
+      preferredContactTime: params.preferredContactTime,
+      remark: params.remark,
+    });
   }
 
   /**
@@ -171,67 +170,5 @@ export class UpdateCustomerUsecase {
       if (typeof updateData[field] === 'undefined') return false;
       return updateData[field] !== current[field];
     });
-  }
-
-  /**
-   * 处理 name 字段：去除首尾空格并校验长度
-   * @param updateData 更新数据对象
-   * @param name 输入的客户姓名
-   */
-  private applyName(updateData: CustomerUpdatePatch, name: string | undefined): void {
-    if (typeof name === 'undefined') return;
-    const val = (name ?? '').trim();
-    if (val.length > 64) {
-      throw new DomainError(ACCOUNT_ERROR.OPERATION_NOT_SUPPORTED, '客户姓名长度不能超过 64');
-    }
-    updateData.name = val;
-  }
-
-  /**
-   * 处理 contactPhone 字段：允许为空并校验最大长度
-   * @param updateData 更新数据对象
-   * @param contactPhone 输入的联系电话
-   */
-  private applyContactPhone(
-    updateData: CustomerUpdatePatch,
-    contactPhone: string | null | undefined,
-  ): void {
-    if (typeof contactPhone === 'undefined') return;
-    const val = contactPhone;
-    if (val && val.length > 20) {
-      throw new DomainError(ACCOUNT_ERROR.OPERATION_NOT_SUPPORTED, '联系电话长度不能超过 20');
-    }
-    updateData.contactPhone = val ?? null;
-  }
-
-  /**
-   * 处理 preferredContactTime 字段：允许为空并校验最大长度
-   * @param updateData 更新数据对象
-   * @param preferredContactTime 输入的偏好联系时间
-   */
-  private applyPreferredContactTime(
-    updateData: CustomerUpdatePatch,
-    preferredContactTime: string | null | undefined,
-  ): void {
-    if (typeof preferredContactTime === 'undefined') return;
-    const val = preferredContactTime;
-    if (val && val.length > 50) {
-      throw new DomainError(ACCOUNT_ERROR.OPERATION_NOT_SUPPORTED, '偏好联系时间长度不能超过 50');
-    }
-    updateData.preferredContactTime = val ?? null;
-  }
-
-  /**
-   * 处理 remark 字段：允许为空并校验最大长度
-   * @param updateData 更新数据对象
-   * @param remark 输入的备注
-   */
-  private applyRemark(updateData: CustomerUpdatePatch, remark: string | null | undefined): void {
-    if (typeof remark === 'undefined') return;
-    const val = remark;
-    if (val && val.length > 255) {
-      throw new DomainError(ACCOUNT_ERROR.OPERATION_NOT_SUPPORTED, '备注长度不能超过 255');
-    }
-    updateData.remark = val ?? null;
   }
 }

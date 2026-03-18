@@ -1,5 +1,6 @@
 // 文件位置：src/usecases/account/update-visible-user-info.usecase.ts
 
+import { type UsecaseSession } from '@app-types/auth/session.types';
 import { IdentityTypeEnum } from '@app-types/models/account.types';
 import { UserInfoView } from '@app-types/models/auth.types';
 import { Gender, UserState, type GeographicInfo } from '@app-types/models/user-info.types';
@@ -8,8 +9,15 @@ import { canViewUserInfo } from '@core/account/policy/user-info-visibility.polic
 import { ACCOUNT_ERROR, DomainError, PERMISSION_ERROR } from '@core/common/errors/domain-error';
 import { Injectable } from '@nestjs/common';
 import { AccountService } from '@src/modules/account/base/services/account.service';
-import { type UsecaseSession } from '@app-types/auth/session.types';
 import { FetchUserInfoUsecase } from './fetch-user-info.usecase';
+import {
+  normalizeVisibleBirthDateInput,
+  normalizeVisibleGeographicInput,
+  normalizeVisibleNicknameInput,
+  normalizeVisibleNullableTextInput,
+  normalizeVisibleTagsInput,
+  normalizeVisibleUserStateInput,
+} from './update-visible-user-info.input.normalize';
 
 export type UserInfoPatch = {
   nickname?: string;
@@ -317,26 +325,32 @@ export class UpdateVisibleUserInfoUsecase {
     if (typeof patch.avatarUrl !== 'undefined' && allow('avatarUrl')) {
       assignIfChanged(
         'avatarUrl',
-        this.sanitizeNullableString(patch.avatarUrl, 255, '头像 URL 长度不能超过 255'),
+        this.sanitizeNullableString(patch.avatarUrl, '头像 URL', 255, '头像 URL 长度不能超过 255'),
       );
     }
     if (typeof patch.email !== 'undefined' && allow('email')) {
-      assignIfChanged('email', this.sanitizeNullableString(patch.email, 50, '邮箱长度不能超过 50'));
+      assignIfChanged(
+        'email',
+        this.sanitizeNullableString(patch.email, '邮箱', 50, '邮箱长度不能超过 50'),
+      );
     }
     if (typeof patch.signature !== 'undefined' && allow('signature')) {
       assignIfChanged(
         'signature',
-        this.sanitizeNullableString(patch.signature, 100, '个性签名长度不能超过 100'),
+        this.sanitizeNullableString(patch.signature, '个性签名', 100, '个性签名长度不能超过 100'),
       );
     }
     if (typeof patch.address !== 'undefined' && allow('address')) {
       assignIfChanged(
         'address',
-        this.sanitizeNullableString(patch.address, 255, '地址长度不能超过 255'),
+        this.sanitizeNullableString(patch.address, '地址', 255, '地址长度不能超过 255'),
       );
     }
     if (typeof patch.phone !== 'undefined' && allow('phone')) {
-      assignIfChanged('phone', this.sanitizeNullableString(patch.phone, 20, '电话长度不能超过 20'));
+      assignIfChanged(
+        'phone',
+        this.sanitizeNullableString(patch.phone, '电话', 20, '电话长度不能超过 20'),
+      );
     }
   }
 
@@ -400,10 +414,7 @@ export class UpdateVisibleUserInfoUsecase {
     value: string | null | undefined,
     current: UserInfoRecord,
   ): Promise<string> {
-    const val = (value ?? '').trim();
-    if (val.length === 0) {
-      throw new DomainError(ACCOUNT_ERROR.OPERATION_NOT_SUPPORTED, '昵称不可为空');
-    }
+    const val = normalizeVisibleNicknameInput(value);
     if (val.length > 50) {
       throw new DomainError(ACCOUNT_ERROR.OPERATION_NOT_SUPPORTED, '昵称长度不能超过 50');
     }
@@ -425,11 +436,7 @@ export class UpdateVisibleUserInfoUsecase {
    * 清洗出生日期：YYYY-MM-DD 或 null
    */
   private sanitizeBirthDate(value: string | null | undefined): string | null {
-    const val = value ?? null;
-    if (val !== null && !/^\d{4}-\d{2}-\d{2}$/.test(val)) {
-      throw new DomainError(ACCOUNT_ERROR.OPERATION_NOT_SUPPORTED, '出生日期格式必须为 YYYY-MM-DD');
-    }
-    return val;
+    return normalizeVisibleBirthDateInput(value);
   }
 
   /**
@@ -437,10 +444,11 @@ export class UpdateVisibleUserInfoUsecase {
    */
   private sanitizeNullableString(
     value: string | null | undefined,
+    fieldName: string,
     maxLen: number,
     tooLongMsg: string,
   ): string | null {
-    const val = value ?? null;
+    const val = normalizeVisibleNullableTextInput(value, { fieldName });
     if (val && val.length > maxLen) {
       throw new DomainError(ACCOUNT_ERROR.OPERATION_NOT_SUPPORTED, tooLongMsg);
     }
@@ -451,22 +459,18 @@ export class UpdateVisibleUserInfoUsecase {
    * 清洗标签：必须为字符串数组或 null
    */
   private sanitizeTags(value: string[] | null | undefined): string[] | null {
-    const val = value ?? null;
-    if (val !== null && !Array.isArray(val)) {
-      throw new DomainError(ACCOUNT_ERROR.OPERATION_NOT_SUPPORTED, '标签必须是字符串数组或为 null');
-    }
-    return val ? val.map((v) => String(v)) : null;
+    return normalizeVisibleTagsInput(value);
   }
 
   /**
    * 清洗地理信息：对象或 null 原样通过
    */
   private sanitizeGeographic(value: GeographicInfo | null | undefined): GeographicInfo | null {
-    return value ?? null;
+    return normalizeVisibleGeographicInput(value);
   }
 
   private sanitizeUserState(value: UserState | undefined): UserState {
-    return value ?? UserState.PENDING;
+    return normalizeVisibleUserStateInput(value);
   }
 
   private sanitizeNonNegativeInt(value: number | undefined): number {
