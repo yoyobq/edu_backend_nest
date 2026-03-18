@@ -53,6 +53,42 @@ export function normalizeRegisterWithEmailInput(
   };
 }
 
+export function normalizeRegistrationNicknameCandidatesInput(input: {
+  providedNickname?: unknown;
+  fallbackOptions?: unknown;
+}): {
+  providedNickname?: string;
+  fallbackOptions: string[];
+} {
+  const providedNickname = normalizeOptionalText(input.providedNickname, 'to_undefined', {
+    fieldName: '昵称',
+  });
+  if (typeof input.fallbackOptions === 'undefined' || input.fallbackOptions === null) {
+    return {
+      providedNickname: providedNickname ?? undefined,
+      fallbackOptions: [],
+    };
+  }
+  if (!Array.isArray(input.fallbackOptions)) {
+    throw new DomainError(INPUT_NORMALIZE_ERROR.INVALID_TEXT_LIST, '昵称备选项 必须是字符串列表');
+  }
+
+  const fallbackOptions: string[] = [];
+  for (const option of input.fallbackOptions) {
+    const normalized = normalizeOptionalText(option, 'to_undefined', {
+      fieldName: '昵称备选项',
+    });
+    if (typeof normalized === 'string' && !fallbackOptions.includes(normalized)) {
+      fallbackOptions.push(normalized);
+    }
+  }
+
+  return {
+    providedNickname: providedNickname ?? undefined,
+    fallbackOptions,
+  };
+}
+
 export function normalizeRegisterWithThirdPartyInput(
   input: RegisterWithThirdPartyNormalizeInput,
 ): RegisterWithThirdPartyNormalizeOutput {

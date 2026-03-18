@@ -329,16 +329,13 @@ export class AccountService {
    * @returns 预处理后的密码
    */
   private static preprocessPassword(password: string): string {
-    // 检查空白密码
-    if (!password || !password.trim()) {
+    if (!password || /^\s*$/u.test(password)) {
       throw new DomainError(AUTH_ERROR.INVALID_PASSWORD, '密码不能为空或纯空白字符');
     }
 
-    // NFKC 规范化处理
     const normalizedPassword = password.normalize('NFKC');
 
-    // 检查首尾空格
-    if (normalizedPassword !== normalizedPassword.trim()) {
+    if (/^\s|\s$/u.test(normalizedPassword)) {
       throw new DomainError(AUTH_ERROR.INVALID_PASSWORD, '密码首尾不能包含空格');
     }
 
@@ -500,18 +497,13 @@ export class AccountService {
     provider,
   }: {
     providedNickname?: string;
-    fallbackOptions?: string[];
+    fallbackOptions?: ReadonlyArray<string>;
     provider?: ThirdPartyProviderEnum;
   }): Promise<string | undefined> {
-    const cleanProvidedNickname = providedNickname?.trim() || undefined;
-    const cleanFallbackOptions = fallbackOptions
-      .map((o) => o?.trim())
-      .filter((o): o is string => !!o && o.length > 0);
-
     const candidates: string[] = [];
-    if (cleanProvidedNickname) candidates.push(cleanProvidedNickname);
+    if (providedNickname) candidates.push(providedNickname);
 
-    for (const option of cleanFallbackOptions) {
+    for (const option of fallbackOptions) {
       const nickname = option.includes('@') ? option.split('@')[0] : option;
       if (nickname) candidates.push(nickname);
     }

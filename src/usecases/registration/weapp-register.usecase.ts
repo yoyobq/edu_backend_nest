@@ -22,6 +22,7 @@ import {
   ThirdPartyRegisterResult,
 } from './register-with-third-party.usecase';
 import {
+  normalizeRegistrationNicknameCandidatesInput,
   normalizeWeappRegisterInput,
   normalizeWeappRegisterParams,
 } from './registration-input.normalize';
@@ -156,10 +157,14 @@ export class WeappRegisterUsecase {
   }) {
     const { defaultNickname, phoneCode, audience } = params;
 
-    // 使用 AccountService 生成唯一的"微信用户"昵称
-    const nickname = await this.accountService.pickAvailableNickname({
+    const nicknameCandidates = normalizeRegistrationNicknameCandidatesInput({
       providedNickname: defaultNickname,
       fallbackOptions: [],
+    });
+
+    const nickname = await this.accountService.pickAvailableNickname({
+      providedNickname: nicknameCandidates.providedNickname,
+      fallbackOptions: nicknameCandidates.fallbackOptions,
       provider: ThirdPartyProviderEnum.WEAPP,
     });
 

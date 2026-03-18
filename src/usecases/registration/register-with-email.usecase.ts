@@ -20,7 +20,10 @@ import {
   RegisterWithEmailResult,
 } from '@app-types/models/registration.types';
 import { PinoLogger } from 'nestjs-pino';
-import { normalizeRegisterWithEmailInput } from './registration-input.normalize';
+import {
+  normalizeRegisterWithEmailInput,
+  normalizeRegistrationNicknameCandidatesInput,
+} from './registration-input.normalize';
 
 /**
  * 邮箱注册用例
@@ -188,11 +191,14 @@ export class RegisterWithEmailUsecase {
     loginPassword: string;
     nickname?: string;
   }) {
-    // 使用 AccountService 的通用昵称处理方法
-    const finalNickname = await this.accountService.pickAvailableNickname({
+    const nicknameCandidates = normalizeRegistrationNicknameCandidatesInput({
       providedNickname: nickname,
-      fallbackOptions: [loginName || '', loginEmail.split('@')[0]],
-      // 注意：这里没有传入 provider 参数，表示本站注册
+      fallbackOptions: [loginName ?? undefined, loginEmail.split('@')[0]],
+    });
+
+    const finalNickname = await this.accountService.pickAvailableNickname({
+      providedNickname: nicknameCandidates.providedNickname,
+      fallbackOptions: nicknameCandidates.fallbackOptions,
     });
 
     if (!finalNickname) {
