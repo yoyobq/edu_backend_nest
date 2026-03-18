@@ -49,13 +49,7 @@ export class RegisterInput {
   @IsOptional()
   @Transform(({ value }: TransformFnParams) => trimTextPure(value))
   @IsString({ message: '昵称必须是字符串' })
-  @MinLength(2, { message: '昵称至少 2 个字符' })
-  @MaxLength(20, { message: '昵称最多 20 个字符' })
-  @Matches(/^(?![\p{Script=Han}]{8,})[\p{Script=Han}A-Za-z0-9 _\-\u00B7\u30FB.]{2,20}$/u, {
-    message:
-      '昵称长度限制：中文最多 7 个汉字，整体长度 2 到 20 个字符；允许中文、英文、数字、空格、下划线 _、短横线 -、中点 ·/・、点 .；不支持 Emoji',
-  })
-  nickname?: string;
+  nickname?: string | null;
 
   @Field(() => RegisterTypeEnum, {
     description: '注册类型',
