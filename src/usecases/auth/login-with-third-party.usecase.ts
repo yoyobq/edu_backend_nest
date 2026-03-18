@@ -5,6 +5,7 @@ import { Injectable } from '@nestjs/common';
 import { AudienceTypeEnum, ThirdPartyProviderEnum } from '@app-types/models/account.types';
 import { LoginResultModel } from '@app-types/models/auth.types';
 import { DomainError, THIRDPARTY_ERROR } from '@core/common/errors';
+import { normalizeRequiredText } from '@core/common/input-normalize/input-normalize.policy';
 
 import { ThirdPartyAuthService } from '@modules/third-party-auth/third-party-auth.service';
 import { LoginByAccountIdUsecase } from './login-by-account-id.usecase';
@@ -41,12 +42,7 @@ export class LoginWithThirdPartyUsecase {
     const provider = params.provider;
     const audience = params.audience ?? AudienceTypeEnum.DESKTOP; // 修复：直接使用枚举值
     const ip = params.ip;
-    const authCredential = (params.authCredential ?? '').trim();
-
-    if (!authCredential) {
-      // 统一的领域错误，避免把 HTTP 异常冒泡到适配层
-      throw new DomainError(THIRDPARTY_ERROR.CREDENTIAL_INVALID, '第三方凭证无效');
-    }
+    const authCredential = normalizeThirdPartyAuthCredential(params.authCredential);
 
     // 1) 解析第三方凭证
     const session = await this.resolveIdentitySafe({
@@ -100,5 +96,16 @@ export class LoginWithThirdPartyUsecase {
         cause: (e as Error)?.message,
       });
     }
+  }
+}
+
+function normalizeThirdPartyAuthCredential(input: string): string {
+  try {
+    return normalizeRequiredText(input, { fieldName: '第三方凭证' });
+  } catch (error) {
+    if (error instanceof DomainError) {
+      throw new DomainError(THIRDPARTY_ERROR.CREDENTIAL_INVALID, '第三方凭证无效');
+    }
+    throw error;
   }
 }

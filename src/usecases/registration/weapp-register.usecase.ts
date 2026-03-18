@@ -7,7 +7,11 @@ import {
   ThirdPartyProviderEnum,
   UserAccountView,
 } from '@app-types/models/account.types';
-import { DomainError, THIRDPARTY_ERROR } from '@core/common/errors/domain-error';
+import {
+  DomainError,
+  INPUT_NORMALIZE_ERROR,
+  THIRDPARTY_ERROR,
+} from '@core/common/errors/domain-error';
 import { ThirdPartyAuthService } from '@modules/third-party-auth/third-party-auth.service';
 import { HttpException, Injectable } from '@nestjs/common';
 import { AccountService } from '@src/modules/account/base/services/account.service';
@@ -17,7 +21,10 @@ import {
   ThirdPartyRegisterParams,
   ThirdPartyRegisterResult,
 } from './register-with-third-party.usecase';
-import { normalizeWeappRegisterInput } from './registration-input.normalize';
+import {
+  normalizeWeappRegisterInput,
+  normalizeWeappRegisterParams,
+} from './registration-input.normalize';
 
 // 工具类型：用新类型覆盖原类型的指定字段
 type Overwrite<T, U> = Omit<T, keyof U> & U;
@@ -25,11 +32,6 @@ type Overwrite<T, U> = Omit<T, keyof U> & U;
 /**
  * 验证后的微信小程序注册参数
  */
-interface ValidatedWeappRegisterParams {
-  authCredential: string;
-  audience: AudienceTypeEnum;
-}
-
 /**
  * 微信小程序注册参数
  * 扩展通用第三方注册参数
@@ -130,15 +132,6 @@ export class WeappRegisterUsecase {
   }
 
   /**
-   * 验证身份凭证格式
-   */
-  private validateCredential(credential: string): void {
-    if (!credential || credential.trim().length === 0) {
-      throw new DomainError(THIRDPARTY_ERROR.INVALID_CREDENTIAL, '身份凭证不能为空');
-    }
-  }
-
-  /**
    * 检查用户是否已绑定
    */
   private async checkNotAlreadyBound(providerUserId: string): Promise<void> {
@@ -215,21 +208,33 @@ export class WeappRegisterUsecase {
   /**
    * 验证参数
    */
-  private validateParams(params: WeappRegisterParams): ValidatedWeappRegisterParams {
-    const { authCredential, audience } = params;
-
-    // 验证身份凭证
-    this.validateCredential(authCredential);
-
-    // 验证 audience
-    if (!audience || !Object.values(AudienceTypeEnum).includes(audience)) {
-      throw new DomainError(THIRDPARTY_ERROR.INVALID_AUDIENCE, '无效的客户端类型');
+  private validateParams(params: WeappRegisterParams): {
+    authCredential: string;
+    audience: AudienceTypeEnum;
+  } {
+    try {
+      return normalizeWeappRegisterParams({
+        authCredential: params.authCredential,
+        audience: params.audience,
+      });
+    } catch (error) {
+      this.mapWeappRegisterNormalizeError(error);
     }
+  }
 
-    return {
-      authCredential,
-      audience,
-    };
+  private mapWeappRegisterNormalizeError(error: unknown): never {
+    if (error instanceof DomainError) {
+      if (error.code === INPUT_NORMALIZE_ERROR.REQUIRED_TEXT_EMPTY) {
+        throw new DomainError(THIRDPARTY_ERROR.INVALID_CREDENTIAL, '身份凭证不能为空');
+      }
+      if (error.code === INPUT_NORMALIZE_ERROR.INVALID_TEXT) {
+        throw new DomainError(THIRDPARTY_ERROR.INVALID_CREDENTIAL, '身份凭证无效');
+      }
+      if (error.code === INPUT_NORMALIZE_ERROR.INVALID_ENUM_VALUE) {
+        throw new DomainError(THIRDPARTY_ERROR.INVALID_AUDIENCE, '无效的客户端类型');
+      }
+    }
+    throw error;
   }
 
   /**

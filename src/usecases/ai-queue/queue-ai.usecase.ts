@@ -4,6 +4,7 @@ import {
   resolveAsyncTaskBizKey,
   resolveEnqueueFailureIdentifiers,
 } from '@src/core/common/async-task/async-task-identifier.policy';
+import { normalizeOptionalText } from '@src/core/common/input-normalize/input-normalize.policy';
 import { AsyncTaskRecordService } from '@src/modules/async-task-record/async-task-record.service';
 import type { AsyncTaskRecordSource } from '@src/modules/async-task-record/async-task-record.types';
 import { AiQueueService } from '@src/modules/common/ai-queue/ai-queue.service';
@@ -163,7 +164,9 @@ export class QueueAiUsecase {
   }
 
   private resolveEnqueueFailedReason(input: { readonly message: string }): string {
-    const normalizedMessage = input.message.trim() || 'enqueue_unknown_error';
+    const normalizedMessage =
+      normalizeOptionalText(input.message, 'to_undefined', { fieldName: 'enqueue_message' }) ??
+      'enqueue_unknown_error';
     if (normalizedMessage.startsWith('enqueue_failed:')) {
       return normalizedMessage.slice(0, 128);
     }

@@ -3,6 +3,7 @@
 import { AudienceTypeEnum, ThirdPartyProviderEnum } from '@app-types/models/account.types';
 import { ThirdPartySession } from '@app-types/models/third-party-auth.types';
 import { DomainError, THIRDPARTY_ERROR } from '@core/common/errors/domain-error';
+import { normalizeRequiredText } from '@core/common/input-normalize/input-normalize.policy';
 import { ThirdPartyAuthService } from '@modules/third-party-auth/third-party-auth.service';
 import { Injectable } from '@nestjs/common';
 
@@ -18,10 +19,7 @@ export class ResolveThirdPartyIdentityUsecase {
   constructor(private readonly tpa: ThirdPartyAuthService) {}
 
   async execute(params: ResolveThirdPartyIdentityParams): Promise<ThirdPartySession> {
-    const credential = (params.authCredential ?? '').trim();
-    if (!credential) {
-      throw new DomainError(THIRDPARTY_ERROR.CREDENTIAL_INVALID, '第三方凭证无效');
-    }
+    const credential = normalizeThirdPartyAuthCredential(params.authCredential);
 
     try {
       return await this.tpa.resolveIdentity({
@@ -37,5 +35,16 @@ export class ResolveThirdPartyIdentityUsecase {
         cause: (e as Error)?.message,
       });
     }
+  }
+}
+
+function normalizeThirdPartyAuthCredential(input: string): string {
+  try {
+    return normalizeRequiredText(input, { fieldName: '第三方凭证' });
+  } catch (error) {
+    if (error instanceof DomainError) {
+      throw new DomainError(THIRDPARTY_ERROR.CREDENTIAL_INVALID, '第三方凭证无效');
+    }
+    throw error;
   }
 }

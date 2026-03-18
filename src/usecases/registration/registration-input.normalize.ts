@@ -1,8 +1,10 @@
 // src/usecases/registration/registration-input.normalize.ts
 
+import { AudienceTypeEnum } from '@app-types/models/account.types';
 import { DomainError } from '@core/common/errors';
 import { INPUT_NORMALIZE_ERROR } from '@core/common/errors/domain-error';
 import {
+  normalizeEnumValue,
   normalizeOptionalText,
   normalizeRequiredText,
 } from '@core/common/input-normalize/input-normalize.policy';
@@ -27,6 +29,16 @@ interface RegisterWithThirdPartyNormalizeOutput {
 
 interface WeappRegisterNormalizeOutput {
   defaultNickname: string;
+}
+
+interface WeappRegisterParamsNormalizeInput {
+  authCredential: string;
+  audience: AudienceTypeEnum;
+}
+
+interface WeappRegisterParamsNormalizeOutput {
+  authCredential: string;
+  audience: AudienceTypeEnum;
 }
 
 export function normalizeRegisterWithEmailInput(
@@ -64,6 +76,24 @@ export function normalizeRegisterWithThirdPartyInput(
 export function normalizeWeappRegisterInput(): WeappRegisterNormalizeOutput {
   return {
     defaultNickname: normalizeRegistrationNickname('微信用户') ?? '微信用户',
+  };
+}
+
+export function normalizeWeappRegisterParams(
+  input: WeappRegisterParamsNormalizeInput,
+): WeappRegisterParamsNormalizeOutput {
+  const normalizedCredential = normalizeRequiredText(input.authCredential, {
+    fieldName: '身份凭证',
+  });
+  const normalizedAudience = normalizeEnumValue<AudienceTypeEnum>(
+    input.audience,
+    Object.values(AudienceTypeEnum) as AudienceTypeEnum[],
+    { fieldName: '客户端类型' },
+  );
+
+  return {
+    authCredential: normalizedCredential,
+    audience: normalizedAudience,
   };
 }
 

@@ -1,6 +1,7 @@
 // src/usecases/ai-worker/consume-ai-job.usecase.ts
 import { Injectable } from '@nestjs/common';
 import { resolveAsyncTaskBizKey } from '@src/core/common/async-task/async-task-identifier.policy';
+import { normalizeOptionalText } from '@src/core/common/input-normalize/input-normalize.policy';
 import { AsyncTaskRecordService } from '@src/modules/async-task-record/async-task-record.service';
 import type { AsyncTaskRecordSource } from '@src/modules/async-task-record/async-task-record.types';
 import { AiWorkerService } from '@src/modules/common/ai-worker/ai-worker.service';
@@ -190,7 +191,7 @@ export class ConsumeAiGenerateJobUsecase {
     readonly bizType: 'ai_generation' | 'ai_worker';
     readonly reason?: string;
   }): string {
-    const normalizedReason = input.reason?.trim() || 'worker_unknown_error';
+    const normalizedReason = normalizeWorkerFailReason(input.reason);
     if (input.bizType === 'ai_worker') {
       return normalizedReason;
     }
@@ -328,7 +329,7 @@ export class ConsumeAiEmbedJobUsecase {
     readonly bizType: 'ai_embedding' | 'ai_worker';
     readonly reason?: string;
   }): string {
-    const normalizedReason = input.reason?.trim() || 'worker_unknown_error';
+    const normalizedReason = normalizeWorkerFailReason(input.reason);
     if (input.bizType === 'ai_worker') {
       return normalizedReason;
     }
@@ -347,4 +348,11 @@ export class ConsumeAiEmbedJobUsecase {
   private resolveSource(): AsyncTaskRecordSource {
     return 'system';
   }
+}
+
+function normalizeWorkerFailReason(reason?: string): string {
+  return (
+    normalizeOptionalText(reason, 'to_undefined', { fieldName: 'worker_reason' }) ??
+    'worker_unknown_error'
+  );
 }
