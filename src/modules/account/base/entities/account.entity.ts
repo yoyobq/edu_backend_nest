@@ -4,6 +4,7 @@ import {
   Column,
   CreateDateColumn,
   Entity,
+  Index,
   OneToOne,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
@@ -12,6 +13,8 @@ import {
 import { UserInfoEntity } from './user-info.entity';
 
 @Entity('base_user_accounts')
+@Index('uk_login_name', ['loginName'], { unique: true })
+@Index('uk_login_email', ['loginEmail'], { unique: true })
 export class AccountEntity {
   @PrimaryGeneratedColumn({ type: 'int', comment: 'primary key' })
   id!: number;
