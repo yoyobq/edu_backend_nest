@@ -176,9 +176,10 @@ export class VerificationRecordEntity {
    */
   @Column({
     name: 'consumed_at',
-    type: 'datetime',
+    type: 'timestamp',
+    precision: 3,
     nullable: true,
-    comment: '消费时间',
+    comment: '消费时间（系统事件时间）',
   })
   consumedAt!: Date | null;
 
@@ -188,8 +189,10 @@ export class VerificationRecordEntity {
    */
   @CreateDateColumn({
     name: 'created_at',
-    type: 'datetime',
-    comment: '创建时间',
+    type: 'timestamp',
+    precision: 3,
+    default: () => 'CURRENT_TIMESTAMP(3)',
+    comment: '创建时间（系统事件时间）',
   })
   createdAt!: Date;
 
@@ -199,8 +202,11 @@ export class VerificationRecordEntity {
    */
   @UpdateDateColumn({
     name: 'updated_at',
-    type: 'datetime',
-    comment: '更新时间',
+    type: 'timestamp',
+    precision: 3,
+    default: () => 'CURRENT_TIMESTAMP(3)',
+    onUpdate: 'CURRENT_TIMESTAMP(3)',
+    comment: '更新时间（系统事件时间）',
   })
   updatedAt!: Date;
 }
