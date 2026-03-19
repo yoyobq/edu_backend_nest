@@ -26,6 +26,19 @@ export enum VerificationRecordType {
 }
 
 /**
+ * 可创建的验证记录类型枚举
+ * 对外创建入口仅开放当前可稳定消费的类型
+ */
+export enum CreatableVerificationRecordType {
+  /** 邀请教练 */
+  INVITE_COACH = 'INVITE_COACH',
+  /** 邀请管理员 */
+  INVITE_MANAGER = 'INVITE_MANAGER',
+  /** 密码重置 */
+  PASSWORD_RESET = 'PASSWORD_RESET',
+}
+
+/**
  * 验证记录状态枚举
  * 状态机：一票一次
  */

@@ -48,6 +48,12 @@ export interface CreateVerificationRecordUsecaseResult {
  */
 @Injectable()
 export class CreateVerificationRecordUsecase {
+  private readonly supportedTypes = new Set<VerificationRecordType>([
+    VerificationRecordType.PASSWORD_RESET,
+    VerificationRecordType.INVITE_COACH,
+    VerificationRecordType.INVITE_MANAGER,
+  ]);
+
   constructor(
     private readonly verificationRecordService: VerificationRecordService,
     private readonly verificationCodeHelper: VerificationCodeHelper,
@@ -139,6 +145,14 @@ export class CreateVerificationRecordUsecase {
       );
     }
 
+    if (!this.supportedTypes.has(params.type)) {
+      throw new DomainError(
+        VERIFICATION_RECORD_ERROR.OPERATION_NOT_SUPPORTED,
+        '验证记录创建失败：暂不支持该记录类型',
+        { type: params.type },
+      );
+    }
+
     if (!params.expiresAt) {
       throw new DomainError(
         VERIFICATION_RECORD_ERROR.CREATION_FAILED,
@@ -224,84 +238,6 @@ export class CreateVerificationRecordUsecase {
     // 生成指定字符数的 Base64URL 编码随机字符串
     const charCount = params.tokenLength || 32;
     return this.verificationCodeHelper.generateTokenByChars(charCount);
-  }
-
-  /**
-   * 创建邮箱验证码
-   * 便捷方法：创建 6 位数字邮箱验证码，默认 10 分钟过期
-   * @param params 创建参数
-   * @returns 创建结果
-   */
-  async createEmailVerificationCode(params: {
-    targetAccountId?: number;
-    issuedByAccountId?: number;
-    payload?: Record<string, unknown>;
-    expiresInMinutes?: number;
-  }): Promise<CreateVerificationRecordUsecaseResult> {
-    const expiresAt = new Date();
-    expiresAt.setMinutes(expiresAt.getMinutes() + (params.expiresInMinutes || 10));
-
-    return this.execute({
-      type: VerificationRecordType.EMAIL_VERIFY_CODE,
-      expiresAt,
-      targetAccountId: params.targetAccountId,
-      issuedByAccountId: params.issuedByAccountId,
-      payload: params.payload,
-      generateNumericCode: true,
-      numericCodeLength: 6,
-    });
-  }
-
-  /**
-   * 创建短信验证码
-   * 便捷方法：创建 6 位数字短信验证码，默认 5 分钟过期
-   * @param params 创建参数
-   * @returns 创建结果
-   */
-  async createSmsVerificationCode(params: {
-    targetAccountId?: number;
-    issuedByAccountId?: number;
-    payload?: Record<string, unknown>;
-    expiresInMinutes?: number;
-  }): Promise<CreateVerificationRecordUsecaseResult> {
-    const expiresAt = new Date();
-    expiresAt.setMinutes(expiresAt.getMinutes() + (params.expiresInMinutes || 5));
-
-    return this.execute({
-      type: VerificationRecordType.SMS_VERIFY_CODE,
-      expiresAt,
-      targetAccountId: params.targetAccountId,
-      issuedByAccountId: params.issuedByAccountId,
-      payload: params.payload,
-      generateNumericCode: true,
-      numericCodeLength: 6,
-    });
-  }
-
-  /**
-   * 创建邮箱验证链接
-   * 便捷方法：创建邮箱验证链接，默认 24 小时过期
-   * @param params 创建参数
-   * @returns 创建结果
-   */
-  async createEmailVerificationLink(params: {
-    targetAccountId?: number;
-    issuedByAccountId?: number;
-    payload?: Record<string, unknown>;
-    expiresInHours?: number;
-    tokenLength?: number;
-  }): Promise<CreateVerificationRecordUsecaseResult> {
-    const expiresAt = new Date();
-    expiresAt.setHours(expiresAt.getHours() + (params.expiresInHours || 24));
-
-    return this.execute({
-      type: VerificationRecordType.EMAIL_VERIFY_LINK,
-      expiresAt,
-      targetAccountId: params.targetAccountId,
-      issuedByAccountId: params.issuedByAccountId,
-      payload: params.payload,
-      tokenLength: params.tokenLength || 64,
-    });
   }
 
   /**

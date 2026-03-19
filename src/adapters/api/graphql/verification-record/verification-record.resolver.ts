@@ -1,17 +1,19 @@
 // src/adapters/api/graphql/verification-record/verification-record.resolver.ts
 
+import { JwtPayload } from '@app-types/jwt.types';
 import { IdentityTypeEnum } from '@app-types/models/account.types';
 import {
+  CreatableVerificationRecordType,
   SubjectType,
   VerificationRecordStatus,
   VerificationRecordType,
 } from '@app-types/models/verification-record.types';
+import { DomainError, VERIFICATION_RECORD_ERROR } from '@core/common/errors/domain-error';
 import { UseGuards } from '@nestjs/common';
 import { Args, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { currentUser } from '@src/adapters/api/graphql/decorators/current-user.decorator';
 import { Public } from '@src/adapters/api/graphql/decorators/public.decorator';
 import { JwtAuthGuard } from '@src/adapters/api/graphql/guards/jwt-auth.guard';
-import { JwtPayload } from '@app-types/jwt.types';
 import { ConsumeVerificationRecordUsecase } from '@src/usecases/verification-record/consume-verification-record.usecase';
 import { CreateVerificationRecordUsecase } from '@src/usecases/verification-record/create-verification-record.usecase';
 import { FindVerificationRecordUsecase } from '@src/usecases/verification-record/find-verification-record.usecase';
@@ -51,7 +53,7 @@ export class VerificationRecordResolver {
   ): Promise<CreateVerificationRecordResult> {
     try {
       const result = await this.createVerificationRecordUsecase.execute({
-        type: input.type,
+        type: this.mapCreatableType(input.type),
         customToken: input.token,
         tokenLength: input.tokenLength,
         generateNumericCode: input.generateNumericCode,
@@ -105,6 +107,22 @@ export class VerificationRecordResolver {
         message: error instanceof Error ? error.message : '创建验证记录失败',
       };
     }
+  }
+
+  /**
+   * 创建输入类型映射为内部验证记录类型
+   */
+  private mapCreatableType(type: CreatableVerificationRecordType): VerificationRecordType {
+    switch (type) {
+      case CreatableVerificationRecordType.INVITE_COACH:
+        return VerificationRecordType.INVITE_COACH;
+      case CreatableVerificationRecordType.INVITE_MANAGER:
+        return VerificationRecordType.INVITE_MANAGER;
+      case CreatableVerificationRecordType.PASSWORD_RESET:
+        return VerificationRecordType.PASSWORD_RESET;
+    }
+
+    throw new DomainError(VERIFICATION_RECORD_ERROR.OPERATION_NOT_SUPPORTED, '不支持的创建类型');
   }
 
   /**

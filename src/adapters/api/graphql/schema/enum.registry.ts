@@ -7,10 +7,12 @@ import {
   EmploymentStatus,
   IdentityTypeEnum,
   LoginTypeEnum,
+  ThirdPartyLoginProviderEnum,
   ThirdPartyProviderEnum,
 } from '@app-types/models/account.types';
 import { Gender, UserState } from '@app-types/models/user-info.types';
 import {
+  CreatableVerificationRecordType,
   SubjectType,
   VerificationRecordStatus,
   VerificationRecordType,
@@ -31,6 +33,7 @@ export function registerEnums(): void {
   registerEnumType(EmploymentStatus, { name: 'EmploymentStatus' });
   registerEnumType(IdentityTypeEnum, { name: 'IdentityTypeEnum' });
   registerEnumType(LoginTypeEnum, { name: 'LoginTypeEnum' });
+  registerEnumType(ThirdPartyLoginProviderEnum, { name: 'ThirdPartyLoginProviderEnum' });
   registerEnumType(ThirdPartyProviderEnum, { name: 'ThirdPartyProviderEnum' });
   registerEnumType(RegisterTypeEnum, { name: 'RegisterTypeEnum' });
   registerEnumType(Gender, { name: 'Gender' });
@@ -38,6 +41,7 @@ export function registerEnums(): void {
   registerEnumType(SubjectType, { name: 'SubjectType' });
   registerEnumType(VerificationRecordStatus, { name: 'VerificationRecordStatus' });
   registerEnumType(VerificationRecordType, { name: 'VerificationRecordType' });
+  registerEnumType(CreatableVerificationRecordType, { name: 'CreatableVerificationRecordType' });
   registerEnumType(LearnerSortField, { name: 'LearnerSortField' });
   registerEnumType(CustomerSortField, { name: 'CustomerSortField' });
   registerEnumType(CoachSortField, { name: 'CoachSortField' });

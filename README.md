@@ -125,7 +125,7 @@ src/
 - ✅ **Auth**: 账号密码登录 / 第三方登录集成
 - ✅ **Registration**: 邮箱注册流程 / 第三方快捷注册
 - ✅ **Identity Management**: 多角色管理 (Coach / Manager / Learner)
-- ✅ **Verification**: 验证码生成与验证流程（邀请、重置密码、绑定）
+- ✅ **Verification**: 验证码生成与验证流程 (邀请、重置密码、绑定微信小程序)
 - ✅ **AI Queue & Worker**: 支持 `queueAiGenerate` / `queueAiEmbed` 入队与 provider 路由消费
 - ✅ **Async Task Audit**: 支持按 `traceId` / 业务锚点 / 队列任务标识进行调试查询
 

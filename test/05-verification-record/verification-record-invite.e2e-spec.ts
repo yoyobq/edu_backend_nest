@@ -1284,7 +1284,7 @@ describe('05-VerificationRecord 邀请与 WeApp 二维码 E2E', () => {
   });
 
   describe('邀请用例：INVITE_LEARNER', () => {
-    it('应该成功创建邀请学员类型的验证记录', async () => {
+    it('应该拒绝创建邀请学员类型的验证记录', async () => {
       const payload = {
         title: '邀请学员',
         inviteUrl: 'https://example.com/invite-learner',
@@ -1304,19 +1304,10 @@ describe('05-VerificationRecord 邀请与 WeApp 二维码 E2E', () => {
         },
       );
 
-      // 检查 GraphQL 错误
-      if (response.body.errors) {
-        console.error('GraphQL errors:', response.body.errors);
-        throw new Error(`GraphQL 错误: ${JSON.stringify(response.body.errors)}`);
-      }
-
-      expect(response.body.data).toBeDefined();
-      expect(response.body.data.createVerificationRecord).toBeDefined();
-      expect(response.body.data.createVerificationRecord.success).toBe(true);
-      expect(response.body.data.createVerificationRecord.data.type).toBe('INVITE_LEARNER');
-      expect(response.body.data.createVerificationRecord.data.payload).toEqual(payload);
-      expect(response.body.data.createVerificationRecord.token).toBeDefined();
-      expect(response.body.data.createVerificationRecord.token).not.toBeNull();
+      expect(response.body.errors).toBeDefined();
+      expect(response.body.errors[0].message).toContain(
+        'Value "INVITE_LEARNER" does not exist in "CreatableVerificationRecordType" enum.',
+      );
     });
 
     // it('应该能够消费邀请学员验证记录', async () => {

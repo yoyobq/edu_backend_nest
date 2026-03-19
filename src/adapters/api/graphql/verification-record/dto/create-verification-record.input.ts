@@ -1,6 +1,9 @@
 // src/adapters/api/graphql/verification-record/dto/create-verification-record.input.ts
 
-import { SubjectType, VerificationRecordType } from '@app-types/models/verification-record.types';
+import {
+  CreatableVerificationRecordType,
+  SubjectType,
+} from '@app-types/models/verification-record.types';
 import { Field, InputType, Int } from '@nestjs/graphql';
 import { IsBoolean, IsEnum, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
 import GraphQLJSON from 'graphql-type-json';
@@ -10,9 +13,9 @@ import GraphQLJSON from 'graphql-type-json';
  */
 @InputType({ description: '创建验证记录输入参数' })
 export class CreateVerificationRecordInput {
-  @Field(() => VerificationRecordType, { description: '记录类型' })
-  @IsEnum(VerificationRecordType, { message: '记录类型无效' })
-  type!: VerificationRecordType;
+  @Field(() => CreatableVerificationRecordType, { description: '记录类型' })
+  @IsEnum(CreatableVerificationRecordType, { message: '记录类型无效' })
+  type!: CreatableVerificationRecordType;
 
   @Field(() => String, { description: '令牌（可选，不提供则由后端生成）', nullable: true })
   @IsOptional()

@@ -1,7 +1,12 @@
 // src/adapters/api/graphql/third-party-auth/third-party-auth.resolver.ts
 
 import { JwtPayload } from '@app-types/jwt.types';
-import { EmploymentStatus, IdentityTypeEnum } from '@app-types/models/account.types';
+import {
+  EmploymentStatus,
+  IdentityTypeEnum,
+  ThirdPartyLoginProviderEnum,
+  ThirdPartyProviderEnum,
+} from '@app-types/models/account.types';
 import { LoginResultModel, UserInfoView } from '@app-types/models/auth.types';
 import { GeographicInfo } from '@app-types/models/user-info.types';
 import { parseStaffId } from '@core/account/identity/parse-staff-id';
@@ -74,7 +79,7 @@ export class ThirdPartyAuthResolver {
   @Mutation(() => LoginResult, { description: '第三方登录' })
   async thirdPartyLogin(@Args('input') input: ThirdPartyLoginInput): Promise<LoginResult> {
     const params: ThirdPartyLoginParams = {
-      provider: input.provider,
+      provider: this.mapLoginProvider(input.provider),
       authCredential: input.authCredential,
       audience: input.audience,
       ip: input.ip,
@@ -100,6 +105,17 @@ export class ThirdPartyAuthResolver {
       identity,
       userInfo,
     };
+  }
+
+  /**
+   * 将登录输入平台映射为内部平台枚举
+   */
+  private mapLoginProvider(provider: ThirdPartyLoginProviderEnum): ThirdPartyProviderEnum {
+    if (provider === ThirdPartyLoginProviderEnum.WEAPP) {
+      return ThirdPartyProviderEnum.WEAPP;
+    }
+
+    throw new DomainError(PERMISSION_ERROR.ACCESS_DENIED, '不支持的第三方登录平台');
   }
 
   /**

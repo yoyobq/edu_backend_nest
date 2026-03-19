@@ -1302,7 +1302,7 @@ describe('验证记录签发 E2E 测试', () => {
         `,
         {
           input: {
-            type: 'SMS_VERIFY_CODE',
+            type: 'PASSWORD_RESET',
             payload: {
               title: '过期测试',
               verificationCode: '111111',
@@ -1344,7 +1344,7 @@ describe('验证记录签发 E2E 测试', () => {
         `,
         {
           input: {
-            type: 'SMS_VERIFY_CODE',
+            type: 'PASSWORD_RESET',
             payload: {
               title: '未生效测试',
               verificationCode: '222222',

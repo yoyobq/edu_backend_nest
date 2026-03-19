@@ -49,6 +49,14 @@ export enum ThirdPartyProviderEnum {
 }
 
 /**
+ * 第三方登录输入可选平台枚举
+ * 当前仅开放已完成集成的平台
+ */
+export enum ThirdPartyLoginProviderEnum {
+  WEAPP = 'WEAPP',
+}
+
+/**
  * 包含访问组的账户信息
  */
 export type AccountWithAccessGroup = {
