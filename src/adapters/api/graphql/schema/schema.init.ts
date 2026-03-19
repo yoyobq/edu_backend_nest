@@ -99,7 +99,9 @@ export function initGraphQLSchema(): {
     // eslint-disable-next-line no-console
     console.error('❌ GraphQL Schema 初始化失败:', errorMessage);
 
-    throw new Error(`GraphQL Schema 初始化失败: ${errorMessage}`);
+    throw new Error(`GraphQL Schema 初始化失败: ${errorMessage}`, {
+      cause: error,
+    });
   }
 }
 

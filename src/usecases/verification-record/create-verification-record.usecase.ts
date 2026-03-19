@@ -16,8 +16,10 @@ import { VerificationRecordService } from '@src/modules/verification-record/veri
 /**
  * 创建验证记录用例参数
  */
-export interface CreateVerificationRecordUsecaseParams
-  extends Omit<CreateVerificationRecordParams, 'token'> {
+export interface CreateVerificationRecordUsecaseParams extends Omit<
+  CreateVerificationRecordParams,
+  'token'
+> {
   /** 自定义 token（可选，不提供则自动生成） */
   customToken?: string;
   /** token 长度（仅在自动生成时有效，默认 32） */

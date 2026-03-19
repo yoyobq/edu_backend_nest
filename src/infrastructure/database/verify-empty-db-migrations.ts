@@ -354,6 +354,9 @@ async function runEmptyDbMigrationDrill(): Promise<void> {
         const message = error instanceof Error ? error.message : '未知建库错误';
         throw new Error(
           `自动建库失败，请为当前账号授予 CREATE/DROP DATABASE 权限，或设置 MIGRATION_DRILL_DATABASE 使用预置空库。原始错误: ${message}`,
+          {
+            cause: error,
+          },
         );
       }
     } else {
@@ -367,6 +370,9 @@ async function runEmptyDbMigrationDrill(): Promise<void> {
       const message = error instanceof Error ? error.message : '未知连接错误';
       throw new Error(
         `连接演练库失败，请确认账号对 ${target.databaseName} 具备访问与建表权限，或改用 MIGRATION_DRILL_DATABASE。原始错误: ${message}`,
+        {
+          cause: error,
+        },
       );
     }
     await clearDatabaseTables(migrationDataSource, target.databaseName);

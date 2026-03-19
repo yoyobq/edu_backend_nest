@@ -71,7 +71,7 @@ async function discoverGraphqlDirs(): Promise<string[]> {
  * @param dirPath 目录路径
  */
 async function scanAndRegisterTypes(dirPath: string): Promise<void> {
-  let files: string[] = [];
+  let files: string[];
 
   try {
     files = await readdir(dirPath);

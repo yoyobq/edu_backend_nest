@@ -1,11 +1,12 @@
 // @ts-check
 import eslint from '@eslint/js';
-import eslintPluginPrettierRecommended from 'eslint-plugin-prettier/recommended';
 import eslintPluginBoundaries from 'eslint-plugin-boundaries';
+import eslintPluginPrettierRecommended from 'eslint-plugin-prettier/recommended';
+import { defineConfig } from 'eslint/config';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
-export default tseslint.config(
+export default defineConfig(
   {
     ignores: ['eslint.config.mjs', 'dist/**', 'node_modules/**'],
   },
@@ -30,6 +31,7 @@ export default tseslint.config(
       boundaries: eslintPluginBoundaries,
     },
     settings: {
+      'boundaries/dependency-nodes': ['import'],
       'boundaries/elements': [
         { type: 'adapters-common', pattern: 'src/adapters/api/graphql/decorators', mode: 'folder' },
         { type: 'adapters-common', pattern: 'src/adapters/api/graphql/guards', mode: 'folder' },
@@ -84,55 +86,109 @@ export default tseslint.config(
       ],
     },
     rules: {
-      'boundaries/element-types': [
+      'boundaries/dependencies': [
         'error',
         {
           default: 'disallow',
           rules: [
             {
-              from: 'api-adapters-scope',
+              from: { type: 'api-adapters-scope' },
               allow: [
-                'adapters-common',
-                ['api-adapters-scope', { adapterScope: '${from.adapterScope}' }],
-                'usecases',
-                'core',
-                'types',
+                { to: { type: 'adapters-common' } },
+                {
+                  to: {
+                    type: 'api-adapters-scope',
+                    captured: { adapterScope: '{{from.adapterScope}}' },
+                  },
+                },
+                { to: { type: 'usecases' } },
+                { to: { type: 'core' } },
+                { to: { type: 'types' } },
               ],
             },
             {
-              from: 'worker-adapters-scope',
+              from: { type: 'worker-adapters-scope' },
               allow: [
-                ['worker-adapters-scope', { adapterScope: '${from.adapterScope}' }],
-                'usecases',
-                'core',
-                'types',
+                {
+                  to: {
+                    type: 'worker-adapters-scope',
+                    captured: { adapterScope: '{{from.adapterScope}}' },
+                  },
+                },
+                { to: { type: 'usecases' } },
+                { to: { type: 'core' } },
+                { to: { type: 'types' } },
               ],
             },
-            { from: 'adapters-common', allow: ['adapters-common', 'core', 'types'] },
-            { from: 'adapters-integration', allow: ['usecases', 'core', 'types'] },
             {
-              from: 'usecases',
-              allow: ['usecases', 'modules-queries', 'modules-services', 'core', 'types'],
-            },
-            {
-              from: 'modules-queries',
-              allow: [['modules-queries', { moduleScope: '${from.moduleScope}' }], 'core', 'types'],
-            },
-            {
-              from: 'modules-services',
+              from: { type: 'adapters-common' },
               allow: [
-                ['modules-services', { moduleScope: '${from.moduleScope}' }],
-                'infrastructure',
-                'core',
-                'types',
+                { to: { type: 'adapters-common' } },
+                { to: { type: 'core' } },
+                { to: { type: 'types' } },
               ],
             },
-            { from: 'infrastructure', allow: ['infrastructure', 'core', 'types'] },
             {
-              from: 'core',
-              allow: ['core', 'types'],
+              from: { type: 'adapters-integration' },
+              allow: [
+                { to: { type: 'usecases' } },
+                { to: { type: 'core' } },
+                { to: { type: 'types' } },
+              ],
             },
-            { from: 'types', allow: ['types'] },
+            {
+              from: { type: 'usecases' },
+              allow: [
+                { to: { type: 'usecases' } },
+                { to: { type: 'modules-queries' } },
+                { to: { type: 'modules-services' } },
+                { to: { type: 'core' } },
+                { to: { type: 'types' } },
+              ],
+            },
+            {
+              from: { type: 'modules-queries' },
+              allow: [
+                {
+                  to: {
+                    type: 'modules-queries',
+                    captured: { moduleScope: '{{from.moduleScope}}' },
+                  },
+                },
+                { to: { type: 'core' } },
+                { to: { type: 'types' } },
+              ],
+            },
+            {
+              from: { type: 'modules-services' },
+              allow: [
+                {
+                  to: {
+                    type: 'modules-services',
+                    captured: { moduleScope: '{{from.moduleScope}}' },
+                  },
+                },
+                { to: { type: 'infrastructure' } },
+                { to: { type: 'core' } },
+                { to: { type: 'types' } },
+              ],
+            },
+            {
+              from: { type: 'infrastructure' },
+              allow: [
+                { to: { type: 'infrastructure' } },
+                { to: { type: 'core' } },
+                { to: { type: 'types' } },
+              ],
+            },
+            {
+              from: { type: 'core' },
+              allow: [{ to: { type: 'core' } }, { to: { type: 'types' } }],
+            },
+            {
+              from: { type: 'types' },
+              allow: [{ to: { type: 'types' } }],
+            },
           ],
         },
       ],
