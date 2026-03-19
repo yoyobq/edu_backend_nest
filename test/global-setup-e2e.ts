@@ -179,7 +179,7 @@ const checkExternal = (): void => {
   console.log('✅ External 配置检查成功');
 };
 
-const verifyMysqlAndCleanup = async (): Promise<void> => {
+const verifyMysqlAndCleanup = async (skipDbCleanup: boolean): Promise<void> => {
   const dbConfig = databaseConfig() as { mysql: DataSourceOptions };
   const config: DataSourceOptions = {
     ...dbConfig.mysql,
@@ -191,6 +191,10 @@ const verifyMysqlAndCleanup = async (): Promise<void> => {
     await ds.query('SELECT 1');
     const entities = ds.entityMetadatas;
     console.log(`✅ MySQL 连接测试成功，已加载实体 ${entities.length} 个`);
+    if (skipDbCleanup) {
+      console.log('⏭️ 已跳过 MySQL 数据清理（E2E_SKIP_DB_CLEANUP=true）');
+      return;
+    }
     await cleanupTestDatabase(ds);
   } finally {
     if (ds.isInitialized) {
@@ -245,16 +249,17 @@ export default async (): Promise<void> => {
     process.env.NODE_ENV = 'test';
     const group = (process.env.E2E_GROUP || 'core').trim();
     const skipInfraChecks = parseBoolean(process.env.E2E_SKIP_INFRA_CHECKS);
+    const skipDbCleanup = parseBoolean(process.env.E2E_SKIP_DB_CLEANUP);
     const needs = resolveInfraNeeds();
     console.log(
-      `🧩 E2E 运行上下文: group=${group || 'core'}, needs=${Array.from(needs).join(',') || 'none'}, skipInfraChecks=${String(skipInfraChecks)}`,
+      `🧩 E2E 运行上下文: group=${group || 'core'}, needs=${Array.from(needs).join(',') || 'none'}, skipInfraChecks=${String(skipInfraChecks)}, skipDbCleanup=${String(skipDbCleanup)}`,
     );
     if (skipInfraChecks) {
       console.log('⏭️ 已跳过基础依赖检查');
       return;
     }
     if (needs.has('mysql')) {
-      await verifyMysqlAndCleanup();
+      await verifyMysqlAndCleanup(skipDbCleanup);
     }
     if (needs.has('redis')) {
       await checkRedis();
