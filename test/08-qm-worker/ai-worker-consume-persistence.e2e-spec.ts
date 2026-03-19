@@ -32,6 +32,7 @@ class MockAiWorkerService {
   readonly generateCalls: GenerateAiContentInput[] = [];
   readonly embedCalls: EmbedAiContentInput[] = [];
   private readonly generateAttemptsByPrompt = new Map<string, number>();
+  private readonly embedAttemptsByText = new Map<string, number>();
 
   async generate(input: GenerateAiContentInput): Promise<GenerateAiContentResult> {
     this.generateCalls.push(input);
@@ -48,10 +49,58 @@ class MockAiWorkerService {
     const attemptKey = `${input.model}:${input.prompt}`;
     const currentAttempt = (this.generateAttemptsByPrompt.get(attemptKey) ?? 0) + 1;
     this.generateAttemptsByPrompt.set(attemptKey, currentAttempt);
+    if (input.prompt.includes('__RETRY_SUCCESS_2__') && currentAttempt <= 2) {
+      throw new DomainError(
+        THIRDPARTY_ERROR.PROVIDER_API_ERROR,
+        `Mock AI transient failure ${currentAttempt}`,
+        {
+          provider: input.provider ?? 'openai',
+        },
+      );
+    }
+    if (input.prompt.includes('__RETRY_EXHAUST__')) {
+      throw new DomainError(
+        THIRDPARTY_ERROR.PROVIDER_API_ERROR,
+        `Mock AI exhausted failure ${currentAttempt}`,
+        {
+          provider: input.provider ?? 'openai',
+        },
+      );
+    }
     if (input.prompt.includes('__FAIL_GENERATE__')) {
       throw new DomainError(THIRDPARTY_ERROR.PROVIDER_API_ERROR, 'Mock AI generate failure', {
         provider: input.provider ?? 'openai',
       });
+    }
+    if (input.prompt.includes('__FAIL_WITH_ERROR_DETAILS__')) {
+      throw new DomainError(THIRDPARTY_ERROR.PROVIDER_API_ERROR, 'ai_provider_auth_failed', {
+        provider: input.provider ?? 'openai',
+        providerErrorCode: 'invalid_api_key',
+      });
+    }
+    if (input.prompt.includes('__FULL_USAGE__')) {
+      const providerStartedAt = new Date(Date.now() - 321);
+      const providerFinishedAt = new Date(providerStartedAt.getTime() + 321);
+      return {
+        accepted: true,
+        outputText: `mock-output:${input.prompt.trim()}`,
+        provider: 'mock',
+        model: input.model,
+        providerJobId: `mock-g-${this.generateCalls.length}`,
+        providerRequestId: `mock-req-${this.generateCalls.length}`,
+        providerStatus: 'succeeded',
+        promptTokens: 123,
+        completionTokens: 45,
+        totalTokens: 168,
+        costAmount: '0.01234567',
+        costCurrency: 'USD',
+        normalizedErrorCode: null,
+        providerErrorCode: null,
+        errorMessage: null,
+        providerStartedAt,
+        providerFinishedAt,
+        providerLatencyMs: 321,
+      };
     }
     return {
       accepted: true,
@@ -67,6 +116,68 @@ class MockAiWorkerService {
     const slowMs = this.resolveSlowMs({ content: input.text });
     if (slowMs > 0) {
       await sleep(slowMs);
+    }
+    if (input.text.includes('__PRECHECK_FAIL__')) {
+      throw new DomainError(
+        THIRDPARTY_ERROR.PROVIDER_NOT_SUPPORTED,
+        'unsupported_ai_embedding_model',
+      );
+    }
+    const attemptKey = `${input.model}:${input.text}`;
+    const currentAttempt = (this.embedAttemptsByText.get(attemptKey) ?? 0) + 1;
+    this.embedAttemptsByText.set(attemptKey, currentAttempt);
+    if (input.text.includes('__RETRY_SUCCESS_2__') && currentAttempt <= 2) {
+      throw new DomainError(
+        THIRDPARTY_ERROR.PROVIDER_API_ERROR,
+        `Mock AI embed transient failure ${currentAttempt}`,
+        {
+          provider: 'mock-embed',
+        },
+      );
+    }
+    if (input.text.includes('__RETRY_EXHAUST__')) {
+      throw new DomainError(
+        THIRDPARTY_ERROR.PROVIDER_API_ERROR,
+        `Mock AI embed exhausted failure ${currentAttempt}`,
+        {
+          provider: 'mock-embed',
+        },
+      );
+    }
+    if (input.text.includes('__FAIL_EMBED__')) {
+      throw new DomainError(THIRDPARTY_ERROR.PROVIDER_API_ERROR, 'Mock AI embed failure', {
+        provider: 'mock-embed',
+      });
+    }
+    if (input.text.includes('__FAIL_WITH_ERROR_DETAILS__')) {
+      throw new DomainError(THIRDPARTY_ERROR.PROVIDER_API_ERROR, 'ai_provider_auth_failed', {
+        provider: 'mock-embed',
+        providerErrorCode: 'embed_auth_failed',
+      });
+    }
+    if (input.text.includes('__FULL_USAGE__')) {
+      const providerStartedAt = new Date(Date.now() - 222);
+      const providerFinishedAt = new Date(providerStartedAt.getTime() + 222);
+      return {
+        accepted: true,
+        vector: [0.11, 0.22, 0.33, 0.44],
+        provider: 'mock',
+        model: input.model,
+        providerJobId: `mock-e-${this.embedCalls.length}`,
+        providerRequestId: `mock-embed-req-${this.embedCalls.length}`,
+        providerStatus: 'succeeded',
+        promptTokens: 222,
+        completionTokens: 0,
+        totalTokens: 222,
+        costAmount: '0.00012000',
+        costCurrency: 'USD',
+        normalizedErrorCode: null,
+        providerErrorCode: null,
+        errorMessage: null,
+        providerStartedAt,
+        providerFinishedAt,
+        providerLatencyMs: 222,
+      };
     }
     return {
       accepted: true,
@@ -238,6 +349,39 @@ const countProviderCallRecordByTraceId = async (input: {
   return await input.dataSource.getRepository(AiProviderCallRecordEntity).count({
     where: { traceId: input.traceId },
   });
+};
+
+const listProviderCallRecordsByTraceId = async (input: {
+  readonly dataSource: DataSource;
+  readonly traceId: string;
+}): Promise<AiProviderCallRecordEntity[]> => {
+  return await input.dataSource.getRepository(AiProviderCallRecordEntity).find({
+    where: { traceId: input.traceId },
+    order: { callSeq: 'ASC', id: 'ASC' },
+  });
+};
+
+const waitProviderCallRecordCount = async (input: {
+  readonly dataSource: DataSource;
+  readonly traceId: string;
+  readonly expectedCount: number;
+  readonly timeoutMs: number;
+  readonly pollMs: number;
+}): Promise<AiProviderCallRecordEntity[]> => {
+  const deadline = Date.now() + input.timeoutMs;
+  while (Date.now() < deadline) {
+    const records = await listProviderCallRecordsByTraceId({
+      dataSource: input.dataSource,
+      traceId: input.traceId,
+    });
+    if (records.length === input.expectedCount) {
+      return records;
+    }
+    await sleep(input.pollMs);
+  }
+  throw new Error(
+    `AI provider call record count mismatch: traceId=${input.traceId}, expected=${input.expectedCount}`,
+  );
 };
 
 const recordAiEnqueued = async (input: {
@@ -483,6 +627,68 @@ describe('AI Worker 消费落库阶段（e2e）', () => {
     }
   }, 60000);
 
+  it('embed 失败时应写入 provider failed 调用记录', async () => {
+    const timestamp = Date.now();
+    const jobId = `${BULLMQ_JOBS.AI.EMBED}-persist-embed-failed-${timestamp}`;
+    const traceId = `ai-persist-embed-failed-${timestamp}`;
+
+    try {
+      await workerRuntime.stop();
+      await recordAiEnqueued({
+        asyncTaskRecordService,
+        jobName: BULLMQ_JOBS.AI.EMBED,
+        jobId,
+        traceId,
+        maxAttempts: 1,
+      });
+
+      await enqueueAiEmbed({
+        queue: aiQueue,
+        jobId,
+        text: '__FAIL_EMBED__ __SLOW_MS_300__',
+        traceId,
+        attempts: 1,
+      });
+
+      await workerRuntime.start();
+      const finalState = await waitJobFinalState({
+        queue: aiQueue,
+        jobId,
+        timeoutMs: 20000,
+        pollMs: 150,
+      });
+      expect(finalState.state).toBe('failed');
+      const record = await waitAsyncTaskRecord({
+        dataSource,
+        queueName: BULLMQ_QUEUES.AI,
+        jobId,
+        statuses: ['failed'],
+        timeoutMs: 20000,
+        pollMs: 150,
+      });
+      const providerCallRecord = await waitLatestProviderCallRecord({
+        dataSource,
+        traceId,
+        status: 'failed',
+        timeoutMs: 20000,
+        pollMs: 150,
+      });
+      expect(record.status).toBe('failed');
+      expect(providerCallRecord.asyncTaskRecordId).toBe(record.id);
+      expect(providerCallRecord.providerStatus).toBe('failed');
+      expect(providerCallRecord.provider).toBe('mock-embed');
+      expect(providerCallRecord.model).toBe('text-embedding-3-small');
+      expect(providerCallRecord.taskType).toBe('embed');
+      expect(providerCallRecord.normalizedErrorCode).toContain('Mock AI embed failure');
+      expect(providerCallRecord.errorMessage).toContain('Mock AI embed failure');
+      expect(providerCallRecord.providerStartedAt).toBeInstanceOf(Date);
+      expect(providerCallRecord.providerFinishedAt).toBeInstanceOf(Date);
+      expect(providerCallRecord.providerLatencyMs).toBeGreaterThanOrEqual(0);
+    } finally {
+      await workerRuntime.start();
+    }
+  }, 60000);
+
   it('未真正发起 provider 请求时不应写 provider 调用记录', async () => {
     const timestamp = Date.now();
     const jobId = `${BULLMQ_JOBS.AI.GENERATE}-persist-no-attempt-${timestamp}`;
@@ -530,6 +736,257 @@ describe('AI Worker 消费落库阶段（e2e）', () => {
         traceId,
       });
       expect(providerCallRecordCount).toBe(0);
+    } finally {
+      await workerRuntime.start();
+    }
+  }, 60000);
+
+  it('embed 未真正发起 provider 请求时不应写 provider 调用记录', async () => {
+    const timestamp = Date.now();
+    const jobId = `${BULLMQ_JOBS.AI.EMBED}-persist-no-attempt-${timestamp}`;
+    const traceId = `ai-persist-embed-no-attempt-${timestamp}`;
+
+    try {
+      await workerRuntime.stop();
+      await recordAiEnqueued({
+        asyncTaskRecordService,
+        jobName: BULLMQ_JOBS.AI.EMBED,
+        jobId,
+        traceId,
+        maxAttempts: 1,
+      });
+
+      await enqueueAiEmbed({
+        queue: aiQueue,
+        jobId,
+        text: '__PRECHECK_FAIL__',
+        traceId,
+        attempts: 1,
+      });
+
+      await workerRuntime.start();
+      const finalState = await waitJobFinalState({
+        queue: aiQueue,
+        jobId,
+        timeoutMs: 20000,
+        pollMs: 150,
+      });
+      expect(finalState.state).toBe('failed');
+      const record = await waitAsyncTaskRecord({
+        dataSource,
+        queueName: BULLMQ_QUEUES.AI,
+        jobId,
+        statuses: ['failed'],
+        timeoutMs: 20000,
+        pollMs: 150,
+      });
+      expect(record.status).toBe('failed');
+      expect(record.reason).toContain('unsupported_ai_embedding_model');
+      await sleep(500);
+      const providerCallRecordCount = await countProviderCallRecordByTraceId({
+        dataSource,
+        traceId,
+      });
+      expect(providerCallRecordCount).toBe(0);
+    } finally {
+      await workerRuntime.start();
+    }
+  }, 60000);
+
+  it('generate 重试前两次失败第三次成功时应写入 3 条 provider 调用记录', async () => {
+    const timestamp = Date.now();
+    const jobId = `${BULLMQ_JOBS.AI.GENERATE}-persist-retry-success-${timestamp}`;
+    const traceId = `ai-persist-retry-success-${timestamp}`;
+    const prompt = `__RETRY_SUCCESS_2__-${timestamp}`;
+
+    try {
+      await workerRuntime.stop();
+      await enqueueAiGenerate({
+        queue: aiQueue,
+        jobId,
+        prompt,
+        traceId,
+        attempts: 3,
+      });
+
+      await workerRuntime.start();
+      const finalState = await waitJobFinalState({
+        queue: aiQueue,
+        jobId,
+        timeoutMs: 20000,
+        pollMs: 150,
+      });
+      expect(finalState.state).toBe('completed');
+      const asyncTaskRecord = await waitAsyncTaskRecord({
+        dataSource,
+        queueName: BULLMQ_QUEUES.AI,
+        jobId,
+        statuses: ['succeeded'],
+        timeoutMs: 20000,
+        pollMs: 150,
+      });
+      const providerRecords = await waitProviderCallRecordCount({
+        dataSource,
+        traceId,
+        expectedCount: 3,
+        timeoutMs: 20000,
+        pollMs: 150,
+      });
+      expect(providerRecords.map((item) => item.callSeq)).toEqual([1, 2, 3]);
+      expect(providerRecords.map((item) => item.providerStatus)).toEqual([
+        'failed',
+        'failed',
+        'succeeded',
+      ]);
+      expect(providerRecords[0].normalizedErrorCode).toContain('Mock AI transient failure 1');
+      expect(providerRecords[1].normalizedErrorCode).toContain('Mock AI transient failure 2');
+      expect(providerRecords[2].providerRequestId).toContain('mock-g-');
+      expect(providerRecords[2].asyncTaskRecordId).toBe(asyncTaskRecord.id);
+      expect(asyncTaskRecord.status).toBe('succeeded');
+      expect(asyncTaskRecord.attemptCount).toBe(3);
+      expect(asyncTaskRecord.reason).toBe('worker_completed');
+    } finally {
+      await workerRuntime.start();
+    }
+  }, 60000);
+
+  it('generate 重试耗尽时应写入 3 条 failed provider 调用记录', async () => {
+    const timestamp = Date.now();
+    const jobId = `${BULLMQ_JOBS.AI.GENERATE}-persist-retry-exhaust-${timestamp}`;
+    const traceId = `ai-persist-retry-exhaust-${timestamp}`;
+    const prompt = `__RETRY_EXHAUST__-${timestamp}`;
+
+    try {
+      await workerRuntime.stop();
+      await enqueueAiGenerate({
+        queue: aiQueue,
+        jobId,
+        prompt,
+        traceId,
+        attempts: 3,
+      });
+
+      await workerRuntime.start();
+      const finalState = await waitJobFinalState({
+        queue: aiQueue,
+        jobId,
+        timeoutMs: 20000,
+        pollMs: 150,
+      });
+      expect(finalState.state).toBe('failed');
+      const asyncTaskRecord = await waitAsyncTaskRecord({
+        dataSource,
+        queueName: BULLMQ_QUEUES.AI,
+        jobId,
+        statuses: ['failed'],
+        timeoutMs: 20000,
+        pollMs: 150,
+      });
+      const providerRecords = await waitProviderCallRecordCount({
+        dataSource,
+        traceId,
+        expectedCount: 3,
+        timeoutMs: 20000,
+        pollMs: 150,
+      });
+      expect(providerRecords.map((item) => item.callSeq)).toEqual([1, 2, 3]);
+      expect(providerRecords.every((item) => item.providerStatus === 'failed')).toBe(true);
+      expect(providerRecords[2].normalizedErrorCode).toContain('Mock AI exhausted failure 3');
+      expect(providerRecords[2].asyncTaskRecordId).toBe(asyncTaskRecord.id);
+      expect(asyncTaskRecord.status).toBe('failed');
+      expect(asyncTaskRecord.attemptCount).toBe(3);
+      expect(asyncTaskRecord.reason).toContain('Mock AI exhausted failure 3');
+    } finally {
+      await workerRuntime.start();
+    }
+  }, 60000);
+
+  it('success full usage 时应完整映射 provider 字段', async () => {
+    const timestamp = Date.now();
+    const jobId = `${BULLMQ_JOBS.AI.GENERATE}-persist-full-usage-${timestamp}`;
+    const traceId = `ai-persist-full-usage-${timestamp}`;
+
+    try {
+      await workerRuntime.stop();
+      await enqueueAiGenerate({
+        queue: aiQueue,
+        jobId,
+        prompt: '__FULL_USAGE__',
+        traceId,
+        attempts: 1,
+      });
+
+      await workerRuntime.start();
+      const finalState = await waitJobFinalState({
+        queue: aiQueue,
+        jobId,
+        timeoutMs: 20000,
+        pollMs: 150,
+      });
+      expect(finalState.state).toBe('completed');
+      const providerCallRecord = await waitLatestProviderCallRecord({
+        dataSource,
+        traceId,
+        status: 'succeeded',
+        timeoutMs: 20000,
+        pollMs: 150,
+      });
+      expect(providerCallRecord.promptTokens).toBe(123);
+      expect(providerCallRecord.completionTokens).toBe(45);
+      expect(providerCallRecord.totalTokens).toBe(168);
+      expect(providerCallRecord.costAmount).toBe('0.01234567');
+      expect(providerCallRecord.costCurrency).toBe('USD');
+      expect(providerCallRecord.providerRequestId).toContain('mock-req-');
+      expect(providerCallRecord.providerStartedAt).toBeInstanceOf(Date);
+      expect(providerCallRecord.providerFinishedAt).toBeInstanceOf(Date);
+      expect(providerCallRecord.providerLatencyMs).toBe(321);
+      expect(providerCallRecord.normalizedErrorCode).toBeNull();
+      expect(providerCallRecord.providerErrorCode).toBeNull();
+      expect(providerCallRecord.errorMessage).toBeNull();
+    } finally {
+      await workerRuntime.start();
+    }
+  }, 60000);
+
+  it('failed with error details 时应映射错误字段且 token cost 为空', async () => {
+    const timestamp = Date.now();
+    const jobId = `${BULLMQ_JOBS.AI.GENERATE}-persist-error-details-${timestamp}`;
+    const traceId = `ai-persist-error-details-${timestamp}`;
+
+    try {
+      await workerRuntime.stop();
+      await enqueueAiGenerate({
+        queue: aiQueue,
+        jobId,
+        prompt: '__FAIL_WITH_ERROR_DETAILS__',
+        traceId,
+        attempts: 1,
+      });
+
+      await workerRuntime.start();
+      const finalState = await waitJobFinalState({
+        queue: aiQueue,
+        jobId,
+        timeoutMs: 20000,
+        pollMs: 150,
+      });
+      expect(finalState.state).toBe('failed');
+      const providerCallRecord = await waitLatestProviderCallRecord({
+        dataSource,
+        traceId,
+        status: 'failed',
+        timeoutMs: 20000,
+        pollMs: 150,
+      });
+      expect(providerCallRecord.providerStatus).toBe('failed');
+      expect(providerCallRecord.normalizedErrorCode).toBe('ai_provider_auth_failed');
+      expect(providerCallRecord.providerErrorCode).toBe('invalid_api_key');
+      expect(providerCallRecord.errorMessage).toBe('ai_provider_auth_failed');
+      expect(providerCallRecord.promptTokens).toBeNull();
+      expect(providerCallRecord.completionTokens).toBeNull();
+      expect(providerCallRecord.totalTokens).toBeNull();
+      expect(providerCallRecord.costAmount).toBeNull();
+      expect(providerCallRecord.costCurrency).toBeNull();
     } finally {
       await workerRuntime.start();
     }

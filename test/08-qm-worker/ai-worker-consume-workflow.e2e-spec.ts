@@ -3,7 +3,7 @@ import { getQueueToken } from '@nestjs/bullmq';
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { AiJobHandler } from '@src/adapters/worker/ai/ai-job.handler';
-import type { AiGenerateJob } from '@src/adapters/worker/ai/ai-job.mapper';
+import type { AiEmbedJob, AiGenerateJob } from '@src/adapters/worker/ai/ai-job.mapper';
 import { ApiModule } from '@src/bootstraps/api/api.module';
 import { WorkerModule } from '@src/bootstraps/worker/worker.module';
 import { BULLMQ_JOBS, BULLMQ_QUEUES } from '@src/infrastructure/bullmq/bullmq.constants';
@@ -36,6 +36,7 @@ class MockAiWorkerService {
   readonly generateCalls: GenerateAiContentInput[] = [];
   readonly embedCalls: EmbedAiContentInput[] = [];
   private readonly generateAttemptsByPrompt = new Map<string, number>();
+  private readonly embedAttemptsByText = new Map<string, number>();
 
   async generate(input: GenerateAiContentInput): Promise<GenerateAiContentResult> {
     this.generateCalls.push(input);
@@ -70,8 +71,17 @@ class MockAiWorkerService {
     if (slowMs > 0) {
       await sleep(slowMs);
     }
+    const attemptKey = `${input.model}:${input.text}`;
+    const currentAttempt = (this.embedAttemptsByText.get(attemptKey) ?? 0) + 1;
+    this.embedAttemptsByText.set(attemptKey, currentAttempt);
     if (input.text.includes('__FAIL_EMBED__')) {
       throw new Error('Mock AI embed failure');
+    }
+    if (input.text.includes('__RETRY_SUCCESS_2__') && currentAttempt <= 2) {
+      throw new Error(`Mock AI embed transient failure ${currentAttempt}`);
+    }
+    if (input.text.includes('__RETRY_EXHAUST__')) {
+      throw new Error(`Mock AI embed exhausted failure ${currentAttempt}`);
     }
     return {
       accepted: true,
@@ -433,6 +443,87 @@ describe('AI Worker 消费流程（e2e）', () => {
     }
   }, 60000);
 
+  it('embed attempts=3 前两次失败第三次成功时应落库 succeeded 且重试计数正确', async () => {
+    const timestamp = Date.now();
+    const jobId = `${BULLMQ_JOBS.AI.EMBED}-ai-embed-retry-success-${timestamp}`;
+    const text = `__RETRY_SUCCESS_2__-${timestamp}`;
+
+    try {
+      await workerRuntime.stop();
+      await enqueueAiEmbed({
+        queue: aiQueue,
+        jobId,
+        text,
+        attempts: 3,
+      });
+
+      await workerRuntime.start();
+      const finalState = await waitJobFinalState({
+        queue: aiQueue,
+        jobId,
+        timeoutMs: 20000,
+        pollMs: 150,
+      });
+      expect(finalState.state).toBe('completed');
+
+      const record = await waitAsyncTaskRecord({
+        dataSource,
+        queueName: BULLMQ_QUEUES.AI,
+        jobId,
+        statuses: ['succeeded'],
+        timeoutMs: 20000,
+        pollMs: 150,
+      });
+      expect(record.status).toBe('succeeded');
+      expect(record.attemptCount).toBe(3);
+      expect(record.maxAttempts).toBe(3);
+      expect(record.reason).toBe('worker_completed');
+    } finally {
+      await workerRuntime.start();
+    }
+  }, 60000);
+
+  it('embed attempts=3 重试耗尽后应 failed 且 reason 仅来自最后一次错误', async () => {
+    const timestamp = Date.now();
+    const jobId = `${BULLMQ_JOBS.AI.EMBED}-ai-embed-retry-failed-${timestamp}`;
+    const text = `__RETRY_EXHAUST__-${timestamp}`;
+
+    try {
+      await workerRuntime.stop();
+      await enqueueAiEmbed({
+        queue: aiQueue,
+        jobId,
+        text,
+        attempts: 3,
+      });
+
+      await workerRuntime.start();
+      const finalState = await waitJobFinalState({
+        queue: aiQueue,
+        jobId,
+        timeoutMs: 20000,
+        pollMs: 150,
+      });
+      expect(finalState.state).toBe('failed');
+
+      const record = await waitAsyncTaskRecord({
+        dataSource,
+        queueName: BULLMQ_QUEUES.AI,
+        jobId,
+        statuses: ['failed'],
+        timeoutMs: 20000,
+        pollMs: 150,
+      });
+      expect(record.status).toBe('failed');
+      expect(record.maxAttempts).toBe(3);
+      expect(record.reason).toContain('worker_failed:');
+      expect(record.reason).toContain('Mock AI embed exhausted failure 3');
+      expect(record.reason).not.toContain('Mock AI embed exhausted failure 1');
+    } finally {
+      await workerRuntime.start();
+    }
+  }, 60000);
+
   it('重复入队同一 jobId 时应保持单条任务记录并仅消费一次', async () => {
     const timestamp = Date.now();
     const jobId = `${BULLMQ_JOBS.AI.GENERATE}-ai-gen-dedup-${timestamp}`;
@@ -575,6 +666,54 @@ describe('AI Worker 消费流程（e2e）', () => {
     }
   }, 60000);
 
+  it('embed payload 缺失 traceId 时应走降级失败语义且不回流 jobId', async () => {
+    const timestamp = Date.now();
+    const jobId = `${BULLMQ_JOBS.AI.EMBED}-ai-embed-missing-trace-${timestamp}`;
+
+    try {
+      await workerRuntime.stop();
+      await aiQueue.add(
+        BULLMQ_JOBS.AI.EMBED,
+        {
+          model: 'text-embedding-3-small',
+          text: 'missing trace id embed payload',
+          metadata: {
+            source: 'e2e-ai-embed-missing-trace',
+          },
+        },
+        {
+          jobId,
+          attempts: 1,
+          removeOnComplete: false,
+          removeOnFail: false,
+        },
+      );
+
+      await workerRuntime.start();
+      const finalState = await waitJobFinalState({
+        queue: aiQueue,
+        jobId,
+        timeoutMs: 20000,
+        pollMs: 150,
+      });
+      expect(finalState.state).toBe('failed');
+
+      const record = await waitAsyncTaskRecord({
+        dataSource,
+        queueName: BULLMQ_QUEUES.AI,
+        jobId,
+        statuses: ['failed'],
+        timeoutMs: 20000,
+        pollMs: 150,
+      });
+      expect(record.traceId).toBe(`degraded-trace:${BULLMQ_JOBS.AI.EMBED}:${jobId}`);
+      expect(record.bizKey).toBe(record.traceId);
+      expect(record.reason).toContain('missing_payload_trace_id');
+    } finally {
+      await workerRuntime.start();
+    }
+  }, 60000);
+
   it('重复触发 completed 事件时不应新增记录', async () => {
     const timestamp = Date.now();
     const jobId = `${BULLMQ_JOBS.AI.GENERATE}-ai-gen-completed-idempotent-${timestamp}`;
@@ -669,6 +808,106 @@ describe('AI Worker 消费流程（e2e）', () => {
       expect(record.status).toBe('failed');
       expect(record.reason).toContain('worker_failed:');
       expect(record.reason).toContain('Manual idempotent failed event');
+      expect(recordCount).toBe(1);
+    } finally {
+      await workerRuntime.start();
+    }
+  }, 60000);
+
+  it('重复触发 embed completed 事件时不应新增记录', async () => {
+    const timestamp = Date.now();
+    const jobId = `${BULLMQ_JOBS.AI.EMBED}-ai-embed-completed-idempotent-${timestamp}`;
+
+    try {
+      await workerRuntime.stop();
+      await enqueueAiEmbed({
+        queue: aiQueue,
+        jobId,
+        text: 'embed completed idempotent case',
+        attempts: 1,
+      });
+      await workerRuntime.start();
+      const finalState = await waitJobFinalState({
+        queue: aiQueue,
+        jobId,
+        timeoutMs: 20000,
+        pollMs: 150,
+      });
+      expect(finalState.state).toBe('completed');
+
+      const job = await aiQueue.getJob(jobId);
+      expect(job).toBeDefined();
+      await aiJobHandler.onEmbedCompleted({ job: job as unknown as AiEmbedJob });
+      await aiJobHandler.onEmbedCompleted({ job: job as unknown as AiEmbedJob });
+
+      const record = await waitAsyncTaskRecord({
+        dataSource,
+        queueName: BULLMQ_QUEUES.AI,
+        jobId,
+        statuses: ['succeeded'],
+        timeoutMs: 10000,
+        pollMs: 120,
+      });
+      const recordCount = await countAsyncTaskRecords({
+        dataSource,
+        queueName: BULLMQ_QUEUES.AI,
+        jobId,
+      });
+      expect(record.status).toBe('succeeded');
+      expect(recordCount).toBe(1);
+    } finally {
+      await workerRuntime.start();
+    }
+  }, 60000);
+
+  it('重复触发 embed failed 事件时不应新增记录', async () => {
+    const timestamp = Date.now();
+    const jobId = `${BULLMQ_JOBS.AI.EMBED}-ai-embed-failed-idempotent-${timestamp}`;
+
+    try {
+      await workerRuntime.stop();
+      await enqueueAiEmbed({
+        queue: aiQueue,
+        jobId,
+        text: '__FAIL_EMBED__',
+        attempts: 1,
+      });
+      await workerRuntime.start();
+      const finalState = await waitJobFinalState({
+        queue: aiQueue,
+        jobId,
+        timeoutMs: 20000,
+        pollMs: 150,
+      });
+      expect(finalState.state).toBe('failed');
+
+      const job = await aiQueue.getJob(jobId);
+      expect(job).toBeDefined();
+      await aiJobHandler.onEmbedFailed({
+        job: job as unknown as AiEmbedJob,
+        error: new Error('Manual embed idempotent failed event'),
+      });
+      await aiJobHandler.onEmbedFailed({
+        job: job as unknown as AiEmbedJob,
+        error: new Error('Manual embed idempotent failed event'),
+      });
+
+      const record = await waitAsyncTaskRecord({
+        dataSource,
+        queueName: BULLMQ_QUEUES.AI,
+        jobId,
+        statuses: ['failed'],
+        timeoutMs: 10000,
+        pollMs: 120,
+      });
+      const recordCount = await countAsyncTaskRecords({
+        dataSource,
+        queueName: BULLMQ_QUEUES.AI,
+        jobId,
+      });
+      expect(record.status).toBe('failed');
+      expect(record.reason).toContain('worker_failed:');
+      expect(record.reason).toContain('Manual embed idempotent failed event');
       expect(recordCount).toBe(1);
     } finally {
       await workerRuntime.start();

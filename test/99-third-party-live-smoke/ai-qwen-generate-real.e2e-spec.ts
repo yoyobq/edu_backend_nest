@@ -8,6 +8,7 @@ import { ApiModule } from '@src/bootstraps/api/api.module';
 import { WorkerModule } from '@src/bootstraps/worker/worker.module';
 import { BULLMQ_QUEUES } from '@src/infrastructure/bullmq/bullmq.constants';
 import { BullMqWorkerRuntime } from '@src/infrastructure/bullmq/worker.runtime';
+import { AiProviderCallRecordEntity } from '@src/modules/ai-provider-call-record/ai-provider-call-record.entity';
 import {
   AsyncTaskRecordEntity,
   type AsyncTaskRecordStatus,
@@ -113,6 +114,31 @@ const countAsyncTaskRecords = async (input: {
       jobId: input.jobId,
     },
   });
+};
+
+const waitLatestProviderCallRecord = async (input: {
+  readonly dataSource: DataSource;
+  readonly traceId: string;
+  readonly status?: 'succeeded' | 'failed';
+  readonly timeoutMs: number;
+  readonly pollMs: number;
+}): Promise<AiProviderCallRecordEntity> => {
+  const deadline = Date.now() + input.timeoutMs;
+  while (Date.now() < deadline) {
+    const where =
+      input.status === undefined
+        ? { traceId: input.traceId }
+        : { traceId: input.traceId, providerStatus: input.status };
+    const record = await input.dataSource.getRepository(AiProviderCallRecordEntity).findOne({
+      where,
+      order: { id: 'DESC' },
+    });
+    if (record) {
+      return record;
+    }
+    await sleep(input.pollMs);
+  }
+  throw new Error(`AI provider call record did not reach expected state in time: ${input.traceId}`);
 };
 
 const queueAiGenerate = async (input: {
@@ -297,6 +323,20 @@ REAL_AI_DESCRIBE('真实 Qwen generate 闭环（受控 e2e）', () => {
     expect(outputText.length).toBeGreaterThan(0);
     expect(outputText).not.toBe('[empty_output]');
     expect(outputText).toContain(marker);
+
+    const providerCallRecord = await waitLatestProviderCallRecord({
+      dataSource,
+      traceId,
+      status: 'succeeded',
+      timeoutMs: 30000,
+      pollMs: 300,
+    });
+    expect(providerCallRecord.asyncTaskRecordId).toBe(finalRecord.id);
+    expect(providerCallRecord.providerStatus).toBe('succeeded');
+    expect(providerCallRecord.provider).toBe('qwen');
+    expect(providerCallRecord.model).toBe(model);
+    expect(providerCallRecord.taskType).toBe('generate');
+    expect((providerCallRecord.providerRequestId ?? '').trim().length).toBeGreaterThan(0);
   }, 180000);
 
   it('相同 dedupKey 重复命中应复用原 jobId 与 actor 且不新增记录', async () => {
@@ -490,5 +530,22 @@ REAL_AI_AUTH_FAIL_DESCRIBE('真实 Qwen generate 鉴权失败分类（受控 e2e
     expect(finalRecord.traceId).toBe(traceId);
     expect(finalRecord.reason ?? '').toContain('ai_provider_auth_failed');
     expect(finalState.failedReason ?? '').toContain('ai_provider_auth_failed');
+
+    const providerCallRecord = await waitLatestProviderCallRecord({
+      dataSource,
+      traceId,
+      status: 'failed',
+      timeoutMs: 30000,
+      pollMs: 300,
+    });
+    expect(providerCallRecord.asyncTaskRecordId).toBe(finalRecord.id);
+    expect(providerCallRecord.providerStatus).toBe('failed');
+    expect(providerCallRecord.provider).toBe('qwen');
+    expect(providerCallRecord.model).toBe(model);
+    expect(providerCallRecord.taskType).toBe('generate');
+    expect(providerCallRecord.normalizedErrorCode ?? '').toContain('ai_provider_auth_failed');
+    if (providerCallRecord.providerErrorCode !== null) {
+      expect(providerCallRecord.providerErrorCode.length).toBeGreaterThan(0);
+    }
   }, 180000);
 });

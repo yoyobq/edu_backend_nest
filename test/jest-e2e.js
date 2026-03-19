@@ -6,7 +6,7 @@ const ENABLED_SPECS = [
   // '00-app/00-app.e2e-spec.ts',
   // '01-auth/auth-identity.e2e-spec.ts',
   // '01-auth/auth.e2e-spec.ts',
-  '02-register/register.e2e-spec.ts',
+  // '02-register/register.e2e-spec.ts',
   // '03-roles-guard/roles-guard.e2e-spec.ts',
   // '04-user-info/update-visible-user-info.e2e-spec.ts',
   // '04-user-info/update-access-group.e2e-spec.ts',
@@ -27,7 +27,7 @@ const ENABLED_SPECS = [
   // '08-qm-worker/ai-worker-consume-persistence.e2e-spec.ts',
   // '08-qm-worker/ai-worker-consume-workflow.e2e-spec.ts',
   // '99-third-party-live-smoke/email-delivery-real.e2e-spec.ts',
-  // '99-third-party-live-smoke/ai-qwen-generate-real.e2e-spec.ts',
+  '99-third-party-live-smoke/ai-qwen-generate-real.e2e-spec.ts',
 ];
 
 /** 可选：命令行临时指定（逗号分隔）
