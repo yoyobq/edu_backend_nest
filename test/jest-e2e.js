@@ -1,51 +1,100 @@
 // test/jest-e2e.js
 
-/** 集中开关：只运行这里列出的 e2e 文件（相对 test/ 的路径） */
-// 注释/取消注释即可控制
-const ENABLED_SPECS = [
-  // '00-app/00-app.e2e-spec.ts',
-  // '01-auth/auth-identity.e2e-spec.ts',
-  // '01-auth/auth.e2e-spec.ts',
-  // '02-register/register.e2e-spec.ts',
-  // '03-roles-guard/roles-guard.e2e-spec.ts',
-  // '04-user-info/update-visible-user-info.e2e-spec.ts',
-  // '04-user-info/update-access-group.e2e-spec.ts',
-  // '05-verification-record/verification-record.e2e-spec.ts',
-  // '05-verification-record/verification-record-types.e2e-spec.ts',
-  // '05-verification-record/verification-record-invite.e2e-spec.ts',
-  // '06-identity-management/identity-management.e2e-spec.ts',
-  // '06-identity-management/learner-management.e2e-spec.ts',
-  // '06-identity-management/customer-management.e2e-spec.ts',
-  // '06-identity-management/coach-management.e2e-spec.ts',
-  // '06-identity-management/manager-management.e2e-spec.ts',
-  // '07-pagination-sort-search/pagination.e2e-spec.ts',
-  // '07-pagination-sort-search/learners-pagination.e2e-spec.ts',
-  // '07-pagination-sort-search/sort.e2e-spec.ts',
-  // '07-pagination-sort-search/search.e2e-spec.ts',
-  // '08-qm-worker/email-queue-consume.e2e-spec.ts',
-  // '08-qm-worker/ai-graphql-queue.e2e-spec.ts',
-  // '08-qm-worker/ai-worker-consume-persistence.e2e-spec.ts',
-  '08-qm-worker/ai-worker-consume-workflow.e2e-spec.ts',
-  // '99-third-party-live-smoke/email-delivery-real.e2e-spec.ts',
-  // '99-third-party-live-smoke/ai-qwen-generate-real.e2e-spec.ts',
-];
+const GROUPS = {
+  core: {
+    specs: [
+      '00-app/00-app.e2e-spec.ts',
+      '01-auth/auth-identity.e2e-spec.ts',
+      '01-auth/auth.e2e-spec.ts',
+      '02-register/register.e2e-spec.ts',
+      '03-roles-guard/roles-guard.e2e-spec.ts',
+      '04-user-info/update-access-group.e2e-spec.ts',
+      '04-user-info/update-visible-user-info.e2e-spec.ts',
+      '05-verification-record/verification-record.e2e-spec.ts',
+      '05-verification-record/verification-record-types.e2e-spec.ts',
+      '05-verification-record/verification-record-invite.e2e-spec.ts',
+      '06-identity-management/identity-management.e2e-spec.ts',
+      '06-identity-management/learner-management.e2e-spec.ts',
+      '06-identity-management/customer-management.e2e-spec.ts',
+      '06-identity-management/coach-management.e2e-spec.ts',
+      '06-identity-management/manager-management.e2e-spec.ts',
+      '07-pagination-sort-search/pagination.e2e-spec.ts',
+      '07-pagination-sort-search/learners-pagination.e2e-spec.ts',
+      '07-pagination-sort-search/search.e2e-spec.ts',
+      '07-pagination-sort-search/sort.e2e-spec.ts',
+    ],
+    needs: {
+      mysql: true,
+      redis: false,
+      bullmq: false,
+      external: false,
+    },
+    runInBand: true,
+  },
+  worker: {
+    specs: [
+      '08-qm-worker/email-queue-consume.e2e-spec.ts',
+      '08-qm-worker/ai-graphql-queue.e2e-spec.ts',
+      '08-qm-worker/ai-worker-consume-persistence.e2e-spec.ts',
+      '08-qm-worker/ai-worker-consume-workflow.e2e-spec.ts',
+    ],
+    needs: {
+      mysql: true,
+      redis: true,
+      bullmq: true,
+      external: false,
+    },
+    runInBand: true,
+  },
+  smoke: {
+    specs: [
+      '99-third-party-live-smoke/email-delivery-real.e2e-spec.ts',
+      '99-third-party-live-smoke/ai-qwen-generate-real.e2e-spec.ts',
+    ],
+    needs: {
+      mysql: true,
+      redis: true,
+      bullmq: true,
+      external: true,
+    },
+    runInBand: true,
+  },
+};
 
-/** 可选：命令行临时指定（逗号分隔）
- *  E2E_SPECS="03-roles-guard/roles-guard.e2e-spec.ts,01-auth/auth.e2e-spec.ts"
- */
-const fromEnv = (process.env.E2E_SPECS || '')
+const DEFAULT_GROUP = 'core';
+
+const parseCsv = (raw) =>
+  (raw || '')
   .split(',')
   .map((s) => s.trim())
   .filter(Boolean);
 
-const selected = (fromEnv.length ? fromEnv : ENABLED_SPECS).map((p) => `<rootDir>/test/${p}`);
+const requestedGroup = (process.env.E2E_GROUP || '').trim();
+const selectedGroupName = requestedGroup || DEFAULT_GROUP;
+const selectedGroup = GROUPS[selectedGroupName];
+
+if (!selectedGroup) {
+  throw new Error(`Unknown E2E_GROUP: ${selectedGroupName}`);
+}
+
+const fromEnv = parseCsv(process.env.E2E_SPECS);
+const selectedSpecs = fromEnv.length ? fromEnv : selectedGroup.specs;
+const selected = selectedSpecs.map((p) => `<rootDir>/test/${p}`);
+
+process.env.E2E_GROUP = selectedGroupName;
+if (!process.env.E2E_NEEDS || process.env.E2E_NEEDS.trim().length === 0) {
+  process.env.E2E_NEEDS = Object.entries(selectedGroup.needs)
+    .filter((entry) => entry[1] === true)
+    .map((entry) => entry[0])
+    .join(',');
+}
 
 const fallbackPattern = ['<rootDir>/test/**/?(*.)e2e-spec.ts'];
 
 // 为了确保 rootDir 解析稳定，使用绝对路径
 const path = require('path');
 
-module.exports = {
+const jestConfig = {
   preset: 'ts-jest',
   // 原来是 '../'，改为绝对路径更稳妥
   rootDir: path.resolve(__dirname, '..'),
@@ -87,3 +136,9 @@ module.exports = {
   forceExit: true,
   detectOpenHandles: true,
 };
+
+module.exports = jestConfig;
+Object.defineProperty(module.exports, '__GROUPS', {
+  value: GROUPS,
+  enumerable: false,
+});

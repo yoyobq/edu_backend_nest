@@ -2,8 +2,10 @@
 import 'reflect-metadata';
 import 'tsconfig-paths/register';
 
+import { Queue } from 'bullmq';
 import * as dotenv from 'dotenv';
 import * as fs from 'fs';
+import Redis, { type RedisOptions } from 'ioredis';
 import * as path from 'path';
 import { DataSource, type DataSourceOptions } from 'typeorm';
 import databaseConfig from '../src/infrastructure/config/database.config';
@@ -15,35 +17,181 @@ import databaseConfig from '../src/infrastructure/config/database.config';
  * 仅做：环境变量加载 + 一次性的全库清理。
  */
 
-/**
- * 清理测试数据库（保留结构）
- * 在测试开始前清理所有测试相关的数据
- */
+type InfraNeed = 'mysql' | 'redis' | 'bullmq' | 'external';
+
+const GROUP_NEEDS: Record<string, ReadonlyArray<InfraNeed>> = {
+  core: ['mysql'],
+  worker: ['mysql', 'redis', 'bullmq'],
+  smoke: ['mysql', 'redis', 'bullmq', 'external'],
+};
+
+const extractTableName = (row: unknown): string | null => {
+  if (!row || typeof row !== 'object') {
+    return null;
+  }
+  const record = row as Record<string, unknown>;
+  const tableName = record.table_name ?? record.TABLE_NAME;
+  if (typeof tableName !== 'string' || tableName.trim().length === 0) {
+    return null;
+  }
+  return tableName;
+};
+
 const cleanupTestDatabase = async (dataSource: DataSource): Promise<void> => {
+  const qr = dataSource.createQueryRunner();
   try {
     console.log('🧹 开始清理测试数据库...');
-
-    const qr = dataSource.createQueryRunner();
-    const tables = await qr.query(
+    const rows = (await qr.query(
       "SELECT table_name FROM information_schema.tables WHERE table_schema = DATABASE() AND table_type = 'BASE TABLE'",
-    );
-
-    if (tables.length > 0) {
-      await qr.query('SET FOREIGN_KEY_CHECKS = 0');
-      for (const t of tables) {
-        const name = t.table_name || t.TABLE_NAME;
-        await qr.query(`TRUNCATE TABLE \`${name}\``);
-      }
-      await qr.query('SET FOREIGN_KEY_CHECKS = 1');
-      console.log(`✅ 已清理 ${tables.length} 个表的数据`);
-    } else {
+    )) as unknown[];
+    const tables = rows
+      .map((row) => extractTableName(row))
+      .filter((name): name is string => !!name);
+    if (tables.length === 0) {
       console.log('📝 未发现需要清理的表');
+      return;
     }
-
+    await qr.query('SET FOREIGN_KEY_CHECKS = 0');
+    for (const name of tables) {
+      await qr.query(`TRUNCATE TABLE \`${name}\``);
+    }
+    await qr.query('SET FOREIGN_KEY_CHECKS = 1');
+    console.log(`✅ 已清理 ${tables.length} 个表的数据`);
+  } finally {
     await qr.release();
-  } catch (e) {
-    // 清库失败不阻塞后续（打印即可）
-    console.error('❌ 清理测试数据库失败:', e);
+  }
+};
+
+const parseBoolean = (value: string | undefined): boolean => {
+  if (!value) return false;
+  const normalized = value.trim().toLowerCase();
+  return ['1', 'true', 'yes', 'on'].includes(normalized);
+};
+
+const parseNeedsFromEnv = (raw: string | undefined): Set<InfraNeed> => {
+  const allowed = new Set<InfraNeed>(['mysql', 'redis', 'bullmq', 'external']);
+  const values = (raw || '')
+    .split(',')
+    .map((item) => item.trim().toLowerCase())
+    .filter((item): item is InfraNeed => allowed.has(item as InfraNeed));
+  return new Set<InfraNeed>(values);
+};
+
+const resolveInfraNeeds = (): Set<InfraNeed> => {
+  const fromEnv = parseNeedsFromEnv(process.env.E2E_NEEDS);
+  if (fromEnv.size > 0) {
+    return fromEnv;
+  }
+  const group = (process.env.E2E_GROUP || 'core').trim();
+  const needs = GROUP_NEEDS[group] ?? GROUP_NEEDS.core;
+  return new Set(needs);
+};
+
+const resolveEnvString = (key: string): string => {
+  const value = process.env[key];
+  if (!value || value.trim().length === 0) {
+    throw new Error(`${key} is required`);
+  }
+  return value;
+};
+
+const resolveEnvNumber = (key: string): number => {
+  const raw = resolveEnvString(key);
+  const value = Number(raw);
+  if (!Number.isInteger(value)) {
+    throw new Error(`${key} must be an integer`);
+  }
+  return value;
+};
+
+const buildRedisOptions = (): RedisOptions => {
+  const options: RedisOptions = {
+    host: resolveEnvString('REDIS_HOST'),
+    port: resolveEnvNumber('REDIS_PORT'),
+    db: resolveEnvNumber('REDIS_DB'),
+  };
+  const password = process.env.REDIS_PASSWORD;
+  if (password && password.trim().length > 0) {
+    options.password = password;
+  }
+  if (process.env.REDIS_TLS === 'true') {
+    options.tls = {};
+  }
+  return options;
+};
+
+const checkRedis = async (): Promise<void> => {
+  const options = buildRedisOptions();
+  const client = new Redis(options);
+  try {
+    const pong = await client.ping();
+    if (pong !== 'PONG') {
+      throw new Error('Unexpected Redis PING result');
+    }
+    console.log(`✅ Redis 连接测试成功（db=${String(options.db)}）`);
+  } finally {
+    if (client.status !== 'end') {
+      await client.quit();
+    }
+  }
+};
+
+const checkBullMq = async (): Promise<void> => {
+  const prefix = (process.env.BULLMQ_PREFIX || 'bullmq').trim();
+  if (prefix.length === 0) {
+    throw new Error('BULLMQ_PREFIX is invalid');
+  }
+  const queue = new Queue('__e2e_setup_healthcheck__', {
+    connection: buildRedisOptions(),
+    prefix,
+  });
+  try {
+    await queue.waitUntilReady();
+    console.log(`✅ BullMQ 基础连接检查成功（prefix=${prefix}）`);
+  } finally {
+    await queue.close();
+  }
+};
+
+const ensureExternalEnv = (keys: ReadonlyArray<string>, scope: string): void => {
+  const missing = keys.filter((key) => {
+    const value = process.env[key];
+    return !value || value.trim().length === 0;
+  });
+  if (missing.length > 0) {
+    throw new Error(`${scope} missing env: ${missing.join(', ')}`);
+  }
+};
+
+const checkExternal = (): void => {
+  ensureExternalEnv(['E2E_EMAIL_TO'], 'email');
+  ensureExternalEnv(
+    ['AI_PROVIDER_MODE', 'QWEN_BASE_URL', 'QWEN_API_KEY', 'QWEN_GENERATE_MODEL'],
+    'ai',
+  );
+  if ((process.env.RUN_REAL_AI_AUTH_FAIL_E2E || '').trim().toLowerCase() === 'true') {
+    ensureExternalEnv(['QWEN_AUTH_FAIL_API_KEY'], 'ai-auth-fail');
+  }
+  console.log('✅ External 配置检查成功');
+};
+
+const verifyMysqlAndCleanup = async (): Promise<void> => {
+  const dbConfig = databaseConfig() as { mysql: DataSourceOptions };
+  const config: DataSourceOptions = {
+    ...dbConfig.mysql,
+    entities: ['src/**/*.entity{.ts,.js}'],
+  };
+  const ds = new DataSource(config);
+  try {
+    await ds.initialize();
+    await ds.query('SELECT 1');
+    const entities = ds.entityMetadatas;
+    console.log(`✅ MySQL 连接测试成功，已加载实体 ${entities.length} 个`);
+    await cleanupTestDatabase(ds);
+  } finally {
+    if (ds.isInitialized) {
+      await ds.destroy();
+    }
   }
 };
 
@@ -89,56 +237,30 @@ function loadE2EEnv(): void {
 export default async (): Promise<void> => {
   try {
     console.log('🔧 开始初始化 E2E 测试环境...');
-
-    // 1) 加载环境变量
     loadE2EEnv();
-
-    // 2) 设置测试环境变量（确保 resetInitState 可以执行）
     process.env.NODE_ENV = 'test';
-
-    // 注意：不在全局设置中调用 initGraphQLSchema
-    // 因为 Jest globalSetup 运行在独立上下文中，
-    // 这里注册的 GraphQL 类型无法被测试进程中的 NestJS 应用访问到
-    // 应该让每个测试文件在 beforeAll 中自行调用
-
-    // 3) 初始化数据库连接（一次性清库后关闭）
-    const dbConfig = databaseConfig() as { mysql: DataSourceOptions };
-    const config: DataSourceOptions = {
-      ...dbConfig.mysql,
-      // 使用 TypeORM 原生的 entities 配置，而不是 NestJS 的 autoLoadEntities
-      entities: ['src/**/*.entity{.ts,.js}'],
-      // 如需调试 SQL，可开启：
-      // logging: ['query', 'error'],
-    };
-
-    console.log('📊 数据库配置（关键字段预览）:', {
-      type: (config as any).type,
-      host: (config as any).host,
-      port: (config as any).port,
-      database: (config as any).database,
-      username: (config as any).username,
-    });
-
-    const ds = new DataSource(config);
-    await ds.initialize();
-
-    // 4) 连接测试
-    await ds.query('SELECT 1');
-    console.log('✅ 数据库连接测试成功');
-
-    // 5) 实体元数据加载情况
-    const entities = ds.entityMetadatas;
+    const group = (process.env.E2E_GROUP || 'core').trim();
+    const skipInfraChecks = parseBoolean(process.env.E2E_SKIP_INFRA_CHECKS);
+    const needs = resolveInfraNeeds();
     console.log(
-      `✅ 成功加载 ${entities.length} 个实体:`,
-      entities.map((e) => e.name),
+      `🧩 E2E 运行上下文: group=${group || 'core'}, needs=${Array.from(needs).join(',') || 'none'}, skipInfraChecks=${String(skipInfraChecks)}`,
     );
-
-    // 6) 仅清库，不预插用户
-    await cleanupTestDatabase(ds);
-
-    // 7) 用完即关，避免长连接 & 共享对象误用
-    await ds.destroy();
-
+    if (skipInfraChecks) {
+      console.log('⏭️ 已跳过基础依赖检查');
+      return;
+    }
+    if (needs.has('mysql')) {
+      await verifyMysqlAndCleanup();
+    }
+    if (needs.has('redis')) {
+      await checkRedis();
+    }
+    if (needs.has('bullmq')) {
+      await checkBullMq();
+    }
+    if (needs.has('external')) {
+      checkExternal();
+    }
     console.log('🚀 E2E 测试环境初始化完成');
   } catch (error) {
     console.error('❌ E2E 测试环境初始化失败:', error);
