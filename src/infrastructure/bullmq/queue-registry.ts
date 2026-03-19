@@ -20,23 +20,6 @@ export interface BullMqQueuePolicy {
 }
 
 export const BULLMQ_QUEUE_REGISTRY: Readonly<Record<BullMqQueueName, BullMqQueuePolicy>> = {
-  [BULLMQ_QUEUES.INTEGRATION_EVENTS]: {
-    queueName: BULLMQ_QUEUES.INTEGRATION_EVENTS,
-    defaultJobOptions: {
-      attempts: 5,
-      backoff: { type: 'exponential', delay: 1000 },
-      removeOnComplete: 1000,
-      removeOnFail: 5000,
-    },
-    runtime: {
-      concurrency: 8,
-      limiter: {
-        max: 200,
-        duration: 1000,
-      },
-      shutdownGraceMs: 15000,
-    },
-  },
   [BULLMQ_QUEUES.EMAIL]: {
     queueName: BULLMQ_QUEUES.EMAIL,
     defaultJobOptions: {
