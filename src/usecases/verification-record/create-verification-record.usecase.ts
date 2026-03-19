@@ -137,7 +137,14 @@ export class CreateVerificationRecordUsecase {
    * @param params 创建参数
    */
   private validateParams(params: CreateVerificationRecordUsecaseParams): void {
-    // 验证必填字段
+    this.validateRequiredParams(params);
+    this.validateTimeParams(params);
+    this.validateCustomToken(params.customToken);
+    this.validateTokenLength(params.tokenLength);
+    this.validateNumericCodeLength(params.numericCodeLength);
+  }
+
+  private validateRequiredParams(params: CreateVerificationRecordUsecaseParams): void {
     if (!params.type) {
       throw new DomainError(
         VERIFICATION_RECORD_ERROR.CREATION_FAILED,
@@ -159,8 +166,9 @@ export class CreateVerificationRecordUsecase {
         '验证记录创建失败：缺少过期时间',
       );
     }
+  }
 
-    // 验证过期时间不能是过去时间
+  private validateTimeParams(params: CreateVerificationRecordUsecaseParams): void {
     if (params.expiresAt <= new Date()) {
       throw new DomainError(
         VERIFICATION_RECORD_ERROR.CREATION_FAILED,
@@ -169,7 +177,6 @@ export class CreateVerificationRecordUsecase {
       );
     }
 
-    // 验证生效时间（如果提供）
     if (params.notBefore && params.notBefore >= params.expiresAt) {
       throw new DomainError(
         VERIFICATION_RECORD_ERROR.CREATION_FAILED,
@@ -177,44 +184,54 @@ export class CreateVerificationRecordUsecase {
         { notBefore: params.notBefore, expiresAt: params.expiresAt },
       );
     }
+  }
 
-    // 验证自定义 token
-    if (params.customToken) {
-      if (params.customToken.length < 4) {
-        throw new DomainError(
-          VERIFICATION_RECORD_ERROR.CREATION_FAILED,
-          '验证记录创建失败：自定义 token 长度不能少于 4 位',
-          { customTokenLength: params.customToken.length },
-        );
-      }
-
-      if (params.customToken.length > 255) {
-        throw new DomainError(
-          VERIFICATION_RECORD_ERROR.CREATION_FAILED,
-          '验证记录创建失败：自定义 token 长度不能超过 255 位',
-          { customTokenLength: params.customToken.length },
-        );
-      }
+  private validateCustomToken(customToken?: string): void {
+    if (!customToken) {
+      return;
     }
 
-    // 验证 token 长度参数
-    if (params.tokenLength !== undefined && (params.tokenLength < 4 || params.tokenLength > 255)) {
+    if (customToken.length < 4) {
       throw new DomainError(
         VERIFICATION_RECORD_ERROR.CREATION_FAILED,
-        '验证记录创建失败：token 长度必须在 4-255 之间',
-        { tokenLength: params.tokenLength },
+        '验证记录创建失败：自定义 token 长度不能少于 4 位',
+        { customTokenLength: customToken.length },
       );
     }
 
-    // 验证数字验证码长度参数
-    if (
-      params.numericCodeLength !== undefined &&
-      (params.numericCodeLength < 4 || params.numericCodeLength > 12)
-    ) {
+    if (customToken.length > 255) {
+      throw new DomainError(
+        VERIFICATION_RECORD_ERROR.CREATION_FAILED,
+        '验证记录创建失败：自定义 token 长度不能超过 255 位',
+        { customTokenLength: customToken.length },
+      );
+    }
+  }
+
+  private validateTokenLength(tokenLength?: number): void {
+    if (tokenLength === undefined) {
+      return;
+    }
+
+    if (tokenLength < 4 || tokenLength > 255) {
+      throw new DomainError(
+        VERIFICATION_RECORD_ERROR.CREATION_FAILED,
+        '验证记录创建失败：token 长度必须在 4-255 之间',
+        { tokenLength },
+      );
+    }
+  }
+
+  private validateNumericCodeLength(numericCodeLength?: number): void {
+    if (numericCodeLength === undefined) {
+      return;
+    }
+
+    if (numericCodeLength < 4 || numericCodeLength > 12) {
       throw new DomainError(
         VERIFICATION_RECORD_ERROR.CREATION_FAILED,
         '验证记录创建失败：数字验证码长度必须在 4-12 之间',
-        { numericCodeLength: params.numericCodeLength },
+        { numericCodeLength },
       );
     }
   }

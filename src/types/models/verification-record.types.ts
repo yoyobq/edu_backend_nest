@@ -10,7 +10,7 @@ export enum VerificationRecordType {
   /** 邀请管理员 */
   INVITE_MANAGER = 'INVITE_MANAGER',
   /** 邀请学员 */
-  INVITE_LEARNER = 'INVITE_LEARNER',
+  // INVITE_LEARNER = 'INVITE_LEARNER',
   /** 邮箱验证链接 */
   EMAIL_VERIFY_LINK = 'EMAIL_VERIFY_LINK',
   /** 邮箱验证码 */
@@ -18,9 +18,9 @@ export enum VerificationRecordType {
   /** 密码重置 */
   PASSWORD_RESET = 'PASSWORD_RESET',
   /** 魔法链接 */
-  MAGIC_LINK = 'MAGIC_LINK',
+  // MAGIC_LINK = 'MAGIC_LINK',
   /** 微信小程序绑定 */
-  WEAPP_BIND = 'WEAPP_BIND',
+  // WEAPP_BIND = 'WEAPP_BIND',
   /** 短信验证码 */
   SMS_VERIFY_CODE = 'SMS_VERIFY_CODE',
 }
