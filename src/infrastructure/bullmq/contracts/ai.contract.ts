@@ -20,7 +20,22 @@ export interface AiGeneratePayload {
 export interface AiGenerateResult {
   readonly accepted: boolean;
   readonly outputText: string;
+  readonly provider: string;
+  readonly model: string;
   readonly providerJobId: string;
+  readonly providerRequestId?: string | null;
+  readonly providerStatus?: 'succeeded' | 'failed';
+  readonly promptTokens?: number | null;
+  readonly completionTokens?: number | null;
+  readonly totalTokens?: number | null;
+  readonly costAmount?: string | null;
+  readonly costCurrency?: string | null;
+  readonly normalizedErrorCode?: string | null;
+  readonly providerErrorCode?: string | null;
+  readonly errorMessage?: string | null;
+  readonly providerStartedAt?: Date | null;
+  readonly providerFinishedAt?: Date | null;
+  readonly providerLatencyMs?: number | null;
 }
 
 export interface AiEmbedPayload {
@@ -33,7 +48,22 @@ export interface AiEmbedPayload {
 export interface AiEmbedResult {
   readonly accepted: boolean;
   readonly vector: ReadonlyArray<number>;
+  readonly provider: string;
+  readonly model: string;
   readonly providerJobId: string;
+  readonly providerRequestId?: string | null;
+  readonly providerStatus?: 'succeeded' | 'failed';
+  readonly promptTokens?: number | null;
+  readonly completionTokens?: number | null;
+  readonly totalTokens?: number | null;
+  readonly costAmount?: string | null;
+  readonly costCurrency?: string | null;
+  readonly normalizedErrorCode?: string | null;
+  readonly providerErrorCode?: string | null;
+  readonly errorMessage?: string | null;
+  readonly providerStartedAt?: Date | null;
+  readonly providerFinishedAt?: Date | null;
+  readonly providerLatencyMs?: number | null;
 }
 
 const AI_PROVIDERS: ReadonlyArray<AiProvider> = ['openai', 'qwen'];

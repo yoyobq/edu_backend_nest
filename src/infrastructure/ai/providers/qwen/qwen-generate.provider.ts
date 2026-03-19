@@ -12,6 +12,11 @@ import { createHash } from 'node:crypto';
 
 interface QwenChatCompletionResponse {
   readonly id?: string;
+  readonly usage?: {
+    readonly prompt_tokens?: number;
+    readonly completion_tokens?: number;
+    readonly total_tokens?: number;
+  };
   readonly choices?: ReadonlyArray<{
     readonly message?: {
       readonly content?:
@@ -38,6 +43,7 @@ export class QwenGenerateProvider implements AiProviderClient {
     const model = input.model.trim();
     const prompt = input.prompt.trim();
 
+    const providerStartedAt = new Date();
     try {
       const response = await this.httpService.axiosRef.post<QwenChatCompletionResponse>(
         `${baseUrl}/chat/completions`,
@@ -60,14 +66,45 @@ export class QwenGenerateProvider implements AiProviderClient {
         model,
         prompt,
       });
+      const providerFinishedAt = new Date();
+      const usage = response.data.usage;
       return {
         accepted: true,
         outputText,
+        provider: this.name,
+        model,
         providerJobId,
+        providerRequestId: response.data.id?.trim() || providerJobId,
+        providerStatus: 'succeeded',
+        promptTokens: usage?.prompt_tokens ?? null,
+        completionTokens: usage?.completion_tokens ?? null,
+        totalTokens: usage?.total_tokens ?? null,
+        costAmount: null,
+        costCurrency: null,
+        normalizedErrorCode: null,
+        providerErrorCode: null,
+        errorMessage: null,
+        providerStartedAt,
+        providerFinishedAt,
+        providerLatencyMs: this.calculateLatencyMs({
+          providerStartedAt,
+          providerFinishedAt,
+        }),
       };
     } catch (error) {
       throw this.mapProviderError(error);
     }
+  }
+
+  private calculateLatencyMs(input: {
+    readonly providerStartedAt: Date;
+    readonly providerFinishedAt: Date;
+  }): number {
+    const latencyMs = input.providerFinishedAt.getTime() - input.providerStartedAt.getTime();
+    if (!Number.isFinite(latencyMs) || latencyMs < 0) {
+      return 0;
+    }
+    return latencyMs;
   }
 
   private resolveBaseUrl(): string {

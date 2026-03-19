@@ -2,6 +2,8 @@
 import { Injectable } from '@nestjs/common';
 import { resolveAsyncTaskBizKey } from '@src/core/common/async-task/async-task-identifier.policy';
 import { normalizeOptionalText } from '@src/core/common/input-normalize/input-normalize.policy';
+import { isDomainError } from '@src/core/common/errors/domain-error';
+import { AiProviderCallRecordService } from '@src/modules/ai-provider-call-record/ai-provider-call-record.service';
 import { AsyncTaskRecordService } from '@src/modules/async-task-record/async-task-record.service';
 import type { AsyncTaskRecordSource } from '@src/modules/async-task-record/async-task-record.types';
 import { AiWorkerService } from '@src/modules/common/ai-worker/ai-worker.service';
@@ -41,6 +43,7 @@ export interface ConsumeAiGenerateJobFailInput extends ConsumeAiGenerateJobCompl
   readonly bizKey?: string;
   readonly reason?: string;
   readonly occurredAt?: Date;
+  readonly error?: unknown;
 }
 
 export interface ConsumeAiEmbedJobProcessInput {
@@ -72,6 +75,7 @@ export interface ConsumeAiEmbedJobFailInput extends ConsumeAiEmbedJobCompleteInp
   readonly bizKey?: string;
   readonly reason?: string;
   readonly occurredAt?: Date;
+  readonly error?: unknown;
 }
 
 @Injectable()
@@ -79,10 +83,11 @@ export class ConsumeAiGenerateJobUsecase {
   constructor(
     private readonly aiWorkerService: AiWorkerService,
     private readonly asyncTaskRecordService: AsyncTaskRecordService,
+    private readonly aiProviderCallRecordService: AiProviderCallRecordService,
   ) {}
 
   async process(input: ConsumeAiGenerateJobProcessInput): Promise<GenerateAiContentResult> {
-    await this.asyncTaskRecordService.recordStarted({
+    const asyncTaskRecord = await this.asyncTaskRecordService.recordStarted({
       data: {
         queueName: input.queueName,
         jobName: input.jobName,
@@ -103,7 +108,77 @@ export class ConsumeAiGenerateJobUsecase {
         occurredAt: input.startedAt,
       },
     });
-    return this.aiWorkerService.generate(input.payload);
+    const providerStartedAt = input.startedAt ?? new Date();
+    try {
+      const result = await this.aiWorkerService.generate(input.payload);
+      const providerFinishedAt = result.providerFinishedAt ?? new Date();
+      await this.aiProviderCallRecordService.createRecord({
+        data: {
+          asyncTaskRecordId: asyncTaskRecord.id,
+          traceId: input.traceId,
+          bizType: asyncTaskRecord.bizType,
+          bizKey: asyncTaskRecord.bizKey,
+          bizSubKey: asyncTaskRecord.bizSubKey,
+          source: this.resolveSource(),
+          provider: result.provider,
+          model: result.model,
+          taskType: 'generate',
+          providerRequestId: result.providerRequestId ?? result.providerJobId,
+          providerStatus: 'succeeded',
+          promptTokens: result.promptTokens ?? null,
+          completionTokens: result.completionTokens ?? null,
+          totalTokens: result.totalTokens ?? null,
+          costAmount: result.costAmount ?? null,
+          costCurrency: result.costCurrency ?? null,
+          normalizedErrorCode: result.normalizedErrorCode ?? null,
+          providerErrorCode: result.providerErrorCode ?? null,
+          errorMessage: result.errorMessage ?? null,
+          providerStartedAt: result.providerStartedAt ?? providerStartedAt,
+          providerFinishedAt,
+          providerLatencyMs:
+            result.providerLatencyMs ??
+            resolveLatencyMs({
+              providerStartedAt: result.providerStartedAt ?? providerStartedAt,
+              providerFinishedAt,
+            }),
+        },
+      });
+      return result;
+    } catch (error) {
+      const providerFinishedAt = new Date();
+      const errorContext = resolveProviderErrorContext(error);
+      await this.aiProviderCallRecordService.createRecord({
+        data: {
+          asyncTaskRecordId: asyncTaskRecord.id,
+          traceId: input.traceId,
+          bizType: asyncTaskRecord.bizType,
+          bizKey: asyncTaskRecord.bizKey,
+          bizSubKey: asyncTaskRecord.bizSubKey,
+          source: this.resolveSource(),
+          provider:
+            resolveText(errorContext.provider) ?? resolveText(input.payload.provider) ?? 'unknown',
+          model: input.payload.model,
+          taskType: 'generate',
+          providerRequestId: null,
+          providerStatus: 'failed',
+          promptTokens: null,
+          completionTokens: null,
+          totalTokens: null,
+          costAmount: null,
+          costCurrency: null,
+          normalizedErrorCode: errorContext.normalizedErrorCode,
+          providerErrorCode: errorContext.providerErrorCode,
+          errorMessage: errorContext.errorMessage,
+          providerStartedAt,
+          providerFinishedAt,
+          providerLatencyMs: resolveLatencyMs({
+            providerStartedAt,
+            providerFinishedAt,
+          }),
+        },
+      });
+      throw error;
+    }
   }
 
   async complete(input: ConsumeAiGenerateJobCompleteInput): Promise<void> {
@@ -217,10 +292,11 @@ export class ConsumeAiEmbedJobUsecase {
   constructor(
     private readonly aiWorkerService: AiWorkerService,
     private readonly asyncTaskRecordService: AsyncTaskRecordService,
+    private readonly aiProviderCallRecordService: AiProviderCallRecordService,
   ) {}
 
   async process(input: ConsumeAiEmbedJobProcessInput): Promise<EmbedAiContentResult> {
-    await this.asyncTaskRecordService.recordStarted({
+    const asyncTaskRecord = await this.asyncTaskRecordService.recordStarted({
       data: {
         queueName: input.queueName,
         jobName: input.jobName,
@@ -241,7 +317,76 @@ export class ConsumeAiEmbedJobUsecase {
         occurredAt: input.startedAt,
       },
     });
-    return this.aiWorkerService.embed(input.payload);
+    const providerStartedAt = input.startedAt ?? new Date();
+    try {
+      const result = await this.aiWorkerService.embed(input.payload);
+      const providerFinishedAt = result.providerFinishedAt ?? new Date();
+      await this.aiProviderCallRecordService.createRecord({
+        data: {
+          asyncTaskRecordId: asyncTaskRecord.id,
+          traceId: input.traceId,
+          bizType: asyncTaskRecord.bizType,
+          bizKey: asyncTaskRecord.bizKey,
+          bizSubKey: asyncTaskRecord.bizSubKey,
+          source: this.resolveSource(),
+          provider: result.provider,
+          model: result.model,
+          taskType: 'embed',
+          providerRequestId: result.providerRequestId ?? result.providerJobId,
+          providerStatus: 'succeeded',
+          promptTokens: result.promptTokens ?? null,
+          completionTokens: result.completionTokens ?? null,
+          totalTokens: result.totalTokens ?? null,
+          costAmount: result.costAmount ?? null,
+          costCurrency: result.costCurrency ?? null,
+          normalizedErrorCode: result.normalizedErrorCode ?? null,
+          providerErrorCode: result.providerErrorCode ?? null,
+          errorMessage: result.errorMessage ?? null,
+          providerStartedAt: result.providerStartedAt ?? providerStartedAt,
+          providerFinishedAt,
+          providerLatencyMs:
+            result.providerLatencyMs ??
+            resolveLatencyMs({
+              providerStartedAt: result.providerStartedAt ?? providerStartedAt,
+              providerFinishedAt,
+            }),
+        },
+      });
+      return result;
+    } catch (error) {
+      const providerFinishedAt = new Date();
+      const errorContext = resolveProviderErrorContext(error);
+      await this.aiProviderCallRecordService.createRecord({
+        data: {
+          asyncTaskRecordId: asyncTaskRecord.id,
+          traceId: input.traceId,
+          bizType: asyncTaskRecord.bizType,
+          bizKey: asyncTaskRecord.bizKey,
+          bizSubKey: asyncTaskRecord.bizSubKey,
+          source: this.resolveSource(),
+          provider: resolveText(errorContext.provider) ?? 'mock',
+          model: input.payload.model,
+          taskType: 'embed',
+          providerRequestId: null,
+          providerStatus: 'failed',
+          promptTokens: null,
+          completionTokens: null,
+          totalTokens: null,
+          costAmount: null,
+          costCurrency: null,
+          normalizedErrorCode: errorContext.normalizedErrorCode,
+          providerErrorCode: errorContext.providerErrorCode,
+          errorMessage: errorContext.errorMessage,
+          providerStartedAt,
+          providerFinishedAt,
+          providerLatencyMs: resolveLatencyMs({
+            providerStartedAt,
+            providerFinishedAt,
+          }),
+        },
+      });
+      throw error;
+    }
   }
 
   async complete(input: ConsumeAiEmbedJobCompleteInput): Promise<void> {
@@ -355,4 +500,66 @@ function normalizeWorkerFailReason(reason?: string): string {
     normalizeOptionalText(reason, 'to_undefined', { fieldName: 'worker_reason' }) ??
     'worker_unknown_error'
   );
+}
+
+function resolveLatencyMs(input: {
+  readonly providerStartedAt: Date;
+  readonly providerFinishedAt: Date;
+}): number {
+  const latencyMs = input.providerFinishedAt.getTime() - input.providerStartedAt.getTime();
+  if (!Number.isFinite(latencyMs) || latencyMs < 0) {
+    return 0;
+  }
+  return latencyMs;
+}
+
+function resolveText(value: string | undefined | null): string | undefined {
+  const normalized = normalizeOptionalText(value, 'to_undefined');
+  return normalized ?? undefined;
+}
+
+function resolveProviderErrorContext(error: unknown): {
+  readonly provider?: string;
+  readonly normalizedErrorCode: string;
+  readonly providerErrorCode: string | null;
+  readonly errorMessage: string;
+} {
+  if (isDomainError(error)) {
+    const details = resolveObject(error.details);
+    const provider = resolveText(resolveString(details?.provider));
+    const providerErrorCode = resolveText(resolveString(details?.providerErrorCode)) ?? null;
+    return {
+      provider,
+      normalizedErrorCode: resolveText(error.message) ?? 'ai_provider_unknown_error',
+      providerErrorCode,
+      errorMessage: resolveText(error.message) ?? 'ai_provider_unknown_error',
+    };
+  }
+  if (error instanceof Error) {
+    const message = resolveText(error.message) ?? 'ai_provider_unknown_error';
+    return {
+      normalizedErrorCode: message,
+      providerErrorCode: null,
+      errorMessage: message,
+    };
+  }
+  return {
+    normalizedErrorCode: 'ai_provider_unknown_error',
+    providerErrorCode: null,
+    errorMessage: 'ai_provider_unknown_error',
+  };
+}
+
+function resolveObject(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return null;
+  }
+  return value as Record<string, unknown>;
+}
+
+function resolveString(value: unknown): string | undefined {
+  if (typeof value !== 'string') {
+    return undefined;
+  }
+  return value;
 }
