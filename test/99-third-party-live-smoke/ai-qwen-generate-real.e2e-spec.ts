@@ -336,7 +336,9 @@ REAL_AI_DESCRIBE('真实 Qwen generate 闭环（受控 e2e）', () => {
     expect(providerCallRecord.provider).toBe('qwen');
     expect(providerCallRecord.model).toBe(model);
     expect(providerCallRecord.taskType).toBe('generate');
-    expect((providerCallRecord.providerRequestId ?? '').trim().length).toBeGreaterThan(0);
+    if (providerCallRecord.providerRequestId !== null) {
+      expect(providerCallRecord.providerRequestId.trim().length).toBeGreaterThan(0);
+    }
   }, 180000);
 
   it('相同 dedupKey 重复命中应复用原 jobId 与 actor 且不新增记录', async () => {

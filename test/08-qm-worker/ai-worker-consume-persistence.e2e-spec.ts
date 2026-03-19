@@ -991,4 +991,137 @@ describe('AI Worker 消费落库阶段（e2e）', () => {
       await workerRuntime.start();
     }
   }, 60000);
+
+  it('success without provider request id 时应回退写入 providerJobId', async () => {
+    const timestamp = Date.now();
+    const jobId = `${BULLMQ_JOBS.AI.GENERATE}-persist-no-request-id-${timestamp}`;
+    const traceId = `ai-persist-no-request-id-${timestamp}`;
+
+    try {
+      await workerRuntime.stop();
+      await enqueueAiGenerate({
+        queue: aiQueue,
+        jobId,
+        prompt: '__NO_REQUEST_ID__',
+        traceId,
+        attempts: 1,
+      });
+
+      await workerRuntime.start();
+      const finalState = await waitJobFinalState({
+        queue: aiQueue,
+        jobId,
+        timeoutMs: 20000,
+        pollMs: 150,
+      });
+      expect(finalState.state).toBe('completed');
+      const providerCallRecord = await waitLatestProviderCallRecord({
+        dataSource,
+        traceId,
+        status: 'succeeded',
+        timeoutMs: 20000,
+        pollMs: 150,
+      });
+      expect(providerCallRecord.providerStatus).toBe('succeeded');
+      const returnvalue = finalState.returnvalue as { readonly providerJobId?: string };
+      expect(returnvalue.providerJobId).toBeDefined();
+      expect(providerCallRecord.providerRequestId).toBe(returnvalue.providerJobId ?? null);
+    } finally {
+      await workerRuntime.start();
+    }
+  }, 60000);
+
+  it('embed success full usage 时应完整映射 provider 字段', async () => {
+    const timestamp = Date.now();
+    const jobId = `${BULLMQ_JOBS.AI.EMBED}-persist-full-usage-${timestamp}`;
+    const traceId = `ai-persist-embed-full-usage-${timestamp}`;
+
+    try {
+      await workerRuntime.stop();
+      await enqueueAiEmbed({
+        queue: aiQueue,
+        jobId,
+        text: '__FULL_USAGE__',
+        traceId,
+        attempts: 1,
+      });
+
+      await workerRuntime.start();
+      const finalState = await waitJobFinalState({
+        queue: aiQueue,
+        jobId,
+        timeoutMs: 20000,
+        pollMs: 150,
+      });
+      expect(finalState.state).toBe('completed');
+      const providerCallRecord = await waitLatestProviderCallRecord({
+        dataSource,
+        traceId,
+        status: 'succeeded',
+        timeoutMs: 20000,
+        pollMs: 150,
+      });
+      expect(providerCallRecord.taskType).toBe('embed');
+      expect(providerCallRecord.promptTokens).toBe(222);
+      expect(providerCallRecord.completionTokens).toBe(0);
+      expect(providerCallRecord.totalTokens).toBe(222);
+      expect(providerCallRecord.costAmount).toBe('0.00012000');
+      expect(providerCallRecord.costCurrency).toBe('USD');
+      expect(providerCallRecord.providerRequestId).toContain('mock-embed-req-');
+      expect(providerCallRecord.providerStartedAt).toBeInstanceOf(Date);
+      expect(providerCallRecord.providerFinishedAt).toBeInstanceOf(Date);
+      expect(providerCallRecord.providerLatencyMs).toBe(222);
+      expect(providerCallRecord.normalizedErrorCode).toBeNull();
+      expect(providerCallRecord.providerErrorCode).toBeNull();
+      expect(providerCallRecord.errorMessage).toBeNull();
+    } finally {
+      await workerRuntime.start();
+    }
+  }, 60000);
+
+  it('embed failed with error details 时应映射错误字段且 token cost 为空', async () => {
+    const timestamp = Date.now();
+    const jobId = `${BULLMQ_JOBS.AI.EMBED}-persist-error-details-${timestamp}`;
+    const traceId = `ai-persist-embed-error-details-${timestamp}`;
+
+    try {
+      await workerRuntime.stop();
+      await enqueueAiEmbed({
+        queue: aiQueue,
+        jobId,
+        text: '__FAIL_WITH_ERROR_DETAILS__',
+        traceId,
+        attempts: 1,
+      });
+
+      await workerRuntime.start();
+      const finalState = await waitJobFinalState({
+        queue: aiQueue,
+        jobId,
+        timeoutMs: 20000,
+        pollMs: 150,
+      });
+      expect(finalState.state).toBe('failed');
+      const providerCallRecord = await waitLatestProviderCallRecord({
+        dataSource,
+        traceId,
+        status: 'failed',
+        timeoutMs: 20000,
+        pollMs: 150,
+      });
+      expect(providerCallRecord.taskType).toBe('embed');
+      expect(providerCallRecord.providerStatus).toBe('failed');
+      expect(providerCallRecord.provider).toBe('mock-embed');
+      expect(providerCallRecord.normalizedErrorCode).toBe('ai_provider_auth_failed');
+      expect(providerCallRecord.providerErrorCode).toBe('embed_auth_failed');
+      expect(providerCallRecord.errorMessage).toBe('ai_provider_auth_failed');
+      expect(providerCallRecord.promptTokens).toBeNull();
+      expect(providerCallRecord.completionTokens).toBeNull();
+      expect(providerCallRecord.totalTokens).toBeNull();
+      expect(providerCallRecord.costAmount).toBeNull();
+      expect(providerCallRecord.costCurrency).toBeNull();
+    } finally {
+      await workerRuntime.start();
+    }
+  }, 60000);
 });
