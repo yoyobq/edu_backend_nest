@@ -38,6 +38,18 @@ const REQUIRED_INDEXES: ReadonlyArray<{ table: string; index: string }> = [
   { table: 'base_verification_records', index: 'uk_token_fp' },
 ];
 
+const REQUIRED_FOREIGN_KEYS: ReadonlyArray<{
+  table: string;
+  constraint: string;
+  referencedTable: string;
+}> = [
+  {
+    table: 'base_user_info',
+    constraint: 'base_user_info_ibfk_1',
+    referencedTable: 'base_user_accounts',
+  },
+];
+
 interface DrillDatabaseTarget {
   readonly databaseName: string;
   readonly shouldCreate: boolean;
@@ -230,6 +242,34 @@ async function assertRequiredIndexes(dataSource: DataSource, databaseName: strin
 }
 
 /**
+ * 校验关键外键是否存在。
+ */
+async function assertRequiredForeignKeys(
+  dataSource: DataSource,
+  databaseName: string,
+): Promise<void> {
+  for (const item of REQUIRED_FOREIGN_KEYS) {
+    const exists = await hasQueryResult(
+      dataSource,
+      `
+        SELECT 1
+        FROM information_schema.referential_constraints
+        WHERE constraint_schema = ?
+          AND table_name = ?
+          AND constraint_name = ?
+          AND referenced_table_name = ?
+        LIMIT 1
+      `,
+      [databaseName, item.table, item.constraint, item.referencedTable],
+    );
+
+    if (!exists) {
+      throw new Error(`关键外键缺失: ${item.table}.${item.constraint} -> ${item.referencedTable}`);
+    }
+  }
+}
+
+/**
  * 校验目标数据库名称，避免误操作生产库。
  */
 function ensureSafeDatabaseTarget(databaseName: string): void {
@@ -340,7 +380,8 @@ async function runEmptyDbMigrationDrill(): Promise<void> {
 
     await assertRequiredTables(migrationDataSource, target.databaseName);
     await assertRequiredIndexes(migrationDataSource, target.databaseName);
-    writeInfo('✅ 关键表与关键索引校验通过');
+    await assertRequiredForeignKeys(migrationDataSource, target.databaseName);
+    writeInfo('✅ 关键表、关键索引与关键外键校验通过');
     writeInfo('🎉 空库 migration 演练通过');
   } finally {
     if (migrationInitialized) {
