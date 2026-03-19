@@ -164,13 +164,17 @@ const ensureExternalEnv = (keys: ReadonlyArray<string>, scope: string): void => 
 };
 
 const checkExternal = (): void => {
-  ensureExternalEnv(['E2E_EMAIL_TO'], 'email');
-  ensureExternalEnv(
-    ['AI_PROVIDER_MODE', 'QWEN_BASE_URL', 'QWEN_API_KEY', 'QWEN_GENERATE_MODEL'],
-    'ai',
-  );
-  if ((process.env.RUN_REAL_AI_AUTH_FAIL_E2E || '').trim().toLowerCase() === 'true') {
-    ensureExternalEnv(['QWEN_AUTH_FAIL_API_KEY'], 'ai-auth-fail');
+  const shouldCheckAi =
+    (process.env.RUN_REAL_AI_E2E || '').trim().toLowerCase() === 'true' ||
+    (process.env.RUN_REAL_AI_AUTH_FAIL_E2E || '').trim().toLowerCase() === 'true';
+  if (shouldCheckAi) {
+    ensureExternalEnv(
+      ['AI_PROVIDER_MODE', 'QWEN_BASE_URL', 'QWEN_API_KEY', 'QWEN_GENERATE_MODEL'],
+      'ai',
+    );
+    if ((process.env.RUN_REAL_AI_AUTH_FAIL_E2E || '').trim().toLowerCase() === 'true') {
+      ensureExternalEnv(['QWEN_AUTH_FAIL_API_KEY'], 'ai-auth-fail');
+    }
   }
   console.log('✅ External 配置检查成功');
 };
