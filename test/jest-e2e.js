@@ -3,13 +3,13 @@
 const GROUPS = {
   core: {
     specs: [
-      // '00-app/00-app.e2e-spec.ts',
-      // '01-auth/auth-identity.e2e-spec.ts',
-      // '01-auth/auth.e2e-spec.ts',
-      // '02-register/register.e2e-spec.ts',
-      // '03-roles-guard/roles-guard.e2e-spec.ts',
-      // '04-user-info/update-access-group.e2e-spec.ts',
-      // '04-user-info/update-visible-user-info.e2e-spec.ts',
+      '00-app/00-app.e2e-spec.ts',
+      '01-auth/auth-identity.e2e-spec.ts',
+      '01-auth/auth.e2e-spec.ts',
+      '02-register/register.e2e-spec.ts',
+      '03-roles-guard/roles-guard.e2e-spec.ts',
+      '04-user-info/update-access-group.e2e-spec.ts',
+      '04-user-info/update-visible-user-info.e2e-spec.ts',
       '05-verification-record/verification-record.e2e-spec.ts',
       '05-verification-record/verification-record-types.e2e-spec.ts',
       '05-verification-record/verification-record-invite.e2e-spec.ts',
