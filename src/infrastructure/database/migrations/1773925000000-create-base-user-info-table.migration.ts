@@ -27,7 +27,8 @@ export class CreateBaseUserInfoTable1773925000000 implements MigrationInterface 
         \`updated_at\` timestamp(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '更新时间（系统事件时间）',
         PRIMARY KEY (\`id\`),
         UNIQUE KEY \`uk_account_id\` (\`account_id\`),
-        KEY \`account_id\` (\`account_id\`)
+        KEY \`account_id\` (\`account_id\`),
+        CONSTRAINT \`base_user_info_ibfk_1\` FOREIGN KEY (\`account_id\`) REFERENCES \`base_user_accounts\` (\`id\`)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='用户基本信息表';
     `);
   }

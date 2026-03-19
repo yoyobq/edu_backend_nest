@@ -25,7 +25,7 @@ export class UserInfoEntity {
   @Column({ name: 'account_id', type: 'int', comment: 'user_accounts.id' })
   accountId!: number;
 
-  @OneToOne(() => AccountEntity, { createForeignKeyConstraints: false })
+  @OneToOne(() => AccountEntity)
   @JoinColumn({ name: 'account_id' })
   account!: AccountEntity;
 
@@ -43,7 +43,7 @@ export class UserInfoEntity {
   @Column({ name: 'birth_date', type: 'date', nullable: true, comment: '出生日期，仅保留年月日' })
   birthDate!: string | null;
 
-  @Column({ name: 'avatar_url', type: 'varchar', length: 255, nullable: true, comment: '头像 Url' })
+  @Column({ name: 'avatar_url', type: 'varchar', length: 255, nullable: true, comment: '头像' })
   avatarUrl!: string | null;
 
   @Column({ type: 'varchar', length: 50, nullable: true, comment: '邮箱' })
@@ -52,7 +52,7 @@ export class UserInfoEntity {
   @Column({ type: 'varchar', length: 100, nullable: true, comment: '个性签名' })
   signature!: string | null;
 
-  @Column({ name: 'access_group', type: 'json', comment: '默认以用户分组 ["REGISTARNT"]' })
+  @Column({ name: 'access_group', type: 'json', comment: '用户分组 ["guest"]' })
   accessGroup!: IdentityTypeEnum[];
 
   @Column({ type: 'varchar', length: 255, nullable: true, comment: '地址' })
