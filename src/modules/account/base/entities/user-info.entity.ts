@@ -3,8 +3,8 @@
 
 import { IdentityTypeEnum } from '@app-types/models/account.types';
 import { Gender, UserState, type GeographicInfo } from '@app-types/models/user-info.types';
-import { EncryptedField } from '@src/infrastructure/field-encryption/field-encryption.decorator';
 import { Field, ID } from '@nestjs/graphql';
+import { EncryptedField } from '@src/infrastructure/field-encryption/field-encryption.decorator';
 import {
   Column,
   CreateDateColumn,
@@ -93,9 +93,22 @@ export class UserInfoEntity {
   })
   userState!: UserState;
 
-  @CreateDateColumn({ name: 'created_at', type: 'timestamp', comment: '创建时间' })
+  @CreateDateColumn({
+    name: 'created_at',
+    type: 'timestamp',
+    precision: 3,
+    default: () => 'CURRENT_TIMESTAMP(3)',
+    comment: '创建时间（系统事件时间）',
+  })
   createdAt!: Date;
 
-  @UpdateDateColumn({ name: 'updated_at', type: 'timestamp', comment: '更新时间' })
+  @UpdateDateColumn({
+    name: 'updated_at',
+    type: 'timestamp',
+    precision: 3,
+    default: () => 'CURRENT_TIMESTAMP(3)',
+    onUpdate: 'CURRENT_TIMESTAMP(3)',
+    comment: '更新时间（系统事件时间）',
+  })
   updatedAt!: Date;
 }

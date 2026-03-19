@@ -99,7 +99,13 @@ export class AsyncTaskRecordEntity {
   })
   reason!: string | null;
 
-  @Column({ name: 'occurred_at', type: 'timestamp', nullable: true, comment: '事件设定时间' })
+  @Column({
+    name: 'occurred_at',
+    type: 'timestamp',
+    precision: 3,
+    nullable: true,
+    comment: '事件设定时间（系统事件时间）',
+  })
   occurredAt!: Date | null;
 
   @Column({
@@ -130,18 +136,48 @@ export class AsyncTaskRecordEntity {
   })
   maxAttempts!: number | null;
 
-  @Column({ name: 'enqueued_at', type: 'timestamp', comment: '入队时间' })
+  @Column({
+    name: 'enqueued_at',
+    type: 'timestamp',
+    precision: 3,
+    comment: '入队时间（系统事件时间）',
+  })
   enqueuedAt!: Date;
 
-  @Column({ name: 'started_at', type: 'timestamp', nullable: true, comment: '开始执行时间' })
+  @Column({
+    name: 'started_at',
+    type: 'timestamp',
+    precision: 3,
+    nullable: true,
+    comment: '开始执行时间（系统事件时间）',
+  })
   startedAt!: Date | null;
 
-  @Column({ name: 'finished_at', type: 'timestamp', nullable: true, comment: '完成时间' })
+  @Column({
+    name: 'finished_at',
+    type: 'timestamp',
+    precision: 3,
+    nullable: true,
+    comment: '完成时间（系统事件时间）',
+  })
   finishedAt!: Date | null;
 
-  @CreateDateColumn({ name: 'created_at', type: 'timestamp', comment: '创建时间' })
+  @CreateDateColumn({
+    name: 'created_at',
+    type: 'timestamp',
+    precision: 3,
+    default: () => 'CURRENT_TIMESTAMP(3)',
+    comment: '创建时间（系统事件时间）',
+  })
   createdAt!: Date;
 
-  @UpdateDateColumn({ name: 'updated_at', type: 'timestamp', comment: '更新时间' })
+  @UpdateDateColumn({
+    name: 'updated_at',
+    type: 'timestamp',
+    precision: 3,
+    default: () => 'CURRENT_TIMESTAMP(3)',
+    onUpdate: 'CURRENT_TIMESTAMP(3)',
+    comment: '更新时间（系统事件时间）',
+  })
   updatedAt!: Date;
 }
