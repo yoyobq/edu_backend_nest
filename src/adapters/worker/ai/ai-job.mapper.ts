@@ -31,7 +31,6 @@ export interface AiGenerateResult {
   readonly providerStatus?: 'succeeded' | 'failed';
   readonly promptTokens?: number | null;
   readonly completionTokens?: number | null;
-  readonly totalTokens?: number | null;
   readonly costAmount?: string | null;
   readonly costCurrency?: string | null;
   readonly normalizedErrorCode?: string | null;
@@ -39,7 +38,6 @@ export interface AiGenerateResult {
   readonly errorMessage?: string | null;
   readonly providerStartedAt?: Date | null;
   readonly providerFinishedAt?: Date | null;
-  readonly providerLatencyMs?: number | null;
 }
 
 export interface AiEmbedPayload {
@@ -59,7 +57,6 @@ export interface AiEmbedResult {
   readonly providerStatus?: 'succeeded' | 'failed';
   readonly promptTokens?: number | null;
   readonly completionTokens?: number | null;
-  readonly totalTokens?: number | null;
   readonly costAmount?: string | null;
   readonly costCurrency?: string | null;
   readonly normalizedErrorCode?: string | null;
@@ -67,7 +64,6 @@ export interface AiEmbedResult {
   readonly errorMessage?: string | null;
   readonly providerStartedAt?: Date | null;
   readonly providerFinishedAt?: Date | null;
-  readonly providerLatencyMs?: number | null;
 }
 
 export type AiGenerateJob = Job<AiGeneratePayload, AiGenerateResult, typeof AI_GENERATE_JOB_NAME>;

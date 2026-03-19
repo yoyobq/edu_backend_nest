@@ -25,9 +25,9 @@ const ENABLED_SPECS = [
   // '08-qm-worker/email-queue-consume.e2e-spec.ts',
   // '08-qm-worker/ai-graphql-queue.e2e-spec.ts',
   // '08-qm-worker/ai-worker-consume-persistence.e2e-spec.ts',
-  // '08-qm-worker/ai-worker-consume-workflow.e2e-spec.ts',
+  '08-qm-worker/ai-worker-consume-workflow.e2e-spec.ts',
   // '99-third-party-live-smoke/email-delivery-real.e2e-spec.ts',
-  '99-third-party-live-smoke/ai-qwen-generate-real.e2e-spec.ts',
+  // '99-third-party-live-smoke/ai-qwen-generate-real.e2e-spec.ts',
 ];
 
 /** 可选：命令行临时指定（逗号分隔）
