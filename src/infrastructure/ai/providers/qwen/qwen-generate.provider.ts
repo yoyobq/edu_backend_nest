@@ -78,7 +78,6 @@ export class QwenGenerateProvider implements AiProviderClient {
         providerStatus: 'succeeded',
         promptTokens: usage?.prompt_tokens ?? null,
         completionTokens: usage?.completion_tokens ?? null,
-        totalTokens: usage?.total_tokens ?? null,
         costAmount: null,
         costCurrency: null,
         normalizedErrorCode: null,
@@ -86,25 +85,10 @@ export class QwenGenerateProvider implements AiProviderClient {
         errorMessage: null,
         providerStartedAt,
         providerFinishedAt,
-        providerLatencyMs: this.calculateLatencyMs({
-          providerStartedAt,
-          providerFinishedAt,
-        }),
       };
     } catch (error) {
       throw this.mapProviderError(error);
     }
-  }
-
-  private calculateLatencyMs(input: {
-    readonly providerStartedAt: Date;
-    readonly providerFinishedAt: Date;
-  }): number {
-    const latencyMs = input.providerFinishedAt.getTime() - input.providerStartedAt.getTime();
-    if (!Number.isFinite(latencyMs) || latencyMs < 0) {
-      return 0;
-    }
-    return latencyMs;
   }
 
   private resolveBaseUrl(): string {

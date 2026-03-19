@@ -223,7 +223,6 @@ export class ConsumeAiGenerateJobUsecase {
           providerStatus: 'succeeded',
           promptTokens: input.result.promptTokens ?? null,
           completionTokens: input.result.completionTokens ?? null,
-          totalTokens: input.result.totalTokens ?? null,
           costAmount: input.result.costAmount ?? null,
           costCurrency: input.result.costCurrency ?? null,
           normalizedErrorCode: input.result.normalizedErrorCode ?? null,
@@ -231,12 +230,6 @@ export class ConsumeAiGenerateJobUsecase {
           errorMessage: input.result.errorMessage ?? null,
           providerStartedAt: input.result.providerStartedAt ?? input.fallbackProviderStartedAt,
           providerFinishedAt,
-          providerLatencyMs:
-            input.result.providerLatencyMs ??
-            resolveLatencyMs({
-              providerStartedAt: input.result.providerStartedAt ?? input.fallbackProviderStartedAt,
-              providerFinishedAt,
-            }),
         },
       });
     } catch (auditWriteError) {
@@ -283,10 +276,6 @@ export class ConsumeAiGenerateJobUsecase {
           errorMessage: errorContext.errorMessage,
           providerStartedAt: input.providerStartedAt,
           providerFinishedAt,
-          providerLatencyMs: resolveLatencyMs({
-            providerStartedAt: input.providerStartedAt,
-            providerFinishedAt,
-          }),
         },
       });
     } catch (auditWriteError) {
@@ -492,7 +481,6 @@ export class ConsumeAiEmbedJobUsecase {
           providerStatus: 'succeeded',
           promptTokens: input.result.promptTokens ?? null,
           completionTokens: input.result.completionTokens ?? null,
-          totalTokens: input.result.totalTokens ?? null,
           costAmount: input.result.costAmount ?? null,
           costCurrency: input.result.costCurrency ?? null,
           normalizedErrorCode: input.result.normalizedErrorCode ?? null,
@@ -500,12 +488,6 @@ export class ConsumeAiEmbedJobUsecase {
           errorMessage: input.result.errorMessage ?? null,
           providerStartedAt: input.result.providerStartedAt ?? input.fallbackProviderStartedAt,
           providerFinishedAt,
-          providerLatencyMs:
-            input.result.providerLatencyMs ??
-            resolveLatencyMs({
-              providerStartedAt: input.result.providerStartedAt ?? input.fallbackProviderStartedAt,
-              providerFinishedAt,
-            }),
         },
       });
     } catch (auditWriteError) {
@@ -549,10 +531,6 @@ export class ConsumeAiEmbedJobUsecase {
           errorMessage: errorContext.errorMessage,
           providerStartedAt: input.providerStartedAt,
           providerFinishedAt,
-          providerLatencyMs: resolveLatencyMs({
-            providerStartedAt: input.providerStartedAt,
-            providerFinishedAt,
-          }),
         },
       });
     } catch (auditWriteError) {
@@ -618,17 +596,6 @@ function normalizeWorkerFailReason(reason?: string): string {
     normalizeOptionalText(reason, 'to_undefined', { fieldName: 'worker_reason' }) ??
     'worker_unknown_error'
   );
-}
-
-function resolveLatencyMs(input: {
-  readonly providerStartedAt: Date;
-  readonly providerFinishedAt: Date;
-}): number {
-  const latencyMs = input.providerFinishedAt.getTime() - input.providerStartedAt.getTime();
-  if (!Number.isFinite(latencyMs) || latencyMs < 0) {
-    return 0;
-  }
-  return latencyMs;
 }
 
 function resolveText(value: string | undefined | null): string | undefined {

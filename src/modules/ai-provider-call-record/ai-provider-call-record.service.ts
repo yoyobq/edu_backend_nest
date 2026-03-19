@@ -123,7 +123,32 @@ export class AiProviderCallRecordService {
     if (!record) {
       return null;
     }
-    repository.merge(record, input.patch);
+    const normalizedPatch: Partial<AiProviderCallRecordEntity> = {
+      ...input.patch,
+    };
+    if (input.patch.promptTokens !== undefined) {
+      normalizedPatch.promptTokens = this.normalizeTokenCount(input.patch.promptTokens);
+    }
+    if (input.patch.completionTokens !== undefined) {
+      normalizedPatch.completionTokens = this.normalizeTokenCount(input.patch.completionTokens);
+    }
+    if (input.patch.providerStartedAt !== undefined) {
+      normalizedPatch.providerStartedAt = this.normalizeDate(input.patch.providerStartedAt);
+    }
+    if (input.patch.providerFinishedAt !== undefined) {
+      normalizedPatch.providerFinishedAt = this.normalizeDate(input.patch.providerFinishedAt);
+    }
+    delete normalizedPatch.totalTokens;
+    delete normalizedPatch.providerLatencyMs;
+    repository.merge(record, normalizedPatch);
+    record.totalTokens = this.resolveTotalTokens({
+      promptTokens: record.promptTokens,
+      completionTokens: record.completionTokens,
+    });
+    record.providerLatencyMs = this.resolveProviderLatencyMs({
+      providerStartedAt: record.providerStartedAt,
+      providerFinishedAt: record.providerFinishedAt,
+    });
     const saved = await repository.save(record);
     return this.toView(saved);
   }
@@ -159,6 +184,10 @@ export class AiProviderCallRecordService {
     readonly manager?: EntityManager;
   }): Promise<AiProviderCallRecordEntity> {
     const repository = this.resolveRepository(input.manager);
+    const promptTokens = this.normalizeTokenCount(input.data.promptTokens);
+    const completionTokens = this.normalizeTokenCount(input.data.completionTokens);
+    const providerStartedAt = this.normalizeDate(input.data.providerStartedAt);
+    const providerFinishedAt = this.normalizeDate(input.data.providerFinishedAt);
     const callSeq = await this.allocateCallSeq({
       traceId: input.data.traceId,
       manager: input.manager,
@@ -178,17 +207,23 @@ export class AiProviderCallRecordService {
       taskType: input.data.taskType,
       providerRequestId: this.toNullable(input.data.providerRequestId),
       providerStatus: input.data.providerStatus,
-      promptTokens: this.toNullable(input.data.promptTokens),
-      completionTokens: this.toNullable(input.data.completionTokens),
-      totalTokens: this.toNullable(input.data.totalTokens),
+      promptTokens,
+      completionTokens,
+      totalTokens: this.resolveTotalTokens({
+        promptTokens,
+        completionTokens,
+      }),
       costAmount: this.toNullable(input.data.costAmount),
       costCurrency: this.toNullable(input.data.costCurrency),
       normalizedErrorCode: this.toNullable(input.data.normalizedErrorCode),
       providerErrorCode: this.toNullable(input.data.providerErrorCode),
       errorMessage: this.toNullable(input.data.errorMessage),
-      providerStartedAt: this.toNullable(input.data.providerStartedAt),
-      providerFinishedAt: this.toNullable(input.data.providerFinishedAt),
-      providerLatencyMs: this.toNullable(input.data.providerLatencyMs),
+      providerStartedAt,
+      providerFinishedAt,
+      providerLatencyMs: this.resolveProviderLatencyMs({
+        providerStartedAt,
+        providerFinishedAt,
+      }),
     });
     return await repository.save(entity);
   }
@@ -246,6 +281,47 @@ export class AiProviderCallRecordService {
 
   private toNullable<T>(value: T | null | undefined): T | null {
     return value ?? null;
+  }
+
+  private normalizeDate(value: Date | null | undefined): Date | null {
+    if (!(value instanceof Date)) {
+      return null;
+    }
+    return Number.isFinite(value.getTime()) ? value : null;
+  }
+
+  private normalizeTokenCount(value: number | null | undefined): number | null {
+    if (value === null || value === undefined) {
+      return null;
+    }
+    if (!Number.isFinite(value) || value < 0) {
+      return null;
+    }
+    return Math.trunc(value);
+  }
+
+  private resolveTotalTokens(input: {
+    readonly promptTokens: number | null;
+    readonly completionTokens: number | null;
+  }): number | null {
+    if (input.promptTokens === null || input.completionTokens === null) {
+      return null;
+    }
+    return input.promptTokens + input.completionTokens;
+  }
+
+  private resolveProviderLatencyMs(input: {
+    readonly providerStartedAt: Date | null;
+    readonly providerFinishedAt: Date | null;
+  }): number | null {
+    if (!input.providerStartedAt || !input.providerFinishedAt) {
+      return null;
+    }
+    const latencyMs = input.providerFinishedAt.getTime() - input.providerStartedAt.getTime();
+    if (!Number.isFinite(latencyMs)) {
+      return null;
+    }
+    return latencyMs;
   }
 
   private toView(entity: AiProviderCallRecordEntity): AiProviderCallRecordView {

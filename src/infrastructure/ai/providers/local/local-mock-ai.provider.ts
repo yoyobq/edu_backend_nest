@@ -32,7 +32,6 @@ export class LocalMockAiProvider implements AiProviderClient {
       providerStatus: 'succeeded',
       promptTokens: null,
       completionTokens: null,
-      totalTokens: null,
       costAmount: null,
       costCurrency: null,
       normalizedErrorCode: null,
@@ -40,10 +39,6 @@ export class LocalMockAiProvider implements AiProviderClient {
       errorMessage: null,
       providerStartedAt,
       providerFinishedAt,
-      providerLatencyMs: this.calculateLatencyMs({
-        providerStartedAt,
-        providerFinishedAt,
-      }),
     });
   }
 
@@ -66,7 +61,6 @@ export class LocalMockAiProvider implements AiProviderClient {
       providerStatus: 'succeeded',
       promptTokens: null,
       completionTokens: null,
-      totalTokens: null,
       costAmount: null,
       costCurrency: null,
       normalizedErrorCode: null,
@@ -74,10 +68,6 @@ export class LocalMockAiProvider implements AiProviderClient {
       errorMessage: null,
       providerStartedAt,
       providerFinishedAt,
-      providerLatencyMs: this.calculateLatencyMs({
-        providerStartedAt,
-        providerFinishedAt,
-      }),
     });
   }
 
@@ -96,16 +86,5 @@ export class LocalMockAiProvider implements AiProviderClient {
   }): ReadonlyArray<number> {
     const digest = createHash('sha256').update(`${input.model}:${input.text}`).digest();
     return [digest[0] / 255, digest[1] / 255, digest[2] / 255, digest[3] / 255];
-  }
-
-  private calculateLatencyMs(input: {
-    readonly providerStartedAt: Date;
-    readonly providerFinishedAt: Date;
-  }): number {
-    const latencyMs = input.providerFinishedAt.getTime() - input.providerStartedAt.getTime();
-    if (!Number.isFinite(latencyMs) || latencyMs < 0) {
-      return 0;
-    }
-    return latencyMs;
   }
 }
