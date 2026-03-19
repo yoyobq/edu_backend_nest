@@ -46,7 +46,7 @@
 - 纯读放在 modules(service) 的读服务，便于复用。
 - modules(service) 可提供基础写方法，但不得包含完整写语义或流程编排。
 - 跨域读：只能由上层 Usecase 发起，通过被读域的 QueryService 获取。
-- 跨域写：只能通过事件 / outbox 或显式编排。
+- 跨域写：通过事件或显式编排；`Outbox` 可作为一致性设计选项进行评估。
 - 写后读优先走 QueryService，输出统一的 View / DTO。
 - 若写后读属于同域且读逻辑稳定，可复用 modules(service) 的只读方法，但输出仍以 View / DTO 为准。
 
@@ -59,7 +59,8 @@
 ## 事务与外部系统
 
 - 事务由 Usecase 定义与开启，modules(service) 不跨域开启事务。
-- 一旦跨聚合或调用外部系统，Usecase 需采用 outbox 模式。
+- 一旦跨聚合或调用外部系统，Usecase 需先明确一致性策略与补偿策略。
+- `Outbox` 在本仓库当前仅作为架构设计讨论，尚未形成正式落地实现；不要默认存在可直接复用的 `Outbox` 组件。
 
 ## 拆分原则
 
