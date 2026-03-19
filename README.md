@@ -25,7 +25,6 @@
 - [快速开始](#快速开始)
 - [开发与测试](#开发与测试)
 - [API 访问](#api-访问)
-- [贡献指南](#贡献指南)
 - [许可证](#许可证)
 
 ## 项目简介
@@ -119,6 +118,7 @@ src/
 - ✅ **Data Access**: 分页 / 排序 / 搜索通用能力、数据库事务支持
 - ✅ **Observability**: 结构化日志 (Pino)、配置管理
 - ✅ **QM Worker Base**: 统一 AI / Email 队列接入、消费链路与模块装配模式
+- ✅ **AI Provider Call Record**: 记录 provider 调用链路、请求响应快照与耗时指标，支撑审计与排障
 
 ### 业务域能力
 
@@ -155,10 +155,13 @@ src/
 3. **启动应用**
 
    ```bash
-   # 开发模式
+   # 开发模式（API）
    npm run start:dev
 
-   # 生产模式
+   # 开发模式（Worker）
+   npm run dev:worker
+
+   # 生产模式（API）
    npm run start:prod
    ```
 
@@ -192,6 +195,20 @@ npm run test:cov
 
 - 真实第三方受控 Smoke 单独放在 `test/99-third-party-live-smoke/`
 
+### 基础 CI 能力（空库 migration 演练）
+
+```bash
+# 默认演练：创建临时库，执行 baseline migrations，校验后清理
+npm run migration:drill:empty-db
+
+# 首次建表：落到指定数据库（会先清空目标库）
+MIGRATION_DRILL_DATABASE=<目标数据库名> MIGRATION_DRILL_ALLOW_NON_TEST_DB=true npm run migration:drill:empty-db
+```
+
+- 脚本会校验关键表、关键索引、关键外键，失败会返回非 0 退出码，可直接作为 CI 阻断项。
+- 脚本内部固定 `synchronize=false`，不受 e2e 环境 `DB_SYNCHRONIZE=true` 影响。
+- 若目标库名包含 `test/drill/ci`，可不传 `MIGRATION_DRILL_ALLOW_NON_TEST_DB=true`。
+
 ### 开发约定
 
 - **写操作 (Command)**: 统一在 `usecases` 层编排，处理事务。
@@ -205,16 +222,6 @@ npm run test:cov
 
 - **Playground**: [http://localhost:3000/graphql](http://localhost:3000/graphql)
 - **Schema File**: `src/schema.graphql` (自动生成)
-
-## 贡献指南
-
-欢迎参与项目贡献！请遵循以下步骤：
-
-1. Fork 本仓库
-2. 创建特性分支 (`git checkout -b feature/AmazingFeature`)
-3. 提交更改 (`git commit -m 'feat: Add some AmazingFeature'`) - 请遵循 Conventional Commits 规范
-4. 推送到分支 (`git push origin feature/AmazingFeature`)
-5. 提交 Pull Request
 
 ## 许可证
 
