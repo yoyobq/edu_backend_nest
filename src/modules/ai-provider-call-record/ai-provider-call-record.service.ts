@@ -149,6 +149,7 @@ export class AiProviderCallRecordService {
       providerStartedAt: record.providerStartedAt,
       providerFinishedAt: record.providerFinishedAt,
     });
+    this.enforceErrorFieldsByProviderStatus(record);
     const saved = await repository.save(record);
     return this.toView(saved);
   }
@@ -225,6 +226,7 @@ export class AiProviderCallRecordService {
         providerFinishedAt,
       }),
     });
+    this.enforceErrorFieldsByProviderStatus(entity);
     return await repository.save(entity);
   }
 
@@ -322,6 +324,19 @@ export class AiProviderCallRecordService {
       return null;
     }
     return latencyMs;
+  }
+
+  private enforceErrorFieldsByProviderStatus(
+    record: Pick<
+      AiProviderCallRecordEntity,
+      'providerStatus' | 'normalizedErrorCode' | 'providerErrorCode' | 'errorMessage'
+    >,
+  ): void {
+    if (record.providerStatus === 'succeeded') {
+      record.normalizedErrorCode = null;
+      record.providerErrorCode = null;
+      record.errorMessage = null;
+    }
   }
 
   private toView(entity: AiProviderCallRecordEntity): AiProviderCallRecordView {
