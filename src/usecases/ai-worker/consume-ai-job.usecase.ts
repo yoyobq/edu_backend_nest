@@ -1,8 +1,8 @@
 // src/usecases/ai-worker/consume-ai-job.usecase.ts
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { resolveAsyncTaskBizKey } from '@src/core/common/async-task/async-task-identifier.policy';
 import { normalizeOptionalText } from '@src/core/common/input-normalize/input-normalize.policy';
-import { isDomainError } from '@src/core/common/errors/domain-error';
+import { THIRDPARTY_ERROR, isDomainError } from '@src/core/common/errors/domain-error';
 import { AiProviderCallRecordService } from '@src/modules/ai-provider-call-record/ai-provider-call-record.service';
 import { AsyncTaskRecordService } from '@src/modules/async-task-record/async-task-record.service';
 import type { AsyncTaskRecordSource } from '@src/modules/async-task-record/async-task-record.types';
@@ -80,6 +80,8 @@ export interface ConsumeAiEmbedJobFailInput extends ConsumeAiEmbedJobCompleteInp
 
 @Injectable()
 export class ConsumeAiGenerateJobUsecase {
+  private readonly logger = new Logger(ConsumeAiGenerateJobUsecase.name);
+
   constructor(
     private readonly aiWorkerService: AiWorkerService,
     private readonly asyncTaskRecordService: AsyncTaskRecordService,
@@ -111,73 +113,32 @@ export class ConsumeAiGenerateJobUsecase {
     const providerStartedAt = input.startedAt ?? new Date();
     try {
       const result = await this.aiWorkerService.generate(input.payload);
-      const providerFinishedAt = result.providerFinishedAt ?? new Date();
-      await this.aiProviderCallRecordService.createRecord({
-        data: {
-          asyncTaskRecordId: asyncTaskRecord.id,
-          traceId: input.traceId,
-          bizType: asyncTaskRecord.bizType,
-          bizKey: asyncTaskRecord.bizKey,
-          bizSubKey: asyncTaskRecord.bizSubKey,
-          source: this.resolveSource(),
-          provider: result.provider,
-          model: result.model,
-          taskType: 'generate',
-          providerRequestId: result.providerRequestId ?? result.providerJobId,
-          providerStatus: 'succeeded',
-          promptTokens: result.promptTokens ?? null,
-          completionTokens: result.completionTokens ?? null,
-          totalTokens: result.totalTokens ?? null,
-          costAmount: result.costAmount ?? null,
-          costCurrency: result.costCurrency ?? null,
-          normalizedErrorCode: result.normalizedErrorCode ?? null,
-          providerErrorCode: result.providerErrorCode ?? null,
-          errorMessage: result.errorMessage ?? null,
-          providerStartedAt: result.providerStartedAt ?? providerStartedAt,
-          providerFinishedAt,
-          providerLatencyMs:
-            result.providerLatencyMs ??
-            resolveLatencyMs({
-              providerStartedAt: result.providerStartedAt ?? providerStartedAt,
-              providerFinishedAt,
-            }),
-        },
+      await this.recordGenerateSucceededCall({
+        input,
+        asyncTaskRecord,
+        result,
+        fallbackProviderStartedAt: providerStartedAt,
       });
       return result;
-    } catch (error) {
-      const providerFinishedAt = new Date();
-      const errorContext = resolveProviderErrorContext(error);
-      await this.aiProviderCallRecordService.createRecord({
-        data: {
-          asyncTaskRecordId: asyncTaskRecord.id,
-          traceId: input.traceId,
-          bizType: asyncTaskRecord.bizType,
-          bizKey: asyncTaskRecord.bizKey,
-          bizSubKey: asyncTaskRecord.bizSubKey,
-          source: this.resolveSource(),
-          provider:
-            resolveText(errorContext.provider) ?? resolveText(input.payload.provider) ?? 'unknown',
-          model: input.payload.model,
-          taskType: 'generate',
-          providerRequestId: null,
-          providerStatus: 'failed',
-          promptTokens: null,
-          completionTokens: null,
-          totalTokens: null,
-          costAmount: null,
-          costCurrency: null,
-          normalizedErrorCode: errorContext.normalizedErrorCode,
-          providerErrorCode: errorContext.providerErrorCode,
-          errorMessage: errorContext.errorMessage,
+    } catch (providerError) {
+      if (shouldRecordProviderCallFailure(providerError)) {
+        await this.recordGenerateFailedCall({
+          input,
+          asyncTaskRecord,
+          providerError,
           providerStartedAt,
-          providerFinishedAt,
-          providerLatencyMs: resolveLatencyMs({
-            providerStartedAt,
-            providerFinishedAt,
-          }),
-        },
-      });
-      throw error;
+        });
+      } else {
+        this.logger.warn(
+          'skip generate provider failed call record because request was not attempted',
+          {
+            traceId: input.traceId,
+            jobId: input.jobId,
+            error: resolveUnknownErrorMessage(providerError),
+          },
+        );
+      }
+      throw providerError;
     }
   }
 
@@ -239,6 +200,105 @@ export class ConsumeAiGenerateJobUsecase {
     });
   }
 
+  private async recordGenerateSucceededCall(input: {
+    readonly input: ConsumeAiGenerateJobProcessInput;
+    readonly asyncTaskRecord: Awaited<ReturnType<AsyncTaskRecordService['recordStarted']>>;
+    readonly result: GenerateAiContentResult;
+    readonly fallbackProviderStartedAt: Date;
+  }): Promise<void> {
+    const providerFinishedAt = input.result.providerFinishedAt ?? new Date();
+    try {
+      await this.aiProviderCallRecordService.createRecord({
+        data: {
+          asyncTaskRecordId: input.asyncTaskRecord.id,
+          traceId: input.input.traceId,
+          bizType: input.asyncTaskRecord.bizType,
+          bizKey: input.asyncTaskRecord.bizKey,
+          bizSubKey: input.asyncTaskRecord.bizSubKey,
+          source: this.resolveSource(),
+          provider: input.result.provider,
+          model: input.result.model,
+          taskType: 'generate',
+          providerRequestId: input.result.providerRequestId ?? input.result.providerJobId,
+          providerStatus: 'succeeded',
+          promptTokens: input.result.promptTokens ?? null,
+          completionTokens: input.result.completionTokens ?? null,
+          totalTokens: input.result.totalTokens ?? null,
+          costAmount: input.result.costAmount ?? null,
+          costCurrency: input.result.costCurrency ?? null,
+          normalizedErrorCode: input.result.normalizedErrorCode ?? null,
+          providerErrorCode: input.result.providerErrorCode ?? null,
+          errorMessage: input.result.errorMessage ?? null,
+          providerStartedAt: input.result.providerStartedAt ?? input.fallbackProviderStartedAt,
+          providerFinishedAt,
+          providerLatencyMs:
+            input.result.providerLatencyMs ??
+            resolveLatencyMs({
+              providerStartedAt: input.result.providerStartedAt ?? input.fallbackProviderStartedAt,
+              providerFinishedAt,
+            }),
+        },
+      });
+    } catch (auditWriteError) {
+      this.logger.error('generate provider call record write failed after provider success', {
+        traceId: input.input.traceId,
+        jobId: input.input.jobId,
+        error: resolveUnknownErrorMessage(auditWriteError),
+      });
+    }
+  }
+
+  private async recordGenerateFailedCall(input: {
+    readonly input: ConsumeAiGenerateJobProcessInput;
+    readonly asyncTaskRecord: Awaited<ReturnType<AsyncTaskRecordService['recordStarted']>>;
+    readonly providerError: unknown;
+    readonly providerStartedAt: Date;
+  }): Promise<void> {
+    const providerFinishedAt = new Date();
+    const errorContext = resolveProviderErrorContext(input.providerError);
+    try {
+      await this.aiProviderCallRecordService.createRecord({
+        data: {
+          asyncTaskRecordId: input.asyncTaskRecord.id,
+          traceId: input.input.traceId,
+          bizType: input.asyncTaskRecord.bizType,
+          bizKey: input.asyncTaskRecord.bizKey,
+          bizSubKey: input.asyncTaskRecord.bizSubKey,
+          source: this.resolveSource(),
+          provider:
+            resolveText(errorContext.provider) ??
+            resolveText(input.input.payload.provider) ??
+            'unknown',
+          model: input.input.payload.model,
+          taskType: 'generate',
+          providerRequestId: null,
+          providerStatus: 'failed',
+          promptTokens: null,
+          completionTokens: null,
+          totalTokens: null,
+          costAmount: null,
+          costCurrency: null,
+          normalizedErrorCode: errorContext.normalizedErrorCode,
+          providerErrorCode: errorContext.providerErrorCode,
+          errorMessage: errorContext.errorMessage,
+          providerStartedAt: input.providerStartedAt,
+          providerFinishedAt,
+          providerLatencyMs: resolveLatencyMs({
+            providerStartedAt: input.providerStartedAt,
+            providerFinishedAt,
+          }),
+        },
+      });
+    } catch (auditWriteError) {
+      this.logger.error('generate provider failed record write failed', {
+        traceId: input.input.traceId,
+        jobId: input.input.jobId,
+        providerError: resolveUnknownErrorMessage(input.providerError),
+        auditWriteError: resolveUnknownErrorMessage(auditWriteError),
+      });
+    }
+  }
+
   private resolveProcessingAttemptCount(input: { readonly attemptsMade: number }): number {
     return Math.max(input.attemptsMade + 1, 1);
   }
@@ -289,6 +349,8 @@ export class ConsumeAiGenerateJobUsecase {
 
 @Injectable()
 export class ConsumeAiEmbedJobUsecase {
+  private readonly logger = new Logger(ConsumeAiEmbedJobUsecase.name);
+
   constructor(
     private readonly aiWorkerService: AiWorkerService,
     private readonly asyncTaskRecordService: AsyncTaskRecordService,
@@ -320,72 +382,32 @@ export class ConsumeAiEmbedJobUsecase {
     const providerStartedAt = input.startedAt ?? new Date();
     try {
       const result = await this.aiWorkerService.embed(input.payload);
-      const providerFinishedAt = result.providerFinishedAt ?? new Date();
-      await this.aiProviderCallRecordService.createRecord({
-        data: {
-          asyncTaskRecordId: asyncTaskRecord.id,
-          traceId: input.traceId,
-          bizType: asyncTaskRecord.bizType,
-          bizKey: asyncTaskRecord.bizKey,
-          bizSubKey: asyncTaskRecord.bizSubKey,
-          source: this.resolveSource(),
-          provider: result.provider,
-          model: result.model,
-          taskType: 'embed',
-          providerRequestId: result.providerRequestId ?? result.providerJobId,
-          providerStatus: 'succeeded',
-          promptTokens: result.promptTokens ?? null,
-          completionTokens: result.completionTokens ?? null,
-          totalTokens: result.totalTokens ?? null,
-          costAmount: result.costAmount ?? null,
-          costCurrency: result.costCurrency ?? null,
-          normalizedErrorCode: result.normalizedErrorCode ?? null,
-          providerErrorCode: result.providerErrorCode ?? null,
-          errorMessage: result.errorMessage ?? null,
-          providerStartedAt: result.providerStartedAt ?? providerStartedAt,
-          providerFinishedAt,
-          providerLatencyMs:
-            result.providerLatencyMs ??
-            resolveLatencyMs({
-              providerStartedAt: result.providerStartedAt ?? providerStartedAt,
-              providerFinishedAt,
-            }),
-        },
+      await this.recordEmbedSucceededCall({
+        input,
+        asyncTaskRecord,
+        result,
+        fallbackProviderStartedAt: providerStartedAt,
       });
       return result;
-    } catch (error) {
-      const providerFinishedAt = new Date();
-      const errorContext = resolveProviderErrorContext(error);
-      await this.aiProviderCallRecordService.createRecord({
-        data: {
-          asyncTaskRecordId: asyncTaskRecord.id,
-          traceId: input.traceId,
-          bizType: asyncTaskRecord.bizType,
-          bizKey: asyncTaskRecord.bizKey,
-          bizSubKey: asyncTaskRecord.bizSubKey,
-          source: this.resolveSource(),
-          provider: resolveText(errorContext.provider) ?? 'mock',
-          model: input.payload.model,
-          taskType: 'embed',
-          providerRequestId: null,
-          providerStatus: 'failed',
-          promptTokens: null,
-          completionTokens: null,
-          totalTokens: null,
-          costAmount: null,
-          costCurrency: null,
-          normalizedErrorCode: errorContext.normalizedErrorCode,
-          providerErrorCode: errorContext.providerErrorCode,
-          errorMessage: errorContext.errorMessage,
+    } catch (providerError) {
+      if (shouldRecordProviderCallFailure(providerError)) {
+        await this.recordEmbedFailedCall({
+          input,
+          asyncTaskRecord,
+          providerError,
           providerStartedAt,
-          providerFinishedAt,
-          providerLatencyMs: resolveLatencyMs({
-            providerStartedAt,
-            providerFinishedAt,
-          }),
-        },
-      });
-      throw error;
+        });
+      } else {
+        this.logger.warn(
+          'skip embed provider failed call record because request was not attempted',
+          {
+            traceId: input.traceId,
+            jobId: input.jobId,
+            error: resolveUnknownErrorMessage(providerError),
+          },
+        );
+      }
+      throw providerError;
     }
   }
 
@@ -445,6 +467,102 @@ export class ConsumeAiEmbedJobUsecase {
         occurredAt: input.occurredAt ?? input.finishedAt,
       },
     });
+  }
+
+  private async recordEmbedSucceededCall(input: {
+    readonly input: ConsumeAiEmbedJobProcessInput;
+    readonly asyncTaskRecord: Awaited<ReturnType<AsyncTaskRecordService['recordStarted']>>;
+    readonly result: EmbedAiContentResult;
+    readonly fallbackProviderStartedAt: Date;
+  }): Promise<void> {
+    const providerFinishedAt = input.result.providerFinishedAt ?? new Date();
+    try {
+      await this.aiProviderCallRecordService.createRecord({
+        data: {
+          asyncTaskRecordId: input.asyncTaskRecord.id,
+          traceId: input.input.traceId,
+          bizType: input.asyncTaskRecord.bizType,
+          bizKey: input.asyncTaskRecord.bizKey,
+          bizSubKey: input.asyncTaskRecord.bizSubKey,
+          source: this.resolveSource(),
+          provider: input.result.provider,
+          model: input.result.model,
+          taskType: 'embed',
+          providerRequestId: input.result.providerRequestId ?? input.result.providerJobId,
+          providerStatus: 'succeeded',
+          promptTokens: input.result.promptTokens ?? null,
+          completionTokens: input.result.completionTokens ?? null,
+          totalTokens: input.result.totalTokens ?? null,
+          costAmount: input.result.costAmount ?? null,
+          costCurrency: input.result.costCurrency ?? null,
+          normalizedErrorCode: input.result.normalizedErrorCode ?? null,
+          providerErrorCode: input.result.providerErrorCode ?? null,
+          errorMessage: input.result.errorMessage ?? null,
+          providerStartedAt: input.result.providerStartedAt ?? input.fallbackProviderStartedAt,
+          providerFinishedAt,
+          providerLatencyMs:
+            input.result.providerLatencyMs ??
+            resolveLatencyMs({
+              providerStartedAt: input.result.providerStartedAt ?? input.fallbackProviderStartedAt,
+              providerFinishedAt,
+            }),
+        },
+      });
+    } catch (auditWriteError) {
+      this.logger.error('embed provider call record write failed after provider success', {
+        traceId: input.input.traceId,
+        jobId: input.input.jobId,
+        error: resolveUnknownErrorMessage(auditWriteError),
+      });
+    }
+  }
+
+  private async recordEmbedFailedCall(input: {
+    readonly input: ConsumeAiEmbedJobProcessInput;
+    readonly asyncTaskRecord: Awaited<ReturnType<AsyncTaskRecordService['recordStarted']>>;
+    readonly providerError: unknown;
+    readonly providerStartedAt: Date;
+  }): Promise<void> {
+    const providerFinishedAt = new Date();
+    const errorContext = resolveProviderErrorContext(input.providerError);
+    try {
+      await this.aiProviderCallRecordService.createRecord({
+        data: {
+          asyncTaskRecordId: input.asyncTaskRecord.id,
+          traceId: input.input.traceId,
+          bizType: input.asyncTaskRecord.bizType,
+          bizKey: input.asyncTaskRecord.bizKey,
+          bizSubKey: input.asyncTaskRecord.bizSubKey,
+          source: this.resolveSource(),
+          provider: resolveText(errorContext.provider) ?? 'mock',
+          model: input.input.payload.model,
+          taskType: 'embed',
+          providerRequestId: null,
+          providerStatus: 'failed',
+          promptTokens: null,
+          completionTokens: null,
+          totalTokens: null,
+          costAmount: null,
+          costCurrency: null,
+          normalizedErrorCode: errorContext.normalizedErrorCode,
+          providerErrorCode: errorContext.providerErrorCode,
+          errorMessage: errorContext.errorMessage,
+          providerStartedAt: input.providerStartedAt,
+          providerFinishedAt,
+          providerLatencyMs: resolveLatencyMs({
+            providerStartedAt: input.providerStartedAt,
+            providerFinishedAt,
+          }),
+        },
+      });
+    } catch (auditWriteError) {
+      this.logger.error('embed provider failed record write failed', {
+        traceId: input.input.traceId,
+        jobId: input.input.jobId,
+        providerError: resolveUnknownErrorMessage(input.providerError),
+        auditWriteError: resolveUnknownErrorMessage(auditWriteError),
+      });
+    }
   }
 
   private resolveProcessingAttemptCount(input: { readonly attemptsMade: number }): number {
@@ -562,4 +680,18 @@ function resolveString(value: unknown): string | undefined {
     return undefined;
   }
   return value;
+}
+
+function resolveUnknownErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  return 'unknown_error';
+}
+
+function shouldRecordProviderCallFailure(error: unknown): boolean {
+  if (!isDomainError(error)) {
+    return false;
+  }
+  return error.code === THIRDPARTY_ERROR.PROVIDER_API_ERROR;
 }
