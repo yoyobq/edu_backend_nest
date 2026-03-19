@@ -7,16 +7,16 @@ import {
   LoginTypeEnum,
 } from '@app-types/models/account.types';
 import { Gender, UserState } from '@app-types/models/user-info.types';
+import { TokenHelper } from '@modules/auth/token.helper';
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { initGraphQLSchema } from '@src/adapters/api/graphql/schema/schema.init';
 import { ApiModule } from '@src/bootstraps/api/api.module';
-import { TokenHelper } from '@modules/auth/token.helper';
 import { CustomerEntity } from '@src/modules/account/identities/training/customer/account-customer.entity';
 import { CreateAccountUsecase } from '@usecases/account/create-account.usecase';
 import request from 'supertest';
 import { DataSource } from 'typeorm';
-import { seedTestAccounts, testAccountsConfig } from '../utils/test-accounts';
+import { cleanupTestAccounts, seedTestAccounts, testAccountsConfig } from '../utils/test-accounts';
 
 /**
  * 身份管理功能端到端测试
@@ -124,8 +124,7 @@ describe('IdentityManagement (e2e)', () => {
     let learnerAccountId: number;
 
     beforeEach(async () => {
-      // 清理测试数据
-      await dataSource.getRepository(CustomerEntity).clear();
+      await cleanupTestAccounts(dataSource);
 
       // 创建测试账户
       await seedTestAccounts({

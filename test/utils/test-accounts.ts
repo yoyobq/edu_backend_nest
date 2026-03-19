@@ -106,13 +106,13 @@ export const testAccountsConfig: Record<string, TestAccountConfig> = {
  * （按外键方向：先身份表 → user_info → account）
  */
 export const cleanupTestAccounts = async (dataSource: DataSource): Promise<void> => {
-  await dataSource.getRepository(StaffEntity).clear(); // 先清 Staff（不依赖其他 FK）
-  await dataSource.getRepository(LearnerEntity).clear(); // ✅ 新增：先清 Learner（有 FK 指向 Customer）
-  await dataSource.getRepository(CustomerEntity).clear(); // ✅ 新增：再清 Customer
-  await dataSource.getRepository(ManagerEntity).clear();
-  await dataSource.getRepository(CoachEntity).clear();
-  await dataSource.getRepository(UserInfoEntity).clear();
-  await dataSource.getRepository(AccountEntity).clear();
+  await dataSource.createQueryBuilder().delete().from(StaffEntity).execute();
+  await dataSource.createQueryBuilder().delete().from(LearnerEntity).execute();
+  await dataSource.createQueryBuilder().delete().from(CustomerEntity).execute();
+  await dataSource.createQueryBuilder().delete().from(ManagerEntity).execute();
+  await dataSource.createQueryBuilder().delete().from(CoachEntity).execute();
+  await dataSource.createQueryBuilder().delete().from(UserInfoEntity).execute();
+  await dataSource.createQueryBuilder().delete().from(AccountEntity).execute();
 };
 
 /**
