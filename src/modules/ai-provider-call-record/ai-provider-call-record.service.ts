@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, type EntityManager } from 'typeorm';
+import { QueryFailedError, Repository, type EntityManager } from 'typeorm';
 import {
   AiProviderCallRecordEntity,
   type AiProviderCallRecordProviderStatus,
@@ -83,6 +83,8 @@ export interface AiProviderCallRecordView {
 
 @Injectable()
 export class AiProviderCallRecordService {
+  private static readonly CREATE_RECORD_MAX_RETRY = 5;
+
   constructor(
     @InjectRepository(AiProviderCallRecordEntity)
     private readonly aiProviderCallRecordRepository: Repository<AiProviderCallRecordEntity>,
@@ -92,40 +94,23 @@ export class AiProviderCallRecordService {
     readonly data: CreateAiProviderCallRecordInput;
     readonly manager?: EntityManager;
   }): Promise<AiProviderCallRecordView> {
-    const repository = this.resolveRepository(input.manager);
-    const callSeq = await this.allocateCallSeq({
-      traceId: input.data.traceId,
-      manager: input.manager,
-    });
-    const entity = repository.create({
-      asyncTaskRecordId: input.data.asyncTaskRecordId ?? null,
-      traceId: input.data.traceId,
-      callSeq,
-      accountId: input.data.accountId ?? null,
-      nicknameSnapshot: input.data.nicknameSnapshot ?? null,
-      bizType: input.data.bizType ?? null,
-      bizKey: input.data.bizKey ?? null,
-      bizSubKey: input.data.bizSubKey ?? null,
-      source: input.data.source,
-      provider: input.data.provider,
-      model: input.data.model,
-      taskType: input.data.taskType,
-      providerRequestId: input.data.providerRequestId ?? null,
-      providerStatus: input.data.providerStatus,
-      promptTokens: input.data.promptTokens ?? null,
-      completionTokens: input.data.completionTokens ?? null,
-      totalTokens: input.data.totalTokens ?? null,
-      costAmount: input.data.costAmount ?? null,
-      costCurrency: input.data.costCurrency ?? null,
-      normalizedErrorCode: input.data.normalizedErrorCode ?? null,
-      providerErrorCode: input.data.providerErrorCode ?? null,
-      errorMessage: input.data.errorMessage ?? null,
-      providerStartedAt: input.data.providerStartedAt ?? null,
-      providerFinishedAt: input.data.providerFinishedAt ?? null,
-      providerLatencyMs: input.data.providerLatencyMs ?? null,
-    });
-    const saved = await repository.save(entity);
-    return this.toView(saved);
+    let attempt = 0;
+    while (attempt < AiProviderCallRecordService.CREATE_RECORD_MAX_RETRY) {
+      try {
+        const saved = await this.createRecordWithAllocatedSeq(input);
+        return this.toView(saved);
+      } catch (error) {
+        attempt += 1;
+        if (
+          this.isTraceSeqUniqueConflict(error) &&
+          attempt < AiProviderCallRecordService.CREATE_RECORD_MAX_RETRY
+        ) {
+          continue;
+        }
+        throw error;
+      }
+    }
+    throw new Error('ai_provider_call_record_create_retry_exhausted');
   }
 
   async updateRecordById(input: {
@@ -167,6 +152,100 @@ export class AiProviderCallRecordService {
       return 1;
     }
     return maxCallSeq + 1;
+  }
+
+  private async createRecordWithAllocatedSeq(input: {
+    readonly data: CreateAiProviderCallRecordInput;
+    readonly manager?: EntityManager;
+  }): Promise<AiProviderCallRecordEntity> {
+    const repository = this.resolveRepository(input.manager);
+    const callSeq = await this.allocateCallSeq({
+      traceId: input.data.traceId,
+      manager: input.manager,
+    });
+    const entity = repository.create({
+      asyncTaskRecordId: this.toNullable(input.data.asyncTaskRecordId),
+      traceId: input.data.traceId,
+      callSeq,
+      accountId: this.toNullable(input.data.accountId),
+      nicknameSnapshot: this.toNullable(input.data.nicknameSnapshot),
+      bizType: this.toNullable(input.data.bizType),
+      bizKey: this.toNullable(input.data.bizKey),
+      bizSubKey: this.toNullable(input.data.bizSubKey),
+      source: input.data.source,
+      provider: input.data.provider,
+      model: input.data.model,
+      taskType: input.data.taskType,
+      providerRequestId: this.toNullable(input.data.providerRequestId),
+      providerStatus: input.data.providerStatus,
+      promptTokens: this.toNullable(input.data.promptTokens),
+      completionTokens: this.toNullable(input.data.completionTokens),
+      totalTokens: this.toNullable(input.data.totalTokens),
+      costAmount: this.toNullable(input.data.costAmount),
+      costCurrency: this.toNullable(input.data.costCurrency),
+      normalizedErrorCode: this.toNullable(input.data.normalizedErrorCode),
+      providerErrorCode: this.toNullable(input.data.providerErrorCode),
+      errorMessage: this.toNullable(input.data.errorMessage),
+      providerStartedAt: this.toNullable(input.data.providerStartedAt),
+      providerFinishedAt: this.toNullable(input.data.providerFinishedAt),
+      providerLatencyMs: this.toNullable(input.data.providerLatencyMs),
+    });
+    return await repository.save(entity);
+  }
+
+  private isTraceSeqUniqueConflict(error: unknown): boolean {
+    const info = this.getSqlErrorInfo(error);
+    return (
+      (info.code === 'ER_DUP_ENTRY' || info.errno === 1062 || info.sqlState === '23000') &&
+      this.hasTraceSeqUniqueName(info.message)
+    );
+  }
+
+  private getSqlErrorInfo(error: unknown): {
+    code?: string;
+    errno?: number;
+    sqlState?: string;
+    message?: string;
+  } {
+    if (error instanceof QueryFailedError) {
+      const driverError = (
+        error as unknown as {
+          driverError?: {
+            code?: string;
+            errno?: number;
+            sqlState?: string;
+            message?: string;
+          };
+        }
+      ).driverError;
+      return {
+        code: driverError?.code ?? (error as { code?: string }).code,
+        errno: driverError?.errno ?? (error as { errno?: number }).errno,
+        sqlState: driverError?.sqlState ?? (error as { sqlState?: string }).sqlState,
+        message: driverError?.message ?? error.message,
+      };
+    }
+    return {
+      code: (error as { code?: string }).code,
+      errno: (error as { errno?: number }).errno,
+      sqlState: (error as { sqlState?: string }).sqlState,
+      message: error instanceof Error ? error.message : undefined,
+    };
+  }
+
+  private hasTraceSeqUniqueName(message?: string): boolean {
+    if (!message) {
+      return false;
+    }
+    return (
+      message.includes('uk_ai_provider_call_trace_seq') ||
+      message.includes('uq_ai_provider_call_trace_seq') ||
+      message.includes('ai_provider_call_records.trace_id_call_seq')
+    );
+  }
+
+  private toNullable<T>(value: T | null | undefined): T | null {
+    return value ?? null;
   }
 
   private toView(entity: AiProviderCallRecordEntity): AiProviderCallRecordView {

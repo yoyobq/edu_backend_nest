@@ -35,7 +35,7 @@ export class CreateAiProviderCallRecordsTable1773889200000 implements MigrationI
         \`created_at\` timestamp(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间（系统事件时间）',
         \`updated_at\` timestamp(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '更新时间（系统事件时间）',
         PRIMARY KEY (\`id\`),
-        KEY \`idx_ai_provider_call_trace_seq\` (\`trace_id\`,\`call_seq\`),
+        UNIQUE KEY \`uk_ai_provider_call_trace_seq\` (\`trace_id\`,\`call_seq\`),
         KEY \`idx_ai_provider_call_async_task_record_id\` (\`async_task_record_id\`),
         KEY \`idx_ai_provider_call_async_task_record_seq\` (\`async_task_record_id\`,\`call_seq\`),
         KEY \`idx_ai_provider_call_account_created_at\` (\`account_id\`,\`created_at\`),

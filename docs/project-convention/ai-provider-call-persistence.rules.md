@@ -45,10 +45,12 @@
 - `trace_id` 不是 HTTP `requestId`。
 - `trace_id` 不是幂等键。
 - `trace_id` 不是 provider 调用记录唯一键。
-- `call_seq`：同一 `trace_id` 下的调用序号，仅用于排序与展示，不承担数据库唯一性。
+- `call_seq`：同一 `trace_id` 下的调用序号，用于排序与展示。
 - `call_seq` 必须由上游程序负责分配。
 - `call_seq` 当前约定为正整数，从 `1` 开始。
-- 若未来出现同一 `trace_id` 下并发子流程，不得假设 `(trace_id, call_seq)` 天然唯一；应先补充 branch / scope 语义字段，再讨论强唯一约束。
+- `(trace_id, call_seq)` 使用唯一约束兜底，防止并发写入产生重复序号。
+- 上游写入入口必须在冲突时重新分配 `call_seq` 并重试写入，不得把唯一冲突直接暴露为最终业务失败。
+- 若未来出现同一 `trace_id` 下并发子流程，应先补充 branch / scope 语义字段，再调整唯一约束维度。
 
 ### actor 与业务锚点字段
 
@@ -98,6 +100,7 @@
 - 本表当前明确采用“数据库尽量少做推导和强约束”的策略。
 - 以下正确性由上游单一写入入口负责保证：
   - `call_seq >= 1`
+  - 发生 `(trace_id, call_seq)` 唯一冲突时，必须重新分配并重试
   - `total_tokens = prompt_tokens + completion_tokens`
   - 当 `prompt_tokens` 或 `completion_tokens` 未知时，`total_tokens = NULL`
   - `provider_latency_ms = provider_finished_at - provider_started_at`

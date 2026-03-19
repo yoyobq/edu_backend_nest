@@ -22,7 +22,7 @@ export type AiProviderCallRecordProviderStatus =
   (typeof AI_PROVIDER_CALL_RECORD_PROVIDER_STATUSES)[number];
 
 @Entity('ai_provider_call_records', { comment: 'AI provider 调用记录表' })
-@Index('idx_ai_provider_call_trace_seq', ['traceId', 'callSeq'])
+@Index('uk_ai_provider_call_trace_seq', ['traceId', 'callSeq'], { unique: true })
 @Index('idx_ai_provider_call_async_task_record_id', ['asyncTaskRecordId'])
 @Index('idx_ai_provider_call_async_task_record_seq', ['asyncTaskRecordId', 'callSeq'])
 @Index('idx_ai_provider_call_account_created_at', ['accountId', 'createdAt'])
