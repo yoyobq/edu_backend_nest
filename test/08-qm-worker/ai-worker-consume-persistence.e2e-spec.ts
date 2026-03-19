@@ -500,6 +500,9 @@ describe('AI Worker 消费落库阶段（e2e）', () => {
       expect(record.status).toBe('succeeded');
       expect(aiWorkerMock.generateCalls.length - callsBefore).toBe(1);
       expect(providerCallRecord.asyncTaskRecordId).toBe(record.id);
+      expect(providerCallRecord.source).toBe('system');
+      expect(providerCallRecord.bizType).toBe('ai_generation');
+      expect(providerCallRecord.bizKey).toBe(record.bizKey);
       expect(providerCallRecord.callSeq).toBeGreaterThanOrEqual(1);
       expect(providerCallRecord.providerStatus).toBe('succeeded');
       expect(providerCallRecord.provider).toBe('mock');
