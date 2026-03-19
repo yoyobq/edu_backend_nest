@@ -133,6 +133,8 @@ class MockAiWorkerService {
     return {
       accepted: true,
       outputText: `mock-output:${input.prompt.trim()}`,
+      provider: 'mock',
+      model: input.model,
       providerJobId: `mock-g-${this.generateCalls.length}`,
     };
   }
@@ -149,6 +151,8 @@ class MockAiWorkerService {
     return {
       accepted: true,
       vector: [0.11, 0.22, 0.33, 0.44],
+      provider: 'mock',
+      model: input.model,
       providerJobId: `mock-e-${this.embedCalls.length}`,
     };
   }

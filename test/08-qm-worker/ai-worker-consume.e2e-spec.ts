@@ -9,6 +9,7 @@ import { WorkerModule } from '@src/bootstraps/worker/worker.module';
 import { BULLMQ_JOBS, BULLMQ_QUEUES } from '@src/infrastructure/bullmq/bullmq.constants';
 import { BullMqProducerGateway } from '@src/infrastructure/bullmq/producer.gateway';
 import { BullMqWorkerRuntime } from '@src/infrastructure/bullmq/worker.runtime';
+import { AiProviderCallRecordEntity } from '@src/modules/ai-provider-call-record/ai-provider-call-record.entity';
 import {
   AsyncTaskRecordEntity,
   type AsyncTaskRecordStatus,
@@ -59,6 +60,8 @@ class MockAiWorkerService {
     return {
       accepted: true,
       outputText: `mock-output:${input.prompt.trim()}`,
+      provider: 'mock',
+      model: input.model,
       providerJobId: `mock-g-${this.generateCalls.length}`,
     };
   }
@@ -75,6 +78,8 @@ class MockAiWorkerService {
     return {
       accepted: true,
       vector: [0.11, 0.22, 0.33, 0.44],
+      provider: 'mock',
+      model: input.model,
       providerJobId: `mock-e-${this.embedCalls.length}`,
     };
   }
@@ -227,6 +232,31 @@ const countAsyncTaskRecords = async (input: {
   return await input.dataSource.getRepository(AsyncTaskRecordEntity).count({
     where: { queueName: input.queueName, jobId: input.jobId },
   });
+};
+
+const waitLatestProviderCallRecord = async (input: {
+  readonly dataSource: DataSource;
+  readonly traceId: string;
+  readonly status?: 'succeeded' | 'failed';
+  readonly timeoutMs: number;
+  readonly pollMs: number;
+}): Promise<AiProviderCallRecordEntity> => {
+  const deadline = Date.now() + input.timeoutMs;
+  while (Date.now() < deadline) {
+    const where =
+      input.status === undefined
+        ? { traceId: input.traceId }
+        : { traceId: input.traceId, providerStatus: input.status };
+    const record = await input.dataSource.getRepository(AiProviderCallRecordEntity).findOne({
+      where,
+      order: { id: 'DESC' },
+    });
+    if (record) {
+      return record;
+    }
+    await sleep(input.pollMs);
+  }
+  throw new Error(`AI provider call record was not created in time: ${input.traceId}`);
 };
 
 const waitLatestMissingRecord = async (input: {
@@ -422,6 +452,23 @@ describe('AI Worker（e2e）', () => {
       expect(record.startedAt).toBeInstanceOf(Date);
       expect(record.finishedAt).toBeInstanceOf(Date);
       expect(aiWorkerMock.generateCalls.length - callsBefore).toBe(1);
+      const providerCallRecord = await waitLatestProviderCallRecord({
+        dataSource,
+        traceId,
+        status: 'succeeded',
+        timeoutMs: 20000,
+        pollMs: 150,
+      });
+      expect(providerCallRecord.asyncTaskRecordId).toBe(record.id);
+      expect(providerCallRecord.callSeq).toBeGreaterThanOrEqual(1);
+      expect(providerCallRecord.providerStatus).toBe('succeeded');
+      expect(providerCallRecord.provider).toBe('mock');
+      expect(providerCallRecord.model).toBe('gpt-4o-mini');
+      expect(providerCallRecord.taskType).toBe('generate');
+      expect(providerCallRecord.providerRequestId).toContain('mock-g-');
+      expect(providerCallRecord.providerStartedAt).toBeInstanceOf(Date);
+      expect(providerCallRecord.providerFinishedAt).toBeInstanceOf(Date);
+      expect(providerCallRecord.providerLatencyMs).toBeGreaterThanOrEqual(0);
     } finally {
       await workerRuntime.start();
     }
@@ -471,6 +518,19 @@ describe('AI Worker（e2e）', () => {
       expect(record.bizKey).toBe(traceId);
       expect(record.reason).toBe('worker_completed');
       expect(aiWorkerMock.embedCalls.length - callsBefore).toBe(1);
+      const providerCallRecord = await waitLatestProviderCallRecord({
+        dataSource,
+        traceId,
+        status: 'succeeded',
+        timeoutMs: 20000,
+        pollMs: 150,
+      });
+      expect(providerCallRecord.asyncTaskRecordId).toBe(record.id);
+      expect(providerCallRecord.providerStatus).toBe('succeeded');
+      expect(providerCallRecord.provider).toBe('mock');
+      expect(providerCallRecord.model).toBe('text-embedding-3-small');
+      expect(providerCallRecord.taskType).toBe('embed');
+      expect(providerCallRecord.providerRequestId).toContain('mock-e-');
     } finally {
       await workerRuntime.start();
     }
@@ -537,6 +597,23 @@ describe('AI Worker（e2e）', () => {
       expect(record.status).toBe('failed');
       expect(record.reason).toContain('worker_failed:');
       expect(record.reason).toContain('Mock AI generate failure');
+      const providerCallRecord = await waitLatestProviderCallRecord({
+        dataSource,
+        traceId,
+        status: 'failed',
+        timeoutMs: 20000,
+        pollMs: 150,
+      });
+      expect(providerCallRecord.asyncTaskRecordId).toBe(record.id);
+      expect(providerCallRecord.providerStatus).toBe('failed');
+      expect(providerCallRecord.provider).toBe('openai');
+      expect(providerCallRecord.model).toBe('gpt-4o-mini');
+      expect(providerCallRecord.taskType).toBe('generate');
+      expect(providerCallRecord.normalizedErrorCode).toContain('Mock AI generate failure');
+      expect(providerCallRecord.errorMessage).toContain('Mock AI generate failure');
+      expect(providerCallRecord.providerStartedAt).toBeInstanceOf(Date);
+      expect(providerCallRecord.providerFinishedAt).toBeInstanceOf(Date);
+      expect(providerCallRecord.providerLatencyMs).toBeGreaterThanOrEqual(0);
     } finally {
       await workerRuntime.start();
     }

@@ -10,6 +10,8 @@ describe('AiWorkerService', () => {
       Promise.resolve({
         accepted: true,
         vector: [0.1, 0.2, 0.3],
+        provider: 'mock',
+        model: 'text-embedding-v1',
         providerJobId: 'mock:e2e',
       }),
     );
