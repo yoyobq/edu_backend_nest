@@ -121,7 +121,11 @@ async function queryAccount(app: INestApplication, token: string, accountId: num
             id
             loginName
             loginEmail
-            recentLoginHistory
+            recentLoginHistory {
+              ip
+              timestamp
+              audience
+            }
           }
         }
       `,

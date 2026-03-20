@@ -68,11 +68,12 @@ describe('00-App 全局测试', () => {
     }
   });
 
-  it('HTTP 服务器应该正常响应根路径', async () => {
-    const response = await request(app.getHttpServer()).get('/').expect(200);
+  it('HTTP 服务器应该正常响应健康检查路径', async () => {
+    const response = await request(app.getHttpServer()).get('/health').expect(200);
 
-    expect(response.text).toBeDefined();
-    expect(typeof response.text).toBe('string');
+    expect(response.body).toBeDefined();
+    expect(response.body.status).toBe('ok');
+    expect(response.body.service).toBe('api');
   });
 
   it('应用应该正常启动并初始化', () => {

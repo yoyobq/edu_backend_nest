@@ -1,7 +1,7 @@
 // src/adapters/api/graphql/account/dto/user-account.dto.ts
 
 import { AccountStatus } from '@app-types/models/account.types';
-import { Field, ID, ObjectType } from '@nestjs/graphql';
+import { Field, Int, ObjectType } from '@nestjs/graphql';
 import { LoginHistoryItemGql } from '@src/adapters/api/graphql/account/enums/login-history.types';
 
 /**
@@ -9,7 +9,7 @@ import { LoginHistoryItemGql } from '@src/adapters/api/graphql/account/enums/log
  */
 @ObjectType({ description: '用户账户表数据传输对象' })
 export class UserAccountDTO {
-  @Field(() => ID, { description: '账户 ID' })
+  @Field(() => Int, { description: '账户 ID' })
   id!: number;
 
   @Field(() => String, { description: '登录名', nullable: true })
