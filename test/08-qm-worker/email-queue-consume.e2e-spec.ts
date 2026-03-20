@@ -1095,8 +1095,8 @@ describe('邮件队列与 Worker（e2e）', () => {
 
     it('应覆盖 resetPassword 的 email 触发闭环', async () => {
       const timestamp = Date.now();
-      const oldPassword = `ResetOld@${timestamp}`;
-      const newPassword = `ResetNew@${timestamp}`;
+      const oldPassword = 'Rst!a9K@q2';
+      const newPassword = 'Rst!b7M@w4';
       const loginName = `resetflow${timestamp}`;
       const loginEmail = `reset-flow-${timestamp}@example.com`;
 
