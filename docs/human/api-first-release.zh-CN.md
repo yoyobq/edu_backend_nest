@@ -178,11 +178,18 @@
 
   - 进程启动成功，无配置缺失错误
   - 数据库连接正常
+  - `GET /health` 返回 200，且响应包含 `status=ok`
+  - `GET /health/readiness` 返回 200，且数据库检查为 `up`
   - GraphQL 入口可访问
   - JWT 签发与鉴权正常
   - 结构化日志正常输出
   - 常规 4xx/5xx 日志格式符合预期
   - 若启用了第三方登录或二维码能力，相关入口按预期工作
+
+  说明：
+
+  - `GET /health` 用于 liveness 检查
+  - `GET /health/readiness` 用于 readiness 检查；当数据库不可用时应返回 503
 
   ## 8. 最小业务验收链路
 

@@ -16,6 +16,7 @@ import { ApiModule } from '@src/bootstraps/api/api.module';
 async function bootstrap() {
   initGraphQLSchema();
   const app = await NestFactory.create(ApiModule);
+  app.enableShutdownHooks();
 
   // 隐匿技术栈：移除 Express 默认的 X-Powered-By 响应头
   const expressApp = app.getHttpAdapter().getInstance() as unknown as Express;
