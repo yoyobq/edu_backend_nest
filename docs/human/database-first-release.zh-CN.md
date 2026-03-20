@@ -1,4 +1,4 @@
-  <!-- docs/human/database-first-release-delivery.md -->
+  <!-- docs/human/database-first-release.zh-CN.md -->
 
   # 数据库首次交付与上线操作说明
 
@@ -6,8 +6,7 @@
 
   - 本文是数据库交付的操作文档
   - 本文回答“上线时具体怎么做”
-  - 设计原则、边界与约束说明，继续以 [database-baseline-delivery.rules.md](./database-baseline-
-  delivery.rules.md) 为准。
+  - 设计原则、边界与约束说明，继续以 [database-baseline-delivery.rules.md](../project-convention/database-baseline-delivery.rules.md) 为准。
 
   ## 适用范围
 
@@ -91,6 +90,7 @@
   - 该命令面向“首次建表交付”。
   - 指定目标库时，脚本会先清空目标库再执行 migration。
   - 因此目标库必须是空库，或明确允许被清空。
+  - 如果目标库中已有不可丢弃数据：
 
   - 不要执行本文流程。
   - 应停止发布。
@@ -158,7 +158,7 @@
 
   ## 与现有文档的关系
 
-  - 原则文档：./database-baseline-delivery.rules.md
+  - 原则文档：../project-convention/database-baseline-delivery.rules.md
   - 本文：首次发布时的数据库交付 SOP
 
   两者分工如下：

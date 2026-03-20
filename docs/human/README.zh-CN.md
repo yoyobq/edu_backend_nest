@@ -1,4 +1,4 @@
-  <!-- docs/README.md -->
+  <!-- docs/human/README.zh-CN.md -->
 
  # 文档导航
  
@@ -29,10 +29,11 @@
   - `docs/project-convention/`
     - 当前项目的专题约定，如输入收敛、时间语义、数据库 baseline、E2E 分组
 
+  ## 任务路由
+
   - 看分层边界：
     - 先读 `docs/common/core.rules.md`
-    - 再按层读 `docs/common/modules.rules.md`、`docs/common/usecase.rules.md`、`docs/api/
-  adapters.rules.md`、`docs/common/infrastructure.rules.md`
+    - 再按层读 `docs/common/modules.rules.md`、`docs/common/usecase.rules.md`、`docs/api/adapters.rules.md`、`docs/common/infrastructure.rules.md`
   - 看 QueryService / 类型归位：
     - 读 `docs/common/queryservice.rules.md` 和 `docs/common/type_rules.md`
   - 看输入收敛：

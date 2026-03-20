@@ -1,4 +1,4 @@
- <!-- docs/human/worker-fist-release.zh-CN.md -->
+<!-- docs/human/worker-first-release.zh-CN.md -->
  
  # Worker First Release Guide
 
@@ -168,6 +168,9 @@
 
   - 进程启动成功，无配置缺失错误
   - 数据库连接正常
+  - Redis 连接正常，未出现认证、网络或 DB 选择错误
+  - BullMQ runtime 初始化成功，关键队列已正确注册
+  - 至少一条测试任务可被 Worker 拉取并进入可观测的消费状态
 
   ## 8. 最小业务验收链路
 
