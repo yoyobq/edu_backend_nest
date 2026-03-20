@@ -1,4 +1,4 @@
-<!-- file: /var/www/worker-backend/docs/common/type_rules.md -->
+<!-- file: docs/common/type_rules.md -->
 
 # Type 管理规则（NestJS + TypeScript + GraphQL）
 

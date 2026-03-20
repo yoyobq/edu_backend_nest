@@ -1,4 +1,9 @@
-<!-- /var/www/worker-backend/docs/worker/qm-worker-integration.rules.md -->
+<!-- docs/worker/qm-worker-integration.rules.md -->
+
+Purpose: Define end-to-end queue integration guardrails for QM worker additions.
+Read when: You are implementing, reviewing, or refactoring new queue onboarding across API and worker.
+Do not read when: Your task does not change QM worker integration boundaries.
+Source of truth: This file defines QM worker integration rules; code examples elsewhere must not override it.
 
 # QM Worker 接入规则
 

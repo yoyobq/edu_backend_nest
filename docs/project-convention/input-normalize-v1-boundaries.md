@@ -1,4 +1,4 @@
-<!-- /var/www/worker-backend/docs/project-convention/input-normalize-v1-boundaries.md -->
+<!-- docs/project-convention/input-normalize-v1-boundaries.md -->
 
 # input normalize v1：函数职责与边界建议
 

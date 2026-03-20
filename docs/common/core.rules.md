@@ -1,4 +1,9 @@
-<!-- /var/www/worker-backend/docs/common/core.rules.md -->
+<!-- docs/common/core.rules.md -->
+
+Purpose: Define pure domain, value object, and port guardrails for core.
+Read when: You are implementing, reviewing, or refactoring domain models, value objects, or core ports.
+Do not read when: Your task does not change core layer boundaries.
+Source of truth: This file defines core rules; code examples elsewhere must not override it.
 
 # Core 说明
 

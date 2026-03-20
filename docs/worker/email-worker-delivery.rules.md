@@ -1,4 +1,9 @@
-<!-- /var/www/worker-backend/docs/worker/email-worker-delivery.rules.md -->
+<!-- docs/worker/email-worker-delivery.rules.md -->
+Purpose: Define email worker delivery, sendmail invocation, and Postfix boundary guardrails.
+Read when: You are implementing, reviewing, or refactoring email queue delivery and sender handling.
+Do not read when: Your task does not change email worker delivery boundaries.
+Source of truth: This file defines email worker delivery rules; code examples elsewhere must not override it.
+
 # Email Worker Delivery 说明
 
 ## 分层落位

@@ -1,4 +1,4 @@
-// /var/www/worker-backend/src/modules/common/email-worker/email-delivery.service.ts
+// src/modules/common/email-worker/email-delivery.service.ts
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { spawn } from 'node:child_process';

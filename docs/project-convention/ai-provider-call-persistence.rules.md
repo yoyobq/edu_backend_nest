@@ -1,5 +1,10 @@
 <!-- docs/project-convention/ai-provider-call-persistence.rules.md -->
 
+Purpose: Define persistence semantics and write boundaries for ai_provider_call_records.
+Read when: You are implementing, reviewing, or refactoring AI provider call record writes or fields.
+Do not read when: Your task does not change provider-call record boundaries.
+Source of truth: This file defines provider-call record rules; code examples elsewhere must not override it.
+
 # AI Provider 调用落库规则
 
 ## 目标

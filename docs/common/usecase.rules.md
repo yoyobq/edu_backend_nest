@@ -1,3 +1,8 @@
+Purpose: Define orchestration, transaction, dependency, and permission guardrails for usecases.
+Read when: You are adding or changing a usecase, or reviewing write-side orchestration.
+Do not read when: You are only changing adapter DTOs, infrastructure wiring, or pure domain models.
+Source of truth: This file defines usecase boundaries and overrides informal examples elsewhere.
+
 # Usecase 说明
 
 - Worker 场景下的专项约束另见 `docs/worker/worker-usecase.rules.md`。

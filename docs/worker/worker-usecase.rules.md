@@ -1,4 +1,9 @@
-<!-- /var/www/worker-backend/docs/worker/worker-usecase.rules.md -->
+<!-- docs/worker/worker-usecase.rules.md -->
+
+Purpose: Define orchestration, write-side, and lifecycle guardrails for worker usecases.
+Read when: You are implementing, reviewing, or refactoring worker usecase lifecycle orchestration.
+Do not read when: Your task does not change worker usecase boundaries.
+Source of truth: This file defines worker usecase rules; code examples elsewhere must not override it.
 
 # Worker Usecase 说明
 

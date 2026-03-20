@@ -1,5 +1,10 @@
 <!-- docs/common/modules.extra.rules.md -->
 
+Purpose: Define optional but recommended guardrails for modules(service) implementation patterns.
+Read when: You are implementing, reviewing, or refactoring module-level pagination or same-domain transaction helpers.
+Do not read when: Your task does not change optional modules(service) practice boundaries.
+Source of truth: This file defines modules(service) supplementary rules; code examples elsewhere must not override it.
+
 # Modules(service) 补充说明
 
 本说明用于记录 modules(service) 的可选能力与实践约定。属于非强制规则，需要时查阅即可。

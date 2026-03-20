@@ -1,3 +1,8 @@
+Purpose: Define first-release schema baseline and empty-database migration delivery guardrails.
+Read when: You are creating, reviewing, or validating baseline migration delivery and empty-db drills.
+Do not read when: Your task does not change baseline migration delivery boundaries.
+Source of truth: This file defines baseline delivery rules; code examples elsewhere must not override it.
+
   # Database Baseline Delivery Rules
 
   ## 目的

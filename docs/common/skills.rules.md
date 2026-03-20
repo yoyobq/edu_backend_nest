@@ -1,4 +1,9 @@
-<!-- 文件位置： /var/www/worker-backend/docs/common/skills.rules.md -->
+<!-- 文件位置： docs/common/skills.rules.md -->
+
+Purpose: Define authoring and usage guardrails for reusable skills.
+Read when: You are implementing, reviewing, or refactoring skill definitions and trigger descriptions.
+Do not read when: Your task does not change skill authoring boundaries.
+Source of truth: This file defines skill rules; code examples elsewhere must not override it.
 
 # Skills 生成与使用建议
 

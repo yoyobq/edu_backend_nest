@@ -1,4 +1,9 @@
-<!-- 文件位置: /var/www/worker-backend/docs/common/queryservice.rules.md -->
+<!-- 文件位置: docs/common/queryservice.rules.md -->
+
+Purpose: Define read-side access, permission, and normalization guardrails for QueryService.
+Read when: You are implementing, reviewing, or refactoring modules queries and read-side output shaping.
+Do not read when: Your task does not change QueryService boundaries.
+Source of truth: This file defines QueryService rules; code examples elsewhere must not override it.
 
 # QueryService 说明
 

@@ -1,4 +1,9 @@
-<!-- /var/www/worker-backend/docs/common/ai-task-lifecycle-audit.rules.md -->
+<!-- docs/common/ai-task-lifecycle-audit.rules.md -->
+
+Purpose: Define audit semantics and write guardrails for AI task lifecycle records.
+Read when: You are implementing, reviewing, or refactoring AI enqueue/worker lifecycle status updates.
+Do not read when: Your task does not change AI lifecycle audit boundaries.
+Source of truth: This file defines AI lifecycle audit rules; code examples elsewhere must not override it.
 
 # AI 任务生命周期审计补充规则
 

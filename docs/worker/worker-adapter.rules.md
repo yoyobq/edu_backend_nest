@@ -1,4 +1,9 @@
-<!-- /var/www/worker-backend/docs/worker/worker-adapter.rules.md -->
+<!-- docs/worker/worker-adapter.rules.md -->
+
+Purpose: Define runtime adaptation guardrails for worker adapters.
+Read when: You are implementing, reviewing, or refactoring worker processors and lifecycle event handlers.
+Do not read when: Your task does not change worker adapter runtime boundaries.
+Source of truth: This file defines worker adapter rules; code examples elsewhere must not override it.
 
 # Worker Adapter 说明
 

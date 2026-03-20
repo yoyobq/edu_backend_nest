@@ -1,4 +1,9 @@
-<!-- /var/www/worker-backend/docs/common/infrastructure.rules.md -->
+<!-- docs/common/infrastructure.rules.md -->
+
+Purpose: Define external dependency and runtime implementation guardrails for infrastructure.
+Read when: You are implementing, reviewing, or refactoring database, SDK, queue, or runtime adapters.
+Do not read when: Your task does not change infrastructure layer boundaries.
+Source of truth: This file defines infrastructure rules; code examples elsewhere must not override it.
 
 # Infrastructure 说明
 

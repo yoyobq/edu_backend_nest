@@ -1,5 +1,10 @@
 <!-- docs/api/adapters.rules.md -->
 
+Purpose: Define protocol adaptation guardrails for API adapters.
+Read when: You are implementing, reviewing, or refactoring GraphQL/HTTP adapter entry logic.
+Do not read when: Your task does not change adapter protocol boundaries.
+Source of truth: This file defines adapter boundaries; code examples elsewhere must not override it.
+
 # Adapter 说明
 
 ## 定位与职责

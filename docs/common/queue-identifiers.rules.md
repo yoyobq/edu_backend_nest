@@ -1,4 +1,9 @@
-<!-- /var/www/worker-backend/docs/common/queue-identifiers.rules.md -->
+<!-- docs/common/queue-identifiers.rules.md -->
+
+Purpose: Define identifier semantics for jobId, dedupKey, traceId, and requestId in queue flows.
+Read when: You are implementing, reviewing, or refactoring queue identifier generation or propagation.
+Do not read when: Your task does not change queue identifier boundaries.
+Source of truth: This file defines queue identifier rules; code examples elsewhere must not override it.
 
 # Queue Identifiers 说明
 

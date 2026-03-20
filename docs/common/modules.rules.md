@@ -1,5 +1,10 @@
 <!-- docs/common/modules.rules.md -->
 
+Purpose: Define service reuse, dependency, and exposure guardrails for modules(service).
+Read when: You are implementing, reviewing, or refactoring modules(service) or QueryService placement.
+Do not read when: Your task does not change modules(service) responsibility boundaries.
+Source of truth: This file defines modules(service) boundaries; code examples elsewhere must not override it.
+
 # Modules(service) 说明
 
 ## 定位与职责
