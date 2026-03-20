@@ -13,6 +13,8 @@ import { PinoLogger } from 'nestjs-pino';
  */
 @Injectable()
 export class FormatResponseMiddleware implements NestMiddleware {
+  private readonly bypassPaths = new Set<string>(['/health', '/health/readiness']);
+
   constructor(private readonly logger: PinoLogger) {
     this.logger.setContext(FormatResponseMiddleware.name);
   }
@@ -25,6 +27,9 @@ export class FormatResponseMiddleware implements NestMiddleware {
       const originalJson = res.json.bind(res);
       res.json = (body: unknown): Response => {
         try {
+          if (this.shouldBypassFormatting(req)) {
+            return originalJson(body);
+          }
           const formattedBody = this.formatToAntdProResponse(req, body);
           return originalJson(formattedBody);
         } catch (error) {
@@ -134,5 +139,9 @@ export class FormatResponseMiddleware implements NestMiddleware {
    */
   private generateRequestId(): string {
     return `${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
+  }
+
+  private shouldBypassFormatting(req: Request): boolean {
+    return this.bypassPaths.has(req.path);
   }
 }
