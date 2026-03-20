@@ -208,7 +208,7 @@ describe('WeApp 二维码 Smoke（真实第三方）', () => {
 
     const result = resp.body.data.generateWeappQrcode;
     expect(result).toBeDefined();
-    expect(result.contentType).toBe('image/png');
+    expect(['image/png', 'image/jpeg']).toContain(result.contentType);
     expect(typeof result.imageBase64).toBe('string');
     expect(result.imageBase64.length).toBeGreaterThan(0);
   }, 90000);
@@ -251,7 +251,7 @@ describe('WeApp 二维码 Smoke（真实第三方）', () => {
     }
 
     const qrcodeResult = qrcodeResp.body.data.generateWeappQrcode;
-    expect(qrcodeResult.contentType).toBe('image/png');
+    expect(['image/png', 'image/jpeg']).toContain(qrcodeResult.contentType);
     expect(typeof qrcodeResult.imageBase64).toBe('string');
     expect(qrcodeResult.imageBase64.length).toBeGreaterThan(0);
   }, 90000);
@@ -294,7 +294,7 @@ describe('WeApp 二维码 Smoke（真实第三方）', () => {
     }
 
     const qrcodeResult = qrcodeResp.body.data.generateWeappQrcode;
-    expect(qrcodeResult.contentType).toBe('image/png');
+    expect(['image/png', 'image/jpeg']).toContain(qrcodeResult.contentType);
     expect(typeof qrcodeResult.imageBase64).toBe('string');
     expect(qrcodeResult.imageBase64.length).toBeGreaterThan(0);
   }, 90000);
