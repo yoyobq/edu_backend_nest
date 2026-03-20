@@ -110,6 +110,26 @@ async function updateUserInfo(
     .expect(200);
 }
 
+async function queryAccount(app: INestApplication, token: string, accountId: number) {
+  return await request(app.getHttpServer())
+    .post('/graphql')
+    .set('Authorization', `Bearer ${token}`)
+    .send({
+      query: `
+        query Account($id: Int!) {
+          account(id: $id) {
+            id
+            loginName
+            loginEmail
+            recentLoginHistory
+          }
+        }
+      `,
+      variables: { id: accountId },
+    })
+    .expect(200);
+}
+
 /**
  * 读取账户的 identityHint
  */
@@ -578,6 +598,21 @@ describe('UpdateVisibleUserInfo (e2e)', () => {
       expect(resp.body.errors).toBeDefined();
       const gqlCode = resp.body.errors?.[0]?.extensions?.code;
       expect(gqlCode).toBe('BAD_USER_INPUT');
+    });
+
+    it('account 查询跨账号读取应拒绝', async () => {
+      const res = await queryAccount(app, managerToken, learnerAccountId);
+      expect(res.body.errors).toBeDefined();
+      expect(res.body.errors?.[0]?.extensions?.errorCode).toBe('ACCESS_DENIED');
+    });
+  });
+
+  describe('account 查询鉴权', () => {
+    it('account 查询本人账号应允许', async () => {
+      const res = await queryAccount(app, managerToken, managerAccountId);
+      expect(res.body.errors).toBeUndefined();
+      expect(res.body.data.account.id).toBe(managerAccountId);
+      expect(res.body.data.account.loginEmail).toBeDefined();
     });
   });
 });

@@ -17,8 +17,22 @@ export type VisibleDetailMode = 'BASIC' | 'FULL';
 export class AccountQueryService {
   constructor(private readonly accountService: AccountService) {}
 
-  async getAccountById(accountId: number): Promise<UserAccountView> {
-    return this.accountService.getAccountById(accountId);
+  async getAccountById(params: {
+    session: UsecaseSession;
+    targetAccountId: number;
+  }): Promise<UserAccountView> {
+    const { session, targetAccountId } = params;
+
+    if (!Number.isInteger(targetAccountId) || targetAccountId <= 0) {
+      throw new DomainError(PERMISSION_ERROR.ACCESS_DENIED, '非法的目标账户 ID');
+    }
+
+    const allowed = await this.isAllowedToView(session, targetAccountId);
+    if (!allowed) {
+      throw new DomainError(PERMISSION_ERROR.ACCESS_DENIED, '无权限查看该账户信息');
+    }
+
+    return this.accountService.getAccountById(targetAccountId);
   }
 
   toUserAccountView(account: AccountEntity): UserAccountView {

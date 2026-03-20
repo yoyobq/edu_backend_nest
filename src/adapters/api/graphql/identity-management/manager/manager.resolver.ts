@@ -1,4 +1,5 @@
 // src/adapters/api/graphql/identity-management/manager/manager.resolver.ts
+import { mapJwtToUsecaseSession } from '@app-types/auth/session.types';
 import { JwtPayload } from '@app-types/jwt.types';
 import { EmploymentStatus } from '@app-types/models/account.types';
 import { UserState } from '@app-types/models/user-info.types';
@@ -82,7 +83,10 @@ export class ManagerResolver {
         userState = null;
       }
       try {
-        const account = await this.getAccountByIdUsecase.execute(entity.accountId);
+        const account = await this.getAccountByIdUsecase.execute({
+          session: mapJwtToUsecaseSession(user),
+          targetAccountId: entity.accountId,
+        });
         loginHistory = account.recentLoginHistory ?? null;
       } catch {
         loginHistory = null;

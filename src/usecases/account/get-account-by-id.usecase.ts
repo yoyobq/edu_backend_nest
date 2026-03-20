@@ -1,4 +1,5 @@
 // 文件位置：src/usecases/account/get-account-by-id.usecase.ts
+import { UsecaseSession } from '@app-types/auth/session.types';
 import { Injectable } from '@nestjs/common';
 import { AccountQueryService } from '@src/modules/account/queries/account.query.service';
 
@@ -10,9 +11,12 @@ export class GetAccountByIdUsecase {
 
   /**
    * 获取账户详情
-   * @param accountId 账户 ID
+   * @param params 查询参数
    */
-  async execute(accountId: number): Promise<AccountDetail> {
-    return await this.accountQueryService.getAccountById(accountId);
+  async execute(params: {
+    session: UsecaseSession;
+    targetAccountId: number;
+  }): Promise<AccountDetail> {
+    return await this.accountQueryService.getAccountById(params);
   }
 }
