@@ -57,6 +57,11 @@
   - `APP_CORS_ORIGINS`
   - `APP_CORS_CREDENTIALS`
 
+  ### GraphQL 暴露开关
+
+  - `GRAPHQL_SANDBOX_ENABLED`
+  - `GRAPHQL_INTROSPECTION_ENABLED`
+
   ### 数据库
 
   - `DB_HOST`
@@ -115,11 +120,15 @@
   - `AI_PROVIDER_MODE`
   - `QWEN_BASE_URL`
   - `QWEN_API_KEY`
-  - `QWEN_GENERATE_MODEL`
   - `QWEN_GENERATE_TIMEOUT_MS`
   - `OPENAI_BASE_URL`
   - `OPENAI_API_KEY`
   - `OPENAI_GENERATE_TIMEOUT_MS`
+
+  说明：
+
+  - `QWEN_GENERATE_MODEL` 不是运行时读取项，不作为首发必查环境变量
+  - Qwen / OpenAI 的 `model` 由任务输入 payload 提供，不通过 env 固定
 
   ### 微信小程序
 
@@ -142,8 +151,8 @@
 
   当前代码语义要点：
 
-  - `GRAPHQL_SANDBOX_ENABLED` 未显式设置时，生产环境默认关闭 sandbox
-  - `introspection` 当前配置为开启，若正式环境不希望暴露，需要在发布策略中明确处理
+  - 生产环境冻结校验要求显式提供 `GRAPHQL_SANDBOX_ENABLED` 与 `GRAPHQL_INTROSPECTION_ENABLED`
+  - 两个开关在“未显式设置”时都采用 `!isProduction`，因此生产环境默认关闭 sandbox 与 introspection
   - CORS 来源由 `APP_CORS_ORIGINS` 控制，不应留空后直接对公网开放
 
   ## 6. 启动顺序
