@@ -22,7 +22,7 @@
 
   - QueryService or type placement:
     - `docs/common/queryservice.rules.md`
-    - `docs/common/type_rules.md`
+    - `docs/common/type.rules.md`
 
   - Input normalization:
     - `docs/project-convention/input-field-design.md`
@@ -63,7 +63,7 @@
   - `adapters.rules`: protocol adaptation only
   - `infrastructure.rules`: external/runtime implementation only
   - `queryservice.rules`: read-side access and normalized output
-  - `type_rules`: where shared vs local types belong
+  - `type.rules`: where shared vs local types belong
   - `queue-identifiers.rules`: `jobId` vs `dedupKey` vs `traceId`
   - `ai-task-lifecycle-audit.rules`: async task audit semantics
   - `ai-provider-call-persistence.rules`: provider-call record semantics

@@ -15,8 +15,10 @@ Source of truth: This file defines skill rules; code examples elsewhere must not
 
 ## 目录结构
 
-- 根目录： .trae/skills/
-- 单个 Skill： .trae/skills/<skill-name>/SKILL.md
+- 根目录： 请根据 agnet 的规定建立
+    - trae 项目: .trae/skills/
+    - codex 项目 ~/codex/skills
+- 单个 Skill： <skill-name>/SKILL.md
 
 ## 命名规范
 
@@ -34,20 +36,21 @@ Source of truth: This file defines skill rules; code examples elsewhere must not
 ```markdown
 ---
 name: 'e2e-spec-toggle'
-description: 'Toggles E2E spec selection in test/jest-e2e.js and runs project-wide E2E. Invoke when enabling or disabling specific E2E files or running the full E2E suite.'
+description: 'Runs E2E by group or single file via test/run-e2e-group.js. Invoke when executing one spec, switching group, or running smoke with real provider toggles.'
 ---
 
 # E2E Spec Toggle
 
 ## 何时使用
 
-- 需要逐文件开关 E2E 测试时
+- 需要按分组执行 E2E（core / worker / smoke）时
+- 需要单文件执行 E2E 并快速回归时
 
 ## 操作步骤
 
-1. 打开 test/jest-e2e.js 并定位 ENABLED_SPECS。
-2. 注释或取消注释目标文件。
-3. 执行 npm run test:e2e 并确认输出。
+1. 单文件优先使用 npm run test:e2e:file -- <spec>。
+2. 分组回归使用 npm run test:e2e:core / worker / smoke。
+3. 真实 third-party smoke 仅在用户明确要求时执行。
 ```
 
 ## 内容建议

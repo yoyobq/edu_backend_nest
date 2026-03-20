@@ -1,5 +1,10 @@
 <!-- docs/project-convention/input-normalize-v1-boundaries.md -->
 
+Purpose: Define function-level guardrails and boundaries for input normalize v1 primitives.
+Read when: You are implementing, reviewing, or refactoring normalizeRequiredText and related normalize helpers.
+Do not read when: Your task does not change input normalization function boundaries.
+Source of truth: This file defines input normalize boundaries; code examples elsewhere must not override it.
+
 # input normalize v1：函数职责与边界建议
 
 - 整个 input normalize 是一次通用输入收敛尝试，不是强制一次性替换；接入后要配套测试

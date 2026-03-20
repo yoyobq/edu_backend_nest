@@ -35,7 +35,7 @@
     - 先读 `docs/common/core.rules.md`
     - 再按层读 `docs/common/modules.rules.md`、`docs/common/usecase.rules.md`、`docs/api/adapters.rules.md`、`docs/common/infrastructure.rules.md`
   - 看 QueryService / 类型归位：
-    - 读 `docs/common/queryservice.rules.md` 和 `docs/common/type_rules.md`
+    - 读 `docs/common/queryservice.rules.md` 和 `docs/common/type.rules.md`
   - 看输入收敛：
     - 先读 `docs/project-convention/input-field-design.md`
     - 再读 `docs/project-convention/input-normalize-v1-boundaries.md`
@@ -83,7 +83,7 @@
     - 队列链路里 `jobId`、`dedupKey`、`traceId`、`requestId` 的职责分离规则
   - `docs/common/skills.rules.md`
     - 如何编写和使用可复用 Skill 的命名、结构和触发描述
-  - `docs/common/type_rules.md`
+  - `docs/common/type.rules.md`
     - Type / enum / GraphQL type 的归位规则，避免重复定义和反向依赖
   - `docs/common/usecase.rules.md`
     - Usecase 的编排边界、事务职责、依赖方向和错误/权限处理规则
