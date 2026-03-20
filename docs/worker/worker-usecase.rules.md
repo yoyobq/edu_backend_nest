@@ -4,6 +4,7 @@ Purpose: Define orchestration, write-side, and lifecycle guardrails for worker u
 Read when: You are implementing, reviewing, or refactoring worker usecase lifecycle orchestration.
 Do not read when: Your task does not change worker usecase boundaries.
 Source of truth: This file defines worker usecase rules; code examples elsewhere must not override it.
+For precedence, see docs/common/rule-precedence.rules.md.
 
 # Worker Usecase 说明
 

@@ -17,6 +17,7 @@
     - `docs/common/modules.rules.md`
     - `docs/common/modules.extra.rules.md`
     - `docs/common/usecase.rules.md`
+    - `docs/common/usecase-write-flow-boundaries.rules.md`
     - `docs/api/adapters.rules.md`
     - `docs/common/infrastructure.rules.md`
 
@@ -54,12 +55,15 @@
   - Skills:
     - `docs/common/skills.rules.md`
 
+  - If multiple documents apply or seem to conflict, read `docs/common/rule-precedence.rules.md` first.
+
   ## One-Line Meanings
 
   - `core.rules`: pure domain only
   - `modules.rules`: reusable same-domain services only
   - `modules.extra.rules`: optional but common modules(service) practices
   - `usecase.rules`: orchestration and transaction ownership
+  - `usecase-write-flow-boundaries.rules`: write-flow split and transaction-root boundaries
   - `adapters.rules`: protocol adaptation only
   - `infrastructure.rules`: external/runtime implementation only
   - `queryservice.rules`: read-side access and normalized output

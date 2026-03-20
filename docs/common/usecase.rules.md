@@ -2,6 +2,7 @@ Purpose: Define orchestration, transaction, dependency, and permission guardrail
 Read when: You are adding or changing a usecase, or reviewing write-side orchestration.
 Do not read when: You are only changing adapter DTOs, infrastructure wiring, or pure domain models.
 Source of truth: This file defines usecase boundaries and overrides informal examples elsewhere.
+For precedence, see docs/common/rule-precedence.rules.md.
 
 # Usecase 说明
 

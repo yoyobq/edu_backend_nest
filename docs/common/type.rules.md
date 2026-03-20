@@ -4,6 +4,7 @@ Purpose: Define placement, reuse, and evolution guardrails for TypeScript type a
 Read when: You are adding, reviewing, or refactoring shared types, enums, or GraphQL-related type placement.
 Do not read when: Your task does not change type ownership or type dependency boundaries.
 Source of truth: This file defines type management rules; code examples elsewhere must not override it.
+For precedence, see docs/common/rule-precedence.rules.md.
 
 # Type 管理规则（NestJS + TypeScript + GraphQL）
 
