@@ -1,5 +1,9 @@
 # AIGC Friendly Architecture Backend
 
+## Start Here
+
+For AI/Agent: read `docs/README.md` first.
+
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![TypeScript](https://img.shields.io/badge/language-TypeScript-3178C6.svg)
 ![NestJS](https://img.shields.io/badge/framework-NestJS-E0234E.svg)
@@ -220,7 +224,7 @@ MIGRATION_DRILL_DATABASE=<目标数据库名> MIGRATION_DRILL_ALLOW_NON_TEST_DB=
 - **写操作 (Command)**: 统一在 `usecases` 层编排，处理事务。
 - **读操作 (Query)**: 优先在 `modules` 层的 Query Service 实现，高性能且无副作用。
 - **外部依赖**: 必须通过 `infrastructure` 实现 `core` 定义的接口，禁止业务层直接依赖 SDK。
-- **GraphQL**: 副作用（如 Dataloader 注册）统一在 `src/adapters/graphql/schema.init.ts` 管理。
+- **GraphQL**: 副作用（如 Dataloader 注册）统一在 `src/adapters/api/graphql/schema/schema.init.ts` 管理。
 
 ## API 访问
 

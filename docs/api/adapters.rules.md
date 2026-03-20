@@ -1,4 +1,4 @@
-<!-- /var/www/worker-backend/docs/api/adapters.rules.md -->
+<!-- docs/api/adapters.rules.md -->
 
 # Adapter 说明
 

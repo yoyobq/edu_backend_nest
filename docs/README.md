@@ -15,6 +15,7 @@
   - Layer boundaries:
     - `docs/common/core.rules.md`
     - `docs/common/modules.rules.md`
+    - `docs/common/modules.extra.rules.md`
     - `docs/common/usecase.rules.md`
     - `docs/api/adapters.rules.md`
     - `docs/common/infrastructure.rules.md`
@@ -57,6 +58,7 @@
 
   - `core.rules`: pure domain only
   - `modules.rules`: reusable same-domain services only
+  - `modules.extra.rules`: optional but common modules(service) practices
   - `usecase.rules`: orchestration and transaction ownership
   - `adapters.rules`: protocol adaptation only
   - `infrastructure.rules`: external/runtime implementation only
