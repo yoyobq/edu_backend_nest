@@ -8,7 +8,8 @@ Source of truth: This file defines modules(service) supplementary rules; code ex
 # Modules(service) 补充说明
 
 本说明用于记录 modules(service) 的可选能力与实践约定。
-属于非强制规则，需要时查阅即可。
+属于补充指引，默认不改变层级所有权
+仅在涉及对应主题时补充实践约束
 
 ## 统一分页服务
 

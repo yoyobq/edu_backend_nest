@@ -10,6 +10,10 @@
   - `docs/project-convention/`: project-specific conventions
   - Do not read `docs/human/` for implementation guidance
 
+  ## Conflict Or Overlap Resolution
+
+  Before applying multiple rule documents, read `docs/common/rule-precedence.rules.md` first.
+
   ## Route By Task
 
   - Layer boundaries:
@@ -54,8 +58,6 @@
 
   - Skills:
     - `docs/common/skills.rules.md`
-
-  - If multiple documents apply or seem to conflict, read `docs/common/rule-precedence.rules.md` first.
 
   ## One-Line Meanings
 
