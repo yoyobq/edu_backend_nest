@@ -21,6 +21,9 @@ force.
    `docs/worker/worker-usecase.rules.md` overrides conflicting parts of `docs/common/usecase.rules.md`
    only for explicitly defined worker-specific execution concerns, such as lifecycle handling, runtime
    input, and retry/failure recording.
+   `docs/common/usecase-write-flow-boundaries.rules.md` overrides conflicting parts of
+   `docs/common/usecase.rules.md` only for write-flow split and transaction-root boundary concerns in
+   non-worker and general usecase orchestration scenarios.
    All other constraints in `docs/common/usecase.rules.md` remain in force.
 
 3. `docs/project-convention/` is a repository-local refinement of `docs/common/`, not a replacement
@@ -52,4 +55,4 @@ If `docs/common/rule-precedence.rules.md` is used to resolve an actual rule conf
 3. which precedence rule was applied;
 4. the final resolution decision.
 
-If this document was consulted but no actual conflict or overlap required resolution, the output must explicitly state that no precedence conflict was triggered.
+If this document was consulted but no actual conflict or overlap required resolution, no output is required

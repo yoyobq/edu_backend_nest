@@ -4,6 +4,7 @@ Purpose: Define write-flow decomposition and transaction-root guardrails for use
 Read when: You are designing, reviewing, or refactoring multi-entity write orchestration in usecases.
 Do not read when: Your task does not change write-flow boundaries or transaction ownership.
 Source of truth: This file defines usecase write-flow boundaries; code examples elsewhere must not override it.
+For precedence, see docs/common/rule-precedence.rules.md.
 
 # 多实体写流程与事务根规则
 

@@ -33,7 +33,9 @@
 
   - 看分层边界：
     - 先读 `docs/common/core.rules.md`
-    - 再按层读 `docs/common/modules.rules.md`、`docs/common/usecase.rules.md`、`docs/api/adapters.rules.md`、`docs/common/infrastructure.rules.md`
+    - 再按层读 `docs/common/modules.rules.md`、`docs/common/usecase.rules.md`、`docs/common/usecase-write-flow-boundaries.rules.md`、`docs/api/adapters.rules.md`、`docs/common/infrastructure.rules.md`
+  - 看规则冲突怎么裁决：
+    - 读 `docs/common/rule-precedence.rules.md`
   - 看 QueryService / 类型归位：
     - 读 `docs/common/queryservice.rules.md` 和 `docs/common/type.rules.md`
   - 看输入收敛：
@@ -79,6 +81,8 @@
     - Modules(service) 负责同域复用服务与 QueryService，禁止跨域编排
   - `docs/common/queryservice.rules.md`
     - QueryService 的职责、拆分原则、读侧权限和输出规范化边界
+  - `docs/common/rule-precedence.rules.md`
+    - 多份规则同时适用时的优先级与冲突裁决顺序
   - `docs/common/queue-identifiers.rules.md`
     - 队列链路里 `jobId`、`dedupKey`、`traceId`、`requestId` 的职责分离规则
   - `docs/common/skills.rules.md`
@@ -87,6 +91,8 @@
     - Type / enum / GraphQL type 的归位规则，避免重复定义和反向依赖
   - `docs/common/usecase.rules.md`
     - Usecase 的编排边界、事务职责、依赖方向和错误/权限处理规则
+  - `docs/common/usecase-write-flow-boundaries.rules.md`
+    - 多实体写流程拆分、跨步骤编排与 Transaction Root 边界规则
 
   ### `docs/project-convention`
 
