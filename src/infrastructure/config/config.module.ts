@@ -4,37 +4,193 @@ import { ConfigFactory, ConfigModule, registerAs } from '@nestjs/config';
 import { parseBooleanInput } from '@core/common/normalize/normalize.helper';
 import { IncomingMessage, ServerResponse } from 'http';
 
-const getRequiredEnv = (key: string): string => {
+const isProductionEnv = (): boolean => process.env.NODE_ENV === 'production';
+
+const getOptionalEnv = (key: string): string | undefined => {
   const value = process.env[key];
-  if (!value || value.trim().length === 0) {
+  if (typeof value !== 'string') {
+    return undefined;
+  }
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : undefined;
+};
+
+const getRequiredEnv = (key: string): string => {
+  const value = getOptionalEnv(key);
+  if (!value) {
     throw new Error(`${key} is required`);
   }
   return value;
 };
 
+const parseStrictInteger = (raw: string): number => {
+  const normalized = raw.trim();
+  if (!/^-?\d+$/.test(normalized)) {
+    return Number.NaN;
+  }
+  return Number(normalized);
+};
+
 const getRequiredIntEnv = (key: string): number => {
   const value = getRequiredEnv(key);
-  const parsed = Number.parseInt(value, 10);
-  if (!Number.isFinite(parsed)) {
+  const parsed = parseStrictInteger(value);
+  if (!Number.isInteger(parsed)) {
     throw new Error(`${key} must be a valid integer`);
   }
   return parsed;
 };
 
+const getIntEnvWithDefault = (key: string, defaultValue: number): number => {
+  const value = getOptionalEnv(key);
+  if (!value) {
+    return defaultValue;
+  }
+  const parsed = parseStrictInteger(value);
+  if (!Number.isInteger(parsed)) {
+    throw new Error(`${key} must be a valid integer`);
+  }
+  return parsed;
+};
+
+const getBooleanEnvWithDefault = (key: string, defaultValue: boolean): boolean => {
+  const raw = process.env[key];
+  const parsed = parseBooleanInput(raw);
+  if (parsed === undefined) {
+    return defaultValue;
+  }
+  return parsed;
+};
+
+const assertProductionEnvFreeze = (): void => {
+  if (!isProductionEnv()) {
+    return;
+  }
+
+  const errors: string[] = [];
+  const requiredKeys = [
+    'APP_HOST',
+    'APP_PORT',
+    'APP_CORS_ENABLED',
+    'APP_CORS_CREDENTIALS',
+    'GRAPHQL_SANDBOX_ENABLED',
+    'GRAPHQL_INTROSPECTION_ENABLED',
+    'DB_HOST',
+    'DB_PORT',
+    'DB_USER',
+    'DB_PASS',
+    'DB_NAME',
+    'DB_SYNCHRONIZE',
+    'DB_LOGGING',
+    'REDIS_HOST',
+    'REDIS_PORT',
+    'REDIS_DB',
+    'REDIS_TLS',
+    'BULLMQ_PREFIX',
+    'JWT_SECRET',
+    'JWT_ENABLE_REFRESH',
+    'PAGINATION_HMAC_SECRET',
+    'FIELD_ENCRYPTION_KEY',
+    'FIELD_ENCRYPTION_IV',
+    'AI_PROVIDER_MODE',
+    'AI_QUEUE_DEBUG_ENABLED',
+    'EMAIL_QUEUE_DEBUG_ENABLED',
+  ] as const;
+
+  for (const key of requiredKeys) {
+    if (!getOptionalEnv(key)) {
+      errors.push(`${key} is required in production`);
+    }
+  }
+
+  const booleanKeys = [
+    'APP_CORS_ENABLED',
+    'APP_CORS_CREDENTIALS',
+    'GRAPHQL_SANDBOX_ENABLED',
+    'GRAPHQL_INTROSPECTION_ENABLED',
+    'DB_SYNCHRONIZE',
+    'DB_LOGGING',
+    'REDIS_TLS',
+    'JWT_ENABLE_REFRESH',
+    'AI_QUEUE_DEBUG_ENABLED',
+    'EMAIL_QUEUE_DEBUG_ENABLED',
+  ] as const;
+
+  for (const key of booleanKeys) {
+    const raw = process.env[key];
+    if (raw === undefined) {
+      continue;
+    }
+    if (parseBooleanInput(raw) === undefined) {
+      errors.push(`${key} must be a boolean-like value`);
+    }
+  }
+
+  const integerKeys = ['APP_PORT', 'DB_PORT', 'REDIS_PORT', 'REDIS_DB'] as const;
+  for (const key of integerKeys) {
+    const value = getOptionalEnv(key);
+    if (!value) {
+      continue;
+    }
+    if (!Number.isInteger(parseStrictInteger(value))) {
+      errors.push(`${key} must be an integer`);
+    }
+  }
+
+  const dbSynchronize = parseBooleanInput(process.env.DB_SYNCHRONIZE);
+  if (dbSynchronize === true) {
+    errors.push('DB_SYNCHRONIZE must be false in production');
+  }
+
+  const corsEnabled = parseBooleanInput(process.env.APP_CORS_ENABLED);
+  if (corsEnabled === true && !getOptionalEnv('APP_CORS_ORIGINS')) {
+    errors.push('APP_CORS_ORIGINS is required when APP_CORS_ENABLED=true in production');
+  }
+
+  const providerMode = getOptionalEnv('AI_PROVIDER_MODE')?.toLowerCase();
+  if (providerMode && providerMode !== 'mock' && providerMode !== 'remote') {
+    errors.push('AI_PROVIDER_MODE must be either mock or remote');
+  }
+  if (providerMode === 'remote') {
+    const qwenReady = Boolean(getOptionalEnv('QWEN_BASE_URL') && getOptionalEnv('QWEN_API_KEY'));
+    const openAiReady = Boolean(
+      getOptionalEnv('OPENAI_BASE_URL') && getOptionalEnv('OPENAI_API_KEY'),
+    );
+    if (!qwenReady && !openAiReady) {
+      errors.push(
+        'AI_PROVIDER_MODE=remote requires at least one provider config: QWEN_* or OPENAI_*',
+      );
+    }
+  }
+
+  const fieldEncryptionKey = getOptionalEnv('FIELD_ENCRYPTION_KEY');
+  if (fieldEncryptionKey && fieldEncryptionKey.length < 16) {
+    errors.push('FIELD_ENCRYPTION_KEY length must be at least 16');
+  }
+  const fieldEncryptionIv = getOptionalEnv('FIELD_ENCRYPTION_IV');
+  if (fieldEncryptionIv && fieldEncryptionIv.length < 16) {
+    errors.push('FIELD_ENCRYPTION_IV length must be at least 16');
+  }
+
+  if (errors.length > 0) {
+    throw new Error(`Production env freeze validation failed:\n- ${errors.join('\n- ')}`);
+  }
+};
+
+assertProductionEnvFreeze();
+
 /**
  * 生成 GraphQL 配置
  */
 const graphqlConfig = () => {
-  const isProduction = process.env.NODE_ENV === 'production';
-  const sandboxEnabled =
-    process.env.GRAPHQL_SANDBOX_ENABLED !== undefined
-      ? process.env.GRAPHQL_SANDBOX_ENABLED === 'true'
-      : !isProduction;
+  const isProduction = isProductionEnv();
+  const sandboxEnabled = parseBooleanInput(process.env.GRAPHQL_SANDBOX_ENABLED) ?? !isProduction;
+  const introspectionEnabled =
+    parseBooleanInput(process.env.GRAPHQL_INTROSPECTION_ENABLED) ?? !isProduction;
 
   return {
     graphql: {
       schemaDestination: 'src/schema.graphql',
-      introspection: true,
+      introspection: introspectionEnabled,
       playground: sandboxEnabled,
       sortSchema: true,
       subscriptions: {
@@ -52,11 +208,11 @@ const graphqlConfig = () => {
 const serverConfig: ConfigFactory = () => ({
   server: {
     host: process.env.APP_HOST || '127.0.0.1',
-    port: parseInt(process.env.APP_PORT || '3000', 10),
+    port: getIntEnvWithDefault('APP_PORT', 3000),
     cors: {
-      enabled: process.env.APP_CORS_ENABLED !== 'false',
+      enabled: getBooleanEnvWithDefault('APP_CORS_ENABLED', true),
       origins: process.env.APP_CORS_ORIGINS || '',
-      credentials: process.env.APP_CORS_CREDENTIALS !== 'false',
+      credentials: getBooleanEnvWithDefault('APP_CORS_CREDENTIALS', true),
     },
   },
 });
@@ -182,7 +338,7 @@ const databaseConfig: ConfigFactory = () => ({
   mysql: {
     type: 'mysql',
     host: process.env.DB_HOST || 'localhost',
-    port: parseInt(process.env.DB_PORT || '3306', 10),
+    port: getIntEnvWithDefault('DB_PORT', 3306),
     username: process.env.DB_USER,
     password: process.env.DB_PASS,
     database: process.env.DB_NAME,
@@ -194,7 +350,7 @@ const databaseConfig: ConfigFactory = () => ({
     charset: 'utf8mb4',
     collation: 'utf8mb4_unicode_ci',
     extra: {
-      connectionLimit: parseInt(process.env.DB_POOL_SIZE || '10', 10),
+      connectionLimit: getIntEnvWithDefault('DB_POOL_SIZE', 10),
       // 连接超时时间（毫秒）
       connectTimeout: 60000,
       // 是否等待连接释放
@@ -242,12 +398,12 @@ const aiWorkerConfig: ConfigFactory = () => ({
     qwen: {
       baseUrl: process.env.QWEN_BASE_URL || '',
       apiKey: process.env.QWEN_API_KEY || '',
-      generateTimeoutMs: parseInt(process.env.QWEN_GENERATE_TIMEOUT_MS || '30000', 10),
+      generateTimeoutMs: getIntEnvWithDefault('QWEN_GENERATE_TIMEOUT_MS', 30000),
     },
     openai: {
       baseUrl: process.env.OPENAI_BASE_URL || '',
       apiKey: process.env.OPENAI_API_KEY || '',
-      generateTimeoutMs: parseInt(process.env.OPENAI_GENERATE_TIMEOUT_MS || '30000', 10),
+      generateTimeoutMs: getIntEnvWithDefault('OPENAI_GENERATE_TIMEOUT_MS', 30000),
     },
   },
 });
@@ -289,10 +445,9 @@ const paginationConfig = () => ({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true, // 使 ConfigService 全局可用（无需再次 import）
-      envFilePath: [
-        `env/.env.${process.env.NODE_ENV || 'development'}`,
-        'env/.env.development', // 备用文件
-      ],
+      envFilePath: isProductionEnv()
+        ? ['env/.env.production']
+        : [`env/.env.${process.env.NODE_ENV || 'development'}`, 'env/.env.development'],
       load: [
         graphqlConfig,
         serverConfig,
