@@ -27,7 +27,7 @@ export class AccountQueryService {
       throw new DomainError(PERMISSION_ERROR.ACCESS_DENIED, '非法的目标账户 ID');
     }
 
-    const allowed = await this.isAllowedToView(session, targetAccountId);
+    const allowed = this.isAllowedToViewAccountDetail(session, targetAccountId);
     if (!allowed) {
       throw new DomainError(PERMISSION_ERROR.ACCESS_DENIED, '无权限查看该账户信息');
     }
@@ -135,6 +135,13 @@ export class AccountQueryService {
     };
 
     return canViewUserInfo(session.roles, facts);
+  }
+
+  private isAllowedToViewAccountDetail(session: UsecaseSession, targetAccountId: number): boolean {
+    const isSelf = session.accountId === targetAccountId;
+    if (isSelf) return true;
+    if (hasRole(session.roles, IdentityTypeEnum.ADMIN)) return true;
+    return false;
   }
 
   private async fetchVisibilityFacts(

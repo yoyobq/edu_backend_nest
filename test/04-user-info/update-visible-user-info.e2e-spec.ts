@@ -614,5 +614,12 @@ describe('UpdateVisibleUserInfo (e2e)', () => {
       expect(res.body.data.account.id).toBe(managerAccountId);
       expect(res.body.data.account.loginEmail).toBeDefined();
     });
+
+    it('account 查询管理员跨账号应允许读取敏感字段', async () => {
+      const res = await queryAccount(app, adminToken, learnerAccountId);
+      expect(res.body.errors).toBeUndefined();
+      expect(res.body.data.account.id).toBe(learnerAccountId);
+      expect(res.body.data.account.loginEmail).toBeDefined();
+    });
   });
 });
