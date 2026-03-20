@@ -2,6 +2,7 @@
 const { spawnSync } = require('child_process');
 
 const KNOWN_GROUPS = ['core', 'worker', 'smoke'];
+const KNOWN_NEEDS = ['mysql', 'redis', 'bullmq', 'external'];
 
 /**
  * 解析逗号分隔的文件列表
@@ -25,13 +26,16 @@ const parseNeeds = (needs) =>
     .map((entry) => entry[0])
     .join(',');
 
+const parseNeedsCsv = (raw) =>
+  parseCsv(raw).map((entry) => entry.toLowerCase()).filter((entry) => KNOWN_NEEDS.includes(entry));
+
 /**
  * 按分组逐个文件执行 E2E，避免单进程加载全部 schema 引发冲突
  * @returns {void}
  */
 const run = () => {
   const cliArgs = process.argv.slice(2);
-  const originalNeeds = process.env.E2E_NEEDS;
+  const cliNeedsArg = cliArgs.find((arg) => arg.startsWith('--needs='));
   const cliGroup = cliArgs.find((arg) => KNOWN_GROUPS.includes(arg));
   const cliSpecs = cliArgs.filter((arg) => arg.endsWith('.e2e-spec.ts'));
   const fileMode = cliArgs.includes('--file');
@@ -41,6 +45,7 @@ const run = () => {
     (arg) =>
       !KNOWN_GROUPS.includes(arg) &&
       !arg.endsWith('.e2e-spec.ts') &&
+      !arg.startsWith('--needs=') &&
       !['--file', '--watch', '--inspect-brk'].includes(arg),
   );
   const groupName = cliGroup || process.env.E2E_GROUP || 'core';
@@ -55,7 +60,14 @@ const run = () => {
     process.exit(1);
   }
 
-  const needs = originalNeeds && originalNeeds.trim().length ? originalNeeds : parseNeeds(group.needs);
+  const cliNeeds = parseNeedsCsv(cliNeedsArg ? cliNeedsArg.slice('--needs='.length) : '');
+  const envNeeds = parseNeedsCsv(process.env.E2E_NEEDS);
+  const envNeedsOverride = (process.env.E2E_NEEDS_OVERRIDE || '').trim().toLowerCase() === 'true';
+  const needs = cliNeeds.length
+    ? cliNeeds.join(',')
+    : envNeedsOverride && envNeeds.length
+      ? envNeeds.join(',')
+      : parseNeeds(group.needs);
   const specsFromEnv = parseCsv(process.env.E2E_SPECS);
   const specs = cliSpecs.length ? cliSpecs : specsFromEnv.length ? specsFromEnv : group.specs;
   if (fileMode && specs.length !== 1) {

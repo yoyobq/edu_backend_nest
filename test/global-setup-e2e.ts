@@ -164,6 +164,7 @@ const ensureExternalEnv = (keys: ReadonlyArray<string>, scope: string): void => 
 };
 
 const checkExternal = (): void => {
+  ensureExternalEnv(['WECHAT_APP_ID', 'WECHAT_APP_SECRET'], 'weapp');
   const shouldCheckAi =
     (process.env.RUN_REAL_AI_E2E || '').trim().toLowerCase() === 'true' ||
     (process.env.RUN_REAL_AI_AUTH_FAIL_E2E || '').trim().toLowerCase() === 'true';
