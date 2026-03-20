@@ -104,7 +104,13 @@ const PRODUCTION_BOOLEAN_KEYS = [
   'EMAIL_QUEUE_DEBUG_ENABLED',
 ] as const;
 
-const PRODUCTION_INTEGER_KEYS = ['APP_PORT', 'DB_PORT', 'REDIS_PORT', 'REDIS_DB'] as const;
+const PRODUCTION_INTEGER_KEYS = [
+  'APP_PORT',
+  'DB_PORT',
+  'DB_POOL_SIZE',
+  'REDIS_PORT',
+  'REDIS_DB',
+] as const;
 
 const collectRequiredEnvErrors = (): string[] => {
   const errors: string[] = [];
