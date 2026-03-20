@@ -33,12 +33,15 @@
 - 优先级顺序：
   - 分组：命令行分组参数 > `E2E_GROUP` > 默认 `core`
   - 用例：命令行 `*.e2e-spec.ts` 参数 > `E2E_SPECS` > 当前分组清单
+  - 依赖：命令行 `--needs=...` > `E2E_NEEDS` > 当前分组默认 needs
 - 未传任何参数时，按 `core` 分组清单执行。
 - `E2E_NEEDS` 未显式设置时，会按当前分组自动推导。
 
 ## smoke external 规则
 
-- `external` 检查在 smoke 分组始终开启。
+- `external` 检查在 smoke 分组开启，但会按当前执行用例做子能力校验。
+- 仅执行 AI / email smoke 用例时，不强制要求微信环境变量。
+- 执行 weapp smoke 用例时，强制要求 `WECHAT_APP_ID` 与 `WECHAT_APP_SECRET`。
 - 邮件真实发送用例不强制要求 `E2E_EMAIL_TO`，未配置时由用例内默认值兜底。
 - AI 相关 env 仅在 `RUN_REAL_AI_E2E=true` 或 `RUN_REAL_AI_AUTH_FAIL_E2E=true` 时强制校验。
 

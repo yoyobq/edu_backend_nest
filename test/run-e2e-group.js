@@ -62,10 +62,9 @@ const run = () => {
 
   const cliNeeds = parseNeedsCsv(cliNeedsArg ? cliNeedsArg.slice('--needs='.length) : '');
   const envNeeds = parseNeedsCsv(process.env.E2E_NEEDS);
-  const envNeedsOverride = (process.env.E2E_NEEDS_OVERRIDE || '').trim().toLowerCase() === 'true';
   const needs = cliNeeds.length
     ? cliNeeds.join(',')
-    : envNeedsOverride && envNeeds.length
+    : envNeeds.length
       ? envNeeds.join(',')
       : parseNeeds(group.needs);
   const specsFromEnv = parseCsv(process.env.E2E_SPECS);

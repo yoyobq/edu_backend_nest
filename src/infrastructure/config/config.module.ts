@@ -61,61 +61,63 @@ const getBooleanEnvWithDefault = (key: string, defaultValue: boolean): boolean =
   return parsed;
 };
 
-const assertProductionEnvFreeze = (): void => {
-  if (!isProductionEnv()) {
-    return;
-  }
+const PRODUCTION_REQUIRED_KEYS = [
+  'APP_HOST',
+  'APP_PORT',
+  'APP_CORS_ENABLED',
+  'APP_CORS_CREDENTIALS',
+  'GRAPHQL_SANDBOX_ENABLED',
+  'GRAPHQL_INTROSPECTION_ENABLED',
+  'DB_HOST',
+  'DB_PORT',
+  'DB_USER',
+  'DB_PASS',
+  'DB_NAME',
+  'DB_SYNCHRONIZE',
+  'DB_LOGGING',
+  'REDIS_HOST',
+  'REDIS_PORT',
+  'REDIS_DB',
+  'REDIS_TLS',
+  'BULLMQ_PREFIX',
+  'JWT_SECRET',
+  'JWT_ENABLE_REFRESH',
+  'PAGINATION_HMAC_SECRET',
+  'FIELD_ENCRYPTION_KEY',
+  'FIELD_ENCRYPTION_IV',
+  'AI_PROVIDER_MODE',
+  'AI_QUEUE_DEBUG_ENABLED',
+  'EMAIL_QUEUE_DEBUG_ENABLED',
+] as const;
 
+const PRODUCTION_BOOLEAN_KEYS = [
+  'APP_CORS_ENABLED',
+  'APP_CORS_CREDENTIALS',
+  'GRAPHQL_SANDBOX_ENABLED',
+  'GRAPHQL_INTROSPECTION_ENABLED',
+  'DB_SYNCHRONIZE',
+  'DB_LOGGING',
+  'REDIS_TLS',
+  'JWT_ENABLE_REFRESH',
+  'AI_QUEUE_DEBUG_ENABLED',
+  'EMAIL_QUEUE_DEBUG_ENABLED',
+] as const;
+
+const PRODUCTION_INTEGER_KEYS = ['APP_PORT', 'DB_PORT', 'REDIS_PORT', 'REDIS_DB'] as const;
+
+const collectRequiredEnvErrors = (): string[] => {
   const errors: string[] = [];
-  const requiredKeys = [
-    'APP_HOST',
-    'APP_PORT',
-    'APP_CORS_ENABLED',
-    'APP_CORS_CREDENTIALS',
-    'GRAPHQL_SANDBOX_ENABLED',
-    'GRAPHQL_INTROSPECTION_ENABLED',
-    'DB_HOST',
-    'DB_PORT',
-    'DB_USER',
-    'DB_PASS',
-    'DB_NAME',
-    'DB_SYNCHRONIZE',
-    'DB_LOGGING',
-    'REDIS_HOST',
-    'REDIS_PORT',
-    'REDIS_DB',
-    'REDIS_TLS',
-    'BULLMQ_PREFIX',
-    'JWT_SECRET',
-    'JWT_ENABLE_REFRESH',
-    'PAGINATION_HMAC_SECRET',
-    'FIELD_ENCRYPTION_KEY',
-    'FIELD_ENCRYPTION_IV',
-    'AI_PROVIDER_MODE',
-    'AI_QUEUE_DEBUG_ENABLED',
-    'EMAIL_QUEUE_DEBUG_ENABLED',
-  ] as const;
-
-  for (const key of requiredKeys) {
+  for (const key of PRODUCTION_REQUIRED_KEYS) {
     if (!getOptionalEnv(key)) {
       errors.push(`${key} is required in production`);
     }
   }
+  return errors;
+};
 
-  const booleanKeys = [
-    'APP_CORS_ENABLED',
-    'APP_CORS_CREDENTIALS',
-    'GRAPHQL_SANDBOX_ENABLED',
-    'GRAPHQL_INTROSPECTION_ENABLED',
-    'DB_SYNCHRONIZE',
-    'DB_LOGGING',
-    'REDIS_TLS',
-    'JWT_ENABLE_REFRESH',
-    'AI_QUEUE_DEBUG_ENABLED',
-    'EMAIL_QUEUE_DEBUG_ENABLED',
-  ] as const;
-
-  for (const key of booleanKeys) {
+const collectBooleanEnvErrors = (): string[] => {
+  const errors: string[] = [];
+  for (const key of PRODUCTION_BOOLEAN_KEYS) {
     const raw = process.env[key];
     if (raw === undefined) {
       continue;
@@ -124,9 +126,12 @@ const assertProductionEnvFreeze = (): void => {
       errors.push(`${key} must be a boolean-like value`);
     }
   }
+  return errors;
+};
 
-  const integerKeys = ['APP_PORT', 'DB_PORT', 'REDIS_PORT', 'REDIS_DB'] as const;
-  for (const key of integerKeys) {
+const collectIntegerEnvErrors = (): string[] => {
+  const errors: string[] = [];
+  for (const key of PRODUCTION_INTEGER_KEYS) {
     const value = getOptionalEnv(key);
     if (!value) {
       continue;
@@ -135,7 +140,11 @@ const assertProductionEnvFreeze = (): void => {
       errors.push(`${key} must be an integer`);
     }
   }
+  return errors;
+};
 
+const collectDbAndCorsRuleErrors = (): string[] => {
+  const errors: string[] = [];
   const dbSynchronize = parseBooleanInput(process.env.DB_SYNCHRONIZE);
   if (dbSynchronize === true) {
     errors.push('DB_SYNCHRONIZE must be false in production');
@@ -145,7 +154,11 @@ const assertProductionEnvFreeze = (): void => {
   if (corsEnabled === true && !getOptionalEnv('APP_CORS_ORIGINS')) {
     errors.push('APP_CORS_ORIGINS is required when APP_CORS_ENABLED=true in production');
   }
+  return errors;
+};
 
+const collectAiProviderRuleErrors = (): string[] => {
+  const errors: string[] = [];
   const providerMode = getOptionalEnv('AI_PROVIDER_MODE')?.toLowerCase();
   if (providerMode && providerMode !== 'mock' && providerMode !== 'remote') {
     errors.push('AI_PROVIDER_MODE must be either mock or remote');
@@ -161,7 +174,11 @@ const assertProductionEnvFreeze = (): void => {
       );
     }
   }
+  return errors;
+};
 
+const collectFieldEncryptionRuleErrors = (): string[] => {
+  const errors: string[] = [];
   const fieldEncryptionKey = getOptionalEnv('FIELD_ENCRYPTION_KEY');
   if (fieldEncryptionKey && fieldEncryptionKey.length < 16) {
     errors.push('FIELD_ENCRYPTION_KEY length must be at least 16');
@@ -170,6 +187,32 @@ const assertProductionEnvFreeze = (): void => {
   if (fieldEncryptionIv && fieldEncryptionIv.length < 16) {
     errors.push('FIELD_ENCRYPTION_IV length must be at least 16');
   }
+  return errors;
+};
+
+const collectProductionRuleErrors = (): string[] => {
+  return [
+    ...collectDbAndCorsRuleErrors(),
+    ...collectAiProviderRuleErrors(),
+    ...collectFieldEncryptionRuleErrors(),
+  ];
+};
+
+const collectProductionEnvFreezeErrors = (): string[] => {
+  return [
+    ...collectRequiredEnvErrors(),
+    ...collectBooleanEnvErrors(),
+    ...collectIntegerEnvErrors(),
+    ...collectProductionRuleErrors(),
+  ];
+};
+
+const assertProductionEnvFreeze = (): void => {
+  if (!isProductionEnv()) {
+    return;
+  }
+
+  const errors = collectProductionEnvFreezeErrors();
 
   if (errors.length > 0) {
     throw new Error(`Production env freeze validation failed:\n- ${errors.join('\n- ')}`);

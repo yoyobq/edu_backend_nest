@@ -77,6 +77,21 @@ const parseNeedsFromEnv = (raw: string | undefined): Set<InfraNeed> => {
   return new Set<InfraNeed>(values);
 };
 
+const parseSpecsFromEnv = (raw: string | undefined): string[] => {
+  return (raw || '')
+    .split(',')
+    .map((item) => item.trim())
+    .filter((item) => item.length > 0);
+};
+
+const shouldCheckWeappEnv = (): boolean => {
+  const specs = parseSpecsFromEnv(process.env.E2E_SPECS);
+  if (specs.length === 0) {
+    return true;
+  }
+  return specs.some((spec) => spec.includes('weapp'));
+};
+
 const resolveInfraNeeds = (): Set<InfraNeed> => {
   const fromEnv = parseNeedsFromEnv(process.env.E2E_NEEDS);
   if (fromEnv.size > 0) {
@@ -164,7 +179,9 @@ const ensureExternalEnv = (keys: ReadonlyArray<string>, scope: string): void => 
 };
 
 const checkExternal = (): void => {
-  ensureExternalEnv(['WECHAT_APP_ID', 'WECHAT_APP_SECRET'], 'weapp');
+  if (shouldCheckWeappEnv()) {
+    ensureExternalEnv(['WECHAT_APP_ID', 'WECHAT_APP_SECRET'], 'weapp');
+  }
   const shouldCheckAi =
     (process.env.RUN_REAL_AI_E2E || '').trim().toLowerCase() === 'true' ||
     (process.env.RUN_REAL_AI_AUTH_FAIL_E2E || '').trim().toLowerCase() === 'true';
