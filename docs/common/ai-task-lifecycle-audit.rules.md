@@ -11,7 +11,8 @@ Source of truth: This file defines AI lifecycle audit rules; code examples elsew
 
 - 本文仅定义 AI 任务生命周期审计，不定义请求内容审计。
 - 本文用于串联 AI GraphQL 入队、AI Queue Usecase、AI Worker Adapter、AI Worker Usecase、AsyncTaskRecord 写入语义。
-- 本文不改数据库结构，仅约束字段写入与语义一致性。
+- 本文不改数据库结构。
+- 仅约束字段写入与语义一致性。
 
 ## 明确范围
 
@@ -47,10 +48,13 @@ Source of truth: This file defines AI lifecycle audit rules; code examples elsew
   - API 入队写 user_action
   - Worker 生命周期写 system
 - actor 边界语义：
-  - actor 只在 API 入队侧写入（含入队成功与入队失败路径）。
+  - actor 只在 API 入队侧写入。
+  - 入队成功与入队失败路径都适用。
   - Worker 生命周期事件不覆盖 actor。
-  - 重复命中已有任务时不重写 actor，沿用已有记录。
-- reason 必须是可检索、可读的稳定语义，不依赖日志上下文。
+  - 重复命中已有任务时不重写 actor。
+  - 沿用已有记录。
+- reason 必须是可检索、可读的稳定语义。
+- 不依赖日志上下文。
 
 ## AI 任务类型
 
@@ -75,7 +79,9 @@ Source of truth: This file defines AI lifecycle audit rules; code examples elsew
 
 - 重复命中不是新的写库事件。
 - 仅返回已有任务真实 jobId / traceId。
-- 记录字段全部沿用已有记录，不新增记录，不重写已有 status / reason / source / actorAccountId / actorActiveRole / occurredAt / enqueuedAt / startedAt / finishedAt。
+- 记录字段全部沿用已有记录。
+- 不新增记录。
+- 不重写已有 status / reason / source / actorAccountId / actorActiveRole / occurredAt / enqueuedAt / startedAt / finishedAt。
 
 ## 时间字段规则
 
@@ -89,8 +95,8 @@ Source of truth: This file defines AI lifecycle audit rules; code examples elsew
 
 - queued：attemptCount = 0
 - processing：attemptCount = attemptsMade + 1
-- succeeded / failed：attemptCount = 最终执行次数
-- maxAttempts：取 BullMQ job 配置值
+- succeeded / failed：attemptCount = 最终执行次数。
+- maxAttempts：取 BullMQ job 配置值。
 
 ## 降级规则
 
@@ -103,7 +109,8 @@ Source of truth: This file defines AI lifecycle audit rules; code examples elsew
 
 ## reason 稳定性约束
 
-- reason 采用“稳定前缀 + 可读摘要”格式，摘要允许截断。
+- reason 采用“稳定前缀 + 可读摘要”格式。
+- 摘要允许截断。
 - 统一规则：
   - 入队失败：enqueue_failed:<summary>
   - worker 普通失败：worker_failed:<summary>

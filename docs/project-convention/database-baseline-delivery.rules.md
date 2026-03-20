@@ -7,8 +7,8 @@ Source of truth: This file defines baseline delivery rules; code examples elsewh
 
   ## 目的
 
-  在项目仍处于“首次建库 / 基线收敛”阶段时，统一数据库结构交付方式，避免把“baseline 建库”与“增量迁移演进”混为一
-  谈。
+  在项目仍处于“首次建库 / 基线收敛”阶段时，统一数据库结构交付方式。
+  避免把“baseline 建库”与“增量迁移演进”混为一谈。
 
   本规则用于约束以下事实：
 
@@ -81,12 +81,13 @@ Source of truth: This file defines baseline delivery rules; code examples elsewh
 
   ### Rule 1. Migration 当前仅作为 baseline 建库脚本使用
 
-  当前阶段的 migration 只承担以下职责：
+  当前阶段的 migration 只承担以下职责。
 
   - 在空库中创建当前认可的最终 schema
   - 为首次部署前的建库流程提供可执行脚本
 
-  当前阶段不要求 migration 还原完整历史演进过程，也不要求按历史提交逐条补齐旧时代 schema 变化。
+  当前阶段不要求 migration 还原完整历史演进过程。
+  也不要求按历史提交逐条补齐旧时代 schema 变化。
 
   ### Rule 2. Entity 与 Baseline Migration 必须同步维护
 
@@ -119,7 +120,8 @@ Source of truth: This file defines baseline delivery rules; code examples elsewh
 
   ### Rule 4. 首次部署前必须执行空库 Migration 验证
 
-  在第一次正式部署前，必须执行一次独立验证流程，至少包括：
+  在第一次正式部署前，必须执行一次独立验证流程。
+  至少包括：
 
   1. 创建空数据库
   2. 执行全部 baseline migrations
@@ -170,9 +172,12 @@ Source of truth: This file defines baseline delivery rules; code examples elsewh
 
   说明：
 
-  - 脚本内部固定 `synchronize=false`，不会因为 e2e 环境里的 `DB_SYNCHRONIZE=true` 而改写验证语义。
-  - 未指定 `MIGRATION_DRILL_DATABASE` 时，脚本会创建临时库并在结束后清理，更适合“可回收演练”。
-  - 指定 `MIGRATION_DRILL_DATABASE` 时，脚本会先清空该库再执行 baseline migrations，适合“首次建表交付”。
+  - 脚本内部固定 `synchronize=false`。
+  - 不会因为 e2e 环境里的 `DB_SYNCHRONIZE=true` 而改写验证语义。
+  - 未指定 `MIGRATION_DRILL_DATABASE` 时，脚本会创建临时库并在结束后清理。
+  - 该方式更适合“可回收演练”。
+  - 指定 `MIGRATION_DRILL_DATABASE` 时，脚本会先清空该库再执行 baseline migrations。
+  - 该方式适合“首次建表交付”。
   - 若数据库名已包含 `test/drill/ci`，可不传 `MIGRATION_DRILL_ALLOW_NON_TEST_DB=true`。
 
   ## 非目标
@@ -188,7 +193,8 @@ Source of truth: This file defines baseline delivery rules; code examples elsewh
 
   ## 进入下一阶段的触发条件
 
-  当项目出现以下任一情况时，应停止仅以 baseline 方式维护 migration，并切换到增量 migration 治理模式：
+  当项目出现以下任一情况时，应停止仅以 baseline 方式维护 migration。
+  并切换到增量 migration 治理模式：
 
   - 线上数据库已存在真实业务数据
   - 新版本需要在旧库上直接升级

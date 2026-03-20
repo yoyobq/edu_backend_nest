@@ -15,23 +15,31 @@ Source of truth: This file defines core rules; code examples elsewhere must not 
 
 ## 允许内容
 
-- 领域模型与值对象（不可变或受控变更）。
-- 领域规则与纯函数（确定性、无副作用）。
-- 端口接口（由 infrastructure 提供实现）。
+- 领域模型与值对象。
+  允许不可变或受控变更。
+- 领域规则与纯函数。
+  要求确定性、无副作用。
+- 端口接口。
+  由 infrastructure 提供实现。
 - 领域错误码、错误映射表与业务枚举。
 
 ## 禁止内容
 
-- 任何框架代码：NestJS、GraphQL、Express、TypeORM 等。
-- 任何 I/O 与外部依赖：数据库、HTTP、消息队列、缓存、文件系统。
+- 任何框架代码。
+  例如 NestJS、GraphQL、Express、TypeORM。
+- 任何 I/O 与外部依赖。
+  例如数据库、HTTP、消息队列、缓存、文件系统。
 - 读取配置、环境变量或注入 ConfigService。
-- 运行时注册：全局中间件、过滤器、装饰器副作用。
-- 依赖注入相关标记：Module、Injectable、Provider 等。
+- 运行时注册。
+  包括全局中间件、过滤器、装饰器副作用。
+- 依赖注入相关标记。
+  例如 Module、Injectable、Provider。
 
 ## 依赖方向
 
-- 允许：usecases、modules(service)、infrastructure 依赖 core。
-- 禁止：core 依赖任何上游层（adapters、usecases、modules、infrastructure）。
+- 允许 usecases、modules(service)、infrastructure 依赖 core。
+- 禁止 core 依赖任何上游层。
+  包括 adapters、usecases、modules、infrastructure。
 
 ## 设计原则
 

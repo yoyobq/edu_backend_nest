@@ -11,31 +11,45 @@ Source of truth: This file defines usecase boundaries and overrides informal exa
 
 - Usecase 负责写操作编排与业务流程协调。
 - 上游由 adapters 调用，下游只依赖 modules(service) 或 core。
-- 写语义（C/U/D 的编排、校验、权限与错误映射）一律在 Usecase 内完成，modules(service) 仅提供细粒度写操作供 Usecase 编排。
+- 写语义一律在 Usecase 内完成。
+  包括 C/U/D 的编排、校验、权限与错误映射。
+- modules(service) 仅提供细粒度写操作。
+  由 Usecase 统一编排。
 - Usecase 内允许短暂使用 Entity，但对外不得暴露 ORM Entity。
 
 ## 边界与依赖
 
 - adapters → usecases
 - usecases → modules(service) / core
-- usecases → usecases（仅限编排型依赖）
+- usecases → usecases。
+  仅限编排型依赖。
 - modules(service) → infrastructure / core
 - 禁止 usecases 直接依赖 infrastructure
-- 禁止 adapters 依赖 modules(service) 或 infrastructure
-- ORM Entity 仅在 modules(service) 内部使用，上游不得直接暴露
-- 适配层不得返回 ORM Entity 或 QueryBuilder
-- Usecase 模块必须显式 imports 其依赖的 modules(service) 或 usecases 模块
-- 禁止依赖 ApiModule 或 WorkerModule 的隐式可见性或适配层转发
-- WorkerModule 不直接导入 `*UsecasesModule`，由对应 `*AdapterModule` 间接引入
-- 禁止在 WorkerModule 顶层编排 usecase 依赖，避免装配层职责膨胀
+- 禁止 adapters 依赖 modules(service) 或 infrastructure。
+- ORM Entity 仅在 modules(service) 内部使用。
+- 上游不得直接暴露 ORM Entity。
+- 适配层不得返回 ORM Entity 或 QueryBuilder。
+- Usecase 模块必须显式 imports 依赖模块。
+  包括 modules(service) 模块或 usecases 模块。
+- 禁止依赖 ApiModule 或 WorkerModule 的隐式可见性。
+- 禁止依赖适配层转发。
+- WorkerModule 不直接导入 `*UsecasesModule`。
+- 由对应 `*AdapterModule` 间接引入。
+- 禁止在 WorkerModule 顶层编排 usecase 依赖。
+  避免装配层职责膨胀。
 
 ## Usecase 依赖细则
 
-- 仅允许依赖同域的编排型 Usecase，不允许跨域依赖
-- 仅允许依赖 1 层，不允许链式多跳依赖
-- 若确需 A → B → C，则必须新增一个上层 Usecase 统一编排，由它直接调用 B 与 C（或底层 service），禁止由 B 再调用 C
-- 不允许为获取某个 Service 而绕道依赖 Usecase
-- 禁止形成循环依赖
+- 仅允许依赖同域的编排型 Usecase。
+- 不允许跨域依赖。
+- 仅允许依赖 1 层。
+- 不允许链式多跳依赖。
+- 若确需 A → B → C，必须新增一个上层 Usecase 统一编排。
+- 上层 Usecase 直接调用 B 与 C。
+- 或直接调用底层 service。
+- 禁止由 B 再调用 C。
+- 不允许为获取某个 Service 而绕道依赖 Usecase。
+- 禁止形成循环依赖。
 
 ## 职责与输出
 
@@ -43,29 +57,40 @@ Source of truth: This file defines usecase boundaries and overrides informal exa
 - 读侧口径统一交给 QueryService，避免多个 Usecase 各自拼装输出。
 - Usecase 对外返回 View / DTO 或结果摘要，不返回 ORM Entity。
 - QueryService 上游只允许 Usecase 调用。
-- 对于 Worker 生命周期中的降级输入（如 failed 事件缺失 `job`），Usecase 必须接收显式上下文字段并完成可查询的失败记录落库。
-- 该类降级输入落库后应保证可追溯、可检索，并可支撑后续重试或人工决策。
+- 对于 Worker 生命周期中的降级输入，Usecase 必须接收显式上下文字段。
+  例如 failed 事件缺失 `job`。
+- Usecase 必须完成可查询的失败记录落库。
+- 该类降级输入落库后应保证可追溯、可检索。
+- 该类记录应支撑后续重试或人工决策。
 
 ## 读写协作方式
 
 - 纯读放在 modules(service) 的读服务，便于复用。
 - modules(service) 可提供基础写方法，但不得包含完整写语义或流程编排。
 - 跨域读：只能由上层 Usecase 发起，通过被读域的 QueryService 获取。
-- 跨域写：通过事件或显式编排；`Outbox` 可作为一致性设计选项进行评估。
+- 跨域写通过事件或显式编排。
+- `Outbox` 可作为一致性设计选项进行评估。
 - 写后读优先走 QueryService，输出统一的 View / DTO。
-- 若写后读属于同域且读逻辑稳定，可复用 modules(service) 的只读方法，但输出仍以 View / DTO 为准。
+- 若写后读属于同域且读逻辑稳定，可复用 modules(service) 的只读方法。
+- 输出仍以 View / DTO 为准。
 
 ## 错误与权限
 
 - 业务错误统一使用 domain-error 中的 error_code
-- 写用例的流程级授权由 Usecase 负责，QueryService 不参与写侧决策
-- 细粒度授权可抽为同域 PermissionPolicy / AccessPolicy（纯函数或 service），供 Usecase 与 QueryService 复用，但二者互不调用
+- 写用例的流程级授权由 Usecase 负责。
+- QueryService 不参与写侧决策。
+- 细粒度授权可抽为同域 PermissionPolicy / AccessPolicy。
+  可实现为纯函数或 service。
+- 供 Usecase 与 QueryService 复用。
+- Usecase 与 QueryService 二者互不调用。
 
 ## 事务与外部系统
 
 - 事务由 Usecase 定义与开启，modules(service) 不跨域开启事务。
 - 一旦跨聚合或调用外部系统，Usecase 需先明确一致性策略与补偿策略。
-- `Outbox` 在本仓库当前仅作为架构设计讨论，尚未形成正式落地实现；不要默认存在可直接复用的 `Outbox` 组件。
+- `Outbox` 在本仓库当前仅作为架构设计讨论。
+- 尚未形成正式落地实现。
+- 不要默认存在可直接复用的 `Outbox` 组件。
 
 ## 拆分原则
 

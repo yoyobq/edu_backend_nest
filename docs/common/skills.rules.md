@@ -9,27 +9,32 @@ Source of truth: This file defines skill rules; code examples elsewhere must not
 
 ## 目标与定位
 
-- Skills 用于固化重复操作，保证执行流程一致、可复用、可检索。
-- 每个 Skill 只聚焦一个明确场景，避免超大杂糅指令。
+- Skills 用于固化重复操作。
+- 目标是保证执行流程一致、可复用、可检索。
+- 每个 Skill 只聚焦一个明确场景。
+- 避免超大杂糅指令。
 - 描述中必须包含触发条件，确保可被正确调用。
 
 ## 目录结构
 
-- 根目录： 请根据 agnet 的规定建立
-    - trae 项目: .trae/skills/
-    - codex 项目 ~/codex/skills
+- 根目录请根据 agent 的规定建立。
+- trae 项目：`.trae/skills/`
+- codex 项目：`~/codex/skills`
 - 单个 Skill： <skill-name>/SKILL.md
 
 ## 命名规范
 
-- 统一使用小写 + 短横线，如 e2e-spec-toggle、layer-rule-review。
+- 统一使用小写 + 短横线。
+  例如 e2e-spec-toggle、layer-rule-review。
 - 名称语义应直观表达用途，避免缩写或内部黑话。
 
 ## 文件格式
 
 - 使用 YAML frontmatter + Markdown 正文。
 - frontmatter 必须包含 name 与 description。
-- description 需同时包含“做什么”与“何时触发”，建议用英文，长度控制在 200 字符内。
+- description 需同时包含“做什么”与“何时触发”。
+- 建议用英文。
+- 长度控制在 200 字符内。
 
 示例：
 

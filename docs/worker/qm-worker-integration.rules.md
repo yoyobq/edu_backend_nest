@@ -11,12 +11,13 @@ Source of truth: This file defines QM worker integration rules; code examples el
 
 - 本文定义基于当前 QM Worker 基座新增队列时的统一接入规则。
 - 本文覆盖 API 入队、Worker 消费、第三方调用、审计记录与测试落位。
-- 本文用于统一命名、职责边界与可观测语义，避免各业务线重复发明模式。
+- 本文用于统一命名、职责边界与可观测语义。
+- 避免各业务线重复发明模式。
 - 若与分层规则冲突，以 `adapters -> usecases -> modules(service) -> infrastructure` 依赖方向为最高优先级。
 
 ## 接入前置定义（编码前必须明确）
 
-- 新增队列前必须先定义以下 6 个字段与语义：
+- 新增队列前必须先定义以下 6 个字段与语义。
   - `queueName`
   - `jobName`
   - `payload contract`
@@ -28,7 +29,8 @@ Source of truth: This file defines QM worker integration rules; code examples el
 ## 强制规则
 
 1. 先定领域边界，再落代码
-   - 先完成任务标识、业务锚点、失败语义定义，再开始实现入队与消费逻辑。
+   - 先完成任务标识、业务锚点、失败语义定义。
+   - 再开始实现入队与消费逻辑。
 2. 所有队列入口必须先过 Usecase
    - Resolver / Controller 仅做鉴权、校验、提取 actor。
    - 入队、审计记录、失败回退统一放在 Usecase。
@@ -40,7 +42,8 @@ Source of truth: This file defines QM worker integration rules; code examples el
    - 禁止出现只有 BullMQ Job、没有审计记录的链路。
 5. Worker 失败必须归类
    - 禁止裸透传第三方异常。
-   - 失败必须沉淀为稳定错误码或稳定前缀，支持重试、告警、统计复用。
+   - 失败必须沉淀为稳定错误码或稳定前缀。
+   - 支持重试、告警、统计复用。
 6. Provider / 第三方调用必须在 Worker Service 或 Provider 层
    - Processor / Handler 仅做路由与映射。
    - 业务执行必须放在 Usecase / Provider。
@@ -49,7 +52,8 @@ Source of truth: This file defines QM worker integration rules; code examples el
    - Worker Consume E2E。
    - 涉及真实第三方时补受控 Live Smoke。
 8. 公共行为优先复用现有模式
-   - 不为单一业务重造命名、审计、错误语义。
+   - 不为单一业务重造命名。
+   - 不重造审计与错误语义。
    - 需要例外时，必须先说明现有模式为何不适用。
 
 ## 落位规范
